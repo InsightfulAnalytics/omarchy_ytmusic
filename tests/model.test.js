@@ -119,9 +119,11 @@ test("autoplay picks skip queued songs and prefer songs over videos", () => {
 })
 
 test("player preferences parse with defaults", () => {
-  assert.deepEqual(Model.parsePrefs(""), { autoplay: true, shuffle: false, repeat: "off" })
-  assert.deepEqual(Model.parsePrefs('{"autoplay":false,"shuffle":true,"repeat":"one"}'), { autoplay: false, shuffle: true, repeat: "one" })
-  assert.deepEqual(Model.parsePrefs('{"autoplay":"yes","repeat":"sometimes"}'), { autoplay: true, shuffle: false, repeat: "off" })
+  // The player keys; prefs v2 adds more (tests/pages.test.js).
+  const player = p => ({ autoplay: p.autoplay, shuffle: p.shuffle, repeat: p.repeat })
+  assert.deepEqual(player(Model.parsePrefs("")), { autoplay: true, shuffle: false, repeat: "off" })
+  assert.deepEqual(player(Model.parsePrefs('{"autoplay":false,"shuffle":true,"repeat":"one"}')), { autoplay: false, shuffle: true, repeat: "one" })
+  assert.deepEqual(player(Model.parsePrefs('{"autoplay":"yes","repeat":"sometimes"}')), { autoplay: true, shuffle: false, repeat: "off" })
 })
 
 test("shuffled play is a seeded permutation starting at index 0", () => {

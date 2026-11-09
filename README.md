@@ -93,12 +93,12 @@ follow symlinks) and run `scripts/test.sh`.
 |---|---|
 | Bar icon | Left click: open/close the panel · Middle click: play/pause · Right click: switch icon ⇄ now-playing text · Wheel: previous/next track |
 | `SUPER + M` | Open/close the panel (`omarchy-shell shell toggle damir.ytmusic`, bound in `~/.config/hypr/bindings.lua`) |
-| Panel tabs | **Now** (playing + queue, like, add to playlist, Resume; an artist, the album or the cover opens its page), **Search** (field, filters, grouped results), **Library** (account, Liked Music, History, your and saved playlists, new playlist) and **Home** (your shelves); albums, playlists and artists open as pages with Play / Shuffle / Queue all; your own playlists can remove songs and be deleted |
+| Panel tabs | **Now** (playing + queue, like, add to playlist, Resume; an artist, the album or the cover opens its page), **Search** (field, filters, grouped results), **Library** (account, Liked Music, History, your and saved playlists, new playlist) and **Home** (your shelves); albums, playlists and artists open as pages with Play / Shuffle / Queue all; your own playlists can remove songs and be deleted (a second click within 4 s confirms) |
 | Resume | After mpv has quit (idle timeout, logout, reboot) play/pause — middle click, media keys, `omarchy-shell ytmusic resume` or the Resume button — restores the queue, the track and its position. The snapshot is `~/.cache/omarchy-ytmusic/session.json`, saved after queue changes, on pause and every 30 s while playing. |
 | Search | Results appear as you type. An empty field lists your recent searches (`x` forgets one); while typing, matching recent searches and YouTube Music's suggestions show above the results — click one, or `Tab` / `Shift+Tab` to put it in the field. A search is remembered only when it led somewhere (Enter, or a result was played, opened or queued), in `~/.cache/omarchy-ytmusic/searches.json`. |
 | Shuffle / repeat | Buttons around the transport (or `s` / `r`). Shuffle mixes the songs after the current one and turning it off puts them back in their order (songs added meanwhile keep their places); with shuffle on, a clicked song plays first and the rest of its album or playlist follows shuffled, and a page's **Shuffle** button turns it on. Repeat cycles off → queue → this song (mpv's `loop-playlist` / `loop-file`, so MPRIS sees it too). Both are remembered in `~/.cache/omarchy-ytmusic/player.json`. |
 | Autoplay | On by default (**Autoplay** in the queue header, IPC `autoplay`): five seconds into the last song of the queue, up to 10 songs from YouTube Music's up-next list for it are appended — songs before videos, nothing that is already in the queue. Off while repeat is on. |
-| Panel keys | `1`–`4` switch tabs · `/` search · `j`/`k` or `↑`/`↓` move · `Enter` play or open · `n` play next · `a` add to queue · `L` like · `p` add to playlist · `A` / `o` open the artist / album (of the selected or current song) · `J`/`K` move a queued track · `x` remove (queue, own playlist, Liked Music, recent search) · `s` shuffle · `r` repeat · `Space` play/pause · `←`/`→` seek 10 s · `Esc` leave the field → close the picker → back → close. Shortcuts are off while typing. |
+| Panel keys | `1`-`4` switch tabs · `/` search · `j`/`k` or `↑`/`↓` move · `Enter` play or open · `n` play next · `a` add to queue · `L` like · `p` add to playlist · `A` / `o` open the artist / album (of the selected or current song) · `J`/`K` move a queued track · `x` remove (queue, own playlist, Liked Music, recent search) · `s` shuffle · `r` repeat · `Space` play/pause · `←`/`→` seek 10 s · `g` / `G` first / last row · `O` next sort order on a page that has one · `Esc` leave the field → close the picker → back → close. Shortcuts are off while typing. Back returns to the row and scroll position you left. |
 | IPC | `search "query"` (opens the panel on the results) · `shuffle` / `repeat` / `autoplay` (toggle or cycle, print the new state) · `like` / `unlike` / `toggleLike` (current track) · `signIn` / `signOut` / `reloadAuth` |
 
 ### Signing in
@@ -148,11 +148,11 @@ after it closes.
 | `Service.qml` | State, mpv and worker connections, `ytmusic` IPC target |
 | `MpvClient.qml` | mpv JSON IPC client: request ids, observers, reconnects, starts the player |
 | `Backend.qml` | ytmusicapi worker process: lazy start, request/callback, retry once (never for edits) |
-| `YtmModel.js` | Pure helpers (queue commands, queue model, formatting); shared with Node tests |
+| `YtmModel.js` | Pure helpers (queue commands, queue model, formatting, prefs, page kinds and See all routes, page rows, cursor keeping); shared with Node tests |
 | `BarWidget.qml` | Bar icon / now-playing, one per monitor; loads and unloads the panel |
 | `Panel.qml` | The dropdown (Omarchy `KeyboardPanel`): now playing + queue, keyboard control |
-| `Store.qml` | Last search and recently opened collections (5, 5 min), shared by all panels and kept across panel unloads |
-| `components/` | `NowPlayingView`, `QueueView`, `SearchView`, `LibraryView`, `HomeView`, `CollectionView`, `PlaylistPicker`, `SignInCard`, `ResultList`, `TrackRow`, `CollectionRow`, `CoverArt` |
+| `Store.qml` | Last searches and recently opened pages (8, 5 min, at most 3000 items each, swept every minute), shared by all panels and kept across panel unloads |
+| `components/` | `NowPlayingView`, `QueueView`, `SearchView`, `LibraryView`, `HomeView`, `CollectionView`, `PlaylistPicker`, `SignInCard`, `ResultList`, `TrackRow`, `CollectionRow`, `CoverArt`, `ConfirmGate` |
 | `bin/ytm-mpv` | Starts/stops the detached mpv player (systemd user unit) |
 | `mpv/ytm-idle.lua` | Quits mpv after it has idled or been paused too long |
 | `backend/ytm.py` | ytmusicapi worker (`serve`) and CLI; PEP 723 script run with `uv`; merges the area modules' method tables |
@@ -174,7 +174,7 @@ Private files live outside this repository:
 |---|---|
 | `~/.config/omarchy-ytmusic/` (0700) | `browser.json`, `cookies.txt` (0600), `account.json` |
 | `$XDG_RUNTIME_DIR/omarchy-ytmusic/` (0700) | mpv IPC socket |
-| `~/.cache/omarchy-ytmusic/` (0700) | resume snapshot (`session.json`), player modes (`player.json`), recent searches (`searches.json`), response and cover caches |
+| `~/.cache/omarchy-ytmusic/` (0700) | resume snapshot (`session.json`), preferences (`player.json`), recent searches (`searches.json`), response and cover caches |
 
 ## Commands
 

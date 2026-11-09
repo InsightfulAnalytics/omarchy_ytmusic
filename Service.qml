@@ -47,6 +47,11 @@ Item {
   property bool shuffle: false
   property string repeatPref: "off"
   property bool prefsLoaded: false
+  // Every saved preference (Model.parsePrefs v2: player modes plus the keys
+  // later features read, such as libraryChip, chartsCountry, nowPane). A new
+  // object on each change, so bindings on prefs.<key> follow; change keys
+  // with setPref(key, value).
+  property var prefs: Model.parsePrefs("")
   property var _loopFile: false
   property var _loopPlaylist: false
   readonly property string repeatMode: mpv.up ? Model.repeatMode(_loopFile, _loopPlaylist) : repeatPref
@@ -250,15 +255,34 @@ Item {
 
   // ---- shuffle and repeat ------------------------------------------------------------
 
+  // player.json version 2 (version 1 files read the same). Nothing is
+  // written before the file has been read, so an early toggle never wipes
+  // the keys saved there.
   function savePrefs() {
-    prefsFile.setText(JSON.stringify({ version: 1, autoplay: autoplay, shuffle: shuffle, repeat: repeatPref }) + "\n")
+    var next = Model.withPref(prefs, "autoplay", autoplay)
+    next = Model.withPref(next, "shuffle", shuffle)
+    prefs = Model.withPref(next, "repeat", repeatPref)
+    if (prefsLoaded) prefsFile.setText(Model.serializePrefs(prefs))
+  }
+
+  // Copy on write; invalid values become the key's default. The player
+  // modes go through their own setters (they also drive mpv).
+  function setPref(key, value) {
+    if (!Model.isPrefKey(key)) return false
+    if (key === "autoplay") return setAutoplay(value)
+    if (key === "shuffle") return setShuffle(value)
+    if (key === "repeat") return setRepeat(value)
+    prefs = Model.withPref(prefs, key, value)
+    savePrefs()
+    return true
   }
 
   function applyPrefs(text) {
-    var prefs = Model.parsePrefs(text)
-    autoplay = prefs.autoplay
-    shuffle = prefs.shuffle
-    repeatPref = prefs.repeat
+    var saved = Model.parsePrefs(text)
+    prefs = saved
+    autoplay = saved.autoplay
+    shuffle = saved.shuffle
+    repeatPref = saved.repeat
     prefsLoaded = true
     applyRepeat()
   }

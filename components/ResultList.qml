@@ -5,17 +5,26 @@ import qs.Ui
 import "../YtmModel.js" as Model
 
 // A flat list of result rows ({ header, title } or { item, trackIndex }):
-// section headers, tracks and collections. Owns its keyboard cursor.
+// section headers, tracks, collections, and the line rows of pages (See all,
+// Load more, action, message). Owns its keyboard cursor, and keeps it and
+// the scroll position on the same rows by key when the rows change (an
+// append, a background refresh, a removal), unless `listKey` changed.
 ListView {
   id: root
 
   property var rows: []
+  // What the list shows (a page's ref key, a search). When it changes, the
+  // next rows start a fresh list: cursor off, scrolled to the top.
+  property string listKey: ""
   property QtObject bar: null
   property var store: null
   property int cursorIndex: -1
   // Track rows get a remove action (playlist pages, Liked Music).
   property bool removable: false
   property string removeTooltip: "Remove"
+  // The Load more row's state, set by the owner.
+  property bool moreBusy: false
+  property string moreError: ""
 
   readonly property color foreground: bar ? bar.foreground : Color.foreground
   readonly property string fontFamily: bar ? bar.fontFamily : Style.font.family
@@ -25,17 +34,91 @@ ListView {
   signal playNextRequested(int index)
   signal addToQueueRequested(int index)
   signal removeRequested(int index)
+  // The cursor came within 5 rows of the end, or the list was scrolled to
+  // the bottom (debounced), or G was pressed: time to load more.
+  signal nearEnd()
+  // The shown rows were replaced (after the cursor and scroll were kept).
+  signal rowsUpdated()
+
+  // The rows the view shows. `model` follows this, not `rows`, so the place
+  // can be read off the old rows before the model resets.
+  property var _shown: []
+  property string _shownKey: ""
 
   function moveCursor(delta) {
-    cursorIndex = Model.nextSelectable(rows, cursorIndex, delta)
+    cursorIndex = Model.nextSelectable(_shown, cursorIndex, delta)
     if (cursorIndex >= 0) positionViewAtIndex(cursorIndex, ListView.Contain)
   }
 
-  function rowAt(index) {
-    return index >= 0 && index < rows.length && !rows[index].header ? rows[index] : null
+  function toTop() {
+    cursorIndex = Model.nextSelectable(_shown, -1, 1)
+    positionViewAtBeginning()
   }
 
-  onRowsChanged: cursorIndex = -1
+  function toBottom() {
+    cursorIndex = Model.nextSelectable(_shown, -1, -1)
+    positionViewAtEnd()
+    if (_shown.length > 0) root.nearEnd()
+  }
+
+  function rowAt(index) {
+    return index >= 0 && index < _shown.length && !_shown[index].header ? _shown[index] : null
+  }
+
+  // ---- keeping the place --------------------------------------------------------
+  // A place is a row's key plus how many rows before it share that key.
+
+  // The row at the top edge and how far it sits from it; null at the top.
+  function _anchor() {
+    if (_shown.length === 0 || atYBeginning) return null
+    var i = indexAt(width / 2, contentY + 1)
+    if (i < 0) i = indexAt(width / 2, contentY + spacing + 1)
+    var item = i >= 0 ? itemAtIndex(i) : null
+    if (!item) return null
+    return { place: Model.rowPlace(_shown, i), offset: item.y - contentY }
+  }
+
+  function _restoreAnchor(anchor) {
+    var i = anchor ? Model.findPlace(_shown, anchor.place) : -1
+    if (i < 0) {
+      positionViewAtBeginning()
+      return
+    }
+    positionViewAtIndex(i, ListView.Beginning)
+    var y = contentY - anchor.offset
+    var last = originY + Math.max(0, contentHeight - height)
+    contentY = Math.max(originY, Math.min(y, last))
+  }
+
+  function _update() {
+    var next = rows || []
+    if (next === _shown) return
+    var old = _shown
+    var same = listKey === _shownKey
+    var anchor = same ? _anchor() : null
+    var cursor = same ? Model.cursorAfterRows(old, next, cursorIndex) : -1
+    _shownKey = listKey
+    _shown = next
+    cursorIndex = cursor
+    if (same) _restoreAnchor(anchor)
+    else positionViewAtBeginning()
+    rowsUpdated()
+  }
+
+  onRowsChanged: _update()
+  Component.onCompleted: _update()
+
+  // For Back: where the cursor and the top edge were, by place.
+  function viewState() {
+    return { cursor: cursorIndex >= 0 ? Model.rowPlace(_shown, cursorIndex) : null, anchor: _anchor() }
+  }
+
+  function restoreView(state) {
+    if (!state) return
+    var i = state.cursor ? Model.findPlace(_shown, state.cursor) : -1
+    cursorIndex = i >= 0 && Model.selectableRow(_shown[i]) ? i : -1
+    _restoreAnchor(state.anchor)
+  }
 
   // The row under the keyboard cursor or the pointer, once it rests there a
   // moment, is a likely pick: its stream gets looked up in advance.
@@ -46,7 +129,11 @@ ListView {
     hintTimer.restart()
   }
 
-  onCursorIndexChanged: if (cursorIndex >= 0) hintRow(cursorIndex)
+  onCursorIndexChanged: {
+    if (cursorIndex >= 0) hintRow(cursorIndex)
+    endTimer.restart()
+  }
+  onContentYChanged: endTimer.restart()
 
   Timer {
     id: hintTimer
@@ -57,10 +144,39 @@ ListView {
     }
   }
 
+  Timer {
+    id: endTimer
+    interval: 150
+    onTriggered: {
+      var count = root._shown.length
+      if (count === 0) return
+      var nearCursor = root.cursorIndex >= 0 && root.cursorIndex >= count - 5
+      var atBottom = root.atYEnd && root.contentHeight > root.height
+      if (nearCursor || atBottom) root.nearEnd()
+    }
+  }
+
+  // Glyphs of the line rows.
+  function lineIcon(item) {
+    if (item.icon) return item.icon
+    if (item.type === "more") return "󰁔"
+    if (item.type === "loadMore") return root.moreBusy ? "󰔟" : "󰅀"
+    if (item.type === "message") return "󰋽"
+    return "󰅂"
+  }
+
+  function lineText(item) {
+    if (item.type === "loadMore") {
+      if (root.moreBusy) return "Loading more…"
+      if (root.moreError !== "") return "Couldn't load more: " + root.moreError
+    }
+    return String(item.title || "")
+  }
+
   clip: true
   boundsBehavior: Flickable.StopAtBounds
   spacing: Style.space(2)
-  model: rows
+  model: root._shown
 
   ScrollBar.vertical: ScrollBar {
     policy: ScrollBar.AsNeeded
@@ -72,10 +188,14 @@ ListView {
     required property var modelData
     required property int index
 
+    readonly property string kind: modelData.header ? "header" : modelData.item ? String(modelData.item.type || "") : ""
+
     width: root.width
-    sourceComponent: modelData.header ? headerComponent
-      : modelData.item.type === "track" ? trackComponent
-      : modelData.item.type === "query" ? queryComponent : collectionComponent
+    sourceComponent: kind === "header" ? headerComponent
+      : kind === "track" ? trackComponent
+      : kind === "query" ? queryComponent
+      : kind === "more" || kind === "loadMore" || kind === "action" || kind === "message" ? lineComponent
+      : collectionComponent
 
     Component {
       id: headerComponent
@@ -176,6 +296,69 @@ ListView {
             foreground: root.foreground
             onClicked: root.removeRequested(row.index)
           }
+        }
+      }
+    }
+
+    // See all, Load more and action rows (selectable, in the query-row
+    // layout), and message rows (plain text, never selected).
+    Component {
+      id: lineComponent
+
+      Item {
+        id: lineRow
+        readonly property var line: row.modelData.item
+        readonly property bool selectable: line.type !== "message"
+        readonly property bool highlighted: selectable && row.index === root.cursorIndex
+
+        implicitHeight: Math.max(Style.space(32), lineLabel.implicitHeight + Style.space(12))
+
+        Rectangle {
+          anchors.fill: parent
+          radius: Style.spacing.labelGap
+          color: lineRow.selectable && (lineHover.hovered || lineRow.highlighted)
+            ? Style.hoverFillFor(root.foreground, Color.accent) : "transparent"
+        }
+
+        HoverHandler {
+          id: lineHover
+          enabled: lineRow.selectable
+        }
+
+        MouseArea {
+          anchors.fill: parent
+          enabled: lineRow.selectable
+          cursorShape: Qt.PointingHandCursor
+          onClicked: root.activated(row.index)
+        }
+
+        Text {
+          id: lineIcon
+          anchors.left: parent.left
+          anchors.leftMargin: Style.space(10)
+          anchors.verticalCenter: parent.verticalCenter
+          textFormat: Text.PlainText
+          text: root.lineIcon(lineRow.line)
+          color: Qt.darker(root.foreground, 1.4)
+          font.family: root.fontFamily
+          font.pixelSize: Style.font.icon
+        }
+
+        Text {
+          id: lineLabel
+          anchors.left: lineIcon.right
+          anchors.leftMargin: Style.space(10)
+          anchors.right: parent.right
+          anchors.rightMargin: Style.space(8)
+          anchors.verticalCenter: parent.verticalCenter
+          textFormat: Text.PlainText
+          text: root.lineText(lineRow.line)
+          color: lineRow.selectable ? root.foreground : Qt.darker(root.foreground, 1.4)
+          font.family: root.fontFamily
+          font.pixelSize: lineRow.selectable ? Style.font.body : Style.font.bodySmall
+          wrapMode: lineRow.selectable ? Text.NoWrap : Text.Wrap
+          maximumLineCount: lineRow.selectable ? 1 : 4
+          elide: Text.ElideRight
         }
       }
     }

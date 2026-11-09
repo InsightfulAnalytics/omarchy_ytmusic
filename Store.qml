@@ -169,56 +169,130 @@ Item {
     _searches = next
   }
 
-  // ---- collections (album / playlist / liked / artist pages) -------------------
+  // ---- collections: every page opened from a row (F2) ----------------------------
+  // Keyed by Model.pageRef(item).key, method + canonical params, so an
+  // artist's albums and singles or two sort orders never share an entry.
+  // An entry is { ref, data, at, seen, seq }: `at` is when its first page
+  // was fetched, `seen` when it was last handed out, and `seq` a number no
+  // other chain ever had. Load more appends to `data` under the same seq; a
+  // refresh replaces the whole chain under a new one, so a Load more reply
+  // that started before the refresh is dropped. Copies from the disk cache
+  // carry no cursor (F1), so Load more only runs from a fresh page.
   readonly property int collectionTtlMs: 5 * 60 * 1000
-  readonly property int maxCollections: 5
+  readonly property int unseenMs: 10 * 60 * 1000
+  readonly property int maxCollections: 8
+  readonly property int maxCollectionItems: 3000
   property var _collections: ({})
+  property int _chainSeq: 0
+  // key -> true while a Load more for it is in flight (the sweep spares it).
+  property var _appending: ({})
+  // key -> true from a disk copy until its background refresh answers.
+  // Replaced on each change, so bindings on refreshPending() follow.
+  property var _refreshing: ({})
+  readonly property int collectionCount: Object.keys(_collections).length
 
-  function collectionKey(kind, id) {
-    return kind + ":" + id
+  // A refresh of ref's disk copy is on its way (it brings the cursor), so
+  // another one would only repeat it.
+  function refreshPending(ref) {
+    return !!ref && _refreshing[ref.key] === true
   }
 
-  // `callback` may run twice: with the disk-cached copy, then the fresh one.
+  function _setRefreshing(key, on) {
+    var next = _copy(_refreshing)
+    if (on) next[key] = true
+    else delete next[key]
+    _refreshing = next
+  }
+
+  function _ttl(ref) {
+    var kind = Model.pageKind(ref)
+    return kind && kind.ttlMs > 0 ? kind.ttlMs : collectionTtlMs
+  }
+
+  function _copy(params) {
+    var out = ({})
+    for (var k in params) out[k] = params[k]
+    return out
+  }
+
+  // ref: Model.pageRef(item). `callback` may run twice: with the disk-cached
+  // copy, then the fresh one. A kind no slice registered answers
+  // BAD_REQUEST "Cannot open this item yet" (never a guessed method).
   // fresh: ask YouTube only (after an edit whose outcome is unknown, when the
   // disk copy may predate it), so a failure is reported instead of the copy.
-  function loadCollection(kind, id, callback, fresh) {
-    var key = collectionKey(kind, id)
-    var entry = _collections[key]
-    if (!fresh && entry && Date.now() - entry.at < collectionTtlMs) {
+  function loadCollection(ref, callback, fresh) {
+    var kind = Model.pageKind(ref)
+    if (!kind) {
+      callback(Model.cannotOpen())
+      return
+    }
+    var entry = _collections[ref.key]
+    var now = Date.now()
+    if (!fresh && entry && now - entry.at < _ttl(ref)) {
+      entry.seen = now  // bookkeeping only; nothing binds to it
       callback({ ok: true, result: entry.data })
       return
     }
-    var method = kind === "album" ? "album" : kind === "artist" ? "artist" : kind === "liked" ? "liked"
-      : kind === "history" ? "history" : "playlist"
-    var params = kind === "album" ? { browseId: id } : kind === "artist" ? { channelId: id }
-      : kind === "liked" ? ({}) : kind === "history" ? { limit: 100 } : { playlistId: id }
+    var params = _copy(ref.params)
     var handle = function(reply) {
       if (reply.ok) {
-        reply = { ok: true, cached: reply.cached, result: root._asCollection(kind, reply.result) }
-        root._remember(key, reply.result)
-        root.requestThumbs(Model.collectThumbs(reply.result))
+        var data = kind.adapt ? kind.adapt(reply.result, ref) : reply.result
+        reply = { ok: true, cached: reply.cached, result: data }
+        root._remember(ref, data)
+        root.requestThumbs(Model.collectThumbs(data))
       }
       callback(reply)
     }
     if (fresh) {
       params.cache = "refresh"
-      worker.request(method, params, handle, 30000)
+      worker.request(ref.method, params, handle, 30000)
     } else {
-      _cachedThenFresh(method, params, handle)
+      _cachedThenFresh(ref.method, params, handle, function(on) { root._setRefreshing(ref.key, on) })
     }
   }
 
-  // History comes back as a plain list; pages want a collection.
-  function _asCollection(kind, result) {
-    if (kind !== "history") return result
-    var items = result.items || []
-    return {
-      type: "collection", kind: "history", id: "history", playlistId: null,
-      title: "History", subtitle: items.length + " songs", owned: false, editable: false,
-      trackCount: items.length, truncated: false,
-      thumb: items.length ? items[0].thumb : null, thumbLarge: items.length ? items[0].thumbLarge : null,
-      tracks: items
+  // The next cursor page of ref's chain, appended (Model.appendPage, at most
+  // maxCollectionItems). `shown` is the page the caller shows, adopted when
+  // the sweep dropped the entry meanwhile. The callback gets the whole
+  // chain, or { ok: false, stale: true } when a refresh replaced it first.
+  function loadMore(ref, callback, shown) {
+    var kind = Model.pageKind(ref)
+    if (!kind) {
+      callback(Model.cannotOpen())
+      return
     }
+    var key = ref.key
+    // Adopted as stale (at 0): it is shown, but how old it is is unknown.
+    if (!_collections[key] && shown) _remember(ref, shown, 0)
+    var entry = _collections[key]
+    var cursor = entry && entry.data ? entry.data.cursor : null
+    if (!cursor) {
+      callback({ ok: false, error: { code: "BAD_REQUEST", message: "Nothing more to load" } })
+      return
+    }
+    var seq = entry.seq
+    entry.seen = Date.now()
+    var params = _copy(ref.params)
+    params.cursor = cursor
+    params.cache = "bypass"
+    _appending[key] = true
+    worker.request(ref.method, params, function(reply) {
+      delete root._appending[key]
+      var current = root._collections[key]
+      if (!current || current.seq !== seq || current.data.cursor !== cursor) {
+        callback({ ok: false, stale: true, error: { code: "STALE", message: "The page was refreshed" } })
+        return
+      }
+      if (!reply.ok) {
+        callback(reply)
+        return
+      }
+      var next = kind.adapt ? kind.adapt(reply.result, ref) : reply.result
+      var merged = Model.appendPage(current.data, next, root.maxCollectionItems)
+      root._extend(key, merged)
+      root.requestThumbs(Model.collectThumbs(next))
+      callback({ ok: true, result: merged })
+    }, 60000)
   }
 
   // ---- home ---------------------------------------------------------------------
@@ -249,37 +323,101 @@ Item {
   }
 
   // Ask with cache "prefer"; if that came from disk, follow up with a refresh.
-  function _cachedThenFresh(method, params, handle) {
+  // `pending(true)` runs before the disk copy is handled when that refresh
+  // follows, `pending(false)` once it has answered (after handling it, if
+  // it worked).
+  function _cachedThenFresh(method, params, handle, pending) {
     var first = ({})
     for (var k in params) first[k] = params[k]
     first.cache = "prefer"
     worker.request(method, first, function(reply) {
+      var follow = reply.ok && reply.cached
+      if (follow && pending) pending(true)
       handle(reply)
-      if (!reply.ok || !reply.cached) return
+      if (!follow) return
       var fresh = ({})
       for (var j in params) fresh[j] = params[j]
       fresh.cache = "refresh"
       worker.request(method, fresh, function(update) {
         if (update.ok) handle(update)
+        if (pending) pending(false)
       }, 30000)
     }, 30000)
   }
 
+  // Drops every cached page of that kind and id (all its sort orders), as
+  // PAGE_KINDS[kind].id names it: ("playlist", playlistId), ("liked", "LM").
   function forgetCollection(kind, id) {
-    var key = collectionKey(kind, id)
-    if (!_collections[key]) return
+    _dropCollections(function(entry) { return entry.ref.kind === kind && (id === undefined || entry.ref.id === id) })
+  }
+
+  function forgetPage(ref) {
+    if (ref) _dropCollections(function(entry) { return entry.ref.key === ref.key })
+  }
+
+  function _dropCollections(match) {
+    var next = null
+    for (var key in _collections) {
+      if (!match(_collections[key])) continue
+      if (!next) next = _copy(_collections)
+      delete next[key]
+    }
+    if (next) _collections = next
+  }
+
+  // A new chain for ref (least recently seen entries make room). `at`
+  // defaults to now.
+  function _remember(ref, data, at) {
+    var key = ref.key
+    var now = Date.now()
+    var others = Object.keys(_collections).filter(function(k) { return k !== key })
+    others.sort(function(a, b) { return root._collections[b].seen - root._collections[a].seen })
     var next = ({})
-    for (var k in _collections) if (k !== key) next[k] = _collections[k]
+    for (var i = 0; i < others.length && i < maxCollections - 1; i++) next[others[i]] = _collections[others[i]]
+    next[key] = { ref: ref, data: data, at: at === undefined ? now : at, seen: now, seq: ++_chainSeq }
     _collections = next
   }
 
-  function _remember(key, data) {
-    var others = Object.keys(_collections).filter(function(k) { return k !== key })
-    others.sort(function(a, b) { return root._collections[b].at - root._collections[a].at })
-    var next = ({})
-    for (var i = 0; i < others.length && i < maxCollections - 1; i++) next[others[i]] = _collections[others[i]]
-    next[key] = { data: data, at: Date.now() }
+  // The same chain, one page longer.
+  function _extend(key, data) {
+    var entry = _collections[key]
+    if (!entry) return
+    var next = _copy(_collections)
+    next[key] = { ref: entry.ref, data: data, at: entry.at, seen: Date.now(), seq: entry.seq }
     _collections = next
+  }
+
+  // ---- sweep (F2) -------------------------------------------------------------------
+  // Every minute while anything is cached: drop collections past their TTL
+  // or unseen for 10 min, and searches past theirs. A slice with its own
+  // keyed cache adds it here and to sweepWanted.
+  readonly property bool sweepWanted: collectionCount > 0 || searchCacheSize > 0
+
+  function sweep(now) {
+    var t = now || Date.now()
+    var collections = ({})
+    var droppedCollections = false
+    for (var key in _collections) {
+      var entry = _collections[key]
+      var expired = t - entry.at >= _ttl(entry.ref) || t - entry.seen >= unseenMs
+      if (expired && !_appending[key]) droppedCollections = true
+      else collections[key] = entry
+    }
+    if (droppedCollections) _collections = collections
+    var searches = ({})
+    var droppedSearches = false
+    for (var q in _searches) {
+      if (t - _searches[q].at >= searchTtlMs) droppedSearches = true
+      else searches[q] = _searches[q]
+    }
+    if (droppedSearches) _searches = searches
+  }
+
+  Timer {
+    interval: 60 * 1000
+    repeat: true
+    running: root.sweepWanted
+    onTriggered: root.sweep()
   }
 
   // ---- library ------------------------------------------------------------------
@@ -383,6 +521,7 @@ Item {
   // Signing in or out: nothing cached belongs to the new session.
   function reset() {
     _collections = ({})
+    _appending = ({})
     _searches = ({})
     playlists = []
     libraryAt = 0

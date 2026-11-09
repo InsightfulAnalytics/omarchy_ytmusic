@@ -194,21 +194,99 @@ function autoplayPicks(queue, candidates, max) {
   return songs.concat(videos).slice(0, max || 10)
 }
 
-// ---- player preferences (autoplay, shuffle, repeat) --------------------------------
+// ---- preferences (player.json, version 2) ------------------------------------------
+// Every key a slice will need, with its default, so a newer file read by an
+// older plugin (or the other way round) keeps what it doesn't know about.
+// Version 1 held autoplay, shuffle and repeat only; it parses the same way.
+
+var PREFS_VERSION = 2
+var CHIP_PATTERN = /^[a-z][A-Za-z]{0,31}$/
+
+function _oneOf(options, fallback) {
+  return function(value) { return options.indexOf(value) >= 0 ? value : fallback }
+}
+
+function _bool(fallback) {
+  return function(value) { return typeof value === "boolean" ? value : fallback }
+}
+
+function _speed(value) {
+  var n = Number(value)
+  return typeof value === "number" && isFinite(n) && n >= 0.5 && n <= 2 ? n : 1
+}
+
+// key -> rule(value): the value when valid, else the default (rule(undefined)
+// is the default).
+var PREF_RULES = {
+  autoplay: _bool(true),
+  shuffle: _bool(false),
+  repeat: normalizeRepeat,
+  // S2: the Library chip, and the sort order chosen per chip.
+  libraryChip: function(value) { return typeof value === "string" && CHIP_PATTERN.test(value) ? value : "playlists" },
+  libraryOrders: function(value) {
+    var out = {}
+    if (!value || typeof value !== "object" || Array.isArray(value)) return out
+    for (var chip in value) {
+      var order = value[chip]
+      if (!CHIP_PATTERN.test(chip)) continue
+      if ((typeof order === "string" && order !== "" && order.length <= 64)
+          || (typeof order === "number" && order >= 0 && Math.floor(order) === order)) out[chip] = order
+    }
+    return out
+  },
+  // S6: chart country, ZZ is global.
+  chartsCountry: function(value) { return typeof value === "string" && /^[A-Z]{2}$/.test(value) ? value : "ZZ" },
+  // S16: content location ("" is the account's own) and audio quality.
+  location: function(value) { return typeof value === "string" && /^[A-Z]{2}$/.test(value) ? value : "" },
+  quality: _oneOf(["low", "normal", "high"], "high"),
+  // S15: report plays to YouTube Music history (off until turned on).
+  recordHistory: _bool(false),
+  // S17: playback speed per kind of entry, and loudness levelling.
+  speed: function(value) {
+    var v = value && typeof value === "object" ? value : {}
+    return { music: _speed(v.music), episode: _speed(v.episode) }
+  },
+  normalize: _oneOf(["off", "youtube", "dynamic"], "off"),
+  // S11: the pane under Now Playing.
+  nowPane: _oneOf(["queue", "lyrics", "related"], "queue")
+}
+
+function isPrefKey(key) {
+  return Object.prototype.hasOwnProperty.call(PREF_RULES, key)
+}
+
+// The value as it will be kept: valid, or the key's default.
+function normalizePref(key, value) {
+  return isPrefKey(key) ? PREF_RULES[key](value) : undefined
+}
 
 function parsePrefs(text) {
-  var prefs = { autoplay: true, shuffle: false, repeat: "off" }
+  var saved = null
   try {
-    var saved = JSON.parse(text)
-    if (saved && typeof saved === "object") {
-      if (typeof saved.autoplay === "boolean") prefs.autoplay = saved.autoplay
-      if (typeof saved.shuffle === "boolean") prefs.shuffle = saved.shuffle
-      prefs.repeat = normalizeRepeat(saved.repeat)
-    }
+    saved = JSON.parse(text)
   } catch (e) {
-    // defaults
+    saved = null
   }
+  if (!saved || typeof saved !== "object" || Array.isArray(saved)) saved = {}
+  var prefs = {}
+  for (var key in PREF_RULES) prefs[key] = PREF_RULES[key](saved[key])
   return prefs
+}
+
+// A copy of `prefs` with one key changed (copy on write: bindings on the
+// prefs object only see a new value).
+function withPref(prefs, key, value) {
+  var next = {}
+  for (var k in PREF_RULES) next[k] = prefs && prefs[k] !== undefined ? prefs[k] : PREF_RULES[k](undefined)
+  if (isPrefKey(key)) next[key] = PREF_RULES[key](value)
+  return next
+}
+
+function serializePrefs(prefs) {
+  var out = { version: PREFS_VERSION }
+  var clean = parsePrefs(JSON.stringify(prefs || {}))
+  for (var key in clean) out[key] = clean[key]
+  return JSON.stringify(out) + "\n"
 }
 
 // mpv inserts before the target index, so moving down needs target + 1 (S7).
@@ -400,16 +478,21 @@ function firstTrack(rows) {
   return null
 }
 
-// Next row a keyboard cursor may rest on (headers are skipped). From -1,
-// moving down lands on the first row; at either end the cursor stays put.
+// Next row a keyboard cursor may rest on (headers and message rows are
+// skipped). From -1, moving down lands on the first row; at either end the
+// cursor stays put.
 function nextSelectable(rows, index, delta) {
   var count = (rows || []).length
   var step = delta < 0 ? -1 : 1
   var i = index < 0 ? (step > 0 ? -1 : count) : index
   for (var j = i + step; j >= 0 && j < count; j += step) {
-    if (!rows[j].header) return j
+    if (selectableRow(rows[j])) return j
   }
   return index
+}
+
+function selectableRow(row) {
+  return !!row && !row.header && !!row.item && row.item.type !== "message"
 }
 
 function joinParts(parts) {
@@ -562,15 +645,10 @@ function withoutTrack(page, target) {
   return next
 }
 
-// The id a collection is loaded by, per item type.
+// The page kind and id an item opens as (a thin wrapper over pageRef).
 function collectionTarget(item) {
-  if (!item) return null
-  if (item.type === "album") return { kind: "album", id: item.browseId }
-  if (item.type === "playlist") return { kind: "playlist", id: item.playlistId }
-  if (item.type === "artist") return { kind: "artist", id: item.channelId }
-  if (item.type === "liked") return { kind: "liked", id: "LM" }
-  if (item.type === "history") return { kind: "history", id: "history" }
-  return null
+  var ref = pageRef(item)
+  return ref ? { kind: ref.kind, id: ref.id } : null
 }
 
 // ---- pre-resolved streams ---------------------------------------------------------
@@ -762,6 +840,10 @@ if (typeof module !== "undefined") {
     reorderCommands: reorderCommands,
     autoplayPicks: autoplayPicks,
     parsePrefs: parsePrefs,
+    isPrefKey: isPrefKey,
+    normalizePref: normalizePref,
+    withPref: withPref,
+    serializePrefs: serializePrefs,
     moveArgs: moveArgs,
     previousCommands: previousCommands,
     buildQueue: buildQueue,
@@ -776,6 +858,7 @@ if (typeof module !== "undefined") {
     trackRows: trackRows,
     flattenArtist: flattenArtist,
     nextSelectable: nextSelectable,
+    selectableRow: selectableRow,
     firstTrack: firstTrack,
     itemSubtitle: itemSubtitle,
     collectionTarget: collectionTarget,
@@ -805,4 +888,470 @@ if (typeof module !== "undefined") {
     nowPlayingLabel: nowPlayingLabel,
     parseMpvLine: parseMpvLine
   }
+}
+
+// ==== pages (F2) ==========================================================================
+// One way to open any page. An item maps to a page kind, the kind names the
+// worker method and its params, and the page's identity is method + params
+// as canonical JSON, so two views of one browseId (an artist's albums and
+// singles, two sort orders) never share a cache entry or a stale reply.
+// Slices register their kinds in PAGE_KINDS and their See all endpoints in
+// ROUTES, each in its own section of this file.
+
+// JSON with object keys sorted at every level (undefined values dropped, as
+// JSON.stringify does): the same params always give the same text.
+function canonicalJson(value) {
+  if (value === undefined || typeof value === "function") return "null"
+  if (value === null || typeof value !== "object") return JSON.stringify(value)
+  if (Array.isArray(value)) return "[" + value.map(canonicalJson).join(",") + "]"
+  var keys = Object.keys(value).filter(function(k) {
+    return value[k] !== undefined && typeof value[k] !== "function"
+  }).sort()
+  return "{" + keys.map(function(k) { return JSON.stringify(k) + ":" + canonicalJson(value[k]) }).join(",") + "}"
+}
+
+// kind -> {
+//   method        worker method
+//   params(t)     its params for the target item t (null: t lacks its id)
+//   id(t)         the id Store.forgetCollection(kind, id) matches
+//   title         header title while nothing better names the page
+//   round         round cover (artists, profiles); a page's own `round` also counts
+//   adapt(r, ref) optional: turns the reply into what CollectionView shows
+//   claims(item)  optional: takes over items of another type (checked first)
+//   ttlMs         optional: how long the Store's copy counts as fresh (5 min)
+// }
+var PAGE_KINDS = {
+  album: {
+    method: "album", title: "Album", round: false,
+    params: function(t) { return t.browseId ? { browseId: t.browseId } : null },
+    id: function(t) { return t.browseId }
+  },
+  playlist: {
+    method: "playlist", title: "Playlist", round: false,
+    params: function(t) { return t.playlistId ? { playlistId: t.playlistId } : null },
+    id: function(t) { return t.playlistId }
+  },
+  artist: {
+    method: "artist", title: "Artist", round: true,
+    params: function(t) { return t.channelId ? { channelId: t.channelId } : null },
+    id: function(t) { return t.channelId }
+  },
+  liked: {
+    method: "liked", title: "Liked Music", round: false,
+    params: function() { return {} },
+    id: function() { return "LM" }
+  },
+  history: {
+    method: "history", title: "History", round: false,
+    params: function() { return { limit: 100 } },
+    id: function() { return "history" },
+    adapt: function(result) { return historyCollection(result) }
+  },
+  // Any endpoint nothing better reads, through the worker's browsePage (F1).
+  browse: {
+    method: "browsePage", title: "", round: false,
+    params: function(t) { return t.browseId ? { browseId: t.browseId, params: t.params } : null },
+    id: function(t) { return t.browseId }
+  }
+}
+
+function pageKindOf(item) {
+  if (!item || typeof item !== "object") return null
+  for (var name in PAGE_KINDS) {
+    var claims = PAGE_KINDS[name].claims
+    if (claims && claims(item)) return name
+  }
+  return Object.prototype.hasOwnProperty.call(PAGE_KINDS, item.type) ? item.type : null
+}
+
+// { kind, method, params, key, id } for an item that opens as a page, else
+// null. `extra` adds params such as { order: 2 }; empty values are left out,
+// so a missing `params` and a null one give the same key.
+function pageRef(item, extra) {
+  var kind = pageKindOf(item)
+  if (!kind) return null
+  var spec = PAGE_KINDS[kind]
+  var given = spec.params(item)
+  if (!given) return null
+  var params = {}
+  var k
+  for (k in given) if (given[k] !== undefined && given[k] !== null && given[k] !== "") params[k] = given[k]
+  for (k in extra || {}) if (extra[k] !== undefined && extra[k] !== null) params[k] = extra[k]
+  return {
+    kind: kind, method: spec.method, params: params,
+    key: spec.method + ":" + canonicalJson(params),
+    id: spec.id ? spec.id(item) : null
+  }
+}
+
+// The PAGE_KINDS entry of a ref (null when its kind is unknown).
+function pageKind(ref) {
+  return ref && Object.prototype.hasOwnProperty.call(PAGE_KINDS, ref.kind) ? PAGE_KINDS[ref.kind] : null
+}
+
+function pageKindTitle(ref) {
+  var spec = pageKind(ref)
+  return spec && spec.title ? String(spec.title) : ""
+}
+
+function pageRound(ref, page) {
+  var spec = pageKind(ref)
+  return !!(page && page.round === true) || !!(spec && spec.round)
+}
+
+// What Store.loadCollection answers for an item no kind can open.
+function cannotOpen() {
+  return { ok: false, error: { code: "BAD_REQUEST", message: "Cannot open this item yet" } }
+}
+
+// History comes back as a plain list; its page shows it as a collection.
+function historyCollection(result) {
+  var items = (result && result.items) || []
+  return {
+    type: "collection", kind: "history", id: "history", playlistId: null,
+    title: "History", subtitle: items.length + " songs", owned: false, editable: false,
+    trackCount: items.length, truncated: false,
+    thumb: items.length ? items[0].thumb : null, thumbLarge: items.length ? items[0].thumbLarge : null,
+    tracks: items
+  }
+}
+
+// ---- routes: See all endpoints to the item that opens them ---------------------------
+// An endpoint is { browseId, params, pageType, title }. A route matches on
+// `browseId` (exact), `pageType` and `prefix`, each optional, plus an
+// optional `when(endpoint, id)`. The most specific match wins (an exact id,
+// then a page type, then the longest prefix; a tie goes to the route added
+// last), so a slice adds a narrower route without touching these.
+// `target(endpoint, id)` returns the item to open; null falls through to a
+// browse page.
+var ROUTES = [
+  { prefix: "VL", target: function(ep, id) { return { type: "playlist", playlistId: id.slice(2), title: ep.title || "" } } },
+  { prefix: "MPRE", target: function(ep, id) { return { type: "album", browseId: id, title: ep.title || "" } } },
+  { prefix: "UC", when: function(ep) { return !ep.params },
+    target: function(ep, id) { return { type: "artist", channelId: id, name: ep.title || "" } } },
+  // A library artist page (MPLAUC...) opens the artist's own page.
+  { prefix: "MPLA", when: function(ep) { return !ep.params },
+    target: function(ep, id) { return { type: "artist", channelId: id.slice(4), name: ep.title || "" } } }
+]
+
+function _routeScore(route, ep, id) {
+  if (route.browseId !== undefined && route.browseId !== id) return -1
+  if (route.pageType !== undefined && route.pageType !== ep.pageType) return -1
+  if (route.prefix !== undefined && id.indexOf(route.prefix) !== 0) return -1
+  if (route.when && !route.when(ep, id)) return -1
+  return (route.browseId !== undefined ? 10000 : 0) + (route.pageType !== undefined ? 1000 : 0)
+    + (route.prefix ? route.prefix.length : 0)
+}
+
+function routeEndpoint(endpoint) {
+  var ep = endpoint || {}
+  var id = typeof ep.browseId === "string" ? ep.browseId : ""
+  if (id === "") return null
+  var best = null
+  var bestScore = -1
+  for (var i = 0; i < ROUTES.length; i++) {
+    var score = _routeScore(ROUTES[i], ep, id)
+    if (score >= 0 && score >= bestScore) {
+      best = ROUTES[i]
+      bestScore = score
+    }
+  }
+  var target = best ? best.target(ep, id) : null
+  return target || { type: "browse", browseId: id, params: ep.params || null, title: ep.title || "" }
+}
+
+// The item a See all row opens.
+function moreTarget(more) {
+  var ep = more && more.endpoint ? more.endpoint : {}
+  return routeEndpoint({ browseId: ep.browseId, params: ep.params, pageType: ep.pageType, title: more ? more.sectionTitle : "" })
+}
+
+// ---- page rows ------------------------------------------------------------------------
+// A sectioned page (the worker's `page` shape) as result rows: a header per
+// titled section, its items (tracks numbered within the section, so Enter
+// plays that section from there), a selectable See all row when the
+// section has one, the page's message, and a trailing Load more row while
+// there is more. Item rows carry their sectionIndex.
+
+function _validItems(items) {
+  return (items || []).filter(function(item) { return !!item && typeof item === "object" })
+}
+
+function pageRows(page) {
+  var rows = []
+  if (!page) return rows
+  var sections = page.sections || []
+  for (var s = 0; s < sections.length; s++) {
+    var section = sections[s] || {}
+    var items = _validItems(section.items)
+    if (!items.length && !section.more) continue
+    if (section.title) rows.push({ header: true, title: String(section.title) })
+    var trackIndex = 0
+    for (var i = 0; i < items.length; i++) {
+      var row = { item: items[i], sectionIndex: s }
+      if (items[i].type === "track") row.trackIndex = trackIndex++
+      rows.push(row)
+    }
+    if (section.more) {
+      var title = section.title ? String(section.title) : ""
+      rows.push({ item: { type: "more", title: title ? "See all " + title : "See all", endpoint: section.more, sectionTitle: title },
+                  sectionIndex: s })
+    }
+  }
+  if (page.message) rows.push({ item: { type: "message", title: String(page.message) } })
+  if (page.cursor || page.hasMore) rows.push({ item: { type: "loadMore", title: "Load more" } })
+  return rows
+}
+
+// The tracks of one section, in the order trackIndex counts them.
+function sectionTracks(page, index) {
+  var section = page && page.sections ? page.sections[index] : null
+  return section ? _validItems(section.items).filter(function(item) { return item.type === "track" }) : []
+}
+
+// Every track of a page, section after section (header Play / Queue all).
+function pageTracks(page) {
+  var out = []
+  for (var s = 0; page && s < (page.sections || []).length; s++) out = out.concat(sectionTracks(page, s))
+  return out
+}
+
+function pageItemCount(page) {
+  if (!page) return 0
+  var count = (page.items || []).length + (page.tracks || []).length
+  for (var s = 0; s < (page.sections || []).length; s++) count += ((page.sections[s] || {}).items || []).length
+  return count
+}
+
+// ---- identity: item keys, row places, the cursor across row changes ---------------------
+
+// What a row's item is, for keeping the cursor and dropping repeats: a
+// playlist entry by its setVideoId (a playlist may hold a song twice),
+// anything else by type and id.
+function itemKey(item) {
+  if (!item || typeof item !== "object") return ""
+  if (item.setVideoId) return "set:" + item.setVideoId
+  var type = String(item.type || "")
+  var id
+  if (type === "track") id = item.videoId
+  else if (type === "album") id = item.browseId
+  else if (type === "playlist") id = item.playlistId
+  else if (type === "artist" || type === "profile" || type === "channel") id = item.channelId
+  else if (type === "more") id = canonicalJson(item.endpoint || null)
+  else if (type === "browse") id = canonicalJson({ browseId: item.browseId, params: item.params || null })
+  else if (type === "query") id = item.text
+  else if (type === "action") id = item.id
+  else if (type === "loadMore" || type === "liked" || type === "history") id = ""
+  else id = item.browseId || item.playlistId || item.channelId || item.videoId || item.id || item.title
+  return type + ":" + (id === undefined || id === null ? "" : String(id))
+}
+
+// Keys appendPage drops as repeats: playlist entries (setVideoId), albums,
+// artists and playlists. A track without a setVideoId (history, search)
+// can rightly be listed twice.
+function _repeatKey(item) {
+  if (!item || typeof item !== "object") return ""
+  if (item.setVideoId) return "set:" + item.setVideoId
+  var id = item.type === "album" ? item.browseId : item.type === "playlist" ? item.playlistId
+    : item.type === "artist" ? item.channelId : null
+  return id ? item.type + ":" + id : ""
+}
+
+function rowKey(row) {
+  if (!row) return ""
+  return row.header ? "#:" + String(row.title || "") : itemKey(row.item)
+}
+
+// A row's place: its key and how many rows before it share that key, so the
+// second listing of a song is told from the first.
+function rowPlaces(rows) {
+  var counts = {}
+  var out = []
+  for (var i = 0; i < (rows || []).length; i++) {
+    var key = rowKey(rows[i])
+    var n = counts[key] || 0
+    counts[key] = n + 1
+    out.push({ key: key, n: n })
+  }
+  return out
+}
+
+function rowPlace(rows, index) {
+  if (!rows || index < 0 || index >= rows.length) return null
+  var key = rowKey(rows[index])
+  var n = 0
+  for (var i = 0; i < index; i++) if (rowKey(rows[i]) === key) n++
+  return { key: key, n: n }
+}
+
+function _placeIndex(rows) {
+  var map = {}
+  for (var i = 0; i < rows.length; i++) {
+    var key = rowKey(rows[i])
+    if (!Object.prototype.hasOwnProperty.call(map, key)) map[key] = []
+    map[key].push(i)
+  }
+  return map
+}
+
+// Fewer rows with that key now: the last of them.
+function _lookup(map, place) {
+  if (!place || !Object.prototype.hasOwnProperty.call(map, place.key)) return -1
+  var list = map[place.key]
+  return list[Math.min(place.n, list.length - 1)]
+}
+
+function findPlace(rows, place) {
+  return place ? _lookup(_placeIndex(rows || []), place) : -1
+}
+
+// Rows that hold content, as opposed to See all, Load more, action and
+// message rows.
+function _contentRow(row) {
+  if (!selectableRow(row)) return false
+  var type = row.item.type
+  return type !== "more" && type !== "loadMore" && type !== "action"
+}
+
+// Where the cursor goes when `oldRows` become `newRows`: the same row by
+// place, else the nearest following row that is still there, else the
+// nearest preceding one, else nowhere (-1). From the Load more row it moves
+// onto the first new row after the content it followed (an append), else
+// it stays on Load more (a refresh, or nothing new came). When that content
+// is gone the rows were replaced, not appended to (a refresh that pushed
+// the old last item off the page), so it stays on Load more too.
+function cursorAfterRows(oldRows, newRows, oldIndex) {
+  var before = oldRows || []
+  var after = newRows || []
+  if (oldIndex < 0 || oldIndex >= before.length || after.length === 0) return -1
+  var places = rowPlaces(before)
+  var map = _placeIndex(after)
+  var old = before[oldIndex]
+  if (old && old.item && old.item.type === "loadMore") {
+    var known = {}
+    for (var k = 0; k < places.length; k++) known[places[k].key + "\n" + places[k].n] = true
+    // -1 with no content before Load more: every row after is new.
+    var start = -1
+    for (var p = oldIndex - 1; p >= 0; p--) {
+      if (!_contentRow(before[p])) continue
+      start = _lookup(map, places[p])
+      if (start < 0) start = after.length  // gone: no append scan
+      break
+    }
+    var placesAfter = rowPlaces(after)
+    for (var j = start + 1; j < after.length; j++) {
+      if (selectableRow(after[j]) && !known[placesAfter[j].key + "\n" + placesAfter[j].n]) return j
+    }
+  }
+  var found = _lookup(map, places[oldIndex])
+  if (found >= 0 && selectableRow(after[found])) return found
+  var i
+  for (i = oldIndex + 1; i < before.length; i++) {
+    if (!selectableRow(before[i])) continue
+    found = _lookup(map, places[i])
+    if (found >= 0 && selectableRow(after[found])) return found
+  }
+  for (i = oldIndex - 1; i >= 0; i--) {
+    if (!selectableRow(before[i])) continue
+    found = _lookup(map, places[i])
+    if (found >= 0 && selectableRow(after[found])) return found
+  }
+  return -1
+}
+
+// ---- appending a cursor page ----------------------------------------------------------
+
+// `page` with the next cursor page `next` appended, taking next's cursor.
+// Untitled sections of `next` (a list's continuation) join the page's last
+// section; titled ones are added after it. Repeats with an id-based key
+// (_repeatKey) are dropped; other items never are. Flat `items` lists
+// append the same way. At most `max` items in all: past that the page ends
+// there (no cursor, `capped: true`).
+function appendPage(page, next, max) {
+  if (!page) return next || null
+  if (!next) return page
+  var limit = max > 0 ? max : Infinity
+  var seen = {}
+  var total = 0
+  var capped = false
+  function note(items) {
+    for (var i = 0; i < (items || []).length; i++) {
+      var key = _repeatKey(items[i])
+      if (key) seen[key] = true
+      total++
+    }
+  }
+  function fresh(items) {
+    var out = []
+    for (var i = 0; i < (items || []).length; i++) {
+      var item = items[i]
+      if (!item || typeof item !== "object") continue
+      var key = _repeatKey(item)
+      if (key && seen[key]) continue
+      if (total >= limit) {
+        capped = true
+        break
+      }
+      if (key) seen[key] = true
+      out.push(item)
+      total++
+    }
+    return out
+  }
+  var out = {}
+  for (var k in page) out[k] = page[k]
+  var sections = (page.sections || []).slice()
+  for (var s = 0; s < sections.length; s++) note(sections[s] && sections[s].items)
+  note(page.items)
+  var incoming = next.sections || []
+  for (var n = 0; n < incoming.length; n++) {
+    var section = incoming[n] || {}
+    var items = fresh(section.items)
+    var last = sections.length ? sections[sections.length - 1] : null
+    var copy = {}
+    var key
+    if (!section.title && last) {
+      for (key in last) copy[key] = last[key]
+      copy.items = (last.items || []).concat(items)
+      sections[sections.length - 1] = copy
+    } else if (items.length || section.more) {
+      for (key in section) copy[key] = section[key]
+      copy.items = items
+      sections.push(copy)
+    }
+  }
+  if (page.sections || next.sections) out.sections = sections
+  if (Array.isArray(page.items) || Array.isArray(next.items)) out.items = (page.items || []).concat(fresh(next.items))
+  out.cursor = capped ? null : (next.cursor || null)
+  out.hasMore = !!out.cursor
+  if (capped) out.capped = true
+  return out
+}
+
+if (typeof module !== "undefined") {
+  Object.assign(module.exports, {
+    canonicalJson: canonicalJson,
+    PAGE_KINDS: PAGE_KINDS,
+    pageKindOf: pageKindOf,
+    pageRef: pageRef,
+    pageKind: pageKind,
+    pageKindTitle: pageKindTitle,
+    pageRound: pageRound,
+    cannotOpen: cannotOpen,
+    historyCollection: historyCollection,
+    ROUTES: ROUTES,
+    routeEndpoint: routeEndpoint,
+    moreTarget: moreTarget,
+    pageRows: pageRows,
+    sectionTracks: sectionTracks,
+    pageTracks: pageTracks,
+    pageItemCount: pageItemCount,
+    itemKey: itemKey,
+    rowKey: rowKey,
+    rowPlaces: rowPlaces,
+    rowPlace: rowPlace,
+    findPlace: findPlace,
+    cursorAfterRows: cursorAfterRows,
+    appendPage: appendPage
+  })
 }

@@ -8,12 +8,15 @@ import "components"
 // the anchor button, the widget itself (bar identity) and the service.
 //
 // Tabs: Now (playing + queue), Search, Library and Home, with a page stack on
-// top for albums, playlists, Liked Music, History and artists, and the
-// playlist picker.
-// Keys: 1–4 tabs · / search · j/k or ↑/↓ move · Enter play/open · n play next ·
-// a add to queue · L like · p add to playlist · J/K move in queue ·
-// x remove (queue, playlist page, Liked Music) · Space play/pause ·
-// ←/→ seek 10 s (Now) · Esc leave field → close picker → back → close.
+// top for albums, playlists, Liked Music, History, artists and See all
+// pages, and the playlist picker.
+// Keys: 1-4 tabs · / search · j/k or ↑/↓ move · g/G top/bottom (G also loads
+// more) · Enter play/open · n play next · a add to queue · L like ·
+// p add to playlist · J/K move in queue · O next sort order (pages that
+// have one) · x remove (queue, playlist page, Liked Music) · Space
+// play/pause · ←/→ seek 10 s (Now) · Esc leave field → close picker → back →
+// close. Off the Now tab h/l go to the view's horizontal(dx) and f to its
+// find(), when it has them.
 Panel {
   id: root
   moduleName: "damir.ytmusic"
@@ -34,9 +37,12 @@ Panel {
   readonly property bool sessionProblem: !!service && (service.authState === "expired" || service.authState === "invalid")
 
   property string tab: "now"
-  // Opened albums/playlists/artists, innermost last.
+  // Opened pages, innermost last, as wrappers { item, view }: the item that
+  // was opened (never changed) and, once another page is pushed on top, the
+  // place it was left at (CollectionView.viewState()), restored on Back.
   property var stack: []
-  readonly property var page: stack.length > 0 ? stack[stack.length - 1] : null
+  readonly property var topEntry: stack.length > 0 ? stack[stack.length - 1] : null
+  readonly property var page: topEntry ? topEntry.item : null
   property bool returnPressed: false
 
   readonly property var tabs: [
@@ -60,11 +66,18 @@ Panel {
   }
 
   function push(item) {
+    if (!item) return
     picker.close()
-    stack = stack.concat([item])
+    var next = stack.slice()
+    var shown = collectionLoader.item
+    if (next.length > 0 && shown) next[next.length - 1] = { item: next[next.length - 1].item, view: shown.viewState() }
+    next.push({ item: item, view: null })
+    stack = next
     keyCatcher.forceActiveFocus()
   }
 
+  // The page underneath comes back with its saved view (CollectionView
+  // restores it from the wrapper).
   function back() {
     if (stack.length === 0) return false
     stack = stack.slice(0, -1)
@@ -93,6 +106,41 @@ Panel {
     return owner ? owner.results : null
   }
 
+  // Optional hooks of the active owner (horizontal, cycleOrder, find): a
+  // view offers one by defining the function; otherwise the key does nothing.
+  function ownerHook(name, arg) {
+    var owner = activeListOwner()
+    if (!owner || typeof owner[name] !== "function") return false
+    owner[name](arg)
+    return true
+  }
+
+  // Views and overlays with a text field, each listed once. While one
+  // reports inputFocused, keys go to its field instead of the shortcuts.
+  function inputOwners() {
+    return [libraryView, picker, collectionLoader.item]
+  }
+
+  function anyInputFocused() {
+    var owners = inputOwners()
+    for (var i = 0; i < owners.length; i++) {
+      if (owners[i] && owners[i].inputFocused === true) return true
+    }
+    return false
+  }
+
+  // g / G: the first or last row (G also lets the list load more).
+  function jumpCursor(toEnd) {
+    var list = activeList()
+    if (list) {
+      if (toEnd) list.toBottom()
+      else list.toTop()
+    } else if (tab === "now" && service && service.queue.length > 0) {
+      queueView.cursorIndex = toEnd ? service.queue.length - 1 : 0
+      queueView.ensureVisible(queueView.cursorIndex)
+    }
+  }
+
   function moveCursor(delta) {
     var list = activeList()
     if (list) list.moveCursor(delta)
@@ -110,8 +158,8 @@ Panel {
     var owner = activeListOwner()
     var list = activeList()
     if (!owner || !list || list.cursorIndex < 0) return
-    if (action === "next") owner.playNext(list.cursorIndex)
-    else if (action === "queue") owner.addToQueue(list.cursorIndex)
+    if (action === "next") ownerHook("playNext", list.cursorIndex)
+    else if (action === "queue") ownerHook("addToQueue", list.cursorIndex)
   }
 
   // The track the keyboard is pointing at: a selected row, else what plays.
@@ -202,13 +250,14 @@ Panel {
     PanelKeyCatcher {
       id: keyCatcher
       anchors.fill: parent
-      blocked: searchView.field.activeFocus || libraryView.inputFocused || picker.inputFocused
+      blocked: searchView.field.activeFocus || root.anyInputFocused()
 
       onCloseRequested: root.handleEscape()
       onTabRequested: function(direction) { root.switchPanel(direction) }
       onMoveRequested: function(dx, dy) {
         if (dy !== 0) root.moveCursor(dy)
-        else if (dx !== 0 && root.tab === "now" && !root.page && root.service) root.service.seekRelative(dx * 10)
+        else if (dx !== 0 && root.tab === "now" && !root.page) { if (root.service) root.service.seekRelative(dx * 10) }
+        else if (dx !== 0) root.ownerHook("horizontal", dx)
       }
       onReturnRequested: {
         root.returnPressed = true
@@ -238,6 +287,10 @@ Panel {
         else if (text === "r" && root.service) root.service.cycleRepeat()
         else if (text === "J" && root.tab === "now") queueView.moveSelected(1)
         else if (text === "K" && root.tab === "now") queueView.moveSelected(-1)
+        else if (text === "g") root.jumpCursor(false)
+        else if (text === "G") root.jumpCursor(true)
+        else if (text === "O") root.ownerHook("cycleOrder")
+        else if (text === "f") root.ownerHook("find")
       }
 
       Item {
@@ -432,7 +485,7 @@ Panel {
           sourceComponent: CollectionView {
             service: root.service
             bar: root.bar
-            target: root.page
+            entry: root.topEntry
             onOpenRequested: function(item) { root.push(item) }
             onCloseRequested: root.back()
           }

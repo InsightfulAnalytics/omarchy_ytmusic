@@ -162,6 +162,13 @@ def test_min_items_reached_stops_early():
     assert len(yt.requests) == 2 and len(items) == 60 and cursor == "c.T2"
 
 
+def test_enough_decides_in_place_of_min_items():
+    yt = FakeClient(grid_continuation(entries(10, 2), "T2"), grid_continuation(entries(12, 2), "T3"))
+    items, cursor = pages.fetch(yt, "browse", BODY, "ctoken", locate_grid, parse, cursor="c.T1",
+                                enough=lambda got: 13 in got)
+    assert len(yt.requests) == 2 and items == [10, 11, 12, 13] and cursor == "c.T3"
+
+
 def test_empty_continuation_ends_the_list():
     yt = FakeClient(browse_grid(entries(0, 10), "T1"), grid_continuation([], "T2"))
     items, cursor = pages.fetch(yt, "browse", BODY, "ctoken", locate_grid, parse, min_items=40)

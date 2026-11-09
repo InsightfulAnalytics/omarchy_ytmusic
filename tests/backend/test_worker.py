@@ -509,6 +509,26 @@ def test_browse_page_carousels_become_sections():
     assert page["hasMore"] is True
 
 
+def test_browse_page_cursor_of_shelves_is_one_request():
+    carousel = lambda title, items: {"musicCarouselShelfRenderer": {  # noqa: E731
+        "header": {"musicCarouselShelfBasicHeaderRenderer": {"title": {"runs": [{"text": title}]}}},
+        "contents": items}}
+    more = lambda titles, token: {"continuationContents": {"sectionListContinuation": {  # noqa: E731
+        "contents": [carousel(t, [album_item(i)]) for i, t in enumerate(titles)],
+        "continuations": [{"nextContinuationData": {"continuation": token}}]}}}
+    page, sent = browse_page([more(["A", "B", "C"], "H2"), more(["D"], "H3")], browseId="FEmusic_home",
+                             cursor="c.H1")
+    assert len(sent) == 1, "three shelves are a page: no second continuation"
+    assert [s["title"] for s in page["sections"]] == ["A", "B", "C"] and page["cursor"] == "c.H2"
+    # A list continuation still reads on to 40 items.
+    shelf = lambda first, count, token: {"continuationContents": {"musicShelfContinuation": {  # noqa: E731
+        "contents": [track_item(i) for i in range(first, first + count)],
+        "continuations": [{"nextContinuationData": {"continuation": token}}]}}}
+    page, sent = browse_page([shelf(0, 25, "S2"), shelf(25, 25, "S3")], browseId="MPLAUCx", params="p",
+                             cursor="c.S1")
+    assert len(sent) == 2 and len(page["sections"][0]["items"]) == 50 and page["cursor"] == "c.S3"
+
+
 def test_browse_page_message_is_an_empty_page():
     message = {"itemSectionRenderer": {"contents": [{"messageRenderer": {
         "text": {"runs": [{"text": "No albums yet"}]}}}]}}

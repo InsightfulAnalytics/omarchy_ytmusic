@@ -219,6 +219,9 @@ Item {
     bar: root.bar
     store: root.store
     rows: root.rows
+    // Typing or a new search starts a fresh list, as before pages kept
+    // their place.
+    listKey: root.store ? root.store.filter + "|" + root.store.query + "|" + searchField.text : ""
     opacity: root.store && root.store.searching ? 0.5 : 1
 
     onActivated: function(index) { root.activate(index) }

@@ -154,17 +154,21 @@ def first_page(yt, endpoint, body, order=None):
 
 
 def fetch(yt, endpoint, body, style, locate, parse, cursor=None, min_items=40, max_http=3, order=None,
-          first=None):
+          first=None, enough=None):
     """``(items, cursor)``: one page of a list plus continuations up to ``min_items``.
 
     ``locate(response)`` returns the renderer holding the list (its
     ``contents`` or ``items``, plus ``continuations``); ``parse(contents)``
     returns the parsed items and must skip continuation entries. ``first``
     is a ``first_page()`` result already fetched by the caller (its requests
-    count against ``max_http``). An empty continuation ends the list.
+    count against ``max_http``). ``enough(items)``, when given, decides in
+    place of ``min_items`` whether the items make a page. An empty
+    continuation ends the list.
     """
     if style not in STYLES:
         raise ValueError(f"unknown paging style {style!r}")
+    if enough is None:
+        enough = lambda got: len(got) >= min_items  # noqa: E731
     items = []
     http = 0
     if cursor is None:
@@ -177,7 +181,7 @@ def fetch(yt, endpoint, body, style, locate, parse, cursor=None, min_items=40, m
         cursor = _next_cursor(container, contents)
         if not items and not cursor:
             return [], None
-    while cursor and http < max_http and (http == 0 or len(items) < min_items):
+    while cursor and http < max_http and (http == 0 or not enough(items)):
         step, token = _unpack(cursor, style)
         if step == "body":
             response = yt._send_request(endpoint, {"continuation": token})
@@ -236,6 +240,12 @@ def _entries(contents):
     return out
 
 
+def _enough(entries):
+    """A continuation of shelves is a page as it comes (each entry is a
+    whole section); a list reads on to 40 items."""
+    return any(e.get("type") == "section" for e in entries) or len(entries) >= 40
+
+
 def _sections(entries, title=None, layout=None):
     sections = [e for e in entries if e.get("type") == "section"]
     loose = [e for e in entries if e.get("type") != "section"]
@@ -286,7 +296,7 @@ def m_browse_page(worker, params):
     order = opt_order(params, range(MAX_ORDERS))
     yt = worker.yt
     if cursor:
-        entries, cursor = fetch(yt, "browse", body, "ctoken", None, _entries, cursor=cursor)
+        entries, cursor = fetch(yt, "browse", body, "ctoken", None, _entries, cursor=cursor, enough=_enough)
         return norm.page("browse", browse_id, None, sections=_sections(entries), cursor=cursor, order=order)
     try:
         first = first_page(yt, "browse", body, order)
