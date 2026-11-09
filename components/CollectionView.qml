@@ -40,18 +40,37 @@ Item {
   // The page itself went away (playlist deleted).
   signal closeRequested()
 
-  // Playlist pages remove from the playlist; Liked Music un-likes.
+  // Playlist pages remove from the playlist; Liked Music un-likes. When the
+  // outcome is unknown (the worker stopped mid-edit), reload the page.
+  // Replies only touch the page if it is still the one edited: this view
+  // shows every page of the panel's stack in turn.
   function remove(index) {
     var row = resultList.rowAt(index)
     if (!row || row.item.type !== "track" || !service) return
     var track = row.item
+    var requested = ref
     if (isLiked) {
-      if (service.setLike(track, false)) page = Model.withoutTrack(page, track)
+      if (service.setLike(track, false, function(reply) { root.reloadIfUnsure(reply, requested) }))
+        page = Model.withoutTrack(page, track)
     } else if (editable) {
       service.removeFromPlaylist(page.id, [track], function(reply) {
-        if (reply.ok) root.page = Model.withoutTrack(root.page, track)
+        if (reply.ok) {
+          if (root.shows(requested)) root.page = Model.withoutTrack(root.page, track)
+        } else {
+          root.reloadIfUnsure(reply, requested)
+        }
       })
     }
+  }
+
+  function shows(requested) {
+    return !!ref && !!requested && ref.kind === requested.kind && ref.id === requested.id
+  }
+
+  // Straight from YouTube: the disk copy predates the edit. (If another page
+  // is shown now, Service.refreshUnsure has already forgotten this one.)
+  function reloadIfUnsure(reply, requested) {
+    if (service && service.unsure(reply) && shows(requested)) load(true)
   }
 
   function deletePlaylist() {
@@ -62,8 +81,13 @@ Item {
       return
     }
     confirmDelete = false
+    var requested = ref
     service.deletePlaylist({ playlistId: page.id, title: page.title }, function(reply) {
-      if (reply.ok) root.closeRequested()
+      if (reply.ok) {
+        if (root.shows(requested)) root.closeRequested()
+      } else {
+        root.reloadIfUnsure(reply, requested)
+      }
     })
   }
 
@@ -73,18 +97,19 @@ Item {
     onTriggered: root.confirmDelete = false
   }
 
-  function load() {
+  // fresh: skip the memory and disk caches (see Store.loadCollection).
+  function load(fresh) {
     if (!store || !ref) return
     var requested = ref
     page = null
     loading = true
     error = ""
     store.loadCollection(requested.kind, requested.id, function(reply) {
-      if (!root.ref || root.ref.kind !== requested.kind || root.ref.id !== requested.id) return
+      if (!root.shows(requested)) return
       root.loading = false
       if (reply.ok) root.page = reply.result
       else root.error = reply.error.message
-    })
+    }, fresh === true)
   }
 
   function activate(index) {

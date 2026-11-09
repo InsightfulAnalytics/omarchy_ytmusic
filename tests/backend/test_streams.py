@@ -39,14 +39,15 @@ def test_parse_expiry():
     assert streams.parse_expiry("https://example.com/audio", now=1000) == 1000 + streams.DEFAULT_LIFETIME
 
 
-def test_resolve_returns_url_and_expiry_and_reuses_one_instance():
+def test_resolve_returns_url_and_expiry_and_reuses_one_instance(config_dir, monkeypatch):
+    monkeypatch.delenv("YTM_STREAM_WITH_ACCOUNT", raising=False)
     make = factory(info={"url": "https://g.googlevideo.com/v?expire=1789100000", "format_id": "251",
                          "acodec": "opus", "abr": 131.4})
     resolver = streams.Resolver(factory=make)
     first = resolver.resolve("abcdefghijk")
     resolver.resolve("bcdefghijkl")
     assert first == {"videoId": "abcdefghijk", "url": "https://g.googlevideo.com/v?expire=1789100000",
-                     "expires": 1789100000, "format": "251", "codec": "opus", "abr": 131.4}
+                     "expires": 1789100000, "format": "251", "codec": "opus", "abr": 131.4, "account": False}
     assert len(make.made) == 1, "yt-dlp is created once per worker"
     ydl = make.made[0]
     assert ydl.calls == [("https://www.youtube.com/watch?v=abcdefghijk", False),
@@ -89,10 +90,10 @@ class FakeResolver:
         self.result = result
         self.error = error
 
-    def resolve(self, video_id):
+    def resolve(self, video_id, account=None):
         if self.error:
             raise self.error
-        return dict(self.result, videoId=video_id)
+        return dict(self.result, videoId=video_id, account=bool(account))
 
 
 def test_warm_loads_ytdlp_once_in_the_background():
@@ -118,3 +119,33 @@ def test_worker_resolve_method():
     error = failing.handle({"id": 2, "method": "resolve", "params": {"videoId": "abc"}})["error"]
     assert (error["code"], error["retryable"]) == ("NETWORK", True)
     assert worker.handle({"id": 3, "method": "resolve", "params": {}})["error"]["code"] == "BAD_REQUEST"
+
+
+def test_account_flag_selects_the_cookie_instance(config_dir, monkeypatch):
+    monkeypatch.delenv("YTM_STREAM_WITH_ACCOUNT", raising=False)
+    config_dir.mkdir(parents=True)
+    (config_dir / "cookies.txt").write_text("# Netscape HTTP Cookie File\n")
+    make = factory(info={"url": "https://x/a?expire=5"})
+    resolver = streams.Resolver(factory=make)
+    assert resolver.resolve("v")["account"] is False, "default stays anonymous"
+    assert resolver.resolve("v", account=True)["account"] is True
+    assert resolver.resolve("v", account=False)["account"] is False
+    assert len(make.made) == 2, "one yt-dlp instance per mode, each built once"
+    anonymous, account = make.made
+    assert "cookiefile" not in anonymous.opts and account.opts["cookiefile"] == str(config_dir / "cookies.txt")
+    assert len(anonymous.calls) == 2 and len(account.calls) == 1
+
+
+def test_account_flag_without_a_session_falls_back_to_anonymous(config_dir, monkeypatch):
+    monkeypatch.delenv("YTM_STREAM_WITH_ACCOUNT", raising=False)
+    make = factory(info={"url": "https://x/a?expire=5"})
+    assert streams.Resolver(factory=make).resolve("v", account=True)["account"] is False
+    assert "cookiefile" not in make.made[0].opts
+
+
+def test_worker_passes_the_account_flag():
+    worker = ytm.Worker(object(), "none", resolver=FakeResolver({"url": "https://x", "expires": 5}))
+    reply = worker.handle({"id": 1, "method": "resolve", "params": {"videoId": "abc", "account": True}})
+    assert reply["result"]["account"] is True
+    bad = worker.handle({"id": 2, "method": "resolve", "params": {"videoId": "abc", "account": "yes"}})
+    assert bad["error"]["code"] == "BAD_REQUEST"

@@ -179,10 +179,12 @@ Item {
   }
 
   // `callback` may run twice: with the disk-cached copy, then the fresh one.
-  function loadCollection(kind, id, callback) {
+  // fresh: ask YouTube only (after an edit whose outcome is unknown, when the
+  // disk copy may predate it), so a failure is reported instead of the copy.
+  function loadCollection(kind, id, callback, fresh) {
     var key = collectionKey(kind, id)
     var entry = _collections[key]
-    if (entry && Date.now() - entry.at < collectionTtlMs) {
+    if (!fresh && entry && Date.now() - entry.at < collectionTtlMs) {
       callback({ ok: true, result: entry.data })
       return
     }
@@ -190,14 +192,20 @@ Item {
       : kind === "history" ? "history" : "playlist"
     var params = kind === "album" ? { browseId: id } : kind === "artist" ? { channelId: id }
       : kind === "liked" ? ({}) : kind === "history" ? { limit: 100 } : { playlistId: id }
-    _cachedThenFresh(method, params, function(reply) {
+    var handle = function(reply) {
       if (reply.ok) {
         reply = { ok: true, cached: reply.cached, result: root._asCollection(kind, reply.result) }
         root._remember(key, reply.result)
         root.requestThumbs(Model.collectThumbs(reply.result))
       }
       callback(reply)
-    })
+    }
+    if (fresh) {
+      params.cache = "refresh"
+      worker.request(method, params, handle, 30000)
+    } else {
+      _cachedThenFresh(method, params, handle)
+    }
   }
 
   // History comes back as a plain list; pages want a collection.

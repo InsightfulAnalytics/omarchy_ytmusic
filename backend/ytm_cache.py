@@ -2,7 +2,11 @@
 
 - DiskCache: recent library / playlist / album / artist / home / history
   responses, so the panel can show them instantly and refresh them in the
-  background (stale-while-revalidate). Cleared whenever the account changes.
+  background (stale-while-revalidate). Cleared whenever the account or a
+  client setting changes; the client settings it was made with are recorded
+  beside it (``client-settings``). File names start with the schema
+  (``v2-``), so entries in an older shape are never read. Continuation
+  cursors never reach disk.
 - ThumbCache: cover thumbnails as files, so covers appear instantly without
   the shell keeping decoded images in memory.
 
@@ -39,12 +43,40 @@ def write_private(path, data):
     os.replace(tmp, path)
 
 
+def strip_cursors(result):
+    """A copy of ``result`` safe to store: no continuation cursor.
+
+    A page that had more keeps ``hasMore: true`` with ``cursor: None``, so the
+    shell knows to refresh it before loading more.
+    """
+    if not isinstance(result, dict):
+        return result
+    out = dict(result)
+    if out.get("cursor") is not None:
+        out["cursor"] = None
+        out["hasMore"] = True
+    if isinstance(out.get("sections"), list):
+        out["sections"] = [strip_cursors(s) for s in out["sections"]]
+    return out
+
+
 class DiskCache:
+    SCHEMA = 2
     MAX_AGE = 7 * 24 * 3600
-    MAX_FILES = 150
+    MAX_FILES = 400
+    # Not a .json name: clear() and pruning leave it alone.
+    SETTINGS_FILE = "client-settings"
 
     def __init__(self, root=None):
         self.dir = Path(root) if root else cache_root() / "data"
+        self.prefix = f"v{self.SCHEMA}-"
+        # Writes and invalidations are serialized, and every invalidation bumps
+        # the method's epoch: a read that started before an edit (or before
+        # the cache was cleared) passes its epoch to put(), which then refuses
+        # to store the stale result.
+        self._lock = threading.Lock()
+        self._epochs = {}
+        self._clears = 0
 
     def _ensure_dir(self):
         # The parent (~/.cache/omarchy-ytmusic) also holds session.json, so it
@@ -52,10 +84,13 @@ class DiskCache:
         private_dir(self.dir.parent)
         private_dir(self.dir)
 
-    @staticmethod
-    def key(method, params):
+    def key(self, method, params):
         canonical = json.dumps(params or {}, sort_keys=True, separators=(",", ":"))
-        return f"{method}-{hashlib.sha1(canonical.encode()).hexdigest()[:20]}.json"
+        return f"{self.prefix}{method}-{hashlib.sha1(canonical.encode()).hexdigest()[:20]}.json"
+
+    def epoch(self, method):
+        with self._lock:
+            return self._clears, self._epochs.get(method, 0)
 
     def get(self, method, params, now=None):
         """``(result, age_seconds)`` or ``None``."""
@@ -68,31 +103,68 @@ class DiskCache:
             return None
         return entry["result"], int(age)
 
-    def put(self, method, params, result, now=None):
-        self._ensure_dir()
-        entry = {"method": method, "params": params or {}, "at": now if now is not None else time.time(), "result": result}
-        write_private(self.dir / self.key(method, params),
-                      json.dumps(entry, ensure_ascii=False, separators=(",", ":")).encode())
-        self._prune()
+    def put(self, method, params, result, now=None, epoch=None):
+        """Store ``result``; skipped (returns False) when ``epoch`` is no longer current."""
+        stored_params = {k: v for k, v in (params or {}).items() if k != "cursor"}
+        entry = {"method": method, "params": stored_params, "at": now if now is not None else time.time(),
+                 "result": strip_cursors(result)}
+        data = json.dumps(entry, ensure_ascii=False, separators=(",", ":")).encode()
+        with self._lock:
+            if epoch is not None and epoch != (self._clears, self._epochs.get(method, 0)):
+                return False
+            self._ensure_dir()
+            write_private(self.dir / self.key(method, params), data)
+            self._prune()
+        return True
 
     def invalidate(self, method, match=None):
-        for path in self.dir.glob(f"{method}-*.json"):
-            if match:
-                try:
-                    params = json.loads(path.read_text()).get("params", {})
-                except (OSError, ValueError):
-                    params = {}
-                if any(params.get(k) != v for k, v in match.items()):
-                    continue
-            path.unlink(missing_ok=True)
+        with self._lock:
+            self._epochs[method] = self._epochs.get(method, 0) + 1
+            for path in self.dir.glob(f"{self.prefix}{method}-*.json"):
+                if match:
+                    try:
+                        params = json.loads(path.read_text()).get("params", {})
+                    except (OSError, ValueError):
+                        params = {}
+                    if any(params.get(k) != v for k, v in match.items()):
+                        continue
+                path.unlink(missing_ok=True)
 
     def clear(self):
-        for path in self.dir.glob("*.json"):
-            path.unlink(missing_ok=True)
+        with self._lock:
+            self._clears += 1
+            for path in self.dir.glob("*.json"):
+                path.unlink(missing_ok=True)
+
+    def client_settings(self):
+        """The client settings the cached responses were made with (``{}``: defaults)."""
+        try:
+            value = json.loads((self.dir / self.SETTINGS_FILE).read_text())
+        except (OSError, ValueError):
+            return {}
+        return value if isinstance(value, dict) else {}
+
+    def record_client_settings(self, settings):
+        with self._lock:
+            path = self.dir / self.SETTINGS_FILE
+            if not settings:
+                path.unlink(missing_ok=True)
+                return
+            self._ensure_dir()
+            write_private(path, json.dumps(settings, sort_keys=True, separators=(",", ":")).encode())
 
     def _prune(self):
-        files = sorted(self.dir.glob("*.json"), key=lambda p: p.stat().st_mtime)
-        for path in files[:-self.MAX_FILES]:
+        files = []
+        for path in self.dir.glob("*.json"):
+            if not path.name.startswith(self.prefix):
+                path.unlink(missing_ok=True)  # an older schema: never read again
+                continue
+            try:
+                files.append((path.stat().st_mtime, path))
+            except OSError:
+                continue
+        files.sort()
+        for _, path in files[:-self.MAX_FILES]:
             path.unlink(missing_ok=True)
 
 

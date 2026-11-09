@@ -6,7 +6,8 @@ mpv plays the returned URL through mpv/ytm-streams.lua while its playlist
 keeps the youtube.com URL. Stream URLs expire (YouTube puts the time in the
 URL) and are tied to this network; the Lua script falls back to yt-dlp when
 one fails. Like mpv, this streams without the account unless
-YTM_STREAM_WITH_ACCOUNT=1.
+YTM_STREAM_WITH_ACCOUNT=1 or the request asks for it (``account: true``,
+e.g. for uploads); each mode has its own yt-dlp instance.
 """
 
 import os
@@ -68,16 +69,22 @@ def _error(exc):
 
 
 class Resolver:
-    """One yt-dlp instance for the worker's lifetime (imported on first use)."""
+    """Two yt-dlp instances for the worker's lifetime, each imported and built
+    on first use: an anonymous one and one with the account's cookies."""
 
     def __init__(self, factory=None):
         self._factory = factory
-        self._ydl = None
+        self._ydl = {}
         # The warm-up thread and the worker's streams lane may both get here
         # first; lookups themselves only ever run on the lane.
         self._lock = threading.Lock()
 
-    def options(self):
+    def wants_account(self, account=None):
+        """Whether a lookup uses the account: asked for (or the default) and signed in."""
+        use = stream_with_account() if account is None else bool(account)
+        return use and auth.cookies_path().exists()
+
+    def options(self, account=None):
         opts = {
             "format": FORMAT,
             "quiet": True,
@@ -86,31 +93,33 @@ class Resolver:
             "noplaylist": True,
             "logger": _Quiet(),
         }
-        cookies = auth.cookies_path()
-        if stream_with_account() and cookies.exists():
-            opts["cookiefile"] = str(cookies)
+        if self.wants_account(account):
+            opts["cookiefile"] = str(auth.cookies_path())
         return opts
 
-    def _client(self):
+    def _client(self, account=False):
         with self._lock:
-            if self._ydl is None:
+            if account not in self._ydl:
+                opts = self.options(account)
                 if self._factory is None:
                     import yt_dlp
 
-                    self._ydl = yt_dlp.YoutubeDL(self.options())
+                    self._ydl[account] = yt_dlp.YoutubeDL(opts)
                 else:
-                    self._ydl = self._factory(self.options())
-            return self._ydl
+                    self._ydl[account] = self._factory(opts)
+            return self._ydl[account]
 
     def warm(self):
         try:
-            self._client()
+            self._client(self.wants_account())
         except Exception as exc:  # noqa: BLE001 - resolve() reports it properly later
             norm.log(f"could not load yt-dlp: {type(exc).__name__}: {exc}")
 
-    def resolve(self, video_id):
+    def resolve(self, video_id, account=None):
+        """The stream URL; ``account`` None means the YTM_STREAM_WITH_ACCOUNT default."""
+        use_account = self.wants_account(account)
         try:
-            info = self._client().extract_info(WATCH_URL + video_id, download=False)
+            info = self._client(use_account).extract_info(WATCH_URL + video_id, download=False)
         except Exception as exc:  # noqa: BLE001 - yt-dlp raises DownloadError and friends
             raise _error(exc) from exc
         url = info.get("url")
@@ -126,4 +135,5 @@ class Resolver:
             "format": info.get("format_id"),
             "codec": info.get("acodec"),
             "abr": info.get("abr"),
+            "account": use_account,
         }

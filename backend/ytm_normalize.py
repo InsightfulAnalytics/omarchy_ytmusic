@@ -205,11 +205,29 @@ def playlist(item):
     }
 
 
+def strip_mpla(browse_id):
+    """A library artist's browseId (``MPLAUC...``) as the artist's channel id."""
+    if isinstance(browse_id, str) and browse_id.startswith("MPLA"):
+        return browse_id[4:]
+    return browse_id
+
+
+def is_mix(playlist_id):
+    """Radio-style playlists (``RD...``) that play through the watch playlist.
+
+    ``RDCLAK`` (curated) and ``RDPN`` (New episodes) are ordinary pages.
+    """
+    pid = str(playlist_id or "")
+    if pid.startswith("VL"):
+        pid = pid[2:]
+    return pid.startswith("RD") and not pid.startswith(("RDCLAK", "RDPN"))
+
+
 def artist(item):
     # A "Top result" artist carries its name and id only in artists[0].
     listed = artists(item.get("artists"))
     first = listed[0] if listed else {"name": None, "id": None}
-    channel_id = item.get("browseId") or item.get("channelId") or first["id"]
+    channel_id = strip_mpla(item.get("browseId") or item.get("channelId") or first["id"])
     if not channel_id:
         raise ValueError("artist without channel id")
     thumb, thumb_large = thumbs(item.get("thumbnails"))
@@ -221,6 +239,65 @@ def artist(item):
         "thumb": thumb,
         "thumbLarge": thumb_large,
     }
+
+
+def _channel_like(kind, item):
+    channel_id = strip_mpla(item.get("browseId") or item.get("channelId"))
+    if not channel_id:
+        raise ValueError(f"{kind} without channel id")
+    thumb, thumb_large = thumbs(item.get("thumbnails"))
+    return {
+        "type": kind,
+        "channelId": channel_id,
+        "name": item.get("name") or item.get("title") or item.get("artist") or "",
+        "subtitle": item.get("subscribers") or item.get("subtitle"),
+        "thumb": thumb,
+        "thumbLarge": thumb_large,
+    }
+
+
+def profile(item):
+    """A user's channel (MUSIC_PAGE_TYPE_USER_CHANNEL): playlists and videos, no discography."""
+    return _channel_like("profile", item)
+
+
+def channel(item):
+    """A podcast or library channel."""
+    return _channel_like("channel", item)
+
+
+def podcast(item):
+    browse_id = item.get("browseId") or (f"MPSP{item['podcastId']}" if item.get("podcastId") else None)
+    if not browse_id:
+        raise ValueError("podcast without browseId")
+    author = _album_ref(item.get("channel") or item.get("author"))
+    thumb, thumb_large = thumbs(item.get("thumbnails"))
+    return {
+        "type": "podcast",
+        "browseId": browse_id,
+        "podcastId": item.get("podcastId") or (browse_id[4:] if browse_id.startswith("MPSP") else None),
+        "title": item.get("title") or "",
+        "author": author,
+        "authorText": author["name"] if author else None,
+        "thumb": thumb,
+        "thumbLarge": thumb_large,
+    }
+
+
+def episode(item):
+    """A podcast episode: a track of kind ``episode`` plus its page and podcast."""
+    value = track(item)
+    podcast_ref = _album_ref(item.get("podcast") or item.get("author"))
+    if not value["artists"] and podcast_ref:
+        value["artists"] = [dict(podcast_ref)]
+        value["artistText"] = podcast_ref["name"]
+    value.update({
+        "kind": "episode",
+        "browseId": item.get("browseId"),
+        "date": item.get("date"),
+        "podcast": podcast_ref,
+    })
+    return value
 
 
 def search_item(item):
@@ -379,4 +456,58 @@ def account(info):
         "name": info.get("accountName"),
         "handle": info.get("channelHandle"),
         "photo": info.get("accountPhotoUrl"),
+    }
+
+
+# ---- pages (protocol v2) -------------------------------------------------------
+# A page is what a "See all" or any other destination shows: a header and
+# sections of normalized items. ``cursor`` pages on (opaque, never cached);
+# ``hasMore`` stays true on a disk-cached first page whose cursor was stripped.
+
+
+def section(title, items, more=None, play=None, layout=None):
+    """One shelf: ``more`` is its See all endpoint ``{browseId, params, pageType}``,
+    ``play`` its Play all endpoint ``{videoId, playlistId, params}``."""
+    return {
+        "type": "section",
+        "title": title,
+        "items": list(items or []),
+        "more": more,
+        "play": play,
+        "layout": layout,
+    }
+
+
+def more(title, endpoint, count=None):
+    """A selectable "See all" row that opens ``endpoint`` (``{browseId, params, pageType}``)."""
+    endpoint = endpoint or {}
+    return {
+        "type": "more",
+        "title": title or "",
+        "endpoint": {"browseId": endpoint.get("browseId"), "params": endpoint.get("params"),
+                     "pageType": endpoint.get("pageType")},
+        "count": count,
+    }
+
+
+def page(kind, page_id, title, subtitle=None, thumbnails=None, sections=None, cursor=None, header=None,
+         orders=None, order=None, round=False, message=None):
+    thumb, thumb_large = thumbs(thumbnails)
+    return {
+        "type": "page",
+        "v": 2,
+        "kind": kind,
+        "id": page_id,
+        "title": title or "",
+        "subtitle": subtitle,
+        "thumb": thumb,
+        "thumbLarge": thumb_large,
+        "round": bool(round),
+        "header": header or {},
+        "sections": list(sections or []),
+        "cursor": cursor,
+        "hasMore": cursor is not None,
+        "orders": list(orders or []),
+        "order": order,
+        "message": message,
     }

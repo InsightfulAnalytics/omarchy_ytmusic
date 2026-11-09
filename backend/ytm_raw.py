@@ -1,0 +1,461 @@
+"""Raw InnerTube responses next to ytmusicapi's parsed ones.
+
+ytmusicapi drops shelves it cannot name (it matches English titles), See all
+and Play all endpoints, and rows without contents. This module keeps them:
+
+- ``install(yt)`` wraps the client's ``_send_request`` once (Worker.load does
+  it for every new client) and counts its HTTP requests per thread.
+- ``with capture(("browse", "next")) as cap:`` records the responses of the
+  calls made inside the block, on this thread only. Nothing is kept outside
+  a block, so a 12-request ``get_playlist(limit=None)`` costs no extra memory.
+- ``parse_row``/``item``/``menu_token`` read rows, items and menus by
+  renderer, endpoint and icon, never by their (localized) titles.
+
+Every ytmusicapi internal used here (parsers, navigation paths) is imported
+in this file or in ytm_pages.py, so an upgrade breaks two files at most.
+Pinned to ytmusicapi 1.12.2; a KeyError from these shapes is reported as
+UPSTREAM by the worker.
+"""
+
+import contextlib
+import re
+import threading
+
+from ytmusicapi.navigation import (
+    MMRIR,
+    MRLIR,
+    MTRIR,
+    PAGE_TYPE,
+    PLAY_BUTTON,
+    SECTION_LIST_CONTINUATION,
+    THUMBNAIL_RENDERER,
+    THUMBNAILS,
+    TITLE,
+    TITLE_TEXT,
+    nav,
+)
+from ytmusicapi.parsers._utils import get_flex_column_item
+from ytmusicapi.parsers.browsing import (
+    parse_album,
+    parse_playlist,
+    parse_related_artist,
+    parse_song,
+    parse_watch_playlist,
+)
+from ytmusicapi.parsers.library import parse_artists
+from ytmusicapi.parsers.playlists import parse_playlist_item
+from ytmusicapi.parsers.podcasts import parse_episode, parse_podcast
+
+import ytm_normalize as norm
+
+_MARK = "_ytm_raw_installed"
+_local = threading.local()
+
+ALBUM_PAGES = ("MUSIC_PAGE_TYPE_ALBUM", "MUSIC_PAGE_TYPE_AUDIOBOOK")
+ARTIST_PAGE = "MUSIC_PAGE_TYPE_ARTIST"
+LIBRARY_ARTIST_PAGE = "MUSIC_PAGE_TYPE_LIBRARY_ARTIST"
+PLAYLIST_PAGE = "MUSIC_PAGE_TYPE_PLAYLIST"
+USER_CHANNEL_PAGE = "MUSIC_PAGE_TYPE_USER_CHANNEL"
+PODCAST_PAGE = "MUSIC_PAGE_TYPE_PODCAST_SHOW_DETAIL_PAGE"
+EPISODE_PAGE = "MUSIC_PAGE_TYPE_NON_MUSIC_AUDIO_TRACK_PAGE"
+VIDEO_TYPE = ["watchEndpointMusicSupportedConfigs", "watchEndpointMusicConfig", "musicVideoType"]
+
+# Renderers that make up one row of a sectionList.
+ROW_RENDERERS = (
+    "musicCarouselShelfRenderer",
+    "musicImmersiveCarouselShelfRenderer",
+    "musicShelfRenderer",
+    "musicPlaylistShelfRenderer",
+    "gridRenderer",
+    "musicDescriptionShelfRenderer",
+    "itemSectionRenderer",
+)
+
+
+# ---- request hook and capture ----------------------------------------------------
+
+
+def _count(response, *args, **kwargs):
+    _local.http = getattr(_local, "http", 0) + 1
+
+
+def reset_http():
+    _local.http = 0
+
+
+def http_count():
+    return getattr(_local, "http", 0)
+
+
+class Capture:
+    def __init__(self, endpoints):
+        self.endpoints = tuple(endpoints)
+        self.responses = []  # [(endpoint, response)] in request order
+
+    def first(self, endpoint=None):
+        return next((r for e, r in self.responses if endpoint is None or e == endpoint), None)
+
+    def all(self, endpoint=None):
+        return [r for e, r in self.responses if endpoint is None or e == endpoint]
+
+
+def install(yt):
+    """Wrap ``yt._send_request`` and count HTTP requests; a no-op if already done."""
+    try:
+        if vars(yt).get(_MARK):
+            return yt
+    except TypeError:  # no __dict__: nothing to wrap
+        return yt
+    original = yt._send_request
+
+    def send(endpoint, body, additionalParams=""):
+        response = original(endpoint, body, additionalParams)
+        for cap in getattr(_local, "captures", None) or ():
+            if endpoint in cap.endpoints:
+                cap.responses.append((endpoint, response))
+        return response
+
+    yt._send_request = send
+    session = getattr(yt, "_session", None)
+    hooks = getattr(session, "hooks", None)
+    if isinstance(hooks, dict):
+        hooks.setdefault("response", []).append(_count)
+    setattr(yt, _MARK, True)
+    return yt
+
+
+@contextlib.contextmanager
+def capture(endpoints=("browse", "next")):
+    """Record the raw responses of ``endpoints`` sent on this thread inside the block."""
+    cap = Capture(endpoints)
+    stack = getattr(_local, "captures", None)
+    if stack is None:
+        stack = _local.captures = []
+    stack.append(cap)
+    try:
+        yield cap
+    finally:
+        stack.remove(cap)
+
+
+# ---- rows ----------------------------------------------------------------------
+
+
+def section_list(response):
+    """The sectionListRenderer (or sectionListContinuation) holding a response's rows."""
+    if not isinstance(response, dict):
+        return None
+    found = nav(response, SECTION_LIST_CONTINUATION, True)
+    if isinstance(found, dict):
+        return found
+    contents = response.get("contents") or {}
+    two = contents.get("twoColumnBrowseResultsRenderer") or {}
+    found = nav(two, ["secondaryContents", "sectionListRenderer"], True)
+    if isinstance(found, dict):
+        return found
+    for column in (contents.get("singleColumnBrowseResultsRenderer") or {}, two):
+        for tab in column.get("tabs") or []:
+            found = nav(tab, ["tabRenderer", "content", "sectionListRenderer"], True)
+            if isinstance(found, dict):
+                return found
+    found = nav(contents, ["tabbedSearchResultsRenderer", "tabs", 0, "tabRenderer", "content", "sectionListRenderer"],
+                True)
+    return found if isinstance(found, dict) else None
+
+
+def rows(response):
+    """The rows of a browse, search or sectionListContinuation response, in order."""
+    found = section_list(response)
+    return (found or {}).get("contents") or []
+
+
+def unwrap(row):
+    """``(renderer key, data)`` of a row, looking inside a one-item itemSectionRenderer."""
+    if not isinstance(row, dict) or not row:
+        return None, None
+    key, data = next(iter(row.items()))
+    if key == "itemSectionRenderer":
+        inner = (data or {}).get("contents") or []
+        if len(inner) == 1 and isinstance(inner[0], dict) and inner[0]:
+            return next(iter(inner[0].items()))
+    return key, data
+
+
+
+def text(value):
+    """The plain text of a ``{"runs": [...]}`` or ``{"simpleText": ...}`` value."""
+    if not isinstance(value, dict):
+        return None
+    if "simpleText" in value:
+        return value["simpleText"]
+    runs = value.get("runs")
+    if not isinstance(runs, list):
+        return None
+    joined = "".join(run.get("text", "") for run in runs if isinstance(run, dict))
+    return joined or None
+
+
+def browse_endpoint(endpoint):
+    """``{browseId, params, pageType}`` of a navigation endpoint that browses, else None."""
+    browse = (endpoint or {}).get("browseEndpoint") if isinstance(endpoint, dict) else None
+    if not isinstance(browse, dict) or not browse.get("browseId"):
+        return None
+    return {"browseId": browse["browseId"], "params": browse.get("params"),
+            "pageType": nav(browse, PAGE_TYPE, True)}
+
+
+def watch_endpoint(endpoint):
+    """``{videoId, playlistId, params}`` of a navigation endpoint that plays, else None."""
+    if not isinstance(endpoint, dict):
+        return None
+    watch = endpoint.get("watchEndpoint") or endpoint.get("watchPlaylistEndpoint")
+    if not isinstance(watch, dict) or not (watch.get("videoId") or watch.get("playlistId")):
+        return None
+    return {"videoId": watch.get("videoId"), "playlistId": watch.get("playlistId"), "params": watch.get("params")}
+
+
+def row_parts(key, data):
+    """``(layout, title, endpoints, contents)`` of one row renderer."""
+    if key in ("musicCarouselShelfRenderer", "musicImmersiveCarouselShelfRenderer"):
+        header = data.get("header") or {}
+        header = next(iter(header.values()), {}) if header else {}
+        button = nav(header, ["moreContentButton", "buttonRenderer", "navigationEndpoint"], True)
+        title_endpoint = nav(header, ["title", "runs", 0, "navigationEndpoint"], True)
+        title = text(header.get("title")) or text(header.get("strapline"))
+        return "carousel", title, [button, title_endpoint], data.get("contents")
+    if key in ("musicShelfRenderer", "musicPlaylistShelfRenderer"):
+        title_endpoint = nav(data, ["title", "runs", 0, "navigationEndpoint"], True)
+        return "shelf", text(data.get("title")), [data.get("bottomEndpoint"), title_endpoint], data.get("contents")
+    if key == "gridRenderer":
+        title = text(nav(data, ["header", "gridHeaderRenderer", "title"], True))
+        return "grid", title, [], data.get("items")
+    if key == "musicDescriptionShelfRenderer":
+        return "description", text(data.get("header")), [], None
+    return None, None, [], None
+
+
+def parse_row(row):
+    """One sectionList row as ``{title, items, more, play, layout}``.
+
+    Call it once per row and keep the result even when ``items`` is empty, so
+    rows stay aligned with the response (ytmusicapi's parse_mixed_content skips
+    rows without contents). ``more`` is the See all endpoint, ``play`` the
+    header's Play all endpoint. Unknown renderers give an empty row.
+    """
+    out = {"title": None, "items": [], "more": None, "play": None, "layout": None}
+    if not isinstance(row, dict) or not row:
+        return out
+    key, data = next(iter(row.items()))
+    if key == "itemSectionRenderer":
+        inner = (data or {}).get("contents") or []
+        return parse_row(inner[0]) if len(inner) == 1 else out
+    if not isinstance(data, dict):
+        return out
+    layout, title, endpoints, contents = row_parts(key, data)
+    out["layout"], out["title"] = layout, title
+    for endpoint in endpoints:
+        out["more"] = out["more"] or browse_endpoint(endpoint)
+        out["play"] = out["play"] or watch_endpoint(endpoint)
+    out["items"] = items(contents)
+    return out
+
+
+def items(contents):
+    """Normalized items of a contents/items list; unknown or malformed ones are dropped."""
+    out = []
+    for content in contents or []:
+        try:
+            value = item(content)
+        except (KeyError, TypeError, ValueError, IndexError, AttributeError) as exc:
+            norm.log(f"skipped malformed item: {type(exc).__name__}")
+            continue
+        if value is not None:
+            out.append(value)
+    return out
+
+
+# ---- items -----------------------------------------------------------------------
+
+
+def item(renderer):
+    """One normalized item from ``{"<renderer>": data}``, chosen by its page type.
+
+    Album, artist, library artist (MPLA ids become UC), playlist, user channel
+    (a profile), podcast and episode pages, plus songs, videos and watch
+    playlists (mixes). Anything else is ``None``.
+    """
+    if not isinstance(renderer, dict) or len(renderer) != 1:
+        return None
+    key, data = next(iter(renderer.items()))
+    if key == MTRIR:
+        return _two_row(data)
+    if key == MRLIR:
+        return _list_row(data)
+    if key == MMRIR:
+        return norm.episode(parse_episode(data))
+    return None
+
+
+def _endpoint(data):
+    endpoint = data.get("navigationEndpoint")
+    if isinstance(endpoint, dict) and ("browseEndpoint" in endpoint or "watchEndpoint" in endpoint
+                                       or "watchPlaylistEndpoint" in endpoint):
+        return endpoint
+    return nav(data, [*TITLE, "navigationEndpoint"], True) or {}
+
+
+# page type -> (ytmusicapi parser, normalizer) for musicTwoRowItemRenderer items
+_TWO_ROW = {
+    ALBUM_PAGES[0]: (parse_album, norm.album),
+    ALBUM_PAGES[1]: (parse_album, norm.album),
+    ARTIST_PAGE: (parse_related_artist, norm.artist),
+    LIBRARY_ARTIST_PAGE: (parse_related_artist, norm.artist),
+    USER_CHANNEL_PAGE: (parse_related_artist, norm.profile),
+    PLAYLIST_PAGE: (parse_playlist, norm.playlist),
+    PODCAST_PAGE: (parse_podcast, norm.podcast),
+}
+
+
+def _two_row(data):
+    endpoint = _endpoint(data)
+    browse = browse_endpoint(endpoint)
+    if browse:
+        page_type = browse["pageType"]
+        if page_type == EPISODE_PAGE:
+            overlay = nav(data, ["thumbnailOverlay", "musicItemThumbnailOverlayRenderer", "content",
+                                 "musicPlayButtonRenderer", "playNavigationEndpoint"], True)
+            return norm.episode(dict(_episode_subtitle(nav(data, ["subtitle", "runs"], True)),
+                                     videoId=(watch_endpoint(overlay) or {}).get("videoId"),
+                                     title=nav(data, TITLE_TEXT, True), browseId=browse["browseId"],
+                                     thumbnails=nav(data, THUMBNAIL_RENDERER, True)))
+        if page_type not in _TWO_ROW:
+            return None
+        parser, normalizer = _TWO_ROW[page_type]
+        try:
+            parsed = parser(data)
+        except (KeyError, IndexError, TypeError):
+            # Some items carry the endpoint on the item rather than on the title.
+            parsed = {"title": nav(data, TITLE_TEXT, True), "browseId": browse["browseId"],
+                      "thumbnails": nav(data, THUMBNAIL_RENDERER, True)}
+        return normalizer(parsed)
+    if "watchPlaylistEndpoint" in endpoint:
+        return norm.playlist(parse_watch_playlist(data))
+    if "watchEndpoint" in endpoint:
+        song = parse_song(data)
+        song["videoType"] = nav(endpoint, ["watchEndpoint", *VIDEO_TYPE], True)
+        return norm.track(song)
+    return None
+
+
+# "2 min 56 sec", "1 hr 5 min", "45 sec": an episode's length in a subtitle.
+_LENGTH = re.compile(r"^(?:(\d+)\s*hrs?\s*)?(?:(\d+)\s*mins?\s*)?(?:(\d+)\s*secs?)?$")
+
+
+def _length(value):
+    match = _LENGTH.match(value.strip()) if isinstance(value, str) else None
+    if not match or not any(match.groups()):
+        return None
+    hours, minutes, seconds = (int(part or 0) for part in match.groups())
+    return hours * 3600 + minutes * 60 + seconds
+
+
+def _episode_subtitle(runs):
+    """Credit, length and date of an episode's subtitle runs.
+
+    A run that links to a page is the credit (a podcast, or the artist or
+    channel that posted it); a length like "2 min 56 sec" is the duration;
+    the remaining text (e.g. "Mar 3, 2025") is the date.
+    """
+    out = {"artists": [], "podcast": None, "duration_seconds": None, "date": None}
+    dates = []
+    for run in runs or []:
+        if not isinstance(run, dict):
+            continue
+        value = (run.get("text") or "").strip()
+        browse = browse_endpoint(run.get("navigationEndpoint"))
+        if browse and value:
+            credit = {"name": value, "id": browse["browseId"]}
+            if browse["pageType"] == PODCAST_PAGE:
+                out["podcast"] = out["podcast"] or credit
+            else:
+                out["artists"].append(credit)
+        elif value and value != "\u2022":
+            length = _length(value)
+            if length is not None and out["duration_seconds"] is None:
+                out["duration_seconds"] = length
+            else:
+                dates.append(value)
+    out["date"] = " \u2022 ".join(dates) or None
+    return out
+
+
+def _column_text(data, index):
+    column = get_flex_column_item(data, index)
+    return text(column.get("text")) if column else None
+
+
+def _list_row(data):
+    """A musicResponsiveListItemRenderer: a track, or a row that opens a page."""
+    browse = browse_endpoint(data.get("navigationEndpoint"))
+    if browse is None:
+        play = nav(data, [*PLAY_BUTTON, "playNavigationEndpoint"], True)
+        if nav(data, ["playlistItemData", "videoId"], True) or watch_endpoint(play) or \
+                nav(data, ["flexColumns", 0, "musicResponsiveListItemFlexColumnRenderer", "text", "runs", 0,
+                           "navigationEndpoint", "watchEndpoint"], True):
+            parsed = parse_playlist_item(data)
+            return norm.track(parsed) if parsed else None
+        return None
+    page_type = browse["pageType"]
+    if page_type in (ARTIST_PAGE, LIBRARY_ARTIST_PAGE, USER_CHANNEL_PAGE):
+        parsed = parse_artists([{MRLIR: data}])[0]
+        return norm.profile(parsed) if page_type == USER_CHANNEL_PAGE else norm.artist(parsed)
+    title = _column_text(data, 0)
+    subtitle_runs = nav(get_flex_column_item(data, 1) or {}, ["text", "runs"], True) or []
+    credits = [{"name": run.get("text"), "id": nav(run, ["navigationEndpoint", "browseEndpoint", "browseId"], True)}
+               for run in subtitle_runs if isinstance(run, dict) and "navigationEndpoint" in run]
+    basic = {"title": title, "browseId": browse["browseId"], "thumbnails": nav(data, THUMBNAILS, True)}
+    if page_type in ALBUM_PAGES:
+        return norm.album(dict(basic, artists=credits))
+    if page_type == PLAYLIST_PAGE:
+        return norm.playlist(dict(basic, author=credits or None))
+    if page_type == PODCAST_PAGE:
+        return norm.podcast(dict(basic, channel=credits[0] if credits else None))
+    if page_type == EPISODE_PAGE:
+        play = nav(data, [*PLAY_BUTTON, "playNavigationEndpoint"], True)
+        return norm.episode(dict(basic, videoId=(watch_endpoint(play) or {}).get("videoId"),
+                                 podcast=credits[0] if credits else None))
+    return None
+
+
+# ---- menus ------------------------------------------------------------------------
+
+
+_MENU_RENDERERS = ("menuServiceItemRenderer", "toggleMenuServiceItemRenderer", "menuNavigationItemRenderer")
+_ENDPOINT_KEYS = ("serviceEndpoint", "defaultServiceEndpoint", "navigationEndpoint")
+
+
+def menu_token(menu, icons):
+    """The feedback token of the first menu entry whose icon is one of ``icons``.
+
+    ``menu`` is a ``menuRenderer``, an item carrying ``menu``, or the items
+    list. Entries are matched by icon type, never by their (localized) text.
+    """
+    if isinstance(menu, dict) and "menu" in menu:
+        menu = menu["menu"]
+    if isinstance(menu, dict):
+        menu = (menu.get("menuRenderer") or menu).get("items")
+    wanted = {icons} if isinstance(icons, str) else set(icons)
+    for entry in menu or []:
+        if not isinstance(entry, dict):
+            continue
+        renderer = next((entry[k] for k in _MENU_RENDERERS if isinstance(entry.get(k), dict)), None)
+        if renderer is None:
+            continue
+        icon = nav(renderer, ["icon", "iconType"], True) or nav(renderer, ["defaultIcon", "iconType"], True)
+        if icon not in wanted:
+            continue
+        for key in _ENDPOINT_KEYS:
+            token = nav(renderer, [key, "feedbackEndpoint", "feedbackToken"], True)
+            if token:
+                return token
+    return None

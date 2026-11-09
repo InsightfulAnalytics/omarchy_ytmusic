@@ -24,3 +24,12 @@ def config_dir(tmp_path, monkeypatch):
     path = tmp_path / "ytm-config"
     monkeypatch.setenv("YTM_CONFIG_DIR", str(path))
     return path
+
+
+@pytest.fixture(autouse=True)
+def private_cache_dir(tmp_path, monkeypatch):
+    # A Worker built without a cache uses the real one; tests must never read,
+    # clear or record into ~/.cache/omarchy-ytmusic.
+    path = tmp_path / "ytm-cache"
+    monkeypatch.setenv("YTM_CACHE_DIR", str(path))
+    return path

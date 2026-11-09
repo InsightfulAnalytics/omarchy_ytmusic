@@ -147,7 +147,7 @@ after it closes.
 | `manifest.json` | Omarchy plugin manifest (service + bar widget) |
 | `Service.qml` | State, mpv and worker connections, `ytmusic` IPC target |
 | `MpvClient.qml` | mpv JSON IPC client: request ids, observers, reconnects, starts the player |
-| `Backend.qml` | ytmusicapi worker process: lazy start, request/callback, retry once |
+| `Backend.qml` | ytmusicapi worker process: lazy start, request/callback, retry once (never for edits) |
 | `YtmModel.js` | Pure helpers (queue commands, queue model, formatting); shared with Node tests |
 | `BarWidget.qml` | Bar icon / now-playing, one per monitor; loads and unloads the panel |
 | `Panel.qml` | The dropdown (Omarchy `KeyboardPanel`): now playing + queue, keyboard control |
@@ -155,9 +155,14 @@ after it closes.
 | `components/` | `NowPlayingView`, `QueueView`, `SearchView`, `LibraryView`, `HomeView`, `CollectionView`, `PlaylistPicker`, `SignInCard`, `ResultList`, `TrackRow`, `CollectionRow`, `CoverArt` |
 | `bin/ytm-mpv` | Starts/stops the detached mpv player (systemd user unit) |
 | `mpv/ytm-idle.lua` | Quits mpv after it has idled or been paused too long |
-| `backend/ytm.py` | ytmusicapi worker (`serve`) and CLI; PEP 723 script run with `uv` |
-| `backend/ytm_normalize.py` | Turns ytmusicapi responses into stable Track/Album/Playlist/Artist/Collection shapes |
-| `backend/ytm_auth.py` | Session files and sign-in (Chromium cookie import, pasted headers) |
+| `backend/ytm.py` | ytmusicapi worker (`serve`) and CLI; PEP 723 script run with `uv`; merges the area modules' method tables |
+| `backend/ytm_proto.py` | `WorkerError` and parameter helpers shared by the worker and its area modules |
+| `backend/ytm_pages.py` | Continuation paging (`fetch`) and the generic See all reader (`browsePage`) |
+| `backend/ytm_raw.py` | Raw responses beside ytmusicapi's: per-thread capture, rows with See all/Play all endpoints, items by page type, HTTP counts |
+| `backend/ytm_normalize.py` | Turns ytmusicapi responses into stable Track/Album/Playlist/Artist/Collection/Page shapes |
+| `backend/ytm_auth.py` | Session files and sign-in (Chromium cookie import, pasted headers); the signed-out client |
+| `backend/ytm_cache.py` | Response cache (schema-prefixed, cursor-free) and cover thumbnails |
+| `backend/ytm_streams.py` | Stream URLs through in-process yt-dlp (signed out, or with the account) |
 | `bin/ytm` | CLI wrapper (`uv run --script backend/ytm.py`, no bytecode) |
 | `scripts/test.sh` | Fixture secrets check + node + pytest, without caches |
 | `scripts/mem.sh` | PSS report: shell, mpv unit, worker |
@@ -189,6 +194,9 @@ bin/ytm auth --paste              # fallback: paste request headers of a /browse
 bin/ytm whoami | logout
 bin/ytm search daft punk --filter songs
 bin/ytm call libraryPlaylists '{"limit": 5}'
+bin/ytm call album '{"browseId": "MPREb_yXhSI4FCUo6", "cache": "prefer"}' --reply   # whole reply: cached, http, ms
+YTM_DEBUG=1 bin/ytm call browsePage '{"browseId": "FEmusic_new_releases_albums"}'   # logs method, outcome, http, ms
+bin/ytm record artist '{"channelId": "UC..."}' tests/fixtures/artist.json            # signed out, scrubbed
 bin/ytm selftest --online
 scripts/test.sh
 ```
@@ -233,24 +241,94 @@ Checked in Phase 7 (2026-09-11):
 ## Worker protocol
 
 The shell runs `bin/ytm serve` and talks JSON lines over stdin/stdout. The
-worker exits on stdin EOF or after 180 s without requests. Requests are
-answered in order, except `resolve` and `suggestions`, which run on their
-own threads so a stream lookup or a completion never waits for (or delays)
-the requests around it.
+worker exits on stdin EOF, or after 180 s without requests once no lane is
+busy. Requests are answered in order, except those of methods that run on a
+lane (a background thread per lane, one request at a time): `resolve`
+(streams), `suggestions` (suggest) and `browsePage` (pages); `upload` and
+`report` are reserved. A lane never waits for, or delays, the requests
+around it, and a `"cache": "prefer"` request for a laned method is answered
+from disk before it reaches its lane.
 
 ```jsonc
 {"id":1,"method":"search","params":{"query":"daft punk","filter":"songs"}}
-{"id":1,"ok":true,"result":{"items":[…]},"ms":612}
-{"id":1,"ok":false,"error":{"code":"AUTH_EXPIRED","message":"…","retryable":false},"ms":120}
-{"event":"ready","protocol":1,"version":"0.1.0","ytmusicapi":"1.12.2","auth":"ok"}
+{"id":1,"ok":true,"result":{"items":[…]},"ms":612,"http":1}
+{"id":1,"ok":false,"error":{"code":"AUTH_EXPIRED","message":"…","retryable":false},"ms":120,"http":1}
+{"event":"ready","protocol":1,"version":"1.0.0","ytmusicapi":"1.12.2","auth":"ok","mutates":["addToPlaylist",…]}
 ```
 
-Methods: `ping`, `hello`, `reloadAuth`, `verifyAuth`, `search`, `suggestions`, `home`,
-`history`, `libraryPlaylists`, `playlist`, `liked`, `album`, `artist`, `song`,
-`upNext` (autoplay), `likeStatus`, `rate`, `createPlaylist`, `addToPlaylist`, `removeFromPlaylist`,
-`deletePlaylist`, `shutdown`. Error codes: `AUTH_REQUIRED`, `AUTH_EXPIRED`,
-`BAD_REQUEST`, `NOT_FOUND`, `NETWORK`, `RATE_LIMITED` (retryable), `UPSTREAM`
-(unexpected response; ytmusicapi may need an update), `INTERNAL`.
+Methods: `ping`, `hello`, `reloadAuth`, `verifyAuth`, `configure`, `search`,
+`suggestions`, `home`, `history`, `libraryPlaylists`, `playlist`, `liked`,
+`album`, `artist`, `song`, `browsePage`, `upNext` (autoplay), `resolve`,
+`warmStreams`, `cacheThumbs`, `likeStatus`, `rate`, `createPlaylist`,
+`addToPlaylist`, `removeFromPlaylist`, `deletePlaylist`, `shutdown`. Error
+codes: `AUTH_REQUIRED`, `AUTH_EXPIRED`, `BAD_REQUEST`, `NOT_FOUND`, `NETWORK`,
+`RATE_LIMITED` (retryable), `UPSTREAM` (unexpected response; ytmusicapi may
+need an update), `INTERNAL`.
+
+- **Registry.** The core methods live in `backend/ytm.py`; each area module
+  `backend/ytm_<area>.py` (listed in `AREA_MODULES`) exports `METHODS`,
+  `CACHEABLE`, `LANES`, `INVALIDATES`, `RECORDERS`, `MUTATES` and optionally
+  `SETTINGS`, `CLIENT_SETTINGS` and `NO_INVALIDATES`. The worker merges them
+  at import and refuses to start on a name registered twice. A test keeps
+  this list of methods complete.
+- **`http`.** Every reply counts the HTTP requests it made through the
+  YouTube Music client (0 for a cache hit). yt-dlp's requests (`resolve`)
+  and cover downloads (`cacheThumbs`) go around it and are not counted.
+  `YTM_DEBUG=1` logs `<method> ok|<code> http=N ms=M` to stderr per request,
+  never its params.
+- **Cache.** For cacheable methods, `params.cache` is `prefer` (answer from
+  disk when possible; the reply has `cached` and `age`), `refresh` or
+  `bypass` (default). Edits drop what they make stale (`INVALIDATES`
+  triples `(method, srcKey, dstKey)`; srcKey may be a param, `None` for every
+  entry, or `Fixed` values / a `Prefixed` param from `ytm_proto`), and a read
+  that overlapped an edit or a sign-in change is not stored. A playlist edit
+  also drops the `browsePage` of `VL<playlistId>` and of the library's
+  playlist pages; a rating drops those of `VLLM` and `FEmusic_liked_videos`.
+- **Edits.** Methods in `MUTATES` (also sent in the `ready` event) are never
+  re-sent after a worker exit. The shell sends them with `retry: false`; a
+  worker exit or a timeout then fails them with `"unknown": true` in the
+  error, and the shell refreshes what they touched instead of rolling back.
+- **Pages.** Long lists come in pages. A reply that has more carries an
+  opaque `cursor`; pass it back unchanged (with the same other params) for
+  the next page. Cursors are tokens bound to the account: they are never
+  logged, recorded or written to the disk cache, so a cached first page has
+  `cursor: null` and `hasMore: true` (refresh it before loading more). A
+  request with a cursor is never cached.
+- **Sort orders.** A page with a sort menu lists it as `orders`
+  (`[{index, title, selected}]`, titles exactly as served) and the current
+  one as `order`; send `order: <index>` to re-sort. An order the page does not
+  offer is `BAD_REQUEST`. On library pages (`FEmusic_liked_*`,
+  `FEmusic_library_*`) YouTube saves the choice on the account: later
+  requests without `order`, `libraryPlaylists` and the web app all get the
+  new order. So such a request is a settings change, and the worker drops
+  the cached copies of that page (in every order) and of `libraryPlaylists`.
+  Other pages, such as an artist's discography, are re-sorted for that reply
+  only.
+- **Page shape** (`browsePage` and later destinations):
+  `{type: "page", v: 2, kind, id, title, subtitle, thumb, thumbLarge, round,
+  header, sections, cursor, hasMore, orders, order, message}`, where each
+  section is `{type: "section", title, items, more, play, layout}`: `more` is
+  its See all endpoint `{browseId, params, pageType}`, `play` its Play all
+  endpoint `{videoId, playlistId, params}`, `layout` one of `carousel`,
+  `shelf`, `grid`, `description`. Items are the usual normalized shapes plus
+  `podcast`, `profile`, `channel` and tracks of kind `episode`. The reply to
+  a cursor request holds only the new sections (for a grid or shelf page, one
+  section whose items continue the last one). `message` is the text of an
+  empty page.
+- **`browsePage({browseId, params?, cursor?, order?})`** reads any browse
+  endpoint: a grid gives one section of items, a music shelf one section of
+  tracks, carousels one section each, a message an empty page.
+- **`configure(settings)`** is sent first after every worker start (the
+  shell's `Backend.configureParams`). Each key is validated by the module
+  that owns it; unknown keys are ignored and listed in `ignored`. A key that
+  changes the client rebuilds it and clears the cache. The client settings
+  the cache was made with are recorded beside it (`data/client-settings`)
+  and a new worker starts with them, so the configure after a restart that
+  repeats them neither rebuilds the client nor clears the cache.
+- **`resolve({videoId, account?})`** says which yt-dlp instance it used
+  (`account: true|false`); without a saved session it is always signed out.
+- **Fixtures.** `bin/ytm record` always uses a signed-out client and drops
+  token, continuation, cursor, jct, feedback and onBehalfOfUser keys.
 
 An expired session doesn't fail cleanly at YouTube (the library just comes
 back empty), so the worker checks the account once before the first library

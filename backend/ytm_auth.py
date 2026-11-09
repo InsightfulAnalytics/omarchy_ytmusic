@@ -18,6 +18,7 @@ import json
 import os
 import shutil
 import tempfile
+import threading
 import time
 from pathlib import Path
 
@@ -72,6 +73,24 @@ def _ytmusic_class():
     from ytmusicapi import YTMusic
 
     return YTMusic
+
+
+_anonymous = None
+_anonymous_lock = threading.Lock()
+
+
+def anonymous_client(factory=None):
+    """A signed-out English client, built on first use and then reused.
+
+    Fixtures are recorded with it (so they can never hold the account's
+    library), and it serves what YouTube only answers without a session.
+    """
+    global _anonymous
+    with _anonymous_lock:
+        if _anonymous is None:
+            make = factory or _ytmusic_class()
+            _anonymous = make(language="en")
+        return _anonymous
 
 
 def load_client(factory=None):

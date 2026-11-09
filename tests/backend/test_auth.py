@@ -191,3 +191,29 @@ def test_logout_removes_session(config_dir, monkeypatch):
     assert sorted(auth.logout()) == sorted(auth.SESSION_FILES)
     assert auth.whoami() is None
     assert auth.logout() == []
+
+
+def test_anonymous_client_has_no_auth_and_english(monkeypatch, config_dir):
+    from ytmusicapi.auth.types import AuthType
+
+    monkeypatch.setattr(auth, "_anonymous", None)
+    config_dir.mkdir(parents=True)
+    (config_dir / "browser.json").write_text("{}")  # a saved session must not matter
+    client = auth.anonymous_client()
+    assert client.auth_type == AuthType.UNAUTHORIZED
+    assert client.language == "en" and client.context["context"]["client"]["hl"] == "en"
+    assert "onBehalfOfUser" not in client.context["context"]["user"]
+    assert auth.anonymous_client() is client, "built once, then reused"
+
+
+def test_anonymous_client_uses_the_factory_once(monkeypatch):
+    made = []
+
+    def make(**kwargs):
+        made.append(kwargs)
+        return SimpleNamespace(**kwargs)
+
+    monkeypatch.setattr(auth, "_anonymous", None)
+    first = auth.anonymous_client(factory=make)
+    assert auth.anonymous_client(factory=make) is first
+    assert made == [{"language": "en"}]

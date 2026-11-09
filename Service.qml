@@ -533,6 +533,27 @@ Item {
     Quickshell.execDetached(["omarchy-notification-send", "--app-name", "YouTube Music", "-t", "2500", title, body || ""])
   }
 
+  // ---- edits -------------------------------------------------------------------------
+  // Edits go to the worker with retry: false. When one fails with
+  // error.unknown (the worker exited or timed out after it was sent), it may
+  // have been applied: refresh what it touched instead of rolling back.
+  readonly property var noRetry: ({ retry: false })
+
+  function unsure(reply) {
+    return !!reply && !reply.ok && !!reply.error && reply.error.unknown === true
+  }
+
+  // touched: [{ kind: "playlist" | "liked" | "library" | "like", id }]
+  function refreshUnsure(touched, body) {
+    for (var i = 0; i < touched.length; i++) {
+      var t = touched[i]
+      if (t.kind === "library") storeItem.loadLibrary(true)
+      else if (t.kind === "like") refreshLikeOf(t.id)
+      else storeItem.forgetCollection(t.kind, t.id)
+    }
+    notify("Not sure the change applied; refreshed", body || "")
+  }
+
   onAuthStateChanged: {
     if ((authState === "expired" || authState === "invalid") && !expiryNotified) {
       expiryNotified = true
@@ -548,7 +569,8 @@ Item {
     return track ? storeItem.likeStatus(track.videoId, track.likeStatus) : null
   }
 
-  function setLike(track, like) {
+  // callback(reply) is optional; it runs after the store has been updated.
+  function setLike(track, like, callback) {
     if (!track || !track.videoId) return false
     if (!signedIn) {
       fail("Sign in to like songs")
@@ -558,14 +580,17 @@ Item {
     var rating = like ? "LIKE" : "INDIFFERENT"
     storeItem.setLike(track.videoId, rating)
     backend.request("rate", { videoId: track.videoId, rating: rating }, function(reply) {
-      if (!reply.ok) {
+      if (root.unsure(reply)) {
+        root.refreshUnsure([{ kind: "liked", id: "LM" }, { kind: "like", id: track.videoId }], Model.mediaTitle(track))
+      } else if (!reply.ok) {
         storeItem.setLike(track.videoId, previous)
         root.fail(reply.error.message)
-        return
+      } else {
+        storeItem.forgetCollection("liked", "LM")
+        root.notify(like ? "Liked" : "Removed from Liked Music", Model.mediaTitle(track))
       }
-      storeItem.forgetCollection("liked", "LM")
-      root.notify(like ? "Liked" : "Removed from Liked Music", Model.mediaTitle(track))
-    })
+      if (callback) callback(reply)
+    }, undefined, noRetry)
     return true
   }
 
@@ -577,8 +602,12 @@ Item {
   function refreshLikeStatus() {
     var track = currentTrack
     if (!signedIn || !track || likeStatusOf(track) !== null) return
-    backend.request("likeStatus", { videoId: track.videoId }, function(reply) {
-      if (reply.ok && reply.result.likeStatus) storeItem.setLike(track.videoId, reply.result.likeStatus)
+    refreshLikeOf(track.videoId)
+  }
+
+  function refreshLikeOf(videoId) {
+    backend.request("likeStatus", { videoId: videoId }, function(reply) {
+      if (reply.ok && reply.result.likeStatus) storeItem.setLike(videoId, reply.result.likeStatus)
     })
   }
 
@@ -594,11 +623,13 @@ Item {
       if (reply.ok) {
         storeItem.loadLibrary(true)
         root.notify("Playlist created", ids.length ? name + " — " + ids.length + (ids.length === 1 ? " song" : " songs") : name)
+      } else if (root.unsure(reply)) {
+        root.refreshUnsure([{ kind: "library" }], name)
       } else {
         root.fail(reply.error.message)
       }
       if (callback) callback(reply)
-    }, 30000)
+    }, 30000, noRetry)
     return true
   }
 
@@ -609,11 +640,13 @@ Item {
       if (reply.ok) {
         storeItem.forgetCollection("playlist", playlist.playlistId)
         root.notify("Added to " + playlist.title, list.length === 1 ? Model.mediaTitle(list[0]) : list.length + " songs")
+      } else if (root.unsure(reply)) {
+        root.refreshUnsure([{ kind: "playlist", id: playlist.playlistId }, { kind: "library" }], playlist.title)
       } else {
         root.fail(reply.error.message)
       }
       if (callback) callback(reply)
-    }, 30000)
+    }, 30000, noRetry)
     return true
   }
 
@@ -623,9 +656,10 @@ Item {
     if (!signedIn || !playlistId || items.length === 0) return false
     backend.request("removeFromPlaylist", { playlistId: playlistId, items: items }, function(reply) {
       if (reply.ok) storeItem.forgetCollection("playlist", playlistId)
+      else if (root.unsure(reply)) root.refreshUnsure([{ kind: "playlist", id: playlistId }, { kind: "library" }])
       else root.fail(reply.error.message)
       if (callback) callback(reply)
-    }, 30000)
+    }, 30000, noRetry)
     return true
   }
 
@@ -636,11 +670,13 @@ Item {
         storeItem.forgetCollection("playlist", playlist.playlistId)
         storeItem.loadLibrary(true)
         root.notify("Playlist deleted", playlist.title || "")
+      } else if (root.unsure(reply)) {
+        root.refreshUnsure([{ kind: "playlist", id: playlist.playlistId }, { kind: "library" }], playlist.title)
       } else {
         root.fail(reply.error.message)
       }
       if (callback) callback(reply)
-    }, 30000)
+    }, 30000, noRetry)
     return true
   }
 

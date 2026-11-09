@@ -177,3 +177,44 @@ def test_home_items_dispatch_by_shape():
 def test_account():
     assert norm.account({"accountName": "N", "channelHandle": "@n", "accountPhotoUrl": "u"}) == \
         {"name": "N", "handle": "@n", "photo": "u"}
+
+
+# ---- protocol v2 shapes ----------------------------------------------------------------
+
+
+def test_is_mix_and_strip_mpla():
+    assert norm.is_mix("RDAMVMnbCOAPR33ME") and norm.is_mix("VLRDTMAK5uy_x") and norm.is_mix("RDAMPLOLAK5uy_x")
+    assert not norm.is_mix("RDCLAK5uy_curated") and not norm.is_mix("RDPN") and not norm.is_mix("PLabc")
+    assert not norm.is_mix(None)
+    assert norm.strip_mpla("MPLAUCr_iyUANcn9OX_yy9piYoLw") == "UCr_iyUANcn9OX_yy9piYoLw"
+    assert norm.strip_mpla("UCx") == "UCx" and norm.strip_mpla(None) is None
+    assert norm.artist({"browseId": "MPLAUCx", "artist": "Someone"})["channelId"] == "UCx"
+
+
+def test_page_section_and_more_shapes():
+    section = norm.section("Albums", [{"type": "album"}], {"browseId": "MPADUC1", "params": "p", "pageType": None},
+                           None, "carousel")
+    assert section == {"type": "section", "title": "Albums", "items": [{"type": "album"}],
+                       "more": {"browseId": "MPADUC1", "params": "p", "pageType": None}, "play": None,
+                       "layout": "carousel"}
+    page = norm.page("browse", "FEx", "New releases", sections=[section], cursor="c.T")
+    assert page["type"] == "page" and page["v"] == 2 and page["hasMore"] is True and page["round"] is False
+    assert set(page) == {"type", "v", "kind", "id", "title", "subtitle", "thumb", "thumbLarge", "round", "header",
+                         "sections", "cursor", "hasMore", "orders", "order", "message"}
+    assert norm.page("browse", "FEx", None)["hasMore"] is False
+    assert norm.more("See all", {"browseId": "VLPL1", "params": None}, 30) == {
+        "type": "more", "title": "See all", "endpoint": {"browseId": "VLPL1", "params": None, "pageType": None},
+        "count": 30}
+
+
+def test_podcast_episode_profile_channel_shapes():
+    podcast = norm.podcast({"title": "Song Exploder", "browseId": "MPSPPLx", "channel": {"id": "UCh", "name": "H"}})
+    assert podcast["type"] == "podcast" and podcast["podcastId"] == "PLx" and podcast["authorText"] == "H"
+    episode = norm.episode({"videoId": "e1", "title": "Ep", "browseId": "MPEDe1", "date": "Oct 1",
+                            "podcast": {"id": "MPSPPLx", "name": "Song Exploder"}, "duration": "1:02:03"})
+    assert episode["type"] == "track" and episode["kind"] == "episode" and episode["durationSec"] == 3723
+    assert episode["podcast"] == {"name": "Song Exploder", "id": "MPSPPLx"} and episode["artistText"] == "Song Exploder"
+    profile = norm.profile({"title": "A listener", "browseId": "UCu", "subscribers": "12"})
+    assert profile == {"type": "profile", "channelId": "UCu", "name": "A listener", "subtitle": "12",
+                       "thumb": None, "thumbLarge": None}
+    assert norm.channel({"artist": "A channel", "browseId": "UCc"})["type"] == "channel"

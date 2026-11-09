@@ -3,6 +3,7 @@ import stat
 import time
 
 import pytest
+import requests
 
 import ytm
 import ytm_cache as caches
@@ -180,3 +181,213 @@ def test_serve_reports_background_thumbs_as_events(config_dir, tmp_path, monkeyp
     assert reply["ok"] and reply["result"] == {"paths": {}, "pending": 0}
     proc.stdin.close()
     assert proc.wait(timeout=5) == 0
+
+
+# ---- schema, cursors, guards (protocol v2) -------------------------------------------
+
+
+def test_schema_prefix_ignores_old_files_and_invalidate_matches_only_new(cache):
+    cache.put("playlist", {"playlistId": "P1"}, {"title": "new"})
+    assert all(p.name.startswith("v2-") for p in cache.dir.glob("*.json"))
+    old = cache.dir / "playlist-0123456789abcdef0123.json"
+    old.write_text(json.dumps({"method": "playlist", "params": {"playlistId": "P1"}, "at": time.time(),
+                               "result": {"title": "old"}}))
+    other = cache.dir / "v2-playlistExtra-0123456789abcdef0123.json"
+    other.write_text("{}")
+    assert cache.get("playlist", {"playlistId": "P1"})[0] == {"title": "new"}
+    cache.invalidate("playlist", {"playlistId": "P1"})
+    assert old.exists(), "invalidate's glob only matches current-schema files"
+    assert other.exists(), "and only the named method"
+    cache.put("liked", {}, {})
+    assert not old.exists(), "pruning drops files of an older schema"
+
+
+def test_max_files():
+    assert caches.DiskCache.MAX_FILES == 400
+
+
+def test_put_strips_cursors(cache):
+    page = {"type": "page", "cursor": "c.SECRET", "hasMore": True,
+            "sections": [{"type": "section", "items": [], "cursor": "c.INNER"}]}
+    cache.put("browsePage", {"browseId": "FEx", "cursor": "c.PARAM"}, page)
+    text = "".join(p.read_text() for p in cache.dir.glob("*.json"))
+    assert "SECRET" not in text and "INNER" not in text and "PARAM" not in text
+    stored = cache.get("browsePage", {"browseId": "FEx", "cursor": "c.PARAM"})[0]
+    assert stored["cursor"] is None and stored["hasMore"] is True
+    cache.put("browsePage", {"browseId": "FEy"}, {"cursor": None, "hasMore": False})
+    assert cache.get("browsePage", {"browseId": "FEy"})[0] == {"cursor": None, "hasMore": False}
+
+
+def test_invalidation_triples_map_source_to_destination_keys(cache, monkeypatch):
+    monkeypatch.setitem(ytm.INVALIDATES, "subscribe", [("artist", "pageChannelId", "channelId")])
+    monkeypatch.setitem(ytm.METHODS, "subscribe", lambda worker, params: {"ok": True})
+    cache.put("artist", {"channelId": "UC1"}, {"name": "one"})
+    cache.put("artist", {"channelId": "UC2"}, {"name": "two"})
+    worker = ytm.Worker(Upstream(), "ok", cache=cache)
+    assert request(worker, "subscribe", pageChannelId="UC1")["ok"]
+    assert cache.get("artist", {"channelId": "UC1"}) is None
+    assert cache.get("artist", {"channelId": "UC2"}) is not None
+    assert request(worker, "subscribe")["ok"]
+    assert cache.get("artist", {"channelId": "UC2"}) is None, "no source value: drop them all"
+
+
+def test_epoch_guard_skips_a_put_that_started_before_an_invalidation(cache):
+    epoch = cache.epoch("playlist")
+    cache.invalidate("playlist", {"playlistId": "P"})
+    assert cache.put("playlist", {"playlistId": "P"}, {"title": "stale"}, epoch=epoch) is False
+    assert cache.get("playlist", {"playlistId": "P"}) is None
+    epoch = cache.epoch("playlist")
+    cache.clear()
+    assert cache.put("playlist", {"playlistId": "P"}, {"title": "stale"}, epoch=epoch) is False
+    assert cache.put("playlist", {"playlistId": "P"}, {"title": "fresh"}, epoch=cache.epoch("playlist"))
+
+
+class EditDuringRead(Upstream):
+    """get_playlist runs a callback mid-read, as an edit on another lane would."""
+
+    def __init__(self, during):
+        super().__init__()
+        self.during = during
+
+    def get_playlist(self, playlist_id, limit=200):
+        result = super().get_playlist(playlist_id, limit)
+        self.during()
+        return result
+
+
+def test_a_read_that_overlaps_an_edit_is_not_cached(cache):
+    worker = None
+    upstream = EditDuringRead(lambda: worker.handle({"id": 2, "method": "addToPlaylist",
+                                                     "params": {"playlistId": "P", "videoIds": ["v"]}}))
+    worker = ytm.Worker(upstream, "ok", cache=cache)
+    reply = request(worker, "playlist", playlistId="P", cache="refresh")
+    assert reply["ok"] and reply["cached"] is False
+    assert cache.get("playlist", {"playlistId": "P"}) is None, "the edit made this read stale"
+    upstream.during = lambda: None
+    request(worker, "playlist", playlistId="P", cache="refresh")
+    assert cache.get("playlist", {"playlistId": "P"}) is not None
+
+
+def test_a_read_that_overlaps_an_account_change_is_not_cached(cache):
+    worker = None
+
+    def switch():
+        worker.generation += 1  # what load() does when the session changes
+
+    worker = ytm.Worker(EditDuringRead(switch), "ok", cache=cache)
+    assert request(worker, "playlist", playlistId="P", cache="refresh")["ok"]
+    assert cache.get("playlist", {"playlistId": "P"}) is None
+
+
+def test_failed_edit_that_may_have_applied_still_invalidates(cache):
+    class Failing(Upstream):
+        def add_playlist_items(self, playlist_id, video_ids, duplicates=False):
+            raise requests.exceptions.ReadTimeout("slow")
+
+    cache.put("playlist", {"playlistId": "P"}, {"title": "before"})
+    worker = ytm.Worker(Failing(), "ok", cache=cache)
+    assert request(worker, "addToPlaylist", playlistId="P", videoIds=["v"])["error"]["code"] == "NETWORK"
+    assert cache.get("playlist", {"playlistId": "P"}) is None
+
+
+# ---- browsePage pages touched by edits ---------------------------------------------------
+
+
+class BrowseDuringEdit(Upstream):
+    """A browsePage read that runs a callback mid-read, as an edit on the main thread would."""
+
+    def __init__(self, during):
+        super().__init__()
+        self.during = during
+
+    def _send_request(self, endpoint, body, additionalParams=""):
+        self.during()
+        return {"contents": {"singleColumnBrowseResultsRenderer": {"tabs": [{"tabRenderer": {"content": {
+            "sectionListRenderer": {"contents": [{"gridRenderer": {"items": []}}]}}}}]}}}
+
+
+class Editor(Upstream):
+    def remove_playlist_items(self, playlist_id, videos):
+        return "STATUS_SUCCEEDED"
+
+    def rate_song(self, video_id, status):
+        return {}
+
+    def create_playlist(self, title, description, privacy_status=None, video_ids=None):
+        return "PLnew"
+
+    def delete_playlist(self, playlist_id):
+        return "STATUS_SUCCEEDED"
+
+
+def test_core_edits_drop_the_browse_pages_they_change(cache):
+    pages = ("VLPLx", "VLPLother", "FEmusic_liked_playlists", "FEmusic_library_landing", "VLLM",
+             "FEmusic_liked_videos", "FEmusic_new_releases_albums")
+
+    def fill():
+        for browse_id in pages:
+            cache.put("browsePage", {"browseId": browse_id}, {"type": "page", "id": browse_id})
+        cache.put("browsePage", {"browseId": "VLPLx", "order": 1}, {"type": "page"})
+
+    def cached():
+        return {b for b in pages if cache.get("browsePage", {"browseId": b})}
+
+    worker = ytm.Worker(Editor(), "ok", cache=cache)
+    fill()
+    assert request(worker, "addToPlaylist", playlistId="PLx", videoIds=["v"])["ok"]
+    assert cached() == {"VLPLother", "VLLM", "FEmusic_liked_videos", "FEmusic_new_releases_albums"}
+    assert cache.get("browsePage", {"browseId": "VLPLx", "order": 1}) is None, "in every order"
+    fill()
+    assert request(worker, "removeFromPlaylist", playlistId="VLPLx", items=[{"videoId": "v", "setVideoId": "s"}])["ok"]
+    assert "VLPLx" not in cached() and "VLPLother" in cached(), "a VL-prefixed id names the same page"
+    fill()
+    assert request(worker, "rate", videoId="v", rating="LIKE")["ok"]
+    assert cached() == {"VLPLx", "VLPLother", "FEmusic_liked_playlists", "FEmusic_library_landing",
+                        "FEmusic_new_releases_albums"}
+    fill()
+    assert request(worker, "createPlaylist", title="t")["ok"]
+    assert not {"FEmusic_liked_playlists", "FEmusic_library_landing"} & cached() and "VLPLx" in cached()
+    fill()
+    assert request(worker, "deletePlaylist", playlistId="PLx")["ok"]
+    assert cached() == {"VLPLother", "VLLM", "FEmusic_liked_videos", "FEmusic_new_releases_albums"}
+
+
+def test_a_browse_page_read_that_overlaps_an_edit_is_not_cached(cache):
+    worker = None
+    upstream = BrowseDuringEdit(lambda: worker.handle({"id": 2, "method": "addToPlaylist",
+                                                      "params": {"playlistId": "PLx", "videoIds": ["v"]}}))
+    worker = ytm.Worker(upstream, "ok", cache=cache)
+    reply = request(worker, "browsePage", browseId="FEmusic_new_releases_albums", cache="refresh")
+    assert reply["ok"] and reply["cached"] is False
+    assert cache.get("browsePage", {"browseId": "FEmusic_new_releases_albums"}) is None, \
+        "an edit bumps the browsePage epoch, whichever page it drops"
+    upstream.during = lambda: None
+    request(worker, "browsePage", browseId="FEmusic_new_releases_albums", cache="refresh")
+    assert cache.get("browsePage", {"browseId": "FEmusic_new_releases_albums"}) is not None
+
+
+def test_invalidation_sources(cache):
+    assert ytm.invalidation_matches(None, None, {"playlistId": "P"}) == [None]
+    assert ytm.invalidation_matches("playlistId", "playlistId", {"playlistId": "P"}) == [{"playlistId": "P"}]
+    assert ytm.invalidation_matches("playlistId", "playlistId", {}) == [None]
+    prefixed = ytm.Prefixed("VL", "playlistId")
+    assert ytm.invalidation_matches(prefixed, "browseId", {"playlistId": "PL1"}) == [{"browseId": "VLPL1"}]
+    assert ytm.invalidation_matches(prefixed, "browseId", {"playlistId": "VLPL1"}) == [{"browseId": "VLPL1"}]
+    assert ytm.invalidation_matches(prefixed, "browseId", {}) == [None]
+    assert ytm.invalidation_matches(ytm.Fixed("A", "B"), "browseId", {}) == [{"browseId": "A"}, {"browseId": "B"}]
+
+
+# ---- client settings ----------------------------------------------------------------------
+
+
+def test_client_settings_record_survives_clear(cache):
+    assert cache.client_settings() == {}
+    cache.record_client_settings({"location": "AU"})
+    cache.put("album", {"browseId": "X"}, {"title": "kept"})
+    cache.clear()
+    assert cache.client_settings() == {"location": "AU"}, "clear() drops responses, not the record"
+    cache.put("album", {"browseId": "X"}, {"title": "kept"})
+    assert cache.client_settings() == {"location": "AU"}, "pruning leaves it alone"
+    assert oct(mode(cache.dir / caches.DiskCache.SETTINGS_FILE)) == oct(0o600)
+    cache.record_client_settings({})
+    assert cache.client_settings() == {} and not (cache.dir / caches.DiskCache.SETTINGS_FILE).exists()

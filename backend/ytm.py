@@ -15,9 +15,15 @@ shell) or after ``--idle`` seconds without requests (so it costs nothing when
 you are not browsing).
 
     request  {"id": 1, "method": "search", "params": {"query": "..."}}
-    success  {"id": 1, "ok": true, "result": {...}, "ms": 612}
+    success  {"id": 1, "ok": true, "result": {...}, "ms": 612, "http": 1}
     failure  {"id": 1, "ok": false, "error": {"code": "...", "message": "...", "retryable": false}}
     events   {"event": "ready", ...}  {"event": "idle-exit"}
+
+Methods come from this file (the core) and from the area modules in
+AREA_MODULES, each of which exports the same tables (METHODS, CACHEABLE,
+LANES, INVALIDATES, RECORDERS, MUTATES, and optionally SETTINGS,
+CLIENT_SETTINGS and NO_INVALIDATES). They are merged at import; a name
+registered twice is an error.
 """
 
 import sys
@@ -34,50 +40,42 @@ import select  # noqa: E402
 import subprocess  # noqa: E402
 import threading  # noqa: E402
 import time  # noqa: E402
-import traceback  # noqa: E402
 
 import ytm_auth as auth  # noqa: E402
 import ytm_cache as caches  # noqa: E402
 import ytm_normalize as norm  # noqa: E402
+import ytm_pages as pages  # noqa: E402
+import ytm_raw as raw  # noqa: E402
 import ytm_streams as streams  # noqa: E402
+from ytm_proto import (  # noqa: E402, F401 - re-exported for tests and tools
+    Fixed,
+    Prefixed,
+    WorkerError,
+    choice,
+    opt_bool,
+    opt_cursor,
+    opt_int,
+    opt_limit,
+    opt_order,
+    opt_str,
+    req_list,
+    req_str,
+)
 
 PROTOCOL = 1
 VERSION = "1.0.0"
 SEARCH_FILTERS = ("songs", "videos", "albums", "artists", "playlists", "community_playlists", "featured_playlists")
 RATINGS = ("LIKE", "DISLIKE", "INDIFFERENT")
 PRIVACY = ("PRIVATE", "UNLISTED", "PUBLIC")
-
-# Responses kept in the disk cache. Requests pick a mode with params.cache:
-# "prefer" answers from disk when possible (reply has cached/age), "refresh"
-# always asks YouTube and stores the answer, "bypass" (default) neither.
-CACHEABLE = {"libraryPlaylists", "liked", "playlist", "album", "artist", "home", "history"}
-# Methods answered on a background thread ("lane") so they never hold up the
-# requests behind them: a stream lookup takes ~1 s, and completions must show
-# while a search is still running. A lane handles its own requests one at a
-# time, in order; replies carry the request id, so they may overtake each
-# other. (ytmusicapi's requests session is shared with the suggest lane;
-# requests' connection pool and cookie jar are thread-safe.)
-LANES = {"resolve": "streams", "suggestions": "suggest"}
 CACHE_MODES = ("prefer", "refresh", "bypass")
-# What an edit makes stale: (method, param to match or None for all).
-INVALIDATES = {
-    "rate": [("liked", None)],
-    "addToPlaylist": [("playlist", "playlistId"), ("libraryPlaylists", None)],
-    "removeFromPlaylist": [("playlist", "playlistId"), ("libraryPlaylists", None)],
-    "createPlaylist": [("libraryPlaylists", None)],
-    "deletePlaylist": [("playlist", "playlistId"), ("libraryPlaylists", None)],
-}
-
-
-class WorkerError(Exception):
-    def __init__(self, code, message, retryable=False):
-        super().__init__(message)
-        self.code = code
-        self.message = message
-        self.retryable = retryable
-
-    def as_dict(self):
-        return {"code": self.code, "message": self.message, "retryable": self.retryable}
+# Background threads ("lanes") for methods that must not hold up the requests
+# behind them: a stream lookup takes ~1 s, completions must show while a
+# search is still running, long page reads ("pages"), uploads and play
+# reports run beside browsing. A lane handles its own requests one at a time,
+# in order; replies carry the request id, so they may overtake each other.
+# (ytmusicapi's requests session is shared between lanes; requests' connection
+# pool and cookie jar are thread-safe, and ytm_raw keeps its state per thread.)
+KNOWN_LANES = ("streams", "suggest", "pages", "upload", "report")
 
 
 def classify(exc):
@@ -111,39 +109,6 @@ def classify(exc):
     return WorkerError("INTERNAL", f"{type(exc).__name__}: {message}")
 
 
-# ---- parameter helpers --------------------------------------------------------
-
-
-def req_str(params, key):
-    value = params.get(key)
-    if not isinstance(value, str) or not value.strip():
-        raise WorkerError("BAD_REQUEST", f"missing or empty '{key}'")
-    return value.strip()
-
-
-def opt_int(params, key, default, low=1, high=1000):
-    value = params.get(key, default)
-    if value is None:
-        return default
-    if isinstance(value, bool) or not isinstance(value, int):
-        raise WorkerError("BAD_REQUEST", f"'{key}' must be an integer")
-    return max(low, min(high, value))
-
-
-def req_list(params, key):
-    value = params.get(key)
-    if not isinstance(value, list) or not value:
-        raise WorkerError("BAD_REQUEST", f"'{key}' must be a non-empty list")
-    return value
-
-
-def choice(params, key, options, default=None):
-    value = params.get(key, default)
-    if value is None or value in options:
-        return value
-    raise WorkerError("BAD_REQUEST", f"'{key}' must be one of {', '.join(options)}")
-
-
 def _succeeded(result):
     status = result.get("status") if isinstance(result, dict) else result
     return status == "STATUS_SUCCEEDED"
@@ -164,6 +129,25 @@ def m_reload_auth(worker, params):
     worker.load()
     worker.clear_cache()
     return m_hello(worker, params)
+
+
+def m_configure(worker, params):
+    """Store the shell's settings (sent first after every start).
+
+    Each key belongs to the area module that validates it (SETTINGS); unknown
+    keys are ignored and listed. A change to a key in CLIENT_SETTINGS rebuilds
+    the client, which bumps the generation, and clears the cache unless it was
+    made with the new settings (see Worker.configure).
+    """
+    accepted, ignored = {}, []
+    for key, value in params.items():
+        validate = SETTINGS.get(key)
+        if validate is None:
+            ignored.append(key)
+        else:
+            accepted[key] = validate(value)
+    reloaded = worker.configure(accepted)
+    return {"settings": dict(worker.settings), "ignored": sorted(ignored), "reloaded": reloaded}
 
 
 def m_cache_thumbs(worker, params):
@@ -209,10 +193,10 @@ def m_suggestions(worker, params):
     query = req_str(params, "query")
     limit = opt_int(params, "limit", 8, high=20)
     items = []
-    for raw in worker.yt.get_search_suggestions(query, detailed_runs=True) or []:
-        text = raw.get("text") if isinstance(raw, dict) else raw
+    for entry in worker.yt.get_search_suggestions(query, detailed_runs=True) or []:
+        text = entry.get("text") if isinstance(entry, dict) else entry
         if isinstance(text, str) and text.strip():
-            items.append({"text": text.strip(), "fromHistory": bool(isinstance(raw, dict) and raw.get("fromHistory"))})
+            items.append({"text": text.strip(), "fromHistory": bool(isinstance(entry, dict) and entry.get("fromHistory"))})
     return {"items": items[:limit]}
 
 
@@ -265,9 +249,12 @@ def m_warm_streams(worker, params):
 
 def m_resolve(worker, params):
     video_id = req_str(params, "videoId")
+    account = params.get("account")
+    if account is not None and not isinstance(account, bool):
+        raise WorkerError("BAD_REQUEST", "'account' must be true or false")
     worker.wait_for_warm()
     try:
-        return worker.resolver().resolve(video_id)
+        return worker.resolver().resolve(video_id, account=account)
     except streams.StreamError as exc:
         raise WorkerError(exc.code, exc.message, exc.retryable) from exc
 
@@ -348,11 +335,33 @@ def m_delete_playlist(worker, params):
     return {"ok": True}
 
 
-METHODS = {
+# ---- registry -------------------------------------------------------------------
+# The core tables; area modules export the same names. Merged below into
+# METHODS, CACHEABLE, LANES, INVALIDATES, RECORDERS, MUTATES, SETTINGS,
+# CLIENT_SETTINGS and NO_INVALIDATES.
+#
+# CACHEABLE: responses kept in the disk cache. Requests pick a mode with
+#   params.cache: "prefer" answers from disk when possible (reply has
+#   cached/age), "refresh" always asks YouTube and stores the answer, "bypass"
+#   (default) neither. A request with a cursor (a later page) is never cached.
+# LANES: method -> lane (one of KNOWN_LANES).
+# INVALIDATES: what an edit makes stale, as (method, srcKey, dstKey) triples:
+#   cached `method` entries whose params[dstKey] equals this request's
+#   params[srcKey] are dropped (srcKey None: every entry of `method`). srcKey
+#   may also be a ytm_proto source (Fixed values, a Prefixed param) when the
+#   cached key is not a request param as is.
+# MUTATES: methods that change the account. The shell sends them with
+#   retry:false (never re-sent after a worker exit) and refreshes on an
+#   unknown result. Each one has INVALIDATES or a NO_INVALIDATES reason.
+# SETTINGS: configure() keys -> validator; CLIENT_SETTINGS: keys that need a
+#   new client.
+
+CORE_METHODS = {
     "ping": m_ping,
     "hello": m_hello,
     "reloadAuth": m_reload_auth,
     "verifyAuth": m_verify_auth,
+    "configure": m_configure,
     "search": m_search,
     "suggestions": m_suggestions,
     "home": m_home,
@@ -374,6 +383,124 @@ METHODS = {
     "removeFromPlaylist": m_remove_from_playlist,
     "deletePlaylist": m_delete_playlist,
 }
+CORE_CACHEABLE = {"libraryPlaylists", "liked", "playlist", "album", "artist", "home", "history"}
+CORE_LANES = {"resolve": "streams", "suggestions": "suggest"}
+# The browsePage pages the core edits change: a playlist's own page, the
+# library's playlist pages, and the liked songs pages.
+_PLAYLIST_PAGE = ("browsePage", Prefixed("VL", "playlistId"), "browseId")
+_LIBRARY_PAGES = ("browsePage", Fixed("FEmusic_liked_playlists", "FEmusic_library_landing"), "browseId")
+_LIKED_PAGES = ("browsePage", Fixed("VLLM", "FEmusic_liked_videos"), "browseId")
+_PLAYLIST_EDIT = [("playlist", "playlistId", "playlistId"), ("libraryPlaylists", None, None), _PLAYLIST_PAGE,
+                  _LIBRARY_PAGES]
+CORE_INVALIDATES = {
+    "rate": [("liked", None, None), _LIKED_PAGES],
+    "addToPlaylist": _PLAYLIST_EDIT,
+    "removeFromPlaylist": _PLAYLIST_EDIT,
+    "createPlaylist": [("libraryPlaylists", None, None), _LIBRARY_PAGES],
+    "deletePlaylist": _PLAYLIST_EDIT,
+}
+CORE_MUTATES = {"rate", "createPlaylist", "addToPlaylist", "removeFromPlaylist", "deletePlaylist"}
+CORE_RECORDERS = {
+    "search": lambda yt, p: yt.search(p["query"], filter=p.get("filter"), limit=p.get("limit", 20)),
+    "album": lambda yt, p: yt.get_album(p["browseId"]),
+    "artist": lambda yt, p: yt.get_artist(p["channelId"]),
+    "song": lambda yt, p: yt.get_song(p["videoId"]),
+    "watch": lambda yt, p: yt.get_watch_playlist(videoId=p["videoId"], limit=p.get("limit", 25), radio=p.get("radio", False)),
+    "home": lambda yt, p: yt.get_home(limit=p.get("limit", 3)),
+    "playlist": lambda yt, p: yt.get_playlist(p["playlistId"], limit=p.get("limit", 100)),
+}
+
+
+class _Core:
+    METHODS = CORE_METHODS
+    CACHEABLE = CORE_CACHEABLE
+    LANES = CORE_LANES
+    INVALIDATES = CORE_INVALIDATES
+    RECORDERS = CORE_RECORDERS
+    MUTATES = CORE_MUTATES
+
+
+# Area modules, in a fixed order. A slice that rewrites a core method moves it
+# out of the core tables into its module.
+AREA_MODULES = (pages,)
+
+
+def merge_registries(sources):
+    """The merged tables of ``sources``; raises ValueError on a duplicate or a stray name."""
+    merged = {"METHODS": {}, "CACHEABLE": set(), "LANES": {}, "INVALIDATES": {}, "RECORDERS": {},
+              "MUTATES": set(), "SETTINGS": {}, "CLIENT_SETTINGS": set(), "NO_INVALIDATES": {}}
+    owner = {}
+    for source in sources:
+        label = getattr(source, "__name__", repr(source))
+        methods = getattr(source, "METHODS", {})
+        for kind, names in (("method", methods), ("recorder", getattr(source, "RECORDERS", {})),
+                            ("setting", getattr(source, "SETTINGS", {}))):
+            for name in names:
+                if (kind, name) in owner:
+                    raise ValueError(f"{kind} {name!r} is registered by {owner[(kind, name)]} and {label}")
+                owner[(kind, name)] = label
+        for table in ("CACHEABLE", "LANES", "INVALIDATES", "MUTATES", "NO_INVALIDATES"):
+            stray = [name for name in getattr(source, table, ()) if name not in methods]
+            if stray:
+                raise ValueError(f"{label}.{table} names methods it does not register: {stray}")
+        bad_lanes = {n: lane for n, lane in getattr(source, "LANES", {}).items() if lane not in KNOWN_LANES}
+        if bad_lanes:
+            raise ValueError(f"{label}.LANES uses unknown lanes: {bad_lanes}")
+        merged["METHODS"].update(methods)
+        merged["CACHEABLE"] |= set(getattr(source, "CACHEABLE", ()))
+        merged["LANES"].update(getattr(source, "LANES", {}))
+        merged["INVALIDATES"].update(getattr(source, "INVALIDATES", {}))
+        merged["RECORDERS"].update(getattr(source, "RECORDERS", {}))
+        merged["MUTATES"] |= set(getattr(source, "MUTATES", ()))
+        merged["SETTINGS"].update(getattr(source, "SETTINGS", {}))
+        merged["CLIENT_SETTINGS"] |= set(getattr(source, "CLIENT_SETTINGS", ()))
+        merged["NO_INVALIDATES"].update(getattr(source, "NO_INVALIDATES", {}))
+    for name, triples in merged["INVALIDATES"].items():
+        for triple in triples:
+            ok = len(triple) == 3 and triple[0] in merged["CACHEABLE"] and (
+                (triple[1] is None and triple[2] is None)
+                or ((isinstance(triple[1], str) or callable(triple[1])) and isinstance(triple[2], str)))
+            if not ok:
+                raise ValueError(f"INVALIDATES[{name!r}] entry {triple!r} is not (cacheable method, srcKey, dstKey)")
+    return merged
+
+
+def invalidation_matches(src, dst, params):
+    """The cache matches one INVALIDATES triple drops for ``params``; ``[None]`` drops every entry."""
+    if src is None:
+        return [None]
+    if callable(src):
+        values = src(params)
+        values = list(values) if isinstance(values, (list, tuple)) else [values]
+    else:
+        values = [params.get(src)]
+    if not values or any(value is None for value in values):
+        return [None]  # a missing source value drops every entry: too much beats stale
+    return [{dst: value} for value in values]
+
+
+_REGISTRY = merge_registries((_Core, *AREA_MODULES))
+METHODS = _REGISTRY["METHODS"]
+CACHEABLE = _REGISTRY["CACHEABLE"]
+LANES = _REGISTRY["LANES"]
+INVALIDATES = _REGISTRY["INVALIDATES"]
+RECORDERS = _REGISTRY["RECORDERS"]
+MUTATES = _REGISTRY["MUTATES"]
+SETTINGS = _REGISTRY["SETTINGS"]
+CLIENT_SETTINGS = _REGISTRY["CLIENT_SETTINGS"]
+NO_INVALIDATES = _REGISTRY["NO_INVALIDATES"]
+
+
+def describe(exc):
+    """An exception for the log: type and first line, without the response data
+    ytmusicapi's navigation errors append (it may hold tokens)."""
+    message = str(exc).strip().splitlines()[0] if str(exc).strip() else ""
+    message = message.split(" on {", 1)[0].split(" on [", 1)[0]
+    return f"{type(exc).__name__}: {message[:200]}"
+
+
+def debug_enabled():
+    return os.environ.get("YTM_DEBUG") == "1"
 
 
 class Worker:
@@ -384,9 +511,20 @@ class Worker:
         self._warm_thread = None
         self._cache = cache
         self._thumbs = thumbs
+        # Bumped whenever the client is replaced (sign-in, sign-out, a setting
+        # that needs a new client): a lane read that started before must not
+        # cache what it got.
+        self.generation = 0
+        # What configure() last stored; keys belong to area modules (SETTINGS).
+        self.settings = {}
+        # The CLIENT_SETTINGS part of it that self.yt was built with.
+        self.built_with = {}
         # Set by serve(): writes an unsolicited event line (thread-safe).
         self.emit = None
         if client is None:
+            # Start with the client settings the disk cache was made with, so
+            # the configure that follows every start finds nothing to change.
+            self.settings = self.remembered_client_settings()
             self.load()
         else:
             self.yt, self.auth = client, auth_state
@@ -426,19 +564,82 @@ class Worker:
         except OSError as exc:
             norm.log(f"could not clear the cache: {exc}")
 
-    def _after_success(self, name, params, mode, result):
+    def _store(self, name, params, result, guard):
+        """Cache a result unless the account or the method's data changed since the
+        request started (``guard`` = (generation, cache epoch) taken then)."""
+        if guard is None or guard[0] != self.generation:
+            return
         # A cache that can't be written must never fail the request itself.
         try:
-            if name in CACHEABLE and mode in ("prefer", "refresh"):
-                self.cache().put(name, params, result)
-            for method, key in INVALIDATES.get(name, []):
-                self.cache().invalidate(method, {key: params.get(key)} if key else None)
+            self.cache().put(name, params, result, epoch=guard[1])
         except OSError as exc:
             norm.log(f"cache update failed: {exc}")
 
+    def invalidate(self, method, match=None):
+        """Drop cached ``method`` entries whose params contain ``match`` (all when None).
+
+        Also stops any read of ``method`` already under way from being stored.
+        """
+        try:
+            self.cache().invalidate(method, match)
+        except OSError as exc:
+            norm.log(f"cache update failed: {exc}")
+
+    def _invalidate(self, name, params):
+        for method, src, dst in INVALIDATES.get(name, []):
+            for match in invalidation_matches(src, dst, params):
+                self.invalidate(method, match)
+
     def load(self):
-        self.yt, self.auth = auth.load_client()
+        # A module that adds CLIENT_SETTINGS passes self.client_settings() here.
+        yt, state = auth.load_client()
+        raw.install(yt)
+        self.yt, self.auth = yt, state
+        self.built_with = self.client_settings()
         self.verified = False
+        self.generation += 1
+
+    def client_settings(self, settings=None):
+        """The CLIENT_SETTINGS part of ``settings`` (default: the stored ones)."""
+        settings = self.settings if settings is None else settings
+        return {key: settings[key] for key in sorted(CLIENT_SETTINGS) if key in settings}
+
+    def remembered_client_settings(self):
+        """The client settings recorded with the disk cache, still valid ones only."""
+        try:
+            recorded = self.cache().client_settings()
+        except Exception as exc:  # noqa: BLE001 - a broken record means defaults
+            norm.log(f"cache read failed: {describe(exc)}")
+            return {}
+        out = {}
+        for key, value in recorded.items():
+            if key in CLIENT_SETTINGS and key in SETTINGS:
+                try:
+                    out[key] = SETTINGS[key](value)
+                except Exception:  # noqa: BLE001 - no longer valid: left out
+                    continue
+        return out
+
+    def configure(self, settings):
+        """Store ``settings`` (already validated); True when the client was rebuilt.
+
+        The client is rebuilt only when its settings differ from the ones it
+        was built with, and the disk cache is cleared only when they differ
+        from the ones it was made with (recorded beside it). A start that
+        repeats the last run's settings keeps both.
+        """
+        self.settings = dict(settings)
+        wanted = self.client_settings()
+        rebuilt = wanted != self.built_with
+        if rebuilt:
+            self.load()
+        try:
+            if self.cache().client_settings() != wanted:
+                self.clear_cache()
+                self.cache().record_client_settings(wanted)
+        except OSError as exc:
+            norm.log(f"cache update failed: {exc}")
+        return rebuilt
 
     def verify_session(self):
         """Check once per worker that YouTube still accepts the saved session.
@@ -465,31 +666,71 @@ class Worker:
         if self.auth != "ok":
             raise WorkerError("AUTH_REQUIRED", "Sign in to use your library")
 
+    def cached_reply(self, request, started=None):
+        """The disk-cache answer to a ``cache: "prefer"`` request, or None.
+
+        serve() asks this on the main thread before handing a request to a lane,
+        so a cached page never waits behind a long read.
+        """
+        if not isinstance(request, dict) or request.get("method") not in CACHEABLE:
+            return None
+        params = request.get("params") or {}
+        if not isinstance(params, dict) or params.get("cache") != "prefer" or params.get("cursor"):
+            return None
+        params = {k: v for k, v in params.items() if k != "cache"}
+        try:
+            hit = self.cache().get(request["method"], params)
+        except Exception as exc:  # noqa: BLE001 - a broken cache is a miss
+            norm.log(f"cache read failed: {describe(exc)}")
+            return None
+        if hit is None:
+            return None
+        started = time.monotonic() if started is None else started
+        reply = {"id": request.get("id"), "ok": True, "result": hit[0], "cached": True, "age": hit[1],
+                 "ms": round((time.monotonic() - started) * 1000), "http": 0}
+        self._debug(request["method"], reply)
+        return reply
+
     def handle(self, request):
         request_id = request.get("id") if isinstance(request, dict) else None
         started = time.monotonic()
+        raw.reset_http()
+        name = None
         try:
             if not isinstance(request, dict):
                 raise WorkerError("BAD_REQUEST", "request must be a JSON object")
             method = METHODS.get(request.get("method"))
             if method is None:
                 raise WorkerError("BAD_REQUEST", f"unknown method {request.get('method')!r}")
+            name = request.get("method")
             params = request.get("params") or {}
             if not isinstance(params, dict):
                 raise WorkerError("BAD_REQUEST", "'params' must be an object")
-            name = request.get("method")
             mode = "bypass"
+            guard = None
             if name in CACHEABLE:
                 params = dict(params)
                 mode = params.pop("cache", "bypass")
                 if mode not in CACHE_MODES:
                     raise WorkerError("BAD_REQUEST", f"'cache' must be one of {', '.join(CACHE_MODES)}")
-                hit = self.cache().get(name, params) if mode == "prefer" else None
-                if hit is not None:
-                    return {"id": request_id, "ok": True, "result": hit[0], "cached": True, "age": hit[1],
-                            "ms": round((time.monotonic() - started) * 1000)}
-            result = method(self, params)
-            self._after_success(name, params, mode, result)
+                if params.get("cursor"):
+                    mode = "bypass"  # later pages are never cached: the cursor is a token
+                if mode == "prefer":
+                    hit = self.cached_reply({"id": request_id, "method": name, "params": dict(params, cache=mode)},
+                                            started)
+                    if hit is not None:
+                        return hit
+                if mode != "bypass":
+                    guard = (self.generation, self.cache().epoch(name))
+            try:
+                result = method(self, params)
+            except Exception as exc:
+                # An edit that may have reached YouTube still makes the cache stale.
+                if name in MUTATES and classify(exc).code not in ("BAD_REQUEST", "AUTH_REQUIRED", "AUTH_EXPIRED"):
+                    self._invalidate(name, params)
+                raise
+            self._store(name, params, result, guard)
+            self._invalidate(name, params)
             reply = {"id": request_id, "ok": True, "result": result}
             if name in CACHEABLE:
                 reply["cached"] = False
@@ -498,11 +739,20 @@ class Worker:
             if error.code == "AUTH_EXPIRED":
                 self.auth = "expired"
             if error.code in ("INTERNAL", "UPSTREAM"):
-                norm.log(f"{request.get('method') if isinstance(request, dict) else '?'} failed: "
-                         + "".join(traceback.format_exception_only(type(exc), exc)).strip())
+                norm.log(f"{name or '?'} failed: {describe(exc)}")
             reply = {"id": request_id, "ok": False, "error": error.as_dict()}
         reply["ms"] = round((time.monotonic() - started) * 1000)
+        reply["http"] = raw.http_count()
+        self._debug(name, reply)
         return reply
+
+    @staticmethod
+    def _debug(name, reply):
+        # Method, outcome, request count and time only: never params or results.
+        if debug_enabled():
+            outcome = "ok" if reply.get("ok") else (reply.get("error") or {}).get("code", "?")
+            norm.log(f"{name if name in METHODS else '?'} {outcome} http={reply.get('http', 0)} "
+                     f"ms={reply.get('ms', 0)}{' cached' if reply.get('cached') else ''}")
 
 
 def ytmusicapi_version():
@@ -518,7 +768,11 @@ def ytmusicapi_version():
 
 
 def serve(idle_secs, worker=None, stdin_fd=None, out=None):
-    """Answer JSON-lines requests until stdin closes or the idle timeout hits."""
+    """Answer JSON-lines requests until stdin closes or the idle timeout hits.
+
+    The idle timeout counts from the last request or the last lane reply, and
+    never fires while a lane is still working.
+    """
     if out is None:
         out = os.fdopen(os.dup(sys.stdout.fileno()), "w", buffering=1)
         # Anything else that prints must never corrupt the protocol stream.
@@ -534,6 +788,8 @@ def serve(idle_secs, worker=None, stdin_fd=None, out=None):
     worker = worker or Worker()
     worker.emit = emit
     lanes = {}
+    state = {"busy": 0, "last": time.monotonic()}
+    state_lock = threading.Lock()
 
     def submit(request):
         name = LANES[request["method"]]
@@ -543,15 +799,23 @@ def serve(idle_secs, worker=None, stdin_fd=None, out=None):
 
             def run():
                 while True:
-                    emit(worker.handle(jobs.get()))
+                    job = jobs.get()
+                    try:
+                        emit(worker.handle(job))
+                    finally:
+                        with state_lock:
+                            state["busy"] -= 1
+                            state["last"] = time.monotonic()
 
             # Daemon: an unfinished lookup must not keep the process alive
             # after stdin closes.
             threading.Thread(target=run, name=f"lane-{name}", daemon=True).start()
+        with state_lock:
+            state["busy"] += 1
         jobs.put(request)
 
     emit({"event": "ready", "protocol": PROTOCOL, "version": VERSION,
-          "ytmusicapi": ytmusicapi_version(), "auth": worker.auth})
+          "ytmusicapi": ytmusicapi_version(), "auth": worker.auth, "mutates": sorted(MUTATES)})
     fd = sys.stdin.fileno() if stdin_fd is None else stdin_fd
     buffer = b""
     while True:
@@ -562,23 +826,40 @@ def serve(idle_secs, worker=None, stdin_fd=None, out=None):
             try:
                 request = json.loads(line)
             except ValueError:
-                emit({"id": None, "ok": False, "ms": 0,
+                emit({"id": None, "ok": False, "ms": 0, "http": 0,
                       "error": WorkerError("BAD_REQUEST", "request is not valid JSON").as_dict()})
                 continue
             if isinstance(request, dict) and request.get("method") == "shutdown":
-                emit({"id": request.get("id"), "ok": True, "result": {}, "ms": 0})
+                emit({"id": request.get("id"), "ok": True, "result": {}, "ms": 0, "http": 0})
                 return 0
             if isinstance(request, dict) and request.get("method") in LANES:
-                submit(request)
+                hit = worker.cached_reply(request)
+                if hit is not None:
+                    emit(hit)
+                else:
+                    submit(request)
                 continue
             emit(worker.handle(request))
-        ready, _, _ = select.select([fd], [], [], idle_secs if idle_secs > 0 else None)
+        timeout = None
+        if idle_secs > 0:
+            with state_lock:
+                busy, idle_for = state["busy"], time.monotonic() - state["last"]
+            # While a lane works, look again every second; otherwise wake when
+            # the idle time would be up.
+            timeout = min(1.0, idle_secs) if busy else max(0.0, idle_secs - idle_for)
+        ready, _, _ = select.select([fd], [], [], timeout)
         if not ready:
+            with state_lock:
+                busy, idle_for = state["busy"], time.monotonic() - state["last"]
+            if busy or idle_for < idle_secs:
+                continue
             emit({"event": "idle-exit"})
             return 0
         chunk = os.read(fd, 65536)
         if not chunk:
             return 0  # stdin closed: the shell side is gone
+        with state_lock:
+            state["last"] = time.monotonic()
         buffer += chunk
 
 
@@ -681,33 +962,26 @@ def cmd_selftest(args):
     return 0 if all(ok for ok, _, _ in checks) else 1
 
 
-RECORDERS = {
-    "search": lambda yt, p: yt.search(p["query"], filter=p.get("filter"), limit=p.get("limit", 20)),
-    "album": lambda yt, p: yt.get_album(p["browseId"]),
-    "artist": lambda yt, p: yt.get_artist(p["channelId"]),
-    "song": lambda yt, p: yt.get_song(p["videoId"]),
-    "watch": lambda yt, p: yt.get_watch_playlist(videoId=p["videoId"], limit=p.get("limit", 25), radio=p.get("radio", False)),
-    "home": lambda yt, p: yt.get_home(limit=p.get("limit", 3)),
-    "history": lambda yt, p: yt.get_history(),
-    "libraryPlaylists": lambda yt, p: yt.get_library_playlists(limit=p.get("limit", 25)),
-    "playlist": lambda yt, p: yt.get_playlist(p["playlistId"], limit=p.get("limit", 100)),
-    "liked": lambda yt, p: yt.get_liked_songs(limit=p.get("limit", 100)),
-}
 SCRUB_KEYS = ("streamingData", "playbackTracking", "playerConfig", "microformat", "responseContext", "trackingParams")
+# Any key containing one of these (case-insensitive) is dropped as well.
+SCRUB_PARTS = ("token", "continuation", "cursor", "jct", "feedback", "onbehalfofuser")
 
 
 def scrub(value):
     """Drop tokens and stream URLs before a response becomes a test fixture."""
     if isinstance(value, dict):
-        return {k: scrub(v) for k, v in value.items() if k not in SCRUB_KEYS and "Token" not in k and "token" not in k}
+        return {k: scrub(v) for k, v in value.items()
+                if k not in SCRUB_KEYS and not any(part in k.lower() for part in SCRUB_PARTS)}
     if isinstance(value, list):
         return [scrub(v) for v in value]
     return value
 
 
 def cmd_record(args):
-    worker = Worker()
-    data = RECORDERS[args.method](worker.yt, json.loads(args.params))
+    # Always signed out: a fixture must never hold the account's library,
+    # likes or subscriptions. The saved session is not even loaded.
+    yt = auth.anonymous_client()
+    data = RECORDERS[args.method](yt, json.loads(args.params))
     with open(args.out, "w") as f:
         json.dump(scrub(data), f, indent=1, ensure_ascii=False)
         f.write("\n")
@@ -727,6 +1001,7 @@ def main(argv=None):
     p = sub.add_parser("call", help="call any worker method")
     p.add_argument("method", choices=sorted(METHODS))
     p.add_argument("params", nargs="?", default="{}", help="JSON object")
+    p.add_argument("--reply", action="store_true", help="print the whole reply (cached, age, http, ms)")
     p = sub.add_parser("auth", help="sign in (default: import from a Chromium profile)")
     source = p.add_mutually_exclusive_group()
     source.add_argument("--from-browser", metavar="BROWSER[:PROFILE]", help="default chromium, auto-detected profile")
@@ -738,7 +1013,7 @@ def main(argv=None):
     sub.add_parser("whoami", help="show the signed-in account")
     p = sub.add_parser("selftest", help="check the installation")
     p.add_argument("--online", action="store_true", help="also make read-only network calls")
-    p = sub.add_parser("record", help="save a raw, scrubbed ytmusicapi response (test fixtures)")
+    p = sub.add_parser("record", help="save a raw, scrubbed, signed-out ytmusicapi response (test fixtures)")
     p.add_argument("method", choices=sorted(RECORDERS))
     p.add_argument("params", help="JSON object")
     p.add_argument("out")
@@ -757,7 +1032,10 @@ def main(argv=None):
                 parser.error("params must be a JSON object")
             request = {"id": 1, "method": args.method, "params": params}
         reply = Worker().handle(request)
-        print_json(reply["result"] if reply["ok"] else {"error": reply["error"]})
+        if getattr(args, "reply", False):
+            print_json(reply)
+        else:
+            print_json(reply["result"] if reply["ok"] else {"error": reply["error"]})
         return 0 if reply["ok"] else 1
     if args.cmd == "auth":
         return cmd_auth(args)
