@@ -21,6 +21,11 @@ ListView {
   property int cursorIndex: -1
   // Track rows get a remove action (playlist pages, Liked Music).
   property bool removable: false
+  // S3: track rows show their album track number instead of the cover (album pages).
+  property bool numbered: false
+  // S3: the row G lands on instead of the last one (a collection's Load
+  // all row, which its shelves follow); -1 for the last row.
+  property int endIndex: -1
   property string removeTooltip: "Remove"
   // The Load more row's state, set by the owner.
   property bool moreBusy: false
@@ -61,8 +66,10 @@ ListView {
   }
 
   function toBottom() {
-    cursorIndex = Model.nextSelectable(_shown, -1, -1)
-    positionViewAtEnd()
+    var end = endIndex >= 0 && endIndex < _shown.length && Model.selectableRow(_shown[endIndex]) ? endIndex : -1
+    cursorIndex = end >= 0 ? end : Model.nextSelectable(_shown, -1, -1)
+    if (end >= 0) positionViewAtIndex(end, ListView.Contain)
+    else positionViewAtEnd()
     if (_shown.length > 0) root.nearEnd()
   }
 
@@ -192,7 +199,7 @@ ListView {
 
   function lineText(item) {
     if (item.type === "loadMore") {
-      if (root.moreBusy) return "Loading more…"
+      if (root.moreBusy) return item.busyTitle ? String(item.busyTitle) : "Loading more…"
       if (root.moreError !== "") return "Couldn't load more: " + root.moreError
     }
     return String(item.title || "")
@@ -249,6 +256,7 @@ ListView {
         showRemove: root.removable
         showMenu: root.hasMenu
         removeTooltip: root.removeTooltip
+        number: root.numbered && row.modelData.item.trackNumber > 0 ? row.modelData.item.trackNumber : 0
         onActivated: root.activated(row.index)
         onPlayNextRequested: root.playNextRequested(row.index)
         onAddToQueueRequested: root.addToQueueRequested(row.index)

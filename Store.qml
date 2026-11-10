@@ -245,9 +245,9 @@ Item {
     }
     if (fresh) {
       params.cache = "refresh"
-      worker.request(ref.method, params, handle, 30000)
+      worker.request(ref.method, params, handle, loadTimeout(ref))
     } else {
-      _cachedThenFresh(ref.method, params, handle, function(on) { root._setRefreshing(ref.key, on) })
+      _cachedThenFresh(ref.method, params, handle, function(on) { root._setRefreshing(ref.key, on) }, loadTimeout(ref))
     }
   }
 
@@ -295,6 +295,16 @@ Item {
     }, 60000)
   }
 
+  // ---- collections (S3) ------------------------------------------------------------
+  // A whole read (limit "all": every song of a playlist or Liked Music, up
+  // to 5000, about 50 requests on the worker's pages lane) gets 120 s; any
+  // other page 30 s. (History asks for 200: Model's PAGE_KINDS.history.)
+  readonly property int wholeTimeoutMs: 120000
+
+  function loadTimeout(ref) {
+    return ref && ref.params && ref.params.limit === "all" ? wholeTimeoutMs : 30000
+  }
+
   // ---- menu (F3) ------------------------------------------------------------------
   // The collection held for ref, whatever its age (null when none): a whole
   // album or playlist plays from a row without asking the worker again
@@ -334,8 +344,9 @@ Item {
   // Ask with cache "prefer"; if that came from disk, follow up with a refresh.
   // `pending(true)` runs before the disk copy is handled when that refresh
   // follows, `pending(false)` once it has answered (after handling it, if
-  // it worked).
-  function _cachedThenFresh(method, params, handle, pending) {
+  // it worked). `timeoutMs` (default 30 s) applies to each request.
+  function _cachedThenFresh(method, params, handle, pending, timeoutMs) {
+    var wait = timeoutMs > 0 ? timeoutMs : 30000
     var first = ({})
     for (var k in params) first[k] = params[k]
     first.cache = "prefer"
@@ -350,8 +361,8 @@ Item {
       worker.request(method, fresh, function(update) {
         if (update.ok) handle(update)
         if (pending) pending(false)
-      }, 30000)
-    }, 30000)
+      }, wait)
+    }, wait)
   }
 
   // Drops every cached page of that kind and id (all its sort orders), as

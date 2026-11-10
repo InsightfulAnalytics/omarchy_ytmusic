@@ -4,7 +4,8 @@ import qs.Ui
 import "../YtmModel.js" as Model
 
 // An album, playlist or artist in a list; clicking opens it, a right-click
-// (or the menu button shown on hover) asks for its menu.
+// (or the menu button shown on hover) asks for its menu. An explicit album
+// has a boxed E before its subtitle (S3).
 Item {
   id: root
 
@@ -75,15 +76,29 @@ Item {
         elide: Text.ElideRight
       }
 
-      Text {
+      Row {
         width: parent.width
-        textFormat: Text.PlainText
-        text: Model.itemSubtitle(root.item)
-        visible: text !== ""
-        color: Qt.darker(root.foreground, 1.4)
-        font.family: root.fontFamily
-        font.pixelSize: Style.font.caption
-        elide: Text.ElideRight
+        spacing: Style.space(4)
+        visible: subtitle.text !== "" || explicitBadge.visible
+
+        ExplicitBadge {
+          id: explicitBadge
+          anchors.verticalCenter: parent.verticalCenter
+          visible: !!root.item && root.item.explicit === true
+          foreground: root.foreground
+          fontFamily: root.fontFamily
+        }
+
+        Text {
+          id: subtitle
+          width: parent.width - (explicitBadge.visible ? explicitBadge.width + parent.spacing : 0)
+          textFormat: Text.PlainText
+          text: Model.itemSubtitle(root.item)
+          color: Qt.darker(root.foreground, 1.4)
+          font.family: root.fontFamily
+          font.pixelSize: Style.font.caption
+          elide: Text.ElideRight
+        }
       }
     }
 

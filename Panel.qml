@@ -12,21 +12,23 @@ import "YtmModel.js" as Model
 // top for albums, playlists, Liked Music, History, artists and See all
 // pages, the item menu (row menu, chooser, key help) and the playlist picker.
 // Keys (Model.KEYS; ? lists them): 1-4 switch tab: Now, Search, Library, Home
-// · / search · j / k / ↑ / ↓ move · g first row · G last row (loads more) ·
-// Enter play or open · h / l / ← / → seek 10 s on Now, or the page's chips ·
-// Esc leave the field → close the picker or menu → back → close · Space
-// play/pause · n play next (a song, album or playlist) · a add to queue · R
-// start radio from the row, the artist page or the current song · s shuffle ·
-// r repeat · L like · p add to playlist · A go to artist (of the row or the
-// current song) · o go to album · J / K move a queued song down / up · x
-// remove (queue, own playlist, Liked Music, recent search) · m / . the row's
-// menu (or right-click) · M the page's menu (Library: account) · O next sort
-// order on a page that has one · f find, on pages that offer it · ? these
-// keys.
+// · / search · j / k / ↑ / ↓ move · g first row · G last row (loads more), or
+// a long list's Load all row · Enter play or open · h / l / ← / → seek 10 s
+// on Now, or the page's chips · Esc leave the field → close the picker or
+// menu → clear the filter → back → close · Space play/pause · n play next (a
+// song, album or playlist) · a add to queue · R start radio from the row, the
+// artist page or the current song · s shuffle · r repeat · L like · p add to
+// playlist · A go to artist (of the row, the album page or the current song)
+// · o go to album · J / K move a queued song down / up · x remove (queue, own
+// playlist, Liked Music, recent search) · m / . the row's menu (or
+// right-click) · M the page's menu (Library: account) · O next sort order on
+// a page that has one · f find in a page's songs (album, playlist, Liked
+// Music, History) · ? these keys.
 // Text keys go through Model.keyId to runKey(); Ctrl and Alt chords are
 // ignored. Views offer optional hooks, checked with typeof: horizontal(dx),
 // cycleOrder(), find(), playNext(i) / addToQueue(i), menu(i), pageMenu(),
-// menuChosen(id), placeAt(i) / indexOfPlace(place) and pageRadio().
+// menuChosen(id), placeAt(i) / indexOfPlace(place), pageRadio(),
+// pageArtist() and clearFind().
 Panel {
   id: root
   moduleName: "damir.ytmusic"
@@ -105,7 +107,7 @@ Panel {
   function handleEscape() {
     if (picker.open) picker.close()
     else if (itemMenu.open) itemMenu.close()
-    else if (!back()) close()
+    else if (!clearFind() && !back()) close()
   }
 
   // The view whose list the keyboard cursor currently drives.
@@ -267,6 +269,26 @@ Panel {
     if (item) service.startRadio(item)
   }
 
+  // A with no song under the cursor (no row, the About row, a shelf's
+  // row): the page's own artist when it names one (S3: an album's first
+  // artist, through the view's optional pageArtist() hook); false lets A
+  // go to the artist of the song playing.
+  function pageArtist() {
+    var list = activeList()
+    if (!list) return false
+    var row = list.rowAt(list.cursorIndex)
+    if (row && row.item.type === "track") return false
+    var owner = activeListOwner()
+    return !!owner && typeof owner.pageArtist === "function" && owner.pageArtist() === true
+  }
+
+  // Esc with a page's filter on (S3): the filter goes before the page does,
+  // through the view's optional clearFind() hook (true when it cleared one).
+  function clearFind() {
+    var owner = activeListOwner()
+    return !!owner && typeof owner.clearFind === "function" && owner.clearFind() === true
+  }
+
   // ---- the item menu ------------------------------------------------------------------
   // A view's menu(i) emits itemMenuRequested(request) and its pageMenu()
   // returns one: { item, ctx, owner, index, title?, subtitle? }; ctx is the
@@ -379,7 +401,7 @@ Panel {
     else if (id === "radio") startRadio()
     else if (id === "like") { if (service) service.toggleLike(cursorTrack()) }
     else if (id === "addToPlaylist") openPicker([cursorTrack()])
-    else if (id === "artist") openArtistOf(cursorTrack())
+    else if (id === "artist") { if (!pageArtist()) openArtistOf(cursorTrack()) }
     else if (id === "album") goAlbum(cursorTrack())
     else if (id === "shuffle") { if (service) service.toggleShuffle() }
     else if (id === "repeat") { if (service) service.cycleRepeat() }
@@ -683,6 +705,7 @@ Panel {
             onOpenRequested: function(item) { root.push(item) }
             onItemMenuRequested: function(request) { root.openItemMenu(request) }
             onCloseRequested: root.back()
+            onLeftField: keyCatcher.forceActiveFocus()
           }
         }
 

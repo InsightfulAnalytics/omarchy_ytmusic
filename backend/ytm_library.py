@@ -266,7 +266,8 @@ def _playlists(contents):
 
 
 def _album(data):
-    return norm.album(parse_albums([{MTRIR: data}])[0])
+    # parse_albums leaves the explicit badge out (S3).
+    return norm.album(dict(parse_albums([{MTRIR: data}])[0], isExplicit=raw.explicit(data.get("subtitleBadges"))))
 
 
 def _albums(contents):

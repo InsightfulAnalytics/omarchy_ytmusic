@@ -121,7 +121,8 @@ Item {
     for (var i = 0; i < tracks.length; i++) {
       var track = tracks[i]
       if (track && track.videoId) {
-        next[track.videoId] = track
+        // S3: no feedback tokens in the queue (status, session.json, mpv).
+        next[track.videoId] = Model.withoutTokens(track)
         changed = true
       }
     }

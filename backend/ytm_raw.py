@@ -8,6 +8,8 @@ and Play all endpoints, and rows without contents. This module keeps them:
 - ``with capture(("browse", "next")) as cap:`` records the responses of the
   calls made inside the block, on this thread only. Nothing is kept outside
   a block, so a 12-request ``get_playlist(limit=None)`` costs no extra memory.
+  ``capture(endpoints, each=fn)`` hands each response to ``fn(endpoint,
+  response)`` instead of keeping it (S3: a 50-request whole read holds none).
 - ``parse_row``/``item``/``menu_token`` read rows, items and menus by
   renderer, endpoint and icon, never by their (localized) titles.
 
@@ -88,9 +90,16 @@ def http_count():
 
 
 class Capture:
-    def __init__(self, endpoints):
+    def __init__(self, endpoints, each=None):
         self.endpoints = tuple(endpoints)
         self.responses = []  # [(endpoint, response)] in request order
+        self.each = each
+
+    def add(self, endpoint, response):
+        if self.each is not None:
+            self.each(endpoint, response)
+        else:
+            self.responses.append((endpoint, response))
 
     def first(self, endpoint=None):
         return next((r for e, r in self.responses if endpoint is None or e == endpoint), None)
@@ -112,7 +121,7 @@ def install(yt):
         response = original(endpoint, body, additionalParams)
         for cap in getattr(_local, "captures", None) or ():
             if endpoint in cap.endpoints:
-                cap.responses.append((endpoint, response))
+                cap.add(endpoint, response)
         return response
 
     yt._send_request = send
@@ -125,9 +134,10 @@ def install(yt):
 
 
 @contextlib.contextmanager
-def capture(endpoints=("browse", "next")):
-    """Record the raw responses of ``endpoints`` sent on this thread inside the block."""
-    cap = Capture(endpoints)
+def capture(endpoints=("browse", "next"), each=None):
+    """Record the raw responses of ``endpoints`` sent on this thread inside the
+    block (or hand each to ``each(endpoint, response)`` instead)."""
+    cap = Capture(endpoints, each)
     stack = getattr(_local, "captures", None)
     if stack is None:
         stack = _local.captures = []
@@ -193,6 +203,19 @@ def text(value):
         return None
     joined = "".join(run.get("text", "") for run in runs if isinstance(run, dict))
     return joined or None
+
+
+# S3: the explicit badge, matched by its icon (labels are localized).
+EXPLICIT_BADGE = "MUSIC_EXPLICIT_BADGE"
+
+
+def explicit(badges):
+    """True when ``badges`` (an item's ``badges`` or ``subtitleBadges``) holds the explicit badge."""
+    for badge in badges if isinstance(badges, list) else ():
+        icon = nav(badge, ["musicInlineBadgeRenderer", "icon", "iconType"], True) if isinstance(badge, dict) else None
+        if icon == EXPLICIT_BADGE:
+            return True
+    return False
 
 
 def browse_endpoint(endpoint):
@@ -415,7 +438,7 @@ def _list_row(data):
                for run in subtitle_runs if isinstance(run, dict) and "navigationEndpoint" in run]
     basic = {"title": title, "browseId": browse["browseId"], "thumbnails": nav(data, THUMBNAILS, True)}
     if page_type in ALBUM_PAGES:
-        return norm.album(dict(basic, artists=credits))
+        return norm.album(dict(basic, artists=credits, isExplicit=explicit(data.get("badges"))))
     if page_type == PLAYLIST_PAGE:
         return norm.playlist(dict(basic, author=credits or None))
     if page_type == PODCAST_PAGE:

@@ -1,7 +1,10 @@
 import ytm_normalize as norm
 
 TRACK_KEYS = {"type", "videoId", "title", "artists", "artistText", "album", "durationSec", "thumb",
-              "thumbLarge", "explicit", "likeStatus", "setVideoId", "available", "kind", "played"}
+              "thumbLarge", "explicit", "likeStatus", "setVideoId", "available", "kind", "played",
+              # S3: what later slices' row menus act on
+              "trackNumber", "inLibrary", "libraryTokens", "pinned", "listenAgainTokens", "historyToken",
+              "voteStatus"}
 
 
 def test_parse_duration():
@@ -132,11 +135,24 @@ def test_playlist_collection_keeps_set_video_ids():
             {"videoId": "b", "title": "B", "setVideoId": "S2", "duration": "2:00", "isAvailable": False},
         ],
     }
-    col = norm.collection("playlist", data, "PLx")
-    assert col["editable"] and col["owned"] and col["truncated"]
+    col = norm.collection("playlist", data, "PLx", limit=2)
+    assert col["editable"] and col["owned"] and col["truncated"] and col["unavailable"] is None
     assert col["subtitle"] == "Me • 3 songs"
     assert [t["setVideoId"] for t in col["tracks"]] == ["S1", "S2"]
     assert col["tracks"][1]["available"] is False
+
+
+def test_explicit_is_kept_for_tracks_and_albums():
+    assert norm.track({"videoId": "v", "isExplicit": True})["explicit"] is True
+    assert norm.track({"videoId": "v"})["explicit"] is False
+    assert norm.album({"browseId": "MPREb_1", "title": "A", "isExplicit": True})["explicit"] is True
+    assert norm.album({"browseId": "MPREb_1", "title": "A"})["explicit"] is False
+
+
+def test_playlist_keeps_its_served_description():
+    assert norm.playlist({"playlistId": "PL1", "description": "Playlist • YouTube Music"})["description"] == \
+        "Playlist • YouTube Music"
+    assert norm.playlist({"playlistId": "PL1"})["description"] is None
 
 
 def test_liked_collection_is_not_editable():

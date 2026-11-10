@@ -6,7 +6,7 @@
   client setting changes; the client settings it was made with are recorded
   beside it (``client-settings``). File names start with the schema
   (``v2-``), so entries in an older shape are never read. Continuation
-  cursors never reach disk.
+  cursors and feedback tokens (TOKEN_KEYS) never reach disk.
 - ThumbCache: cover thumbnails as files, so covers appear instantly without
   the shell keeping decoded images in memory.
 
@@ -60,6 +60,30 @@ def strip_cursors(result):
     return out
 
 
+# Feedback tokens a track carries (S3: ytm_normalize.track); account-bound,
+# so a copy on disk drops them and the fresh read that follows brings them.
+TOKEN_KEYS = ("libraryTokens", "listenAgainTokens", "historyToken")
+
+
+def strip_tokens(value):
+    """A copy of ``value`` without TOKEN_KEYS at any depth (the same object
+    when it holds none)."""
+    if isinstance(value, list):
+        out = [strip_tokens(v) for v in value]
+        return value if all(a is b for a, b in zip(out, value)) else out
+    if not isinstance(value, dict):
+        return value
+    changed = any(k in value for k in TOKEN_KEYS)
+    out = {}
+    for k, v in value.items():
+        if k in TOKEN_KEYS:
+            continue
+        stripped = strip_tokens(v)
+        changed = changed or stripped is not v
+        out[k] = stripped
+    return out if changed else value
+
+
 class DiskCache:
     SCHEMA = 2
     MAX_AGE = 7 * 24 * 3600
@@ -107,7 +131,7 @@ class DiskCache:
         """Store ``result``; skipped (returns False) when ``epoch`` is no longer current."""
         stored_params = {k: v for k, v in (params or {}).items() if k != "cursor"}
         entry = {"method": method, "params": stored_params, "at": now if now is not None else time.time(),
-                 "result": strip_cursors(result)}
+                 "result": strip_cursors(strip_tokens(result))}
         data = json.dumps(entry, ensure_ascii=False, separators=(",", ":")).encode()
         with self._lock:
             if epoch is not None and epoch != (self._clears, self._epochs.get(method, 0)):

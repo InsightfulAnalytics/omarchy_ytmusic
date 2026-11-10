@@ -3,13 +3,19 @@ import qs.Commons
 import qs.Ui
 import "../YtmModel.js" as Model
 
-// Any page opened from a row: album, playlist, Liked Music, History, and
-// sectioned pages (the worker's `page` shape: an artist, a See all list).
-// Header with Play, Shuffle and Queue all (an artist adds Radio and About),
-// sort chips when the page has orders, then its rows. One instance shows
-// every entry of the panel's stack in turn; `entry` is the stack wrapper
-// { item, view }, and `view` is what viewState() saved when another page
-// was pushed on top.
+// Any page opened from a row: album, playlist, mix, Liked Music, History,
+// and sectioned pages (the worker's `page` shape: an artist, a See all
+// list). Header with Play, Shuffle and Queue all (an artist adds Radio and
+// About), sort chips when the page has orders, then its rows. One instance
+// shows every entry of the panel's stack in turn; `entry` is the stack
+// wrapper { item, view }, and `view` is what viewState() saved when another
+// page was pushed on top.
+//
+// Collections (S3): the header adds the byline (album artists and a
+// playlist's author, as links), details and two lines of the description
+// (an About row shows the rest); a list with more songs than shown ends in
+// Load all, which reloads it whole (limit "all") with the cursor kept; f
+// opens a filter over the songs; the page's shelves follow the songs.
 Item {
   id: root
 
@@ -35,6 +41,13 @@ Item {
   property var _opened: null
   // The list place to restore once the page's rows are shown.
   property var _pendingView: null
+  // ---- collections (S3)
+  // Load all was chosen: the page is asked with limit "all".
+  property bool full: false
+  // The About row shows the whole description.
+  property bool aboutOpen: false
+  // f: the filter field is shown (its text filters the songs).
+  property bool findOpen: false
 
   readonly property var store: service ? service.store : null
   readonly property color foreground: bar ? bar.foreground : Color.foreground
@@ -50,7 +63,7 @@ Item {
   readonly property bool round: Model.pageRound(ref, page)
   readonly property var tracks: !page ? [] : isPage ? Model.pageTracks(page) : (page.tracks || [])
   readonly property var rows: !page ? [] : isPage ? Model.pageRows(page)
-    : isHistory ? Model.historyRows(tracks) : Model.trackRows(tracks)
+    : Model.collectionRows(page, { history: isHistory, find: findText, about: descriptionText.truncated, aboutOpen: aboutOpen })
   // The page shows part of its list (Liked Music past 200 songs, a page with
   // more to load, an artist's top songs): Play, Shuffle and Queue all then
   // read the whole list (Service.playItem), at most 500 queued.
@@ -60,19 +73,38 @@ Item {
   readonly property var currentOrder: order !== null ? order : (page && page.order !== undefined ? page.order : null)
   readonly property alias results: resultList
 
-  readonly property string title: (page && (page.title || page.name)) || (target && (target.title || target.name))
+  // A mix keeps the name of the row it was opened from (S3: the queue
+  // YouTube serves for it may be titled "Your Queue").
+  readonly property string title: (ref && ref.kind === "mix" && target && target.title)
+    || (page && (page.title || page.name)) || (target && (target.title || target.name))
     || Model.pageKindTitle(ref)
   readonly property string subtitle: !page ? Model.itemSubtitle(target)
     : isPage ? Model.pageSubtitle(ref, page)
+    : Model.isCollection(page) ? Model.collectionMeta(page, tracks.length)
     : String(page.subtitle || "") + (page.truncated ? " • showing " + tracks.length : "")
   // Artist (S1): YouTube's shuffle and radio mixes, and the About page.
   readonly property var shuffleItem: isArtist ? Model.artistShuffleItem(page) : null
   readonly property var radioItem: isArtist ? Model.artistRadioItem(page) : null
   readonly property bool hasAbout: isArtist && Model.hasAbout(page)
+  // Collections (S3).
+  readonly property bool isCollection: Model.isCollection(page)
+  readonly property var byline: Model.collectionByline(page)
+  readonly property string description: Model.collectionDescription(page)
+  readonly property bool explicitAlbum: isCollection && page.kind === "album" && Model.collectionHeader(page).explicit === true
+  readonly property bool canLoadAll: !full && Model.canLoadAll(page)
+  // The whole list is loading over the first read.
+  readonly property bool loadingAll: full && loading
+  readonly property string findText: findOpen ? findField.text : ""
+  readonly property bool inputFocused: findField.activeFocus
+  // The list's identity: the page and its order, not how much of it is
+  // read, so Load all keeps the cursor and the scroll.
+  readonly property string listId: entry ? (Model.pageRef(entry.item, Model.pageExtra(order, false)) || { key: "" }).key : ""
 
   signal openRequested(var item)
   // The page itself went away (playlist deleted).
   signal closeRequested()
+  // The find field gave the keys back (Esc, Down, Enter).
+  signal leftField()
   // A row's menu, or the page's (M): Panel opens it.
   signal itemMenuRequested(var request)
 
@@ -87,7 +119,10 @@ Item {
     _opened = entry
     var view = entry ? entry.view : null
     order = view && view.order !== undefined ? view.order : null
-    ref = entry ? Model.pageRef(entry.item, order !== null ? { order: order } : null) : null
+    full = !!view && view.full === true
+    aboutOpen = !!view && view.aboutOpen === true
+    closeFind()
+    ref = entry ? Model.pageRef(entry.item, Model.pageExtra(order, full)) : null
     page = null
     error = ""
     loading = false
@@ -122,6 +157,12 @@ Item {
         root.moreError = ""
         root.page = reply.result
         if (wanted) root.loadMore(true)
+      } else if (root.full && Model.canLoadAll(root.page)) {
+        // Load all failed over the first read: that stays, and its Load
+        // all row says why (Enter tries again).
+        root.full = false
+        root.ref = Model.pageRef(root.entry.item, Model.pageExtra(root.order, false))
+        root.moreError = reply.error.message
       } else {
         root.error = reply.error.message
       }
@@ -150,16 +191,19 @@ Item {
     }, page)
   }
 
-  // For Back: the sort order and the list's place.
+  // For Back: the sort order, Load all, the About row and the list's place.
   function viewState() {
-    return { order: order, list: resultList.viewState() }
+    return { order: order, full: full, aboutOpen: aboutOpen, list: resultList.viewState() }
   }
 
   function restore(view) {
     if (!view) return
-    if (view.order !== undefined && view.order !== order && entry) {
-      order = view.order
-      ref = Model.pageRef(entry.item, order !== null ? { order: order } : null)
+    aboutOpen = view.aboutOpen === true
+    var wantsAll = view.full === true
+    if (((view.order !== undefined && view.order !== order) || wantsAll !== full) && entry) {
+      if (view.order !== undefined) order = view.order
+      full = wantsAll
+      ref = Model.pageRef(entry.item, Model.pageExtra(order, full))
       _pendingView = view.list || null
       load(false)
       return
@@ -187,7 +231,7 @@ Item {
   function setOrder(index) {
     if (!entry || loading || index === currentOrder) return
     order = index
-    ref = Model.pageRef(entry.item, { order: index })
+    ref = Model.pageRef(entry.item, Model.pageExtra(index, full))
     error = ""
     loadingMore = false
     moreError = ""
@@ -254,6 +298,8 @@ Item {
   // Action rows: one that names a target opens it; slices handle their ids here.
   function runAction(item) {
     if (item.target) root.openRequested(item.target)
+    // Collections (S3): the About row shows or hides the description.
+    else if (item.id === Model.COLLECTION_ABOUT_ID) toggleAbout()
     // About (S1): a description link row copies its URL.
     else if (item.url && service) service.copyLink({ type: "link", url: item.url })
   }
@@ -263,6 +309,7 @@ Item {
     if (!row || !service) return
     var item = row.item
     if (item.type === "more") root.openRequested(Model.moreTarget(item))
+    else if (item.type === "loadMore" && item.id === Model.LOAD_ALL_ID) loadAll()
     else if (item.type === "loadMore") loadMore(true)
     else if (item.type === "action") runAction(item)
     else if (item.type === "message" || item.type === "text") return
@@ -302,6 +349,9 @@ Item {
     if (page && !item.playlistId && page.playlistId && ref && (ref.kind === "album" || ref.kind === "playlist"))
       item.playlistId = page.playlistId
     if (page && !item.title && !item.name && (page.title || page.name)) item.title = page.title || page.name
+    // S3: an album opened from a link knows its artists from the page (Go to artist).
+    if (ref && ref.kind === "album" && Model.linkedArtists(item).length === 0)
+      item.artists = Model.collectionHeader(page).artists || []
     return item
   }
 
@@ -310,7 +360,10 @@ Item {
   function pageMenu() {
     return { item: pageItem(), owner: root, index: -1, title: title, subtitle: subtitle,
              ctx: { page: true, pageKind: ref ? ref.kind : "", owned: editable, hasTracks: tracks.length > 0,
-                    about: hasAbout } }
+                    about: hasAbout, canLoadAll: canLoadAll && !loading, loadAllTitle: Model.loadAllTitle(page),
+                    canFind: Model.canFind(page), aboutOpen: aboutOpen,
+                    // The About row is there to show or hide.
+                    description: Model.showsAbout(page, { find: findText, about: descriptionText.truncated }) } }
   }
 
   // Play, Shuffle, Queue all (mode now, shuffle, queue; next from the menu).
@@ -342,6 +395,58 @@ Item {
   function openAbout() {
     var item = Model.aboutItem(page)
     if (item) root.openRequested(item)
+  }
+
+  // ---- collections (S3) --------------------------------------------------------------
+
+  // Every song (limit "all", up to 5000): the first read stays shown until
+  // the whole list replaces it, and the cursor and scroll stay on the same
+  // rows (the list's identity, listId, leaves the limit out).
+  function loadAll() {
+    if (!entry || !canLoadAll || loading) return false
+    full = true
+    moreError = ""
+    ref = Model.pageRef(entry.item, Model.pageExtra(order, true))
+    load(false)
+    return true
+  }
+
+  function toggleAbout() {
+    aboutOpen = !aboutOpen
+  }
+
+  // f (Panel's find hook): the filter field over the page's songs. A page
+  // that shows part of its list loads all of it first.
+  function find() {
+    if (!Model.canFind(page)) return false
+    if (canLoadAll) loadAll()
+    findOpen = true
+    findField.forceActiveFocus()
+    return true
+  }
+
+  // Esc in the field: the filter goes and the keys go back to the list.
+  function closeFind() {
+    var focused = findField.activeFocus
+    findField.text = ""
+    findOpen = false
+    if (focused) root.leftField()
+  }
+
+  // Esc in the list (Panel's clearFind hook): an open filter goes before
+  // the page does.
+  function clearFind() {
+    if (!findOpen) return false
+    closeFind()
+    return true
+  }
+
+  // A with no row selected (Panel's pageArtist hook): an album's first artist.
+  function pageArtist() {
+    var item = Model.pageArtistItem(page)
+    if (!item) return false
+    root.openRequested(item)
+    return true
   }
 
   Row {
@@ -378,6 +483,55 @@ Item {
         elide: Text.ElideRight
       }
 
+      // S3: an album's type, artists (links) and year; a playlist's author.
+      Flow {
+        id: bylineFlow
+        width: parent.width
+        visible: root.byline.length > 0
+        spacing: 0
+
+        Item {
+          visible: root.explicitAlbum
+          width: albumBadge.width + Style.space(4)
+          height: albumBadge.height
+
+          ExplicitBadge {
+            id: albumBadge
+            foreground: root.foreground
+            fontFamily: root.fontFamily
+          }
+        }
+
+        Repeater {
+          model: root.byline
+
+          Text {
+            id: part
+            required property var modelData
+            readonly property bool linked: !!modelData.item
+            width: Math.min(part.implicitWidth, bylineFlow.width)
+            textFormat: Text.PlainText
+            text: String(part.modelData.text)
+            color: Qt.darker(root.foreground, part.linked ? 1.3 : 1.4)
+            font.family: root.fontFamily
+            font.pixelSize: Style.font.caption
+            font.underline: part.linked && partHover.hovered
+            elide: Text.ElideRight
+
+            HoverHandler {
+              id: partHover
+              enabled: part.linked
+              cursorShape: Qt.PointingHandCursor
+            }
+
+            TapHandler {
+              enabled: part.linked
+              onTapped: root.openRequested(part.modelData.item)
+            }
+          }
+        }
+      }
+
       Text {
         width: parent.width
         textFormat: Text.PlainText
@@ -386,6 +540,21 @@ Item {
         color: Qt.darker(root.foreground, 1.4)
         font.family: root.fontFamily
         font.pixelSize: Style.font.caption
+        elide: Text.ElideRight
+      }
+
+      // Two lines of the description; the About row shows all of it.
+      Text {
+        id: descriptionText
+        width: parent.width
+        visible: text !== ""
+        textFormat: Text.PlainText
+        text: root.description
+        color: Qt.darker(root.foreground, 1.5)
+        font.family: root.fontFamily
+        font.pixelSize: Style.font.caption
+        wrapMode: Text.Wrap
+        maximumLineCount: 2
         elide: Text.ElideRight
       }
 
@@ -453,10 +622,50 @@ Item {
     }
   }
 
+  // f: the filter over the page's songs (S3). Esc clears it and leaves;
+  // Down or Enter goes to the first match.
+  Row {
+    id: findRow
+    anchors.top: header.bottom
+    anchors.topMargin: visible ? Style.space(8) : 0
+    width: parent.width
+    height: visible ? implicitHeight : 0
+    spacing: Style.space(6)
+    visible: root.findOpen
+
+    TextField {
+      id: findField
+      width: parent.width - stopFind.width - parent.spacing
+      placeholderText: "Find songs by title, artist or album"
+      foreground: root.foreground
+      font.family: root.fontFamily
+
+      Keys.onPressed: function(event) {
+        if (event.key === Qt.Key_Escape) {
+          root.closeFind()
+          event.accepted = true
+        } else if (event.key === Qt.Key_Down || event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
+          root.leftField()
+          resultList.toTop()
+          event.accepted = true
+        }
+      }
+    }
+
+    PanelActionButton {
+      id: stopFind
+      anchors.verticalCenter: parent.verticalCenter
+      iconText: "󰅖"
+      tooltipText: "Stop finding (Esc)"
+      foreground: root.foreground
+      onClicked: root.closeFind()
+    }
+  }
+
   // The page's sort orders as served (O cycles them).
   Flow {
     id: orderRow
-    anchors.top: header.bottom
+    anchors.top: findRow.bottom
     anchors.topMargin: visible ? Style.space(8) : 0
     width: parent.width
     height: visible ? implicitHeight : 0
@@ -503,13 +712,17 @@ Item {
     store: root.store
     rows: root.rows
     owner: root
-    listKey: root.refKey
+    // Not refKey: Load all reloads the same list (S3).
+    listKey: root.listId
     removable: root.editable || root.isLiked
     removeTooltip: root.isLiked ? "Remove from Liked Music" : "Remove from playlist"
-    moreBusy: root.loadingMore || root._moreWanted
+    numbered: !!root.ref && root.ref.kind === "album"
+    // G stops on Load all: the page's shelves come after it.
+    endIndex: Model.loadAllIndex(root.rows)
+    moreBusy: root.loadingMore || root._moreWanted || root.loadingAll
     moreError: root.moreError
-    // A new sort order is loading over the old one.
-    opacity: root.loading && root.page ? 0.5 : 1
+    // A new sort order is loading over the old one (Load all shows on its row).
+    opacity: root.loading && root.page && !root.loadingAll ? 0.5 : 1
 
     onActivated: function(index) { root.activate(index) }
     onPlayNextRequested: function(index) { root.playNext(index) }

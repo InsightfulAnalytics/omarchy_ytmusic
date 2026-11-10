@@ -39,10 +39,11 @@ test("pageRef: method + canonical params, so albums, singles and orders never co
 test("pageRef: the existing kinds keep their methods and params", () => {
   const cases = [
     [{ type: "album", browseId: "MPREb_1" }, "album", { browseId: "MPREb_1" }, "MPREb_1"],
-    [{ type: "playlist", playlistId: "PL1" }, "playlist", { playlistId: "PL1" }, "PL1"],
+    // S3: playlists come with their related playlists, History with all 200.
+    [{ type: "playlist", playlistId: "PL1" }, "playlist", { playlistId: "PL1", related: true }, "PL1"],
     [{ type: "artist", channelId: "UC1" }, "artist", { channelId: "UC1" }, "UC1"],
     [{ type: "liked", title: "Liked Music" }, "liked", {}, "LM"],
-    [{ type: "history", title: "History" }, "history", { limit: 100 }, "history"],
+    [{ type: "history", title: "History" }, "history", { limit: 200 }, "history"],
   ]
   for (const [item, method, params, id] of cases) {
     const ref = Model.pageRef(item)
