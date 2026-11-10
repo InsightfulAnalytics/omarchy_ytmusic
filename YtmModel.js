@@ -417,33 +417,10 @@ function queueAllCommands(tracks) {
 // Lists in the panel are flat arrays of rows: { header: true, title } or
 // { item, trackIndex? }. trackIndex points into the list a click plays from.
 
-var SEARCH_SECTIONS = [
-  { key: "top", title: "Top result" },
-  { key: "songs", title: "Songs" },
-  { key: "albums", title: "Albums" },
-  { key: "artists", title: "Artists" },
-  { key: "playlists", title: "Playlists" },
-  { key: "videos", title: "Videos" }
-]
-
-var FILTER_TITLES = { songs: "Songs", albums: "Albums", artists: "Artists", playlists: "Playlists", videos: "Videos" }
-
-function flattenSearch(result, filter) {
-  var rows = []
-  if (!result) return rows
-  if (filter) {
-    var items = result.items || []
-    if (items.length) rows.push({ header: true, title: FILTER_TITLES[filter] || "Results" })
-    for (var i = 0; i < items.length; i++) rows.push({ item: items[i] })
-    return rows
-  }
-  for (var s = 0; s < SEARCH_SECTIONS.length; s++) {
-    var group = result[SEARCH_SECTIONS[s].key] || []
-    if (!group.length) continue
-    rows.push({ header: true, title: SEARCH_SECTIONS[s].title })
-    for (var j = 0; j < group.length; j++) rows.push({ item: group[j] })
-  }
-  return rows
+// A search result as rows: searchRows in the search (S7) section (groups in
+// YouTube's order, Show all rows, spelling rows, Load more).
+function flattenSearch(result, filter, opts) {
+  return searchRows(result, filter, opts)
 }
 
 function trackRows(tracks) {
@@ -658,23 +635,28 @@ function parseRecent(text) {
 
 // Up to `max` completions for what's typed: at most two of your recent
 // searches that start with it, then YouTube Music's; never the typed text.
+// S7: one of your YouTube searches (fromHistory) is marked `remote`, also
+// when it repeats a recent search, so x can remove it from YouTube too.
 function suggestionList(recent, remote, typed, max) {
   var key = String(typed || "").trim().toLowerCase()
   var limit = max || 5
   var out = []
   var seen = {}
   seen[key] = true
-  function add(text, fromHistory) {
+  function add(text, fromHistory, isRemote) {
     var value = String(text || "").trim()
     var k = value.toLowerCase()
+    if (isRemote && seen[k] && seen[k] !== true) seen[k].remote = true
     if (value === "" || seen[k] || out.length >= limit) return
-    seen[k] = true
-    out.push({ text: value, recent: fromHistory })
+    var entry = { text: value, recent: fromHistory }
+    if (isRemote) entry.remote = true
+    seen[k] = entry
+    out.push(entry)
   }
   for (var i = 0; i < (recent || []).length && out.length < 2; i++) {
-    if (String(recent[i]).toLowerCase().indexOf(key) === 0) add(recent[i], true)
+    if (String(recent[i]).toLowerCase().indexOf(key) === 0) add(recent[i], true, false)
   }
-  for (var j = 0; j < (remote || []).length; j++) add(remote[j].text, !!remote[j].fromHistory)
+  for (var j = 0; j < (remote || []).length; j++) add(remote[j].text, !!remote[j].fromHistory, !!remote[j].fromHistory)
   return out
 }
 
@@ -685,20 +667,25 @@ function recentRows(recent, max) {
   return rows
 }
 
-// `selected` marks the one Tab put into the field.
+// `selected` marks the one Tab put into the field. S7: a recent or past
+// search can be removed (x): `remote` ones from YouTube too.
 function suggestionRows(suggestions, selected) {
   var list = suggestions || []
   var rows = list.length ? [{ header: true, title: "Suggestions" }] : []
   for (var i = 0; i < list.length; i++) {
-    rows.push({ item: { type: "query", text: list[i].text, recent: !!list[i].recent, removable: false, selected: i === selected } })
+    rows.push({ item: { type: "query", text: list[i].text, recent: !!list[i].recent, removable: !!list[i].recent,
+                        remote: !!list[i].remote, selected: i === selected } })
   }
   return rows
 }
 
 // ---- caches ---------------------------------------------------------------------
 
-function searchKey(query, filter) {
-  return (filter || "") + "|" + String(query || "").trim().toLowerCase()
+// S7: the scope ("", "library", "uploads") and an exact search (no spelling
+// fix) are part of the key; a plain search keeps its old key.
+function searchKey(query, filter, scope, exact) {
+  var key = (filter || "") + "|" + String(query || "").trim().toLowerCase()
+  return scope || exact ? key + "|" + (scope || "") + (exact ? "|exact" : "") : key
 }
 
 // Every cover URL (thumb / thumbLarge) inside a result, deduplicated.
@@ -2641,5 +2628,292 @@ if (typeof module !== "undefined") {
     shelfQueueParams: shelfQueueParams,
     appendShelves: appendShelves,
     shelfContext: shelfContext
+  })
+}
+
+// ==== search (S7) ============================================================================
+// Search is the web's search. All groups every kind of result in the order
+// YouTube served them, under the top result card, and each group ends in a
+// Show all row that switches to its filter. Songs, Albums, Artists and
+// Playlists are chips; the other filters sit in a More chooser (the chip
+// then shows the chosen one), and h / l cycle through all of them. One
+// scope chip cycles YouTube Music, your library and your uploads (signed
+// in). A filtered list loads more as the cursor nears its end. When YouTube
+// corrected the spelling, a row searches the words exactly as typed (or
+// offers its correction). An empty field lists your recent searches merged
+// with your YouTube searches; while typing, completions come with up to
+// five rich rows (artists, songs, albums) that open or play.
+
+var SEARCH_GROUPS = [
+  { key: "songs", title: "Songs" },
+  { key: "videos", title: "Videos" },
+  { key: "albums", title: "Albums" },
+  { key: "artists", title: "Artists" },
+  { key: "playlists", title: "Playlists" },
+  { key: "podcasts", title: "Podcasts" },
+  { key: "episodes", title: "Episodes" },
+  { key: "profiles", title: "Profiles" }
+]
+
+// Every filter in h / l order ("" is All); `more` ones are in the More chooser.
+var SEARCH_FILTERS = [
+  { key: "", title: "All" },
+  { key: "songs", title: "Songs" },
+  { key: "albums", title: "Albums" },
+  { key: "artists", title: "Artists" },
+  { key: "playlists", title: "Playlists" },
+  { key: "videos", title: "Videos", more: true },
+  { key: "featured_playlists", title: "Featured playlists", more: true },
+  { key: "community_playlists", title: "Community playlists", more: true },
+  { key: "podcasts", title: "Podcasts", more: true },
+  { key: "episodes", title: "Episodes", more: true },
+  { key: "profiles", title: "Profiles", more: true }
+]
+
+var SEARCH_SCOPES = [
+  { key: "", title: "YouTube Music", menuTitle: "Search YouTube Music" },
+  { key: "library", title: "Library", menuTitle: "Search your library" },
+  { key: "uploads", title: "Uploads", menuTitle: "Search your uploads" }
+]
+
+var SEARCH_SHOW_ALL = "search:showAll:"
+var SEARCH_EXACT = "search:exact"
+var SEARCH_CORRECTED = "search:corrected"
+var SEARCH_MORE_CHIP = "more"
+
+function _searchFilter(key) {
+  for (var i = 0; i < SEARCH_FILTERS.length; i++) if (SEARCH_FILTERS[i].key === (key || "")) return SEARCH_FILTERS[i]
+  return null
+}
+
+function _listOf(value) {
+  var out = []
+  for (var i = 0; value && typeof value.length === "number" && i < value.length; i++) {
+    if (value[i] && typeof value[i] === "object") out.push(value[i])
+  }
+  return out
+}
+
+function searchFilterTitle(key) {
+  var spec = _searchFilter(key)
+  return spec ? spec.title : "Results"
+}
+
+function searchScopeTitle(scope) {
+  for (var i = 0; i < SEARCH_SCOPES.length; i++) if (SEARCH_SCOPES[i].key === (scope || "")) return SEARCH_SCOPES[i].title
+  return SEARCH_SCOPES[0].title
+}
+
+// Uploads take no filter; your library has no featured or community playlists.
+function searchFilterAllowed(filter, scope) {
+  if (!filter) return true
+  if (!_searchFilter(filter) || scope === "uploads") return false
+  return scope !== "library" || (filter !== "featured_playlists" && filter !== "community_playlists")
+}
+
+// The filter `dx` steps from `filter` among those the scope allows (wrapping).
+function nextSearchFilter(filter, scope, dx) {
+  var keys = SEARCH_FILTERS.filter(function(f) { return searchFilterAllowed(f.key, scope) }).map(function(f) { return f.key })
+  var at = Math.max(0, keys.indexOf(filter || ""))
+  var n = keys.length
+  return keys[((at + (dx < 0 ? -1 : 1)) % n + n) % n]
+}
+
+function nextSearchScope(scope) {
+  var keys = SEARCH_SCOPES.map(function(s) { return s.key })
+  var at = Math.max(0, keys.indexOf(scope || ""))
+  return keys[(at + 1) % keys.length]
+}
+
+// The chip row: All, Songs, Albums, Artists, Playlists, then More, which
+// shows the chosen More filter. A chip the scope does not allow is disabled.
+function searchChips(filter, scope) {
+  var out = []
+  for (var i = 0; i < SEARCH_FILTERS.length; i++) {
+    var f = SEARCH_FILTERS[i]
+    if (f.more) continue
+    out.push({ key: f.key, title: f.title, selected: (filter || "") === f.key, enabled: searchFilterAllowed(f.key, scope), more: false })
+  }
+  var chosen = _searchFilter(filter)
+  var isMore = !!chosen && chosen.more === true
+  out.push({ key: SEARCH_MORE_CHIP, title: isMore ? chosen.title : "More", selected: isMore, enabled: scope !== "uploads", more: true })
+  return out
+}
+
+// The More chooser's choices (ItemMenu.openChooser): the current one ticked.
+function moreFilterChoices(filter, scope) {
+  return SEARCH_FILTERS.filter(function(f) { return f.more && searchFilterAllowed(f.key, scope) }).map(function(f) {
+    return { id: f.key, title: f.title, icon: f.key === filter ? "󰄬" : "󰈲" }
+  })
+}
+
+function searchResultCount(result) {
+  if (!result) return 0
+  if (result.items && typeof result.items.length === "number") return result.items.length
+  var count = _listOf(result.top).length
+  for (var i = 0; i < SEARCH_GROUPS.length; i++) count += _listOf(result[SEARCH_GROUPS[i].key]).length
+  return count
+}
+
+// "Showing results for radiohead" when YouTube corrected the query, else "".
+function spellingStatus(result) {
+  var sp = result ? result.spelling : null
+  return sp && sp.kind === "corrected" && sp.corrected ? "Showing results for " + sp.corrected : ""
+}
+
+function _spellingRows(result) {
+  var sp = result ? result.spelling : null
+  if (!sp || !sp.corrected) return []
+  if (sp.kind === "corrected" && sp.original)
+    return [{ item: { type: "action", id: SEARCH_EXACT, title: "Search instead for \"" + sp.original + "\"", icon: "󰓆", query: String(sp.original) } }]
+  if (sp.kind === "didYouMean")
+    return [{ item: { type: "action", id: SEARCH_CORRECTED, title: "Did you mean \"" + sp.corrected + "\"?", icon: "󰓆", query: String(sp.corrected) } }]
+  return []
+}
+
+// A search result as rows. A list (a filter, or the uploads scope): its
+// items, then Load more while it has a cursor. All: the top result card's
+// rows, then each group in `order` (YouTube's; the old fixed order when the
+// result has none) ending in a Show all row for its filter. A spelling row
+// comes first. opts: { scope }.
+function searchRows(result, filter, opts) {
+  var rows = []
+  if (!result) return rows
+  var o = opts || {}
+  rows = rows.concat(_spellingRows(result))
+  var i
+  if (filter || (result.items && typeof result.items.length === "number")) {
+    var items = _listOf(result.items)
+    if (items.length) rows.push({ header: true, title: filter ? searchFilterTitle(filter) : o.scope === "uploads" ? "Uploads" : "Results" })
+    for (i = 0; i < items.length; i++) rows.push({ item: items[i] })
+    if ((result.cursor || result.hasMore) && result.capped !== true) rows.push({ item: { type: "loadMore", title: "Load more" } })
+    return rows
+  }
+  var top = _listOf(result.top)
+  if (top.length) rows.push({ header: true, title: "Top result" })
+  for (i = 0; i < top.length; i++) rows.push({ item: top[i] })
+  var order = result.order && typeof result.order.length === "number" ? result.order
+    : ["songs", "albums", "artists", "playlists", "videos", "podcasts", "episodes", "profiles"]
+  for (var g = 0; g < order.length; g++) {
+    var group = null
+    for (var k = 0; k < SEARCH_GROUPS.length; k++) if (SEARCH_GROUPS[k].key === order[g]) group = SEARCH_GROUPS[k]
+    var list = group ? _listOf(result[group.key]) : []
+    if (!list.length) continue
+    rows.push({ header: true, title: group.title })
+    for (i = 0; i < list.length; i++) rows.push({ item: list[i] })
+    if (searchFilterAllowed(group.key, o.scope))
+      rows.push({ item: { type: "action", id: SEARCH_SHOW_ALL + group.key, title: "Show all " + group.title.toLowerCase(), icon: "󰁔", filter: group.key } })
+  }
+  return rows
+}
+
+// The filter a Show all row sets ("" for any other row).
+function showAllFilter(item) {
+  return item && item.type === "action" && String(item.id || "").indexOf(SEARCH_SHOW_ALL) === 0 ? String(item.filter || "") : ""
+}
+
+// The empty field: your recent searches on this computer, then your other
+// YouTube searches (signed in), each once. All can be removed with x; one
+// that is also a YouTube search is `remote` (removed there too).
+function pastSearchRows(local, remote, max) {
+  var limit = max || 10
+  var out = []
+  var seen = {}
+  function add(text, isRemote) {
+    var value = String(text || "").trim()
+    var k = value.toLowerCase()
+    if (value === "") return
+    if (seen[k]) {
+      if (isRemote) seen[k].remote = true
+      return
+    }
+    if (out.length >= limit) return
+    var item = { type: "query", text: value, recent: true, removable: true }
+    if (isRemote) item.remote = true
+    seen[k] = item
+    out.push(item)
+  }
+  var i
+  for (i = 0; local && i < local.length; i++) add(local[i], false)
+  for (i = 0; remote && i < remote.length; i++) add(remote[i] && typeof remote[i] === "object" ? remote[i].text : remote[i], true)
+  return out.length ? [{ header: true, title: "Recent searches" }].concat(out.map(function(item) { return { item: item } })) : []
+}
+
+// While typing: the completions (suggestionRows), then up to five rich rows
+// (songs play, artists and albums open), under one Suggestions header.
+function typingRows(suggestions, selected, entities) {
+  var rows = suggestionRows(suggestions, selected)
+  var items = _listOf(entities).slice(0, 5)
+  if (items.length && rows.length === 0) rows.push({ header: true, title: "Suggestions" })
+  for (var i = 0; i < items.length; i++) rows.push({ item: items[i], suggestion: true })
+  return rows
+}
+
+// searchMore's page added to a filtered result (appendPage), without the
+// rows already listed: YouTube's next page can repeat a few results of the
+// one before (the worker drops repeats within one reply).
+function _searchRepeatKey(item) {
+  if (!item || typeof item !== "object") return ""
+  var id = item.videoId || item.browseId || item.playlistId || item.channelId
+  return id ? String(item.type) + ":" + id : ""
+}
+
+function appendSearchPage(result, next, max) {
+  if (!result || !next || !Array.isArray(next.items)) return appendPage(result, next, max)
+  var seen = {}
+  var listed = _listOf(result.items)
+  for (var i = 0; i < listed.length; i++) seen[_searchRepeatKey(listed[i])] = true
+  var fresh = []
+  for (var j = 0; j < next.items.length; j++) {
+    var key = _searchRepeatKey(next.items[j])
+    if (key && seen[key]) continue
+    if (key) seen[key] = true
+    fresh.push(next.items[j])
+  }
+  var page = {}
+  for (var k in next) page[k] = next[k]
+  page.items = fresh
+  return appendPage(result, page, max)
+}
+
+// Search's page menu (M): the scopes (signed in) and the More filters.
+MENU_ACTIONS.push({ id: "searchMoreFilters", title: "More filters", icon: "󰈲",
+  applies: function(item, ctx) { return ctx.page === true && ctx.pageKind === "search" && ctx.scope !== "uploads" },
+  run: function(env) { env.owner.openMoreFilters() } })
+SEARCH_SCOPES.forEach(function(scope) {
+  MENU_ACTIONS.push({ id: "searchScope:" + scope.key, title: scope.menuTitle, icon: "󰍉",
+    applies: function(item, ctx) {
+      return ctx.page === true && ctx.pageKind === "search" && ctx.signedIn === true && (ctx.scope || "") !== scope.key
+    },
+    run: function(env) { env.owner.setScope(scope.key) } })
+})
+
+// An uploaded album or artist (the uploads scope) opens as its browse page
+// until S10 gives uploads pages of their own (the item's `upload` says which).
+// Its items are `type: "browse"`, so PAGE_KINDS.browse already reads them.
+
+if (typeof module !== "undefined") {
+  Object.assign(module.exports, {
+    SEARCH_GROUPS: SEARCH_GROUPS,
+    SEARCH_FILTERS: SEARCH_FILTERS,
+    SEARCH_SCOPES: SEARCH_SCOPES,
+    SEARCH_SHOW_ALL: SEARCH_SHOW_ALL,
+    SEARCH_EXACT: SEARCH_EXACT,
+    SEARCH_CORRECTED: SEARCH_CORRECTED,
+    SEARCH_MORE_CHIP: SEARCH_MORE_CHIP,
+    searchFilterTitle: searchFilterTitle,
+    searchScopeTitle: searchScopeTitle,
+    searchFilterAllowed: searchFilterAllowed,
+    nextSearchFilter: nextSearchFilter,
+    nextSearchScope: nextSearchScope,
+    searchChips: searchChips,
+    moreFilterChoices: moreFilterChoices,
+    searchResultCount: searchResultCount,
+    spellingStatus: spellingStatus,
+    searchRows: searchRows,
+    showAllFilter: showAllFilter,
+    pastSearchRows: pastSearchRows,
+    typingRows: typingRows,
+    appendSearchPage: appendSearchPage
   })
 }

@@ -325,6 +325,15 @@ Panel {
     return opened
   }
 
+  // A view's chooser (S7: Search's More filters): { title, subtitle, choices, onChoice }.
+  function openChooser(request) {
+    if (!request) return false
+    picker.close()
+    var opened = itemMenu.openChooser(request.title || "", request.subtitle || "", request.choices || [], request.onChoice)
+    if (opened) keyCatcher.forceActiveFocus()
+    return opened
+  }
+
   // The row's index now: -1 when it is gone (Remove then does nothing, and
   // Play plays the song alone).
   function menuRowIndex(request) {
@@ -670,6 +679,8 @@ Panel {
           bar: root.bar
           onOpenRequested: function(item) { root.push(item) }
           onItemMenuRequested: function(request) { root.openItemMenu(request) }
+          // S7: the More filters chooser.
+          onChooserRequested: function(request) { root.openChooser(request) }
           onLeftField: keyCatcher.forceActiveFocus()
         }
 

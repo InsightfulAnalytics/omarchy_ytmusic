@@ -327,7 +327,8 @@ ListView {
             opacity: queryRow.query.removable && (queryHover.hovered || row.index === root.cursorIndex) ? 1 : 0
             enabled: opacity > 0
             iconText: "󰅖"
-            tooltipText: Model.withKey("Forget this search", "remove")
+            // S7: one of your YouTube searches goes from YouTube too.
+            tooltipText: Model.withKey(queryRow.query.remote ? "Remove from your searches" : "Forget this search", "remove")
             foreground: root.foreground
             onClicked: root.removeRequested(row.index)
           }

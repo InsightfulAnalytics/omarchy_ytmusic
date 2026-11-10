@@ -216,7 +216,8 @@ test("flattenSearch groups results under headers", () => {
   const song = { type: "track", videoId: id11(1) }
   const album = { type: "album", browseId: "MPREb_1" }
   const rows = Model.flattenSearch({ top: [album], songs: [song], albums: [], artists: [], playlists: [], videos: [] })
-  assert.deepEqual(rows.map(r => r.header ? "# " + r.title : r.item.type), ["# Top result", "album", "# Songs", "track"])
+  // S7: each group ends in its Show all row (tests/search.test.js).
+  assert.deepEqual(rows.map(r => r.header ? "# " + r.title : r.item.type), ["# Top result", "album", "# Songs", "track", "action"])
   const filtered = Model.flattenSearch({ items: [song, song] }, "songs")
   assert.deepEqual(filtered.map(r => r.header ? "#" : "i"), ["#", "i", "i"])
   assert.deepEqual(Model.flattenSearch(null), [])
@@ -371,16 +372,19 @@ test("suggestions: two matching recent searches, then YouTube's, never the typed
   const recent = ["daft punk get lucky", "daft punk live", "daft punk tron", "air"]
   const remote = [{ text: "daft punk" }, { text: "Daft Punk Get Lucky" }, { text: "daft punk one more time", fromHistory: true }, { text: "daft punk da funk" }]
   const list = Model.suggestionList(recent, remote, "Daft Punk", 4)
+  // S7: one of your YouTube searches is `remote`.
   assert.deepEqual(list, [
     { text: "daft punk get lucky", recent: true },
     { text: "daft punk live", recent: true },
-    { text: "daft punk one more time", recent: true },
+    { text: "daft punk one more time", recent: true, remote: true },
     { text: "daft punk da funk", recent: false }
   ])
   const rows = Model.suggestionRows(list, 1)
   assert.equal(rows[0].title, "Suggestions")
   assert.deepEqual(rows.slice(1).map(r => r.item.selected), [false, true, false, false])
-  assert.ok(rows.slice(1).every(r => r.item.type === "query" && r.item.removable === false))
+  // S7: recent and past searches can be removed (x); YouTube's completions cannot.
+  assert.deepEqual(rows.slice(1).map(r => [r.item.type, r.item.removable, r.item.remote]),
+    [["query", true, false], ["query", true, false], ["query", true, true], ["query", false, false]])
   assert.deepEqual(Model.suggestionRows([], -1), [])
 })
 
