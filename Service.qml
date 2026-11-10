@@ -194,10 +194,29 @@ Item {
       if (reply.ok && epoch !== root._qualityEpoch) return root._resolveAgain(videoId, waiting)  // S16: old quality
       if (reply.ok) root.addStream(videoId, reply.result)
       else console.warn("ytmusic: no stream for " + videoId + ": " + reply.error.message)
+      if (!reply.ok && reply.error.code === "BOT_CHECK") root.noteBotCheck()
       if (!reply.ok && upload && !reply.error.retryable && !reply.error.unknown) root._accountStreamsFailed = true  // S10
       for (var i = 0; i < waiting.length; i++) waiting[i](reply.ok)
       root.releaseWorkerIfIdle()
     }, 20000)
+  }
+
+  // ---- YouTube's bot check ----------------------------------------------------------
+  // A lookup refused by YouTube's bot check or rate limit (BOT_CHECK) means
+  // more lookups only prolong it. For a while after one, nothing is looked up
+  // in the background (likely picks, the next track), a failed track stops
+  // playback at once instead of after three, and the notice says to wait.
+  // A track that loads ends it early.
+  readonly property int botCheckCooldownMs: 600000
+  property real botCheckUntil: 0
+
+  function botCheckActive() {
+    return botCheckUntil > Date.now()
+  }
+
+  function noteBotCheck() {
+    botCheckUntil = Date.now() + botCheckCooldownMs
+    _speculateNext = null
   }
 
   // ---- likely picks -------------------------------------------------------------------
@@ -210,6 +229,7 @@ Item {
   property int speculated: 0
 
   function speculate(track) {
+    if (botCheckActive()) return
     if (panelsOpen === 0 || !track || !track.videoId || track.available === false) return
     if (streamFor(track.videoId) || _resolving[track.videoId]) return
     if (_speculating !== "") {
@@ -274,7 +294,7 @@ Item {
   }
 
   function preResolveUpcoming() {
-    if (repeatMode === "one") return
+    if (repeatMode === "one" || botCheckActive()) return
     var ids = Model.streamsToResolve(queue, playlistPos, streams, nowSec(), 1, repeatMode === "all")
     for (var i = 0; i < ids.length; i++) resolveStream(ids[i])
   }
@@ -498,7 +518,7 @@ Item {
   function queueErrorNotice(title, detail) {
     consecutiveErrors++
     var offline = backend.lastNetworkErrorAt > 0 && Date.now() - backend.lastNetworkErrorAt < 120000
-    _pendingNotice = Model.playbackNotice(consecutiveErrors, title, detail, offline)
+    _pendingNotice = Model.playbackNotice(consecutiveErrors, title, detail, offline, botCheckActive())
     errorNotice.restart()
   }
 
@@ -3573,6 +3593,7 @@ Item {
       buffering = false
       lastError = ""
       consecutiveErrors = 0
+      botCheckUntil = 0
       _retryIndex = -1
       _pendingNotice = null
       errorNotice.stop()
@@ -3589,7 +3610,9 @@ Item {
       // Offline (or yt-dlp broken), every entry fails in ~0.5 s: stop after
       // three instead of running through the whole queue. The queue stays;
       // play/pause continues from the first failure.
-      if (consecutiveErrors >= 3) mpv.command(["stop", "keep-playlist"])
+      // Under YouTube's bot check every further entry is one more refused
+      // request: stop at the first.
+      if (consecutiveErrors >= 3 || botCheckActive()) mpv.command(["stop", "keep-playlist"])
     } else if (message.event === "end-file" && message.reason === "eof") {
       _episodeEnded(message)  // S8
     }
