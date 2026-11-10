@@ -1782,6 +1782,23 @@ Item {
   // Plays are watched while recording, and until the one-time notice was shown.
   readonly property bool _watchPlays: prefsLoaded && _playStateRead && signedIn && (recordHistory || !historyNoticeShown)
 
+  // Stream lookups (the worker's and mpv's fallback) with the account's
+  // cookies while prefs.streamAccount is on. The worker gets it as a setting
+  // (workerSettings); loadfiles get the cookies option (Model.setStreamAccount).
+  // Streams already looked up stay: they play the same either way.
+  readonly property bool streamAccount: prefs.streamAccount === true
+  onStreamAccountChanged: Model.setStreamAccount(streamAccount)
+
+  function setStreamAccount(on) {
+    var value = on === true
+    if (!prefsLoaded || value === streamAccount) return false
+    setPref("streamAccount", value)
+    notify(value ? "Playing with your account" : "Playing signed out",
+           value ? "Songs are looked up with your account, which YouTube's bot check rarely refuses."
+                 : "Songs are looked up without your account.")
+    return true
+  }
+
   function setRecordHistory(on) {
     var value = on === true
     if (!prefsLoaded || value === recordHistory) return false
@@ -3957,6 +3974,7 @@ Item {
   // The session file's directory may not exist before the first save, and it
   // must be private whoever created it first.
   Component.onCompleted: {
+    Model.setStreamAccount(streamAccount)
     Quickshell.execDetached(["sh", "-c", "mkdir -p \"$1\" && chmod 700 \"$1\"", "sh", root.cacheDir])
     checkTools()
     _syncMpvCookies()  // S10: mpv's yt-dlp plays uploads as the account

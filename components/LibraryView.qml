@@ -150,6 +150,7 @@ Item {
   // in history; Sign out).
   function pageMenu() {
     return { item: null, ctx: { page: true, pageKind: "library", recordHistory: root.recordHistory,
+                                streamAccount: !!service && service.streamAccount === true,
                                 quality: service ? service.quality : "", location: service ? service.location : "",  // S16
                                 canUseOwnAccount: !!service && service.canUseOwnAccount,  // S16
                                 noChannel: !!root.store && root.store.myChannelMissing },  // S9: hides Your channel

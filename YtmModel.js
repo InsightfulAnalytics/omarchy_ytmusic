@@ -239,6 +239,8 @@ var PREF_RULES = {
   quality: _oneOf(["low", "normal", "high"], "high"),
   // S15: report plays to YouTube Music history (off until turned on).
   recordHistory: _bool(false),
+  // Stream lookups with the account's cookies (off until turned on).
+  streamAccount: _bool(false),
   // S17: playback speed per kind of entry, and loudness levelling.
   speed: function(value) {
     var v = value && typeof value === "object" ? value : {}
@@ -6251,6 +6253,19 @@ _insertAfter(MENU_ACTIONS, "remove", [
     run: function(env) { env.service.setRecordHistory(env.ctx.recordHistory !== true) } })
 })()
 
+// Library (M), before Sign out: Play with your account, on and off
+// (ctx.streamAccount from LibraryView.pageMenu).
+;(function() {
+  var at = MENU_ACTIONS.length
+  for (var i = 0; i < MENU_ACTIONS.length; i++) if (MENU_ACTIONS[i].id === "signOut") at = i
+  MENU_ACTIONS.splice(at, 0, {
+    id: "streamAccount",
+    title: function(item, ctx) { return ctx.streamAccount === true ? "Stop playing with your account" : "Play with your account" },
+    icon: "󰀄",
+    applies: function(item, ctx) { return ctx.page === true && ctx.pageKind === "library" && ctx.signedIn === true },
+    run: function(env) { env.service.setStreamAccount(env.ctx.streamAccount !== true) } })
+})()
+
 _keyEntry("remove").title = "remove (queue, own playlist, Liked Music, Episodes for Later, recent search; History: press twice)"
 
 if (typeof module !== "undefined") {
@@ -6439,6 +6454,9 @@ function accountSettings(prefs, base) {
   out.quality = qualityMode(prefs && prefs.quality)
   var location = locationCode(prefs && prefs.location)
   if (location !== "") out.location = location
+  // Sent only when on: configure replaces the worker's settings, so leaving
+  // it out turns it off.
+  if (prefs && prefs.streamAccount === true) out.streamAccount = true
   return out
 }
 
@@ -6755,11 +6773,19 @@ function setUploadCookies(path) {
   _uploadCookies = typeof path === "string" ? path : ""
 }
 
+// prefs.streamAccount: every song's loadfile carries the cookies option, not
+// only an upload's, so mpv's yt-dlp fallback is signed in too.
+var _streamAccount = false
+
+function setStreamAccount(on) {
+  _streamAccount = on === true
+}
+
 // The per-file option that makes mpv's yt-dlp read the account's cookies
 // for an uploaded song ("" for anything else). -append takes its value
 // as is; the %n% form carries a path with commas.
 function uploadCookiesOption(track) {
-  if (!isUploadTrack(track) || _uploadCookies === "") return ""
+  if (_uploadCookies === "" || (!_streamAccount && !isUploadTrack(track))) return ""
   var value = "cookies=" + _uploadCookies
   return "ytdl-raw-options-append=%" + utf8Length(value) + "%" + value
 }
@@ -6985,6 +7011,7 @@ if (typeof module !== "undefined") {
     canDeleteUpload: canDeleteUpload,
     setUploadCookies: setUploadCookies,
     uploadCookiesOption: uploadCookiesOption,
+    setStreamAccount: setStreamAccount,
     loadfileOptions: loadfileOptions,
     albumOf: albumOf,
     canSave: canSave,

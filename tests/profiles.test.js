@@ -140,9 +140,9 @@ test("Library: Your channel leads the account entries, hidden once the worker sa
   const library = { page: true, pageKind: "library", signedIn: true }
   // After S14's taste builder; before S16's Switch account, as on the web.
   assert.deepEqual(ids(null, library),
-    ["tasteProfile", "myChannel", "switchAccount", "audioQuality", "contentLocation", "recordHistory", "signOut"])
+    ["tasteProfile", "myChannel", "switchAccount", "audioQuality", "contentLocation", "recordHistory", "streamAccount", "signOut"])
   assert.deepEqual(ids(null, Object.assign({}, library, { noChannel: true })),
-    ["tasteProfile", "switchAccount", "audioQuality", "contentLocation", "recordHistory", "signOut"])
+    ["tasteProfile", "switchAccount", "audioQuality", "contentLocation", "recordHistory", "streamAccount", "signOut"])
   assert.ok(!ids(null, { page: true, pageKind: "library", signedIn: false }).includes("myChannel"))
   assert.ok(!ids(null, { page: true, pageKind: "home", signedIn: true }).includes("myChannel"))
   const pushed = []
