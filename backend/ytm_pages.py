@@ -101,6 +101,10 @@ def _reload_token(response, order):
     raise WorkerError("UPSTREAM", "That sort option cannot be loaded")
 
 
+# The reload token of a served option (S2 reads which order it re-sorts by).
+reload_token = _reload_token
+
+
 # ---- fetching ------------------------------------------------------------------------
 
 
@@ -279,7 +283,13 @@ def _header(response):
 # changes what every later request (and the web app) gets without an order.
 SAVED_ORDER_PREFIXES = ("FEmusic_liked_", "FEmusic_library_")
 # Cached methods that read one of those pages without an order.
-ORDER_DEPENDENTS = {"FEmusic_liked_playlists": ("libraryPlaylists",)}
+ORDER_DEPENDENTS = {"FEmusic_liked_playlists": ("libraryPlaylists",),
+                    # S2: the library lists (ytm_library) read their pages in the saved order too.
+                    "FEmusic_liked_videos": ("librarySongs",),
+                    "FEmusic_liked_albums": ("libraryAlbums",),
+                    "FEmusic_library_corpus_track_artists": ("libraryArtists",),
+                    "FEmusic_library_corpus_artists": ("librarySubscriptions",),
+                    "FEmusic_library_landing": ("libraryLanding",)}
 
 
 def saves_order(browse_id):

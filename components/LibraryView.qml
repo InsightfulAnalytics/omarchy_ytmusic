@@ -3,7 +3,13 @@ import qs.Commons
 import qs.Ui
 import "../YtmModel.js" as Model
 
-// Your account, Liked Music and playlists, with "new playlist".
+// Your account and "new playlist", then the library's chips (S2):
+// Playlists (Liked Music, History, Recent activity, your and saved
+// playlists), Songs (Shuffle all, then the songs), Albums and Artists
+// (Subscriptions, then the artists). h / l switch chips (kept in
+// prefs.libraryChip); O cycles the chip's sort order (prefs.libraryOrders),
+// named in its first heading. A chip's list loads only once it is shown,
+// about 50 at a time: Load more, or the cursor nearing the end.
 Item {
   id: root
 
@@ -15,7 +21,23 @@ Item {
   readonly property string fontFamily: bar ? bar.fontFamily : Style.font.family
   readonly property bool signedIn: !!service && service.signedIn
   readonly property var account: service ? service.account : null
-  readonly property var rows: store ? Model.libraryRows(store.playlists) : []
+  readonly property string chip: Model.libraryChip(service && service.prefs ? service.prefs.libraryChip : "")
+  readonly property bool isPlaylists: chip === "playlists"
+  // The chip's list: libraryList's shape (Playlists: its orders and order).
+  readonly property var list: !store ? null
+    : isPlaylists ? { orders: store.playlistOrders,
+                      current: store.playlistsRequested !== null ? store.playlistsRequested : store.playlistOrder }
+    : (store.libraryLists[chip] || null)
+  readonly property var orders: list && list.orders ? list.orders : []
+  readonly property string orderLabel: Model.orderTitle(orders, list ? list.current : null)
+  readonly property bool listLoading: !store ? false : isPlaylists ? store.libraryLoading : !!list && list.loading === true
+  readonly property string listError: !store ? "" : isPlaylists ? store.libraryError : list && list.error ? list.error : ""
+  readonly property int itemCount: !store ? 0 : isPlaylists ? store.playlists.length : list && list.items ? list.items.length : 0
+  // Playlists in a new order are loading over the old one (the other chips
+  // start a new order empty).
+  readonly property bool reordering: isPlaylists && !!store && store.libraryLoading && store.playlistsRequested !== null
+    && !Model.sameOrder(store.playlistsRequested, store.playlistOrder)
+  readonly property var rows: store ? Model.libraryRows(chip, list, store.playlists) : []
   readonly property alias results: resultList
   readonly property bool inputFocused: nameField.activeFocus
 
@@ -24,13 +46,50 @@ Item {
   // A row's or the account's menu: Panel opens it.
   signal itemMenuRequested(var request)
 
+  // The shown chip's list (a list held less than 5 min is reused).
   function refresh(force) {
-    if (signedIn && store) store.loadLibrary(force)
+    if (signedIn && store) store.loadLibraryList(chip, force)
   }
 
+  // h / l: the chip before or after.
+  function horizontal(dx) {
+    if (signedIn) setChip(Model.nextLibraryChip(chip, dx))
+  }
+
+  function setChip(key) {
+    if (!service || key === chip) return
+    service.setPref("libraryChip", key)
+  }
+
+  // O: the chip's next sort order (saved per chip; YouTube saves it too).
+  function cycleOrder() {
+    if (!signedIn || !store) return false
+    var next = Model.nextOrder(orders, list ? list.current : null)
+    if (next === null) return false
+    store.setLibraryOrder(chip, next)
+    return true
+  }
+
+  // Enter plays a song (the loaded songs from there), Shuffle all plays
+  // YouTube's shuffle of the whole library, Load more loads the next page;
+  // anything else opens as a page.
   function activate(index) {
     var row = resultList.rowAt(index)
-    if (row) root.openRequested(row.item)
+    if (!row || !service) return
+    var item = row.item
+    if (item.type === "loadMore") {
+      if (store) store.loadLibraryMore(chip, true)
+    } else if (item.type === "action") {
+      if (item.id === Model.LIBRARY_SHUFFLE && Model.libraryShuffleItem(list))
+        service.playItem(Model.libraryShuffleItem(list), "now")
+    } else if (item.type === "message") {
+      return
+    } else if (row.trackIndex !== undefined) {
+      service.playCollection(Model.libraryTracks(list), row.trackIndex, false,
+                             { playlistId: null, title: Model.LIBRARY_SONGS_TITLE, radio: false })
+    } else {
+      root.openRequested(item)
+    }
   }
 
   // n / a: Liked Music or a whole playlist (Service.playItem).
@@ -67,8 +126,24 @@ Item {
     })
   }
 
-  onVisibleChanged: if (visible) refresh(false)
-  onSignedInChanged: if (visible) refresh(false)
+  // The list shown is kept from the Store's sweep; a list stays only while
+  // it is shown or seen in the last 10 minutes.
+  function markShown() {
+    if (store) store.libraryShown = visible && signedIn ? chip : ""
+  }
+
+  // Once the bindings settle: new prefs change the chip and the Store's
+  // orders together.
+  function refreshShown() {
+    markShown()
+    if (visible) refresh(false)
+  }
+
+  onVisibleChanged: Qt.callLater(refreshShown)
+  onSignedInChanged: Qt.callLater(refreshShown)
+  onChipChanged: Qt.callLater(refreshShown)
+  onStoreChanged: Qt.callLater(refreshShown)
+  Component.onDestruction: if (root.store && root.store.libraryShown === root.chip) root.store.libraryShown = ""
 
   SignInCard {
     width: parent.width
@@ -178,24 +253,59 @@ Item {
       }
     }
 
+    // The chips (h / l), and the chip's sort order (O) when it has some.
+    Flow {
+      id: chipRow
+      anchors.top: createRow.bottom
+      anchors.topMargin: Style.space(8)
+      width: parent.width
+      spacing: Style.space(4)
+
+      Repeater {
+        model: Model.LIBRARY_CHIPS
+
+        Button {
+          required property var modelData
+          text: modelData.title
+          selected: root.chip === modelData.key
+          tooltipText: Model.withKey(modelData.title, "horizontal")
+          foreground: root.foreground
+          fontSize: Style.font.caption
+          onClicked: root.setChip(modelData.key)
+        }
+      }
+
+      Button {
+        visible: root.orders.length > 1
+        iconText: "󰒺"
+        text: root.orderLabel !== "" ? root.orderLabel : "Sort"
+        tooltipText: Model.withKey("Next sort order", "order")
+        foreground: root.foreground
+        fontSize: Style.font.caption
+        onClicked: root.cycleOrder()
+      }
+    }
+
     Text {
       id: statusText
-      anchors.top: createRow.bottom
+      anchors.top: chipRow.bottom
       anchors.topMargin: Style.space(8)
       width: parent.width
       visible: text !== ""
       textFormat: Text.PlainText
       wrapMode: Text.Wrap
-      text: !root.store ? "" : root.store.libraryLoading && root.store.playlists.length === 0 ? "Loading your library…"
-        : root.store.libraryError
-      color: root.store && root.store.libraryError !== "" ? Color.urgent : Qt.darker(root.foreground, 1.5)
+      text: !root.store ? "" : root.listLoading && root.itemCount === 0 ? "Loading your library…"
+        : root.listError !== "" ? root.listError
+        : !root.isPlaylists && !!root.list && !root.listLoading && root.itemCount === 0 && !root.list.message
+          && root.list.at > 0 ? "Nothing here yet" : ""
+      color: root.listError !== "" ? Color.urgent : Qt.darker(root.foreground, 1.5)
       font.family: root.fontFamily
       font.pixelSize: Style.font.bodySmall
     }
 
     ResultList {
       id: resultList
-      anchors.top: statusText.visible ? statusText.bottom : createRow.bottom
+      anchors.top: statusText.visible ? statusText.bottom : chipRow.bottom
       anchors.topMargin: Style.space(8)
       anchors.bottom: parent.bottom
       width: parent.width
@@ -203,8 +313,18 @@ Item {
       store: root.store
       rows: root.rows
       owner: root
+      // Another chip or order starts a fresh list; a refresh or Load more keeps the place.
+      listKey: root.chip + "|" + Model.canonicalJson(root.store ? root.store.requestedOrder(root.chip) : null)
+      moreBusy: !!root.list && (root.list.loadingMore === true || root.list.moreWanted === true)
+      moreError: root.list && root.list.moreError ? root.list.moreError : ""
+      opacity: root.reordering ? 0.5 : 1
 
       onActivated: function(index) { root.activate(index) }
+      onPlayNextRequested: function(index) { root.playNext(index) }
+      onAddToQueueRequested: function(index) { root.addToQueue(index) }
+      // After a failure only an explicit Load more tries again.
+      onNearEnd: if (root.store && root.list && root.list.cursor && !root.list.loadingMore && !root.list.loading
+                     && !root.list.moreError) root.store.loadLibraryMore(root.chip, false)
     }
   }
 }

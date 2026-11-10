@@ -17,6 +17,7 @@ Area module (see AREA_MODULES in ytm.py).
 """
 
 import ytm_artist as artist
+import ytm_library as library
 import ytm_normalize as norm
 from ytm_proto import WorkerError, choice, opt_int, req_str
 
@@ -84,7 +85,9 @@ def route(kind, collection_id):
 
     The id decides before the kind does: a mix (RD..., not RDCLAK or RDPN)
     plays through the watch playlist, Liked Music is LM, an album without an
-    MPRE id is its audio playlist, and any other playlist id is a playlist.
+    MPRE id is its audio playlist, an MLCT... id (librarySongs'
+    header.shuffleId) is the library's server shuffle (its first 50 songs in
+    two requests, always complete), and any other playlist id is a playlist.
     """
     if kind == "liked" or collection_id in ("LM", "VLLM"):
         return "liked", "LM"
@@ -95,6 +98,9 @@ def route(kind, collection_id):
     playlist_id = _strip_vl(collection_id)
     if norm.is_mix(playlist_id):
         return "mix", playlist_id
+    # S2: Shuffle all of the library's songs (librarySongs header.shuffleId).
+    if library.is_shuffle(playlist_id):
+        return "libraryShuffle", playlist_id
     return "playlist", playlist_id
 
 
@@ -116,6 +122,8 @@ def m_tracks_for(worker, params):
         return _cut(_artist(worker, target, limit), limit)
     if reader == "mix":
         return _cut(_mix(worker, target), limit)
+    if reader == "libraryShuffle":
+        return library.shuffle_tracks(worker, target, limit)
     return _playlist(worker, target, limit=limit)
 
 

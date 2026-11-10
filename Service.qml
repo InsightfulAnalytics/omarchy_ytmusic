@@ -867,6 +867,7 @@ Item {
     backend.request("addToPlaylist", { playlistId: playlist.playlistId, videoIds: list.map(function(t) { return t.videoId }) }, function(reply) {
       if (reply.ok) {
         storeItem.forgetCollection("playlist", playlist.playlistId)
+        storeItem.forgetCollection("libraryLanding")  // S2: Recent activity lists playlists too
         root.notify("Added to " + playlist.title, list.length === 1 ? Model.mediaTitle(list[0]) : list.length + " songs")
       } else if (root.unsure(reply)) {
         root.refreshUnsure([{ kind: "playlist", id: playlist.playlistId }, { kind: "library" }], playlist.title)
@@ -883,9 +884,14 @@ Item {
       .map(function(t) { return { videoId: t.videoId, setVideoId: t.setVideoId } })
     if (!signedIn || !playlistId || items.length === 0) return false
     backend.request("removeFromPlaylist", { playlistId: playlistId, items: items }, function(reply) {
-      if (reply.ok) storeItem.forgetCollection("playlist", playlistId)
-      else if (root.unsure(reply)) root.refreshUnsure([{ kind: "playlist", id: playlistId }, { kind: "library" }])
-      else root.fail(reply.error.message)
+      if (reply.ok) {
+        storeItem.forgetCollection("playlist", playlistId)
+        storeItem.forgetCollection("libraryLanding")  // S2: Recent activity lists playlists too
+      } else if (root.unsure(reply)) {
+        root.refreshUnsure([{ kind: "playlist", id: playlistId }, { kind: "library" }])
+      } else {
+        root.fail(reply.error.message)
+      }
       if (callback) callback(reply)
     }, 30000, noRetry)
     return true
@@ -1209,7 +1215,9 @@ Item {
       },
       cache: {
         thumbs: storeItem.thumbCount,
-        searches: storeItem.searchCacheSize
+        searches: storeItem.searchCacheSize,
+        // Library (S2): items held per chip list.
+        libraryLists: storeItem.libraryListSizes()
       },
       session: {
         canResume: canResume,
@@ -1302,11 +1310,17 @@ Item {
     worker: backend
     thumbsEnabled: root.panelsOpen > 0
     stateDir: root.cacheDir
+    // Library (S2): each chip's sort order, saved in player.json.
+    libraryOrders: root.prefs.libraryOrders
   }
 
   Connections {
     target: storeItem
     function onTrackHinted(track) { root.speculate(track) }
+    // Library (S2): O on a chip.
+    function onLibraryOrderChosen(chip, order) {
+      root.setPref("libraryOrders", Model.withLibraryOrder(root.prefs.libraryOrders, chip, order))
+    }
   }
 
   FileView {

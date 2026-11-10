@@ -44,6 +44,7 @@ import time  # noqa: E402
 import ytm_artist as artist  # noqa: E402
 import ytm_auth as auth  # noqa: E402
 import ytm_cache as caches  # noqa: E402
+import ytm_library as library  # noqa: E402
 import ytm_normalize as norm  # noqa: E402
 import ytm_pages as pages  # noqa: E402
 import ytm_play as play  # noqa: E402
@@ -213,12 +214,6 @@ def m_history(worker, params):
     return {"items": norm.normalize_list(worker.yt.get_history()[:limit], norm.track, "history item")}
 
 
-def m_library_playlists(worker, params):
-    worker.require_auth()
-    items = worker.yt.get_library_playlists(limit=opt_int(params, "limit", 100, high=500))
-    return {"items": norm.normalize_list(items, norm.playlist, "library playlist")}
-
-
 def m_playlist(worker, params):
     playlist_id = req_str(params, "playlistId")
     data = worker.yt.get_playlist(playlist_id, limit=opt_int(params, "limit", 200, high=5000))
@@ -364,7 +359,6 @@ CORE_METHODS = {
     "suggestions": m_suggestions,
     "home": m_home,
     "history": m_history,
-    "libraryPlaylists": m_library_playlists,
     "playlist": m_playlist,
     "liked": m_liked,
     "album": m_album,
@@ -380,20 +374,23 @@ CORE_METHODS = {
     "removeFromPlaylist": m_remove_from_playlist,
     "deletePlaylist": m_delete_playlist,
 }
-CORE_CACHEABLE = {"libraryPlaylists", "liked", "playlist", "album", "home", "history"}
+CORE_CACHEABLE = {"liked", "playlist", "album", "home", "history"}
 CORE_LANES = {"resolve": "streams", "suggestions": "suggest"}
 # The browsePage pages the core edits change: a playlist's own page, the
 # library's playlist pages, and the liked songs pages.
 _PLAYLIST_PAGE = ("browsePage", Prefixed("VL", "playlistId"), "browseId")
 _LIBRARY_PAGES = ("browsePage", Fixed("FEmusic_liked_playlists", "FEmusic_library_landing"), "browseId")
 _LIKED_PAGES = ("browsePage", Fixed("VLLM", "FEmusic_liked_videos"), "browseId")
+# S2 (ytm_library): the landing's recent activity shows playlists, and a
+# rating can change the library's songs.
+_LANDING = ("libraryLanding", None, None)
 _PLAYLIST_EDIT = [("playlist", "playlistId", "playlistId"), ("libraryPlaylists", None, None), _PLAYLIST_PAGE,
-                  _LIBRARY_PAGES]
+                  _LIBRARY_PAGES, _LANDING]
 CORE_INVALIDATES = {
-    "rate": [("liked", None, None), _LIKED_PAGES],
+    "rate": [("liked", None, None), _LIKED_PAGES, ("librarySongs", None, None)],
     "addToPlaylist": _PLAYLIST_EDIT,
     "removeFromPlaylist": _PLAYLIST_EDIT,
-    "createPlaylist": [("libraryPlaylists", None, None), _LIBRARY_PAGES],
+    "createPlaylist": [("libraryPlaylists", None, None), _LIBRARY_PAGES, _LANDING],
     "deletePlaylist": _PLAYLIST_EDIT,
 }
 CORE_MUTATES = {"rate", "createPlaylist", "addToPlaylist", "removeFromPlaylist", "deletePlaylist"}
@@ -418,7 +415,7 @@ class _Core:
 
 # Area modules, in a fixed order. A slice that rewrites a core method moves it
 # out of the core tables into its module.
-AREA_MODULES = (pages, play, artist)
+AREA_MODULES = (pages, play, artist, library)
 
 
 def merge_registries(sources):

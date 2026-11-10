@@ -486,11 +486,12 @@ function itemSubtitle(item) {
   if (!item) return ""
   if (item.type === "track") return joinParts([item.artistText, item.kind === "video" ? "Video" : ""])
   if (item.type === "album") return joinParts([item.albumType, item.artistText, item.year])
-  if (item.type === "playlist") return joinParts([item.author, item.count ? item.count + " songs" : ""])
+  if (item.type === "playlist")
+    return joinParts([item.author, item.count ? item.count + " songs" : ""]) || (item.description ? String(item.description) : "")
   if (item.type === "artist") return item.subtitle ? item.subtitle : "Artist"
   if (item.type === "liked") return "Songs you liked"
   if (item.type === "history") return "Recently played"
-  return ""
+  return item.subtitle ? String(item.subtitle) : ""
 }
 
 // Home: a header per shelf; tracks carry their index among the shelf's
@@ -590,26 +591,7 @@ function ownedPlaylists(playlists) {
   return (playlists || []).filter(function(p) { return p.owned && !isSpecialPlaylist(p) })
 }
 
-// The Library list: Liked Music and History, then your playlists, then saved ones.
-function libraryRows(playlists) {
-  var rows = [
-    { item: { type: "liked", title: "Liked Music", thumb: null } },
-    { item: { type: "history", title: "History", thumb: null } }
-  ]
-  var owned = []
-  var saved = []
-  for (var i = 0; i < (playlists || []).length; i++) {
-    var p = playlists[i]
-    if (isSpecialPlaylist(p)) continue
-    if (p.owned) owned.push(p)
-    else saved.push(p)
-  }
-  if (owned.length) rows.push({ header: true, title: "Your playlists" })
-  for (var j = 0; j < owned.length; j++) rows.push({ item: owned[j] })
-  if (saved.length) rows.push({ header: true, title: "Saved playlists" })
-  for (var k = 0; k < saved.length; k++) rows.push({ item: saved[k] })
-  return rows
-}
+// libraryRows(chip, data, playlists), the Library list: see the library (S2) section.
 
 // Remove one track from a loaded collection (by setVideoId when it has one,
 // since a playlist may hold the same song twice).
@@ -1414,7 +1396,7 @@ function radioParams(item) {
   if (kind === "album") return item.playlistId ? { playlistId: _stripVl(item.playlistId) } : { browseId: item.browseId }
   if (kind === "playlist") return { playlistId: _stripVl(item.playlistId) }
   if (kind === "mix") return { mixId: _stripVl(item.playlistId) }
-  if (kind === "artist") return { channelId: item.channelId }
+  if (kind === "artist") return item.radioId ? { mixId: item.radioId } : { channelId: item.channelId }
   return null
 }
 
@@ -1565,7 +1547,12 @@ var MENU_ACTIONS = [
     } },
   { id: "shuffle", title: "Shuffle", icon: "󰒝",
     applies: function(item, ctx) { return _kindIn(_SHUFFLES)(item) || _pagePlays(ctx) },
-    run: _playMode("shuffle") },
+    run: function(env) {
+      // An artist row that carries YouTube's shuffle mix (S2: library artists) plays it.
+      var mix = env.ctx && env.ctx.page ? null : artistMix(env.item, "shuffleId")
+      if (mix) env.service.playItem(mix, "now")
+      else _playMode("shuffle")(env)
+    } },
   { id: "playNext", title: "Play next", icon: "󰒭", key: "playNext",
     applies: function(item, ctx) { return (_kindIn(_PLAYS)(item) || _pagePlays(ctx)) && !ctx.isCurrent && ctx.pageKind !== "queue" },
     run: _playMode("next") },
@@ -1962,5 +1949,249 @@ if (typeof module !== "undefined") {
     aboutItem: aboutItem,
     linkUrl: linkUrl,
     aboutPage: aboutPage
+  })
+}
+
+// ==== library (S2) ==========================================================================
+// The Library tab's chips: Playlists (the default), Songs, Albums and
+// Artists (S8 and S10 push Podcasts and Uploads), switched with h / l and
+// kept in prefs.libraryChip. A chip's list is its worker method's, fetched
+// only once the chip is shown and read about 50 at a time (Store's
+// loadLibraryList / loadLibraryMore). O cycles a chip's sort orders, kept
+// per chip in prefs.libraryOrders as the worker's ids: a_to_z, z_to_a,
+// recently_added, or menu:<n> for an option only the served menu has (Most
+// songs). Recent activity (the library landing) and Subscriptions open as
+// pages, their orders shown as chips there.
+
+var LIBRARY_CHIPS = [
+  { key: "playlists", title: "Playlists", method: "libraryPlaylists" },
+  { key: "songs", title: "Songs", method: "librarySongs" },
+  { key: "albums", title: "Albums", method: "libraryAlbums" },
+  { key: "artists", title: "Artists", method: "libraryArtists" }
+]
+// The Songs chip's first row: YouTube's shuffle of the whole library.
+var LIBRARY_SHUFFLE = "library:shuffle"
+var LIBRARY_SONGS_TITLE = "Library songs"
+
+function libraryChipSpec(key) {
+  for (var i = 0; i < LIBRARY_CHIPS.length; i++) if (LIBRARY_CHIPS[i].key === key) return LIBRARY_CHIPS[i]
+  return null
+}
+
+// A chip that exists (a saved one a newer plugin added may not).
+function libraryChip(key) {
+  return libraryChipSpec(key) ? key : LIBRARY_CHIPS[0].key
+}
+
+// h / l: the chip before or after, wrapping around.
+function nextLibraryChip(key, delta) {
+  var at = 0
+  for (var i = 0; i < LIBRARY_CHIPS.length; i++) if (LIBRARY_CHIPS[i].key === key) at = i
+  var n = LIBRARY_CHIPS.length
+  return LIBRARY_CHIPS[((at + (delta < 0 ? -1 : 1)) % n + n) % n].key
+}
+
+// prefs.libraryOrders[chip], or null for the order YouTube has saved.
+function libraryOrderOf(orders, chip) {
+  var value = orders && typeof orders === "object" ? orders[chip] : undefined
+  return value === undefined || value === null ? null : value
+}
+
+// A copy of prefs.libraryOrders with chip's order set (null removes it).
+function withLibraryOrder(orders, chip, order) {
+  var next = {}
+  for (var key in orders || {}) next[key] = orders[key]
+  if (order === null || order === undefined) delete next[chip]
+  else next[chip] = order
+  return normalizePref("libraryOrders", next)
+}
+
+function sameOrder(a, b) {
+  return canonicalJson(a === undefined ? null : a) === canonicalJson(b === undefined ? null : b)
+}
+
+function _orderAt(orders, current) {
+  var at = -1
+  for (var i = 0; i < orders.length; i++) if (sameOrder(orders[i].index, current)) at = i
+  if (at < 0) for (var j = 0; j < orders.length; j++) if (orders[j].selected) at = j
+  return at
+}
+
+// O: the order after `current` among `orders` ({ index, title, selected }),
+// wrapping around; null when there is nothing to cycle.
+function nextOrder(orders, current) {
+  var list = orders && typeof orders.length === "number" ? orders : []
+  if (list.length < 2) return null
+  return list[(_orderAt(list, current) + 1) % list.length].index
+}
+
+// The served title of the order a list is in ("" when unknown).
+function orderTitle(orders, current) {
+  var list = orders && typeof orders.length === "number" ? orders : []
+  var at = _orderAt(list, current)
+  return at >= 0 ? String(list[at].title || "") : ""
+}
+
+// A worker reply (a page, or libraryPlaylists' { items }) as the flat list
+// the Store keeps for a chip.
+function libraryList(result) {
+  var r = result && typeof result === "object" ? result : {}
+  var items = []
+  if (r.items && typeof r.items.length === "number") items = _validItems(r.items)
+  for (var s = 0; r.sections && s < r.sections.length; s++) items = items.concat(_validItems((r.sections[s] || {}).items))
+  return {
+    items: items, cursor: r.cursor || null, hasMore: !!(r.cursor || r.hasMore), capped: false,
+    orders: r.orders && typeof r.orders.length === "number" ? r.orders : [],
+    current: r.order === undefined ? null : r.order,
+    header: r.header && typeof r.header === "object" ? r.header : {},
+    message: r.message ? String(r.message) : null
+  }
+}
+
+// `list` with the next cursor page's items appended (Model.appendPage: no
+// repeated album, artist or playlist, at most `max` items).
+function appendLibraryList(list, next, max) {
+  var merged = appendPage({ items: list.items || [], cursor: list.cursor || null },
+                          { items: (next && next.items) || [], cursor: next ? next.cursor || null : null }, max)
+  var out = {}
+  for (var key in list) out[key] = list[key]
+  out.items = merged.items
+  out.cursor = merged.cursor
+  out.hasMore = merged.hasMore
+  out.capped = merged.capped === true
+  return out
+}
+
+// The songs a list holds, in the order trackIndex counts them.
+function libraryTracks(list) {
+  return ((list && list.items) || []).filter(function(item) { return item && item.type === "track" })
+}
+
+// Shuffle all on the Songs chip: the server shuffle as a playable item
+// (tracksFor reads it; the worker routes its id).
+function libraryShuffleItem(list) {
+  var id = list && list.header ? list.header.shuffleId : null
+  return id ? { type: "playlist", playlistId: String(id), title: LIBRARY_SONGS_TITLE } : null
+}
+
+// YouTube's shuffle (shuffleId) or radio (radioId) mix of an artist row
+// (library artists and subscriptions carry both), as a mix item; else null.
+function artistMix(item, key) {
+  if (!item || item.type !== "artist" || !item[key]) return null
+  return { type: "playlist", playlistId: String(item[key]), title: String(item.name || item.title || "") }
+}
+
+var _LIBRARY_ENTRIES = {
+  landing: { type: "libraryLanding", title: "Recent activity", subtitle: "What you played and saved lately", thumb: null },
+  subscriptions: { type: "librarySubscriptions", title: "Subscriptions", subtitle: "Artists you subscribe to", thumb: null }
+}
+
+function _entry(name) {
+  var out = {}
+  for (var key in _LIBRARY_ENTRIES[name]) out[key] = _LIBRARY_ENTRIES[name][key]
+  return out
+}
+
+// The Library list for a chip. `data` is the chip's list (libraryList's
+// shape; for Playlists only its orders and current), `playlists` the
+// library's playlists. Playlists: Liked Music, History and Recent activity,
+// then your playlists and saved ones (Liked Music and Episodes for later
+// have rows of their own). Songs: Shuffle all, then the songs (Enter plays
+// the loaded ones from there). Artists: Subscriptions, then the artists.
+// The first heading names the order ("Albums, A to Z"); a list with more
+// ends in Load more.
+function libraryRows(chip, data, playlists) {
+  var list = data || {}
+  var label = orderTitle(list.orders, list.current)
+  var titled = false
+  var rows = []
+  function heading(title) {
+    var text = !titled && label ? title + ", " + label : title
+    titled = true
+    rows.push({ header: true, title: text })
+  }
+  if (chip === "playlists") {
+    rows.push({ item: { type: "liked", title: "Liked Music", thumb: null } },
+              { item: { type: "history", title: "History", thumb: null } },
+              { item: _entry("landing") })
+    var owned = []
+    var saved = []
+    for (var i = 0; i < (playlists || []).length; i++) {
+      var p = playlists[i]
+      if (isSpecialPlaylist(p)) continue
+      if (p.owned) owned.push(p)
+      else saved.push(p)
+    }
+    if (owned.length) heading("Your playlists")
+    for (var j = 0; j < owned.length; j++) rows.push({ item: owned[j] })
+    if (saved.length) heading("Saved playlists")
+    for (var k = 0; k < saved.length; k++) rows.push({ item: saved[k] })
+    return rows
+  }
+  var spec = libraryChipSpec(chip)
+  var items = _validItems(list.items)
+  if (chip === "artists") rows.push({ item: _entry("subscriptions") })
+  if (chip === "songs" && libraryShuffleItem(list))
+    rows.push({ item: { type: "action", id: LIBRARY_SHUFFLE, title: "Shuffle all", icon: "󰒝" } })
+  if (items.length) heading(spec ? spec.title : chip)
+  var trackIndex = 0
+  for (var n = 0; n < items.length; n++) {
+    var row = { item: items[n] }
+    if (items[n].type === "track") row.trackIndex = trackIndex++
+    rows.push(row)
+  }
+  if (list.message) rows.push({ item: { type: "message", title: String(list.message) } })
+  if (list.capped) rows.push({ item: { type: "message", title: "Showing the first " + items.length } })
+  else if (list.cursor || list.hasMore) rows.push({ item: { type: "loadMore", title: "Load more" } })
+  return rows
+}
+
+// Recent activity: the library landing grid (playlists, albums, artists),
+// in its served orders (Recent activity, Recently saved, Recently played).
+PAGE_KINDS.libraryLanding = {
+  method: "libraryLanding", title: "Recent activity", round: false,
+  params: function() { return {} },
+  id: function() { return "landing" }
+}
+
+// The artists you subscribe to.
+PAGE_KINDS.librarySubscriptions = {
+  method: "librarySubscriptions", title: "Subscriptions", round: false,
+  params: function() { return {} },
+  id: function() { return "subscriptions" }
+}
+
+// Liked Music listed as a playlist (Recent activity, Home) opens as Liked Music.
+PAGE_KINDS.liked.claims = function(item) {
+  return item.type === "playlist" && _stripVl(item.playlistId) === "LM"
+}
+
+// A user channel (Recent activity, Subscriptions) opens as its browse page
+// until S9 gives profiles a page of their own.
+if (!PAGE_KINDS.profile) {
+  PAGE_KINDS.profile = {
+    method: "browsePage", title: "Profile", round: true,
+    params: function(t) { return t.channelId ? { browseId: t.channelId } : null },
+    id: function(t) { return t.channelId }
+  }
+}
+
+if (typeof module !== "undefined") {
+  Object.assign(module.exports, {
+    LIBRARY_CHIPS: LIBRARY_CHIPS,
+    LIBRARY_SHUFFLE: LIBRARY_SHUFFLE,
+    libraryChipSpec: libraryChipSpec,
+    libraryChip: libraryChip,
+    nextLibraryChip: nextLibraryChip,
+    libraryOrderOf: libraryOrderOf,
+    withLibraryOrder: withLibraryOrder,
+    sameOrder: sameOrder,
+    nextOrder: nextOrder,
+    orderTitle: orderTitle,
+    libraryList: libraryList,
+    appendLibraryList: appendLibraryList,
+    libraryTracks: libraryTracks,
+    libraryShuffleItem: libraryShuffleItem,
+    artistMix: artistMix
   })
 }

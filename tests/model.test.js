@@ -268,16 +268,16 @@ test("library rows: liked first, then own and saved playlists", () => {
     { playlistId: "PL1", title: "Mine", owned: true },
     { playlistId: "PL2", title: "Theirs", owned: false },
   ]
-  const rows = Model.libraryRows(playlists)
+  const rows = Model.libraryRows("playlists", null, playlists)
   assert.deepEqual(rows.map(r => r.header ? "# " + r.title : r.item.title),
-    ["Liked Music", "History", "# Your playlists", "Mine", "# Saved playlists", "Theirs"])
+    ["Liked Music", "History", "Recent activity", "# Your playlists", "Mine", "# Saved playlists", "Theirs"])
   assert.equal(rows[0].item.type, "liked")
   assert.equal(rows[1].item.type, "history")
   assert.deepEqual(Model.ownedPlaylists(playlists).map(p => p.playlistId), ["PL1"])
   assert.equal(Model.itemSubtitle({ type: "liked" }), "Songs you liked")
   assert.equal(Model.itemSubtitle({ type: "history" }), "Recently played")
   assert.deepEqual(Model.collectionTarget({ type: "history" }), { kind: "history", id: "history" })
-  assert.deepEqual(Model.libraryRows([]).length, 2)
+  assert.deepEqual(Model.libraryRows("playlists", null, []).length, 3)
 })
 
 test("home rows: shelves as headers, tracks indexed within their shelf", () => {
