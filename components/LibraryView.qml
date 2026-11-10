@@ -10,9 +10,10 @@ import "../YtmModel.js" as Model
 // Episodes for Later with its count, New episodes and Channels, then the
 // saved podcasts), Uploads (S10: Upload a file, Albums and Artists, then
 // your uploaded songs). h / l switch chips (kept in prefs.libraryChip); O
-// cycles the chip's sort order (prefs.libraryOrders), named in its first
-// heading. A chip's list loads only once it is shown, about 50 at a time:
-// Load more, or the cursor nearing the end.
+// sends the chip's next sort order, which YouTube saves on the account
+// (P1: nothing else sends one; the heading names the order YouTube says
+// the list is in). A chip's list loads only once it is shown, about 50 at
+// a time: Load more, or the cursor nearing the end.
 //
 // New playlist (S13): a privacy chip (a click, or Alt+Left / Alt+Right in
 // the fields) and an optional description under the name; a pasted
@@ -22,6 +23,10 @@ import "../YtmModel.js" as Model
 // Enter there uploads the file (Service.uploadFile), Esc or Down leaves it.
 // The path stays in the field until the upload went, so a refused one can
 // be fixed. Hidden for a brand account (it cannot upload).
+//
+// P1 (kb-upload-tab): no field here passes Tab on. Qt's own tab chain
+// (the kit's TextField takes focus on Tab) would carry the typing into
+// another field, even a hidden one, and Enter there would act on it.
 Item {
   id: root
 
@@ -87,7 +92,8 @@ Item {
     service.setPref("libraryChip", key)
   }
 
-  // O: the chip's next sort order (saved per chip; YouTube saves it too).
+  // O: the chip's next sort order (YouTube saves it on the account; P1:
+  // the only load that sends one).
   function cycleOrder() {
     if (!signedIn || !store) return false
     var next = Model.nextOrder(orders, list ? list.current : null)
@@ -236,6 +242,13 @@ Item {
     return true
   }
 
+  // P1: Tab or Shift+Tab a field did not use stays in it (a no-op).
+  function keepTab(event) {
+    if (event.key !== Qt.Key_Tab && event.key !== Qt.Key_Backtab) return false
+    event.accepted = true
+    return true
+  }
+
   // The list shown is kept from the Store's sweep; a list stays only while
   // it is shown or seen in the last 10 minutes.
   function markShown() {
@@ -377,12 +390,15 @@ Item {
         placeholderText: "New playlist name (or an invite link)"
         foreground: root.foreground
         font.family: root.fontFamily
+        activeFocusOnTab: false
 
         Keys.onPressed: function(event) {
           if (root.fieldKey(event)) return
-          if (event.key === Qt.Key_Tab && descriptionRow.visible) {
+          if (event.key === Qt.Key_Tab && !(event.modifiers & Qt.ShiftModifier) && descriptionRow.visible) {
             descriptionField.forceActiveFocus()
             event.accepted = true
+          } else {
+            root.keepTab(event)
           }
         }
       }
@@ -430,12 +446,15 @@ Item {
         placeholderText: "Description (optional)"
         foreground: root.foreground
         font.family: root.fontFamily
+        activeFocusOnTab: false
 
         Keys.onPressed: function(event) {
           if (root.fieldKey(event)) return
           if (event.key === Qt.Key_Backtab || (event.key === Qt.Key_Tab && (event.modifiers & Qt.ShiftModifier))) {
             nameField.forceActiveFocus()
             event.accepted = true
+          } else {
+            root.keepTab(event)
           }
         }
       }
@@ -490,6 +509,7 @@ Item {
         placeholderText: "Music file path, e.g. ~/Music/song.mp3"
         foreground: root.foreground
         font.family: root.fontFamily
+        activeFocusOnTab: false
 
         Keys.onPressed: function(event) {
           if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
@@ -498,6 +518,7 @@ Item {
             root.leaveUpload(event.key === Qt.Key_Escape)
             if (event.key === Qt.Key_Down) resultList.moveCursor(1)
           } else {
+            root.keepTab(event)  // P1: a path field has no completion here
             return
           }
           event.accepted = true
@@ -545,8 +566,9 @@ Item {
       store: root.store
       rows: root.rows
       owner: root
-      // Another chip or order starts a fresh list; a refresh or Load more keeps the place.
-      listKey: root.chip + "|" + Model.canonicalJson(root.store ? root.store.requestedOrder(root.chip) : null)
+      // Another chip or an order picked with O starts a fresh list; a
+      // refresh or Load more keeps the place.
+      listKey: root.chip + "|" + Model.canonicalJson(root.store ? root.store.pickedOrder(root.chip) : null)
       moreBusy: !!root.list && (root.list.loadingMore === true || root.list.moreWanted === true)
       moreError: root.list && root.list.moreError ? root.list.moreError : ""
       opacity: root.reordering ? 0.5 : 1

@@ -294,7 +294,11 @@ ORDER_DEPENDENTS = {"FEmusic_liked_playlists": ("libraryPlaylists",),
                     "FEmusic_library_non_music_audio_list": ("libraryPodcasts",),
                     "FEmusic_library_non_music_audio_channels_list": ("libraryChannels",),
                     # S9: the library's profiles (ytm_users).
-                    "FEmusic_library_user_profile_channels_list": ("libraryProfiles",)}
+                    "FEmusic_library_user_profile_channels_list": ("libraryProfiles",),
+                    # S10: your uploads' lists (ytm_uploads).
+                    "FEmusic_library_privately_owned_tracks": ("uploadSongs",),
+                    "FEmusic_library_privately_owned_releases": ("uploadAlbums",),
+                    "FEmusic_library_privately_owned_artists": ("uploadArtists",)}
 
 
 def saves_order(browse_id):

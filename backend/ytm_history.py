@@ -110,7 +110,12 @@ def report_one(yt, video_id):
 
 
 def m_report_plays(worker, params):
+    """``{videoIds, identityKey?}``: ``identityKey`` is the identity the plays
+    were made under; a batch the worker would send as another one (switched
+    from the command line while the worker was stopped) is refused, unsent
+    (ytm_account.require_identity_key), and the shell drops it."""
     video_ids = _video_ids(params)
+    identities.require_identity_key(worker, params, "these plays")
     worker.require_auth()
     # One client for the whole batch: get_song and add_history_item must
     # share it, even if the session is swapped while this lane works.

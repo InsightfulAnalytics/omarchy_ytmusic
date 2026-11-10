@@ -355,6 +355,7 @@ Rectangle {
       placeholderText: "Title"
       foreground: root.foreground
       font.family: root.fontFamily
+      activeFocusOnTab: false  // P1: Tab is routed by hand (tabFocus), never by Qt's chain
 
       Keys.onPressed: function(event) {
         if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
@@ -377,6 +378,7 @@ Rectangle {
       placeholderText: "Description"
       foreground: root.foreground
       font.family: root.fontFamily
+      activeFocusOnTab: false  // P1: Tab is routed by hand (tabFocus), never by Qt's chain
 
       Keys.onPressed: function(event) {
         if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {

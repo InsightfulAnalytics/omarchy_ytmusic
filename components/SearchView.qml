@@ -6,7 +6,13 @@ import qs.Ui
 import "../YtmModel.js" as Model
 
 // Search field, filter chips and grouped results. Typing searches after a
-// short pause; Enter searches right away and moves to the results.
+// short pause; Enter searches right away and moves to the results. P1
+// (acct-3): signed in, a pause in typing searches signed out (a signed-in
+// search joins the account's search history, as the web's submitted ones
+// do), and Enter or a picked suggestion searches with the account; your
+// library and uploads are searched on Enter only (a scope or filter picked
+// for words only typed waits for Enter too). A typed list's songs get
+// their library and Listen again tokens from the song's own menu (m, S).
 // S7: All lists every kind of result in YouTube's order under the top
 // result, each group ending in Show all (its filter). More holds the other
 // filters (a chooser; h / l cycle through all of them), and the scope chip
@@ -43,6 +49,10 @@ Item {
   readonly property alias results: resultList
   readonly property var chips: Model.searchChips(store ? store.filter : "", scope)
   readonly property bool hasMore: !!store && !!store.result && !!store.result.cursor
+  // P1: a library or uploads search waits for Enter: the words in the field
+  // were typed since the last one (or a scope or filter was picked for them).
+  readonly property bool waitsForEnter: !!store && scope !== "" && searchField.text.trim() !== ""
+    && searchField.text.trim() !== store.query
 
   // An album, playlist or artist was chosen: Panel.qml opens it.
   signal openRequested(var item)
@@ -53,22 +63,41 @@ Item {
   // S7: the More filters chooser { title, subtitle, choices, onChoice }: Panel opens it.
   signal chooserRequested(var request)
 
+  // The words in the field, submitted (Enter): searched with the account.
   function runSearch() {
     if (store) store.search(searchField.text, store.filter)
   }
 
-  // A filter for the words in the field; an exact search stays exact.
+  // A pause in typing (P1): the words are not submitted (Store.search
+  // reads them signed out, or waits for Enter in a library or uploads scope).
+  function typedSearch() {
+    if (store) store.search(searchField.text, store.filter, undefined, false, true)
+  }
+
+  // P1: the field holds words nobody submitted: not what the results show,
+  // or what they show was read while typing.
+  function _wordsTyped() {
+    return !store || store.typed || searchField.text.trim() !== store.query
+  }
+
+  // A filter for the words in the field; an exact search stays exact. P1:
+  // words only typed stay unsubmitted: searched signed out, or (your
+  // library or uploads) the filter is set and the search waits for Enter.
   function setFilter(key) {
     if (!store) return
     var same = searchField.text.trim() === store.query
-    store.search(searchField.text, key, store.scope, same && store.exact)
+    store.search(searchField.text, key, store.scope, same && store.exact, _wordsTyped())
   }
 
   // The scope chip and the M menu's scope entries ("", "library", "uploads").
+  // P1: words only typed stay unsubmitted: back to YouTube Music they are
+  // searched signed out; your library or uploads, chosen, waits for Enter.
+  // Submitted words search the scope chosen with the account at once.
   function setScope(key) {
     if (!store) return
     var s = key || ""
-    store.search(searchField.text, Model.searchFilterAllowed(store.filter, s) ? store.filter : "", s, false)
+    store.search(searchField.text, Model.searchFilterAllowed(store.filter, s) ? store.filter : "", s, false,
+                 _wordsTyped())
   }
 
   function cycleScope() {
@@ -184,8 +213,96 @@ Item {
 
   function menu(index) {
     var row = resultList.rowAt(index)
+    _menuWait = null
+    menuWait.stop()
     if (!row || Model.menuKind(row.item) === "") return
-    root.itemMenuRequested({ item: row.item, ctx: { pageKind: "search" }, owner: root, index: index })
+    var item = liveItem(index)
+    // P1: a typed song with no tokens held: its menu opens once its own
+    // menu was read (_menuWaited).
+    if (_typedSong(index) && !Model.liveTokensOf(item) && _readsMenu(item.videoId)) {
+      _menuWait = { videoId: String(item.videoId), place: resultList.placeAt(index), at: Date.now() }
+      menuWait.start()
+      return
+    }
+    _openMenu(item, index, false)
+  }
+
+  // `late`: the menu waited for the song's own menu; Panel opens it only
+  // when nothing else took the panel meanwhile.
+  function _openMenu(item, index, late) {
+    root.itemMenuRequested({ item: item, ctx: { pageKind: "search" }, owner: root, index: index, late: late })
+  }
+
+  // ---- a typed list's songs (P1) ------------------------------------------------------
+  // A typed list is read signed out (acct-3), so its songs carry no library
+  // or Listen again tokens and never say they are in your library. Signed
+  // in, m and S on such a row put back the tokens held for the song
+  // (Service.withLiveTokens) and, when none are held, read its own menu
+  // (one nowContext, Service.readSongTokens, as for a queue row): m opens
+  // the menu once it answered, and S says it is loading. Nothing is
+  // searched with the account, so the words stay out of its search history.
+
+  // A song row of a typed list (not a suggestion row above it), signed in.
+  function _typedSong(index) {
+    var row = resultList.rowAt(index)
+    return !!row && !!service && signedIn && !!store && store.typed && index >= rows.length - resultRows.length
+      && row.item.type === "track" && !!row.item.videoId && !Model.isUploadTrack(row.item)
+  }
+
+  // The row's item; a typed song's with the tokens held for it (Panel's S
+  // reads it through this hook too). Null when the index is no row.
+  function liveItem(index) {
+    var row = resultList.rowAt(index)
+    if (!row) return null
+    return _typedSong(index) ? service.withLiveTokens(row.item) : row.item
+  }
+
+  // True when the song's own menu is being read now (asked here when it was
+  // never read, or asked again after a failure).
+  function _readsMenu(videoId) {
+    var state = service.songMenuState(videoId).state
+    return state === "loading" || state === "failed"
+  }
+
+  property var _menuWait: null
+
+  // The menu waiting for its song's own menu (menu): it opens on the same
+  // row once the read answered, or failed, or 16 s passed (then without
+  // Save and Pin). The cursor leaving the row, the field taking the keys,
+  // another tab or the row going drops it.
+  function _menuWaited() {
+    var wait = _menuWait
+    var index = wait ? resultList.indexOfPlace(wait.place) : -1
+    if (index < 0 || !service || !root.visible || searchField.activeFocus || resultList.cursorIndex !== index) {
+      _menuWait = null
+      menuWait.stop()
+      return
+    }
+    if (service.songMenuPending(wait.videoId) && Date.now() - wait.at < 16000) return
+    _menuWait = null
+    menuWait.stop()
+    _openMenu(liveItem(index), index, true)
+  }
+
+  // S on a typed song with no library control held (Panel.saveCursor): why,
+  // and its own menu is read now (Service.songMenuState). "" for other rows.
+  function noSaveNotice(index) {
+    if (!_typedSong(index)) return ""
+    var track = liveItem(index)
+    return Model.nowSaveNotice(track, { signedIn: signedIn, menu: service.songMenuState(track.videoId) })
+  }
+
+  // After a Save or Pin from a typed song whose outcome is unknown or whose
+  // token was stale, the song's own menu is read again (as QueueView's), so
+  // the next menu has what YouTube has. Other rows carry their own tokens:
+  // no callback, as before.
+  function editCallback(item) {
+    var videoId = item && item.type === "track" && item.videoId && store && store.typed ? String(item.videoId) : ""
+    if (videoId === "") return null
+    return function(reply) {
+      if (!root.service || !(root.service.unsure(reply) || Model.staleToken(reply))) return false
+      return root.service.rereadSongTokens(videoId)
+    }
   }
 
   // M: the scopes (signed in) and More filters (Panel adds signedIn).
@@ -239,7 +356,7 @@ Item {
   // search YouTube Music again.
   function _accountChanged() {
     refreshPastSearches()
-    if (!signedIn && store && store.query === "" && !store.searching && searchField.text.trim() !== "") runSearch()
+    if (!signedIn && store && store.query === "" && !store.searching && searchField.text.trim() !== "") typedSearch()
   }
 
   onSignedInChanged: Qt.callLater(_accountChanged)
@@ -251,6 +368,7 @@ Item {
       : root.scope === "uploads" ? "Search your uploads" : "Search YouTube Music"
     foreground: root.foreground
     font.family: root.fontFamily
+    activeFocusOnTab: false  // P1: Tab cycles the suggestions here, never Qt's focus chain
 
     Component.onCompleted: if (root.store) root.setText(root.store.query)
     onTextChanged: {
@@ -295,13 +413,21 @@ Item {
   Timer {
     id: debounce
     interval: 350
-    onTriggered: root.runSearch()
+    onTriggered: root.typedSearch()
   }
 
   Timer {
     id: suggestTimer
     interval: 120
     onTriggered: if (root.store) root.store.suggest(searchField.text)
+  }
+
+  // P1: a typed song's menu waiting for its own menu (_menuWaited).
+  Timer {
+    id: menuWait
+    interval: 100
+    repeat: true
+    onTriggered: root._menuWaited()
   }
 
   // All, Songs, Albums, Artists, Playlists, and More (the chosen More filter).
@@ -349,16 +475,23 @@ Item {
       anchors.verticalCenter: parent.verticalCenter
       textFormat: Text.PlainText
       wrapMode: Text.Wrap
+      // P1: a library or uploads search waits for Enter, and says so; an
+      // error belongs to the words searched, not to the ones typed since. A
+      // typed song's menu waiting for its own menu says so too.
+      readonly property bool failed: !!root.store && !root.store.searching && !root._menuWait && !root.waitsForEnter
+        && root.store.searchError !== ""
       text: !root.store ? ""
         : root.store.searching ? "Searching…"
-        : root.store.searchError !== "" ? root.store.searchError
+        : root._menuWait ? "Loading the song's menu…"
+        : root.waitsForEnter ? "Press Enter to search your " + (root.scope === "uploads" ? "uploads" : "library")
+        : failed ? root.store.searchError
         : root.store.query === "" ? (root.rows.length > 0 ? ""
             : root.scope === "library" ? "Search the songs, albums and artists in your library."
             : root.scope === "uploads" ? "Search the songs you uploaded."
             : "Search songs, albums, artists, playlists, podcasts and profiles.")
         : Model.searchResultCount(root.store.result) === 0 ? "No results for \"" + root.store.query + "\""
         : Model.spellingStatus(root.store.result)
-      color: root.store && root.store.searchError !== "" ? Commons.Color.urgent : Qt.darker(root.foreground, 1.5)
+      color: failed ? Commons.Color.urgent : Qt.darker(root.foreground, 1.5)
       font.family: root.fontFamily
       font.pixelSize: Style.font.bodySmall
     }

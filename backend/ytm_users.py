@@ -113,8 +113,12 @@ def known_own_channel(worker):
     identity checks the new one itself) has its menu read here, once."""
     worker.require_auth()
     if not getattr(worker, "own_channel_known", False):
+        # Kept only for the client it was read with (as Worker.verify_session).
+        yt, generation = worker.yt, getattr(worker, "generation", 0)
         with raw.capture((_ACCOUNT_MENU,)) as menu:
-            worker.yt.get_account_info()
+            yt.get_account_info()
+        if generation != getattr(worker, "generation", 0):
+            return known_own_channel(worker)  # the new client's menu names its channel
         remember_own_channel(worker, menu)
     return worker.own_channel
 

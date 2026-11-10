@@ -100,10 +100,13 @@ def test_a_bad_profiles_order_is_a_bad_request(order):
 def test_an_ordered_profiles_read_drops_the_cached_browse_page(tmp_path):
     cache = caches.DiskCache(tmp_path / "data")
     cache.put("browsePage", {"browseId": users.PROFILES_BROWSE_ID}, {"type": "page"})
+    cache.put("libraryProfiles", {}, {"type": "page"})
     worker = worker_for({users.PROFILES_BROWSE_ID: ordered_profiles([channel_row(0)])}, MENU, cache=cache)
     assert call(worker, "libraryProfiles", order="a_to_z", cache="refresh")["ok"]
     assert cache.get("browsePage", {"browseId": users.PROFILES_BROWSE_ID}) is None, "YouTube saved the order"
-    assert cache.get("libraryProfiles", {"order": "a_to_z"}) is not None
+    # P1 (acct-1): the list's own copies go too; the shell reads it next in the saved order.
+    assert cache.get("libraryProfiles", {}) is None, "the plain copy is in the order before"
+    assert cache.get("libraryProfiles", {"order": "a_to_z"}) is None
 
 
 def test_an_empty_profiles_list_keeps_its_orders_and_note():

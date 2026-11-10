@@ -304,13 +304,22 @@ def test_an_ordered_first_page_drops_the_cached_browse_pages(tmp_path):
     cache.put("browsePage", {"browseId": ALBUMS}, {"type": "page"})
     cache.put("browsePage", {"browseId": ARTISTS}, {"type": "page"})
     cache.put("libraryAlbums", {}, {"type": "page"})
+    cache.put("libraryAlbums", {"order": "a_to_z"}, {"type": "page"})
+    cache.put("libraryArtists", {}, {"type": "page"})
     worker = worker_for(browse("gridRenderer", [library_album(0)], None, sort_menu(ALBUMS, STANDARD)), cache=cache)
     reply = call(worker, "libraryAlbums", order="z_to_a", cache="refresh")
     assert reply["ok"]
     assert cache.get("browsePage", {"browseId": ALBUMS}) is None, "YouTube saved the order: that copy is stale"
     assert cache.get("browsePage", {"browseId": ARTISTS}) is not None
-    assert cache.get("libraryAlbums", {"order": "z_to_a"}) is not None, "the ordered first page is kept"
-    assert cache.get("libraryAlbums", {}) is not None, "the plain copy is refreshed behind its next showing"
+    # P1 (acct-1): the shell reads in the saved order after an O, so the plain
+    # copy (the order before) goes too, and so does every ordered one.
+    assert cache.get("libraryAlbums", {}) is None, "the plain copy is in the order before"
+    assert cache.get("libraryAlbums", {"order": "a_to_z"}) is None
+    assert cache.get("libraryAlbums", {"order": "z_to_a"}) is None, "not kept: no load asks in it again"
+    assert cache.get("libraryArtists", {}) is not None, "another list stays"
+    plain = call(worker_for(browse("gridRenderer", [library_album(0)], None, sort_menu(ALBUMS, STANDARD)),
+                            cache=cache), "libraryAlbums", cache="refresh")
+    assert plain["ok"] and cache.get("libraryAlbums", {}) is not None, "a read in the saved order is cached"
 
 
 @pytest.mark.parametrize("method", sorted(library.BROWSE_IDS))

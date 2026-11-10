@@ -234,6 +234,10 @@ Rectangle {
         : root.tracks.length > 1 ? "New playlist with these " + root.tracks.length + " songs" : "New playlist with this song"
       foreground: root.foreground
       font.family: root.fontFamily
+      // P1 (kb-picker-tab): Tab stays here. Passed on, Qt's tab chain gave
+      // the keys to a field hidden under the picker (Library's new
+      // playlist name), where Enter created an empty playlist.
+      activeFocusOnTab: false
 
       Keys.onPressed: function(event) {
         if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
@@ -241,6 +245,8 @@ Rectangle {
           event.accepted = true
         } else if (event.key === Qt.Key_Escape) {
           root.close()
+          event.accepted = true
+        } else if (event.key === Qt.Key_Tab || event.key === Qt.Key_Backtab) {
           event.accepted = true
         }
       }

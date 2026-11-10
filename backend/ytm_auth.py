@@ -85,17 +85,28 @@ def _ytmusic_class():
 
 
 _anonymous = None
+_anonymous_located = {}
 _anonymous_lock = threading.Lock()
 
 
-def anonymous_client(factory=None):
+def anonymous_client(factory=None, settings=None):
     """A signed-out English client, built on first use and then reused.
 
     Fixtures are recorded with it (so they can never hold the account's
     library), and it serves what YouTube only answers without a session.
+    ``settings``: the worker's client settings; with a content location
+    (S16) the client is one of its own for that location, reused too
+    (search as you type reads in the location the account's searches use).
     """
     global _anonymous
+    kwargs = _client_kwargs(settings)
     with _anonymous_lock:
+        if kwargs:
+            client = _anonymous_located.get(kwargs["location"])
+            if client is None:
+                make = factory or _ytmusic_class()
+                client = _anonymous_located[kwargs["location"]] = make(language="en", **kwargs)
+            return client
         if _anonymous is None:
             make = factory or _ytmusic_class()
             _anonymous = make(language="en")

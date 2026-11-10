@@ -164,6 +164,10 @@ Item {
   readonly property string title: (ref && ref.kind === "mix" && target && target.title)
     || (page && (page.title || page.name)) || (target && (target.title || target.name))
     || Model.pageKindTitle(ref)
+  // What a list played from here is called in the queue's context, saved in
+  // queue.json and the status (P1, priv-1): your own channel's page is
+  // titled with the account's name, which never goes there.
+  readonly property string contextTitle: Model.contextTitle(ref, page, title)
   readonly property string subtitle: !page ? Model.itemSubtitle(target)
     : isPage ? Model.pageSubtitle(ref, page)
     : Model.isCollection(page) ? Model.collectionMeta(page, tracks.length)
@@ -183,8 +187,13 @@ Item {
   readonly property string findText: findOpen ? findField.text : ""
   readonly property bool inputFocused: findField.activeFocus
   // The list's identity: the page and its order, not how much of it is
-  // read, so Load all keeps the cursor and the scroll.
-  readonly property string listId: entry ? (Model.pageRef(entry.item, Model.pageExtra(order, false, filter)) || { key: "" }).key : ""
+  // read, so Load all keeps the cursor and the scroll. P1 (E2E-1): it reads
+  // `ref` too, which open() sets before the Store answers. A binding on
+  // `entry` alone is still the page before while onEntryChanged runs, and a
+  // page held in memory is answered inside that handler: the list then kept
+  // the old key, and its next change (Load more, x, Load all) took it for a
+  // new list (cursor gone, back to the top).
+  readonly property string listId: entry && ref ? (Model.pageRef(entry.item, Model.pageExtra(order, false, filter)) || { key: "" }).key : ""
   // Library actions (S4): Save on an album, a playlist that is not yours or
   // a mix; Subscribe on an artist. The state shown is the Store's (an edit
   // made here), else the page header's, else the library's lists.
@@ -289,6 +298,12 @@ Item {
       // The view may be gone by then (Back to an empty stack), or going:
       // its functions (S13's _pageLoaded) are then no longer there to call.
       if (!root || root._gone || root.refKey !== key) return
+      // P1: asked before the Store was emptied (another identity, a
+      // location): the page is read again as the one in use.
+      if (reply.stale) {
+        root.load(fresh)
+        return
+      }
       root.loading = false
       // A disk copy (cached) is followed by its refresh.
       var wanted = root._moreWanted && !reply.cached
@@ -512,7 +527,7 @@ Item {
     else if (row.suggestion === true) service.playItem(item, "now")  // S13: a suggestion plays alone
     else if (row.trackIndex !== undefined)  // S12: the page is what plays ("Playing from", autoplay)
       service.playCollection(isPage ? Model.sectionTracks(page, row.sectionIndex) : tracks, row.trackIndex, false,
-                             { playlistId: page ? page.playlistId || null : null, title: title, radio: false },
+                             { playlistId: page ? page.playlistId || null : null, title: contextTitle, radio: false },
                              isPage ? undefined : Model.collectionPartial(page, pageItem()))  // G1: the rest is read later
     else root.openRequested(item)
   }
@@ -605,7 +620,8 @@ Item {
     var item = pageItem()
     if (mode === "shuffle" && shuffleItem) service.playItem(shuffleItem, "now")
     else if (incomplete && Model.tracksForParams(item)) service.playItem(item, mode)
-    else service.playTracks(tracks, mode, { playlistId: page ? page.playlistId || null : null, title: title, radio: false }, title)
+    else service.playTracks(tracks, mode, { playlistId: page ? page.playlistId || null : null, title: contextTitle, radio: false },
+                            contextTitle)
   }
 
   // ---- artist (S1) -------------------------------------------------------------------
@@ -1441,6 +1457,7 @@ Item {
         : "Find songs by title, artist or album"
       foreground: root.foreground
       font.family: root.fontFamily
+      activeFocusOnTab: false  // P1: no field passes Tab on (LibraryView)
 
       Keys.onPressed: function(event) {
         if (event.key === Qt.Key_Escape) {
@@ -1450,6 +1467,8 @@ Item {
           root.leftField()
           if (root.isTaste) root._toFirstTasteArtist()  // S14
           else resultList.toTop()
+          event.accepted = true
+        } else if (event.key === Qt.Key_Tab || event.key === Qt.Key_Backtab) {
           event.accepted = true
         }
       }

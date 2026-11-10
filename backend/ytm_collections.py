@@ -31,8 +31,9 @@
 
 Whether a list was cut short is read from the responses themselves (a
 continuation left after the last page of songs), never from the counts
-alone (see norm.truncated). Whole reads run on the pages lane; the shell
-gives them 120 s.
+alone (see norm.truncated). Whole reads run on a lane of their own
+(ytm.lane_of: "whole", so the pages lane is not held up); the shell gives
+them 120 s.
 
 Area module (see AREA_MODULES in ytm.py). Like ytm_library.py it reads
 ytmusicapi internals (continuation paths), pinned to 1.12.2.
@@ -439,6 +440,8 @@ METHODS = {"playlist": m_playlist, "liked": m_liked, "album": m_album, "history"
 CACHEABLE = {"playlist", "liked", "album", "history"}
 # A whole read is long, and so is an album over 200 songs (G1: it reads its
 # audio playlist too, two or three more requests); history is one request.
+# A whole read (limit "all") of playlist or liked runs on the "whole" lane
+# instead (ytm.lane_of).
 LANES = {"playlist": "pages", "liked": "pages", "album": "pages"}
 INVALIDATES = {}
 RECORDERS = {

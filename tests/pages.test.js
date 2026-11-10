@@ -354,7 +354,7 @@ test("cursorAfterRows from Load more: new items land before the last section's S
 test("prefs v2: every key has a default", () => {
   assert.deepEqual(Model.parsePrefs(""), {
     autoplay: true, shuffle: false, repeat: "off",
-    libraryChip: "playlists", libraryOrders: {}, chartsCountry: "ZZ", location: "", quality: "high",
+    libraryChip: "playlists", chartsCountry: "ZZ", location: "", quality: "high",
     recordHistory: false, speed: { music: 1, episode: 1 }, normalize: "off", nowPane: "queue",
   })
   assert.deepEqual(Model.parsePrefs("[1]"), Model.parsePrefs("not json"))
@@ -376,7 +376,7 @@ test("prefs v2 keep valid values and replace invalid ones", () => {
     speed: { music: 1.25, episode: 9 }, normalize: "dynamic", nowPane: "lyrics", unknown: 1,
   }))
   assert.equal(saved.libraryChip, "albums")
-  assert.deepEqual(saved.libraryOrders, { albums: "a_to_z", songs: 2 })
+  assert.equal("libraryOrders" in saved, false, "P1: a saved one is dropped")
   assert.equal(saved.chartsCountry, "AU")
   assert.equal(saved.location, "DE")
   assert.equal(saved.quality, "low")
@@ -388,7 +388,7 @@ test("prefs v2 keep valid values and replace invalid ones", () => {
   const bad = Model.parsePrefs(JSON.stringify({ libraryChip: "x y", chartsCountry: "zz", location: "Australia",
     quality: "best", recordHistory: "yes", speed: "fast", normalize: true, nowPane: "art", libraryOrders: [1] }))
   const defaults = Model.parsePrefs("")
-  for (const key of ["libraryChip", "chartsCountry", "location", "quality", "recordHistory", "speed", "normalize", "nowPane", "libraryOrders"])
+  for (const key of ["libraryChip", "chartsCountry", "location", "quality", "recordHistory", "speed", "normalize", "nowPane"])
     assert.deepEqual(bad[key], defaults[key], key)
 })
 

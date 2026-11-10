@@ -339,19 +339,30 @@ Panel {
     if (!service) return
     var list = activeList()
     var row = list ? list.rowAt(list.cursorIndex) : null
-    var item = row ? row.item : null
+    var owner = activeListOwner()
+    // P1: a view may hand S its row with what the list lacks (the optional
+    // liveItem(i) hook: Search's typed songs, with the tokens held for them).
+    var item = row && owner && typeof owner.liveItem === "function" ? owner.liveItem(list.cursorIndex)
+      : row ? row.item : null
     var target = Model.saveTarget(item, service.saveContext(item))
     // G2: on Now (Queue, Lyrics, or Related with no item row) the page is
     // the song playing, as for m and M.
     if (target === "page" && !page && tab === "now") return saveNowSong()
     // S8: a view may take S on its row itself (the optional saveRow(i) hook:
     // Episodes for Later removes the episode, as x does).
-    var owner = activeListOwner()
     if (target === "row" && owner && typeof owner.saveRow === "function" && owner.saveRow(list.cursorIndex)) return
-    if (target === "row") service.toggleSaveItem(item, Model.editCallbackOf(activeListOwner()))
+    if (target === "row") service.toggleSaveItem(item, Model.editCallbackOf(owner, item))
     else if (target === "page") ownerHook("toggleSave")
-    else service.failAction("Nothing to save", Model.menuKind(item) === "track"
-      ? "This list has no library control for the song; open its album" : Model.itemTitle(item))
+    else service.failAction("Nothing to save", Model.menuKind(item) === "track" ? _noSaveNotice(owner, list.cursorIndex)
+      : Model.itemTitle(item))
+  }
+
+  // Why a song row has nothing to save: the view's own reason (the optional
+  // noSaveNotice(i) hook, P1: a typed search song reads its own menu), else
+  // the list's.
+  function _noSaveNotice(owner, index) {
+    var notice = owner && typeof owner.noSaveNotice === "function" ? owner.noSaveNotice(index) : ""
+    return notice || "This list has no library control for the song; open its album"
   }
 
   // G2: S on Now with no item row: the queue row under the cursor (Queue
@@ -399,6 +410,9 @@ Panel {
 
   function openItemMenu(request) {
     if (!request || !service) return false
+    // P1: a menu that waited for its song's own menu (SearchView) opens only
+    // when nothing else took the panel meanwhile.
+    if (request.late === true && (!root.opened || itemMenu.open || picker.open || editor.open)) return false
     var item = request.item || null
     var ctx = {}
     for (var key in request.ctx || {}) ctx[key] = request.ctx[key]

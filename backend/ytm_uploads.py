@@ -125,10 +125,11 @@ def _body(browse_id, order):
 
 
 def _forget_order(worker, browse_id, order):
-    """An ordered read saves the order on the account: the cached browsePage
-    copies of that page go (ytm_library does the same)."""
+    """An ordered read saves the order on the account: what it made stale
+    goes (ytm_pages.forget_order, as ytm_library does): the cached
+    browsePage copies of that page and the list's own cached reads."""
     if order is not None and pages.saves_order(browse_id):
-        worker.invalidate("browsePage", {"browseId": browse_id})
+        pages.forget_order(worker, browse_id)
 
 
 # ---- reading ------------------------------------------------------------------------------
@@ -395,8 +396,12 @@ def _succeeded(result):
 
 
 def m_upload_song(worker, params):
-    """``{path}``: uploads the file; ``{ok, processing: true, name}``."""
+    """``{path, identityKey?}``: uploads the file; ``{ok, processing: true,
+    name}``. ``identityKey``: the identity the upload was asked under; an
+    upload that waited on the upload lane while the account changed is
+    refused, unsent (ytm_account.require_identity_key)."""
     identities.require_upload_identity(worker)  # S16: never as a brand account
+    identities.require_identity_key(worker, params, "this upload")
     path = upload_path(params)
     worker.require_auth()
     with sendable(path) as sent:

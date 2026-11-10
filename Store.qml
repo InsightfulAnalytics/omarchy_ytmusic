@@ -34,6 +34,13 @@ Item {
   property bool searching: false
   property string searchError: ""
   property int lastSearchMs: 0
+  // P1 (acct-3): the shown search was typed, not submitted (read signed
+  // out); `signedIn` is Service's. A signed-in search joins the account's
+  // search history, as the web's submitted ones do, so words typed with a
+  // pause are searched signed out, and the account searches them once they
+  // are submitted (Enter, a suggestion or past search picked).
+  property bool typed: false
+  property bool signedIn: false
   // The search field has keyboard focus (panel shortcuts are off then).
   property bool inputFocused: false
   property int _seq: 0
@@ -53,19 +60,28 @@ Item {
   }
 
   // S7: `searchScope` undefined keeps the current scope; `exactly` is for
-  // this search only (a new one is corrected again).
-  function search(text, searchFilter, searchScope, exactly) {
+  // this search only (a new one is corrected again). P1 (acct-3): `whileTyping`
+  // is a search the words were not submitted for (search as you type): signed
+  // in, it is read signed out, and a library or uploads one waits for Enter
+  // (nothing is searched; another scope or filter is only set, and what was
+  // shown, another scope's or filter's, goes). A submitted search of the
+  // words a typed one shows asks the account (once: then it is held).
+  function search(text, searchFilter, searchScope, exactly, whileTyping) {
     var q = String(text || "").trim()
     var f = searchFilter || ""
     var s = searchScope === undefined ? scope : (searchScope || "")
     var x = exactly === true
     if (!Model.searchFilterAllowed(f, s)) f = ""
-    if (q === "") {
+    var t = whileTyping === true && signedIn
+    var waits = t && s !== ""
+    if (waits && s === scope && f === filter) return
+    if (q === "" || waits) {
       _seq++
       query = ""
       filter = f
       scope = s
       exact = false
+      typed = false
       result = null
       searching = false
       searchingMore = false
@@ -73,9 +89,18 @@ Item {
       searchMoreError = ""
       return
     }
-    if (q === query && f === filter && s === scope && x === exact && (result || searching) && searchError === "") return
-    var key = Model.searchKey(q, f, s, x)
+    var same = q === query && f === filter && s === scope && x === exact
+    if (same && (t || !typed) && (result || searching) && searchError === "") return
+    var key = Model.searchKey(q, f, s, x, t)
     var hit = _searches[key]
+    // While typing, the account's search of the same words is as good.
+    if (t && !(hit && Date.now() - hit.at < searchTtlMs)) {
+      var submitted = _searches[Model.searchKey(q, f, s, x)]
+      if (submitted && Date.now() - submitted.at < searchTtlMs) {
+        hit = submitted
+        t = false
+      }
+    }
     searchingMore = false
     searchMoreError = ""
     if (hit && Date.now() - hit.at < searchTtlMs) {
@@ -84,6 +109,7 @@ Item {
       filter = f
       scope = s
       exact = x
+      typed = t
       searching = false
       searchError = ""
       lastSearchMs = 0
@@ -97,8 +123,10 @@ Item {
     filter = f
     scope = s
     exact = x
+    typed = t
     searching = true
     var params = { query: q, filter: f || null, scope: s || null, exact: x }
+    if (t) params.anonymous = true
     worker.request("search", params, function(reply) {
       // A newer search superseded this one while it was in flight.
       if (seq !== root._seq) return
@@ -114,8 +142,8 @@ Item {
       root._rememberSearch(key, reply.result)
       root.requestThumbs(Model.collectThumbs(reply.result))
       root.hint(Model.firstTrack(Model.flattenSearch(reply.result, f)))
-      // A signed-in search joins your YouTube searches.
-      root.pastSearchesAt = 0
+      // A signed-in search joins your YouTube searches (a typed one never does).
+      if (!t) root.pastSearchesAt = 0
     })
   }
 
@@ -128,8 +156,10 @@ Item {
     if (!worker || !current || !current.cursor || searching || searchingMore) return false
     if (searchMoreError !== "" && explicit !== true) return false
     var seq = _seq
-    var key = Model.searchKey(query, filter, scope, exact)
+    var key = Model.searchKey(query, filter, scope, exact, typed)
     var params = { query: query, filter: filter || null, scope: scope || null, exact: exact, cursor: current.cursor }
+    // P1: a typed list's cursor belongs to the signed-out client that read it.
+    if (typed) params.anonymous = true
     searchingMore = true
     searchMoreError = ""
     worker.request("search", params, function(reply) {
@@ -166,6 +196,7 @@ Item {
     if (scope === "") return
     _seq++
     query = ""
+    typed = false
     result = null
     searching = false
     searchingMore = false
@@ -373,6 +404,9 @@ Item {
   // BAD_REQUEST "Cannot open this item yet" (never a guessed method).
   // fresh: ask YouTube only (after an edit whose outcome is unknown, when the
   // disk copy may predate it), so a failure is reported instead of the copy.
+  // P1: a reply asked for before reset() (another identity, a sign-in, a
+  // location) is not kept: the callback gets { ok: false, stale: true }
+  // once, and the caller asks again if it still wants the page.
   function loadCollection(ref, callback, fresh) {
     var kind = Model.pageKind(ref)
     if (!kind) {
@@ -387,7 +421,14 @@ Item {
       return
     }
     var params = _copy(ref.params)
+    var epoch = resetEpoch
+    var told = false
     var handle = function(reply) {
+      if (epoch !== root.resetEpoch) {
+        if (!told) callback(root.staleReply())
+        told = true
+        return
+      }
       if (reply.ok) {
         var data = kind.adapt ? kind.adapt(reply.result, ref) : reply.result
         reply = { ok: true, cached: reply.cached, result: data }
@@ -452,8 +493,8 @@ Item {
 
   // ---- collections (S3) ------------------------------------------------------------
   // A whole read (limit "all": every song of a playlist or Liked Music, up
-  // to 5000, about 50 requests on the worker's pages lane) gets 120 s; any
-  // other page 30 s. (History asks for 200: Model's PAGE_KINDS.history.)
+  // to 5000, about 50 requests on the worker's whole lane, P1) gets 120 s;
+  // any other page 30 s. (History asks for 200: Model's PAGE_KINDS.history.)
   readonly property int wholeTimeoutMs: 120000
 
   function loadTimeout(ref) {
@@ -671,14 +712,17 @@ Item {
   // Ask with cache "prefer"; if that came from disk, follow up with a refresh.
   // `pending(true)` runs before the disk copy is handled when that refresh
   // follows, `pending(false)` once it has answered (after handling it, if
-  // it worked). `timeoutMs` (default 30 s) applies to each request.
+  // it worked). `timeoutMs` (default 30 s) applies to each request. A disk
+  // copy that answers after reset() is followed by nothing (P1): it was
+  // the session's before.
   function _cachedThenFresh(method, params, handle, pending, timeoutMs) {
     var wait = timeoutMs > 0 ? timeoutMs : 30000
+    var epoch = resetEpoch
     var first = ({})
     for (var k in params) first[k] = params[k]
     first.cache = "prefer"
     worker.request(method, first, function(reply) {
-      var follow = reply.ok && reply.cached
+      var follow = reply.ok && reply.cached && epoch === root.resetEpoch
       if (follow && pending) pending(true)
       handle(reply)
       if (!follow) return
@@ -820,8 +864,9 @@ Item {
 
   // ---- library ------------------------------------------------------------------
   // Every playlist in the library (the Playlists chip and the playlist
-  // picker), in the Playlists chip's order (S2: playlistOrders are the
-  // served ones, playlistOrder the one they came in).
+  // picker), in the order YouTube has saved for the account (S2:
+  // playlistOrders are the served ones, playlistOrder the one they came in;
+  // P1, acct-1: only O sends one, setLibraryOrder).
   readonly property int libraryTtlMs: 5 * 60 * 1000
   property var playlists: []
   property bool libraryLoading: false
@@ -829,7 +874,8 @@ Item {
   property real libraryAt: 0
   property var playlistOrders: []
   property var playlistOrder: null
-  // The order asked for (null: the one YouTube has saved).
+  // The order O asked for with the load on its way or done last (null:
+  // none was sent, the one YouTube has saved).
   property var playlistsRequested: null
   // The order the held playlists were asked in.
   property var _playlistsAsked: null
@@ -840,11 +886,14 @@ Item {
     // S2: Recent activity lists playlists too (the worker drops its copy
     // with the same edits).
     if (force) forgetCollection("libraryLanding")
-    _loadPlaylists(force, libraryOrder("playlists"))
+    _loadPlaylists(force, null)
   }
 
+  // order: O's (null for every other load, which reads the saved order: the
+  // held playlists, or the ones on their way, are in it whatever they were
+  // asked in, since YouTube saved O's order).
   function _loadPlaylists(force, order) {
-    var same = Model.sameOrder(order, playlistsRequested)
+    var same = order === null || Model.sameOrder(order, playlistsRequested)
     if (!force && same && libraryLoading) return
     if (!force && same && libraryAt > 0 && Date.now() - libraryAt < libraryTtlMs) return
     var seq = ++_librarySeq
@@ -859,10 +908,9 @@ Item {
       if (!reply.ok) {
         if (root.playlists.length === 0) {
           root.libraryError = reply.error.message
-        } else if (!Model.sameOrder(order, root._playlistsAsked)) {
-          // A new order failed over playlists held in another: name theirs
-          // again and say why. prefs keep the new order, so the next load
-          // asks for it again.
+        } else if (order !== null && !Model.sameOrder(order, root._playlistsAsked)) {
+          // O's order failed over playlists held in another: name theirs
+          // again and say why (the next O asks for it again).
           root.playlistsRequested = root._playlistsAsked
           root.libraryError = reply.error.message
         }
@@ -893,38 +941,39 @@ Item {
   // `playlists` above): chip -> { items, cursor, hasMore, capped, order,
   // orders, current, header, message, loading, error, at, seenAt, seq,
   // loadingMore, moreError, moreWanted, refreshing }. `order` is the order
-  // asked for (null: the one YouTube has saved), `current` the one the
-  // items came in. A chip's list is fetched when it is shown
-  // (loadLibraryList: the first page from disk, then fresh; within 5 min
-  // the held list is reused) and grows a cursor page at a time
-  // (loadLibraryMore), at most maxLibraryItems. A refresh replaces the whole
-  // list; a Load more reply from before it is dropped. Orders come from
-  // prefs.libraryOrders (Service binds libraryOrders); setLibraryOrder asks
-  // Service to save the new one (libraryOrderChosen) and reloads in it. The
-  // sweep drops a list unseen for 10 min, except the one shown
+  // the list's first page was asked in (null: none was sent, the one
+  // YouTube has saved), `current` the one the items came in. A chip's list
+  // is fetched when it is shown (loadLibraryList: the first page from disk,
+  // then fresh; within 5 min the held list is reused) and grows a cursor
+  // page at a time (loadLibraryMore), at most maxLibraryItems. A refresh
+  // replaces the whole list; a Load more reply from before it is dropped.
+  // The sweep drops a list unseen for 10 min, except the one shown
   // (libraryShown, set by LibraryView) and one still loading.
+  //
+  // P1 (acct-1): an order goes to YouTube only when O picks one
+  // (setLibraryOrder: straight to YouTube, which saves it on the account as
+  // the web's sort menu does). Every other load (a chip shown, the picker,
+  // a refresh, another identity) sends none and shows the order YouTube
+  // marks selected. Nothing is kept on this machine: an order kept and sent
+  // again changed the saved sort of any identity or account it was sent as,
+  // and undid a sort picked on the web or the phone.
   readonly property int libraryListTtlMs: 5 * 60 * 1000
   // G1: a real library fits (3755 songs live); at 10,000 the list says so
   // and how to reach the rest (Model.capMessage).
   readonly property int maxLibraryItems: 10000
   property var libraryLists: ({})
-  property var libraryOrders: ({})
   property string libraryShown: ""
   property int _listSeq: 0
   readonly property int libraryListCount: Object.keys(libraryLists).length
+  // chip -> the order O last picked for it, this session and identity
+  // (reset() forgets them): it keys the list LibraryView shows, so a new
+  // pick starts at the top while a refresh keeps the place.
+  property var libraryPicks: ({})
 
-  signal libraryOrderChosen(string chip, var order)
-
-  // The order a chip's list is asked in (prefs), or null.
-  function libraryOrder(chip) {
-    return Model.libraryOrderOf(libraryOrders, chip)
-  }
-
-  // The order a chip's list was asked in last (what the view shows).
-  function requestedOrder(chip) {
-    if (chip === "playlists") return playlistsRequested
-    var entry = libraryLists[chip]
-    return entry ? entry.order : libraryOrder(chip)
+  // The order O last picked for chip (null: none).
+  function pickedOrder(chip) {
+    var value = libraryPicks[chip]
+    return value === undefined ? null : value
   }
 
   function _setList(chip, entry) {
@@ -943,11 +992,14 @@ Item {
   }
 
   // force: skip the memory and disk copies (Load more on a disk copy, a
-  // retry). A list held in another order starts over, empty.
+  // retry). No order is sent: the list comes in the one YouTube has saved.
   function loadLibraryList(chip, force) {
-    _loadList(chip, libraryOrder(chip), force)
+    _loadList(chip, null, force)
   }
 
+  // order: O's (null for every other load). A null order reads the saved
+  // order, which the held list is in whatever it was asked in (YouTube
+  // saved O's order): it refreshes in place. O's order starts over, empty.
   function _loadList(chip, order, force) {
     if (chip === "playlists") {
       _loadPlaylists(force, order)
@@ -957,7 +1009,7 @@ Item {
     if (!spec || !worker) return
     var entry = libraryLists[chip] || null
     var now = Date.now()
-    var same = !!entry && Model.sameOrder(entry.order, order)
+    var same = !!entry && (order === null || Model.sameOrder(entry.order, order))
     if (!force && same && entry.loading) return
     if (!force && same && entry.at > 0 && now - entry.at < libraryListTtlMs && entry.error === "") {
       _patchList(chip, { seenAt: now })
@@ -1025,7 +1077,7 @@ Item {
     }
     if (!entry.cursor) {
       if (!explicit || !entry.hasMore) return
-      if (!entry.refreshing) _loadList(chip, entry.order, true)
+      if (!entry.refreshing) _loadList(chip, null, true)  // P1: in the saved order, which O's became
       _patchList(chip, { moreWanted: true })
       return
     }
@@ -1056,12 +1108,16 @@ Item {
     }, 60000)
   }
 
-  // O on a chip: Service saves the order (prefs.libraryOrders), the list
-  // reloads in it. null goes back to the order YouTube has saved.
+  // O on a chip: the list is read again in `order`, from YouTube itself
+  // (YouTube saves it on the account, as the web's sort menu does). The
+  // only place an order is sent from (acct-1). The pick is noted first, so
+  // the view's list key has moved before the rows do.
   function setLibraryOrder(chip, order) {
-    var value = order === undefined ? null : order
-    libraryOrderChosen(chip, value)
-    _loadList(chip, value, false)
+    if (order === undefined || order === null) return
+    var picks = _copy(libraryPicks)
+    picks[chip] = order
+    libraryPicks = picks
+    _loadList(chip, order, true)
   }
 
   // chip -> items held (status).
@@ -1590,8 +1646,19 @@ Item {
     }
   }
 
+  // Counted up by reset() (P1): a reply asked for before it belongs to the
+  // session, identity or location before, and is not kept (loadCollection,
+  // _cachedThenFresh; Service's nowContext).
+  property int resetEpoch: 0
+
+  // What loadCollection answers for a reply that came after reset().
+  function staleReply() {
+    return { ok: false, stale: true, error: { code: "STALE", message: "The account or the content location changed" } }
+  }
+
   // Signing in or out: nothing cached belongs to the new session.
   function reset() {
+    resetEpoch++
     _collections = ({})
     _appending = ({})
     _searches = ({})
@@ -1611,6 +1678,7 @@ Item {
     _playlistsAsked = null
     _librarySeq++
     libraryLists = ({})
+    libraryPicks = ({})  // P1 (acct-1): picked on the identity before
     _listSeq++
     _resetHome()  // home (S5)
     // S6: Explore is the account's too (Top songs, the region).

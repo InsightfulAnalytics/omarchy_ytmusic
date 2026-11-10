@@ -92,7 +92,9 @@ CACHE_MODES = ("prefer", "refresh", "bypass")
 # request id, so they may overtake each other.
 # (ytmusicapi's requests session is shared between lanes; requests' connection
 # pool and cookie jar are thread-safe, and ytm_raw keeps its state per thread.)
-KNOWN_LANES = ("streams", "suggest", "pages", "tracks", "upload", "report")
+# "whole" is no method's lane: a whole read of a pages-lane method (Load all,
+# f) goes there (lane_of), so the pages behind it never wait 15 to 40 s.
+KNOWN_LANES = ("streams", "suggest", "pages", "tracks", "upload", "report", "whole")
 
 
 def classify(exc):
@@ -617,16 +619,23 @@ class Worker:
         """
         if self.auth != "ok" or self.verified:
             return
+        # The client checked, and its generation: a check still out when
+        # load() replaces the client (a switch, a sign-in, a location) says
+        # nothing about the new one, which is checked by its own next call.
+        yt, generation = self.yt, self.generation
         try:
             # S9: the account menu links your channel too (myChannel); it is
             # read from this same response, never with a request of its own.
             with raw.capture(("account/account_menu",)) as menu:
-                self.yt.get_account_info()
+                yt.get_account_info()
         except Exception as exc:  # noqa: BLE001
             error = classify(exc)
             if error.retryable:
                 raise error from exc  # offline or rate limited: can't tell, don't mark expired
-            self.auth = "expired"
+            if generation == self.generation:
+                self.auth = "expired"
+            return
+        if generation != self.generation:
             return
         users.remember_own_channel(self, menu)  # S9
         self.verified = True
@@ -747,6 +756,20 @@ def ytmusicapi_version():
 # ---- serve ------------------------------------------------------------------
 
 
+def lane_of(request):
+    """The lane a request of a laned method runs on: its method's, except a
+    whole read (``limit: "all"``: every song of a playlist or Liked Music, up
+    to 5000 in about 50 requests) of a pages-lane method, which gets the
+    "whole" lane. The shell starts a request's timeout when it sends it, so
+    a Now tab read, a page or Home queued behind such a read on the pages
+    lane timed out while it waited."""
+    name = LANES[request["method"]]
+    params = request.get("params")
+    if name == "pages" and isinstance(params, dict) and params.get("limit") == "all":
+        return "whole"
+    return name
+
+
 def serve(idle_secs, worker=None, stdin_fd=None, out=None):
     """Answer JSON-lines requests until stdin closes or the idle timeout hits.
 
@@ -772,7 +795,7 @@ def serve(idle_secs, worker=None, stdin_fd=None, out=None):
     state_lock = threading.Lock()
 
     def submit(request):
-        name = LANES[request["method"]]
+        name = lane_of(request)
         jobs = lanes.get(name)
         if jobs is None:
             jobs = lanes[name] = queue.Queue()
@@ -863,6 +886,24 @@ def notify_shell():
         pass
 
 
+# The player script beside this one (bin/ytm-mpv).
+MPV_SCRIPT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "bin", "ytm-mpv")
+
+
+def sync_mpv_cookies():
+    """Make mpv's copy of the session cookies follow the session (S10's
+    ``ytm-mpv cookies``: copied again from a new session, removed once there
+    is none), whether or not a shell is running to do it. The mpv unit
+    outlives the shell, so without this a sign-out with the shell down left
+    the old session's cookies in mpv's runtime directory. Best effort, like
+    notify_shell: nothing happens while mpv is not running."""
+    try:
+        subprocess.run([MPV_SCRIPT, "cookies"], timeout=10, stdin=subprocess.DEVNULL,
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
+    except (OSError, subprocess.SubprocessError):
+        pass
+
+
 def cmd_auth(args):
     try:
         if args.paste:
@@ -884,6 +925,7 @@ def cmd_auth(args):
     name = account.get("name") or "your account"
     handle = f" ({account['handle']})" if account.get("handle") else ""
     caches.DiskCache().clear()  # cached library data belongs to the previous session
+    sync_mpv_cookies()  # mpv's copy is the new session's too
     print(f"Signed in to YouTube Music as {name}{handle}.")
     notify_shell()
     return 0
@@ -1060,6 +1102,7 @@ def main(argv=None):
     if args.cmd == "logout":
         removed = auth.logout()
         caches.DiskCache().clear()
+        sync_mpv_cookies()  # mpv's copy of the cookies goes with the session
         print(f"Signed out ({', '.join(removed) if removed else 'no session was saved'}).")
         notify_shell()
         return 0

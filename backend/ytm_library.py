@@ -18,7 +18,11 @@ token (the token is the browse request it reloads), never by its title, so
 ``orders`` carry the titles exactly as served.
 
 YouTube saves a re-sort of these pages on the account (ytm_pages.saves_order),
-so an ordered first page also drops the cached browsePage copies of it.
+so an ordered first page also drops what it made stale
+(ytm_pages.forget_order): the cached browsePage copies of the page and the
+method's own cached first pages, in every order (the unordered one, which
+is in the saved order, above all). The shell sends an order only when the
+user picks one (O), so every other read is in the order YouTube has saved.
 
 G1: a song plays on through the library in the list's order
 (ordered_tracks), and Shuffle all goes on through the server shuffle
@@ -181,13 +185,16 @@ def _container(response):
 
 def _first_page(worker, browse_id, body, order):
     """The first page in ``order`` (a ytm_pages.first_page result). An ordered
-    request is also a saved setting on these pages: the cached browsePage
-    copies of the page go, whether or not it worked (it may have applied)."""
+    request is also a saved setting on these pages: what it made stale goes
+    (ytm_pages.forget_order: the page's browsePage copies and the cached
+    first pages of the methods that read it, this one's too, so a later
+    read in the saved order never comes from a copy in the order before),
+    whether or not it worked (it may have applied)."""
     try:
         return pages.first_page(worker.yt, "browse", body, _menu_index(order))
     finally:
         if order is not None and pages.saves_order(browse_id):
-            worker.invalidate("browsePage", {"browseId": browse_id})
+            pages.forget_order(worker, browse_id)
 
 
 def _budget(counted):
@@ -394,10 +401,13 @@ def shuffle_tracks(worker, playlist_id, limit=SHUFFLE_TRACKS):
     worker.require_auth()
     limit = max(1, min(limit, SHUFFLE_TRACKS))
     items, seen = [], set()
+    # The client and its generation as the read starts: another client
+    # (an account switch, a sign-in, a location) meanwhile keeps no memo.
+    yt, generation = worker.yt, worker.generation
     # G1: read by _new_shuffle; where the shuffle goes on (its next page, and
     # what was read past the limit) stays for the shell's next `more` read.
-    token, lost = _new_shuffle(worker.yt, playlist_id, limit, items, seen)
-    _remember_shuffle(worker, playlist_id, token, items[limit:], seen, lost)
+    token, lost = _new_shuffle(yt, playlist_id, limit, items, seen)
+    _remember_shuffle(worker, generation, playlist_id, token, items[limit:], seen, lost)
     # A shuffle has no end: like a mix, what came back is the whole of it.
     return {"playlistId": playlist_id, "items": items[:limit], "complete": True, "total": None}
 
@@ -579,10 +589,15 @@ def _shuffle_memo(worker, playlist_id):
     return memo
 
 
-def _remember_shuffle(worker, playlist_id, token, pending, seen, lost=False):
+def _remember_shuffle(worker, generation, playlist_id, token, pending, seen, lost=False):
     """``lost``: the shuffle's next page came with no song, so the next
-    ``more`` starts a new shuffle (``token`` is None then)."""
-    worker.library_shuffle = {"generation": worker.generation, "id": playlist_id, "token": token,
+    ``more`` starts a new shuffle (``token`` is None then). ``generation``:
+    the worker's when the read started. A read that outlived its client
+    (Worker.load ran meanwhile) leaves the slot alone: its token and songs
+    belong to that client, and the new one starts a shuffle of its own."""
+    if generation != worker.generation:
+        return
+    worker.library_shuffle = {"generation": generation, "id": playlist_id, "token": token,
                               "pending": list(pending), "seen": set(seen), "lost": lost}
 
 
@@ -643,6 +658,7 @@ def shuffle_more(worker, playlist_id, limit=SHUFFLE_TRACKS):
     shuffle goes on from there (SHUFFLE_MAX_HTTP more requests), without the
     songs this one gave. A read that fails keeps the slot as it was."""
     worker.require_auth()
+    yt, generation = worker.yt, worker.generation  # as shuffle_tracks: the memo is this client's
     memo = _shuffle_memo(worker, playlist_id)
     if memo is None:
         return dict(shuffle_tracks(worker, playlist_id, limit), complete=False)
@@ -650,11 +666,11 @@ def shuffle_more(worker, playlist_id, limit=SHUFFLE_TRACKS):
     body = _shuffle_body(playlist_id)
     seen = set(memo["seen"])
     items = list(memo["pending"])
-    token, lost = _shuffle_pages(worker.yt, body, memo["token"], limit, items, seen)
+    token, lost = _shuffle_pages(yt, body, memo["token"], limit, items, seen)
     lost = lost or memo["lost"]
     if lost and len(items) < limit:
-        token, lost = _new_shuffle(worker.yt, playlist_id, limit, items, seen)
-    _remember_shuffle(worker, playlist_id, token, items[limit:], seen, lost)
+        token, lost = _new_shuffle(yt, playlist_id, limit, items, seen)
+    _remember_shuffle(worker, generation, playlist_id, token, items[limit:], seen, lost)
     return {"playlistId": playlist_id, "items": items[:limit],
             "complete": not token and not lost and len(items) <= limit, "total": None}
 

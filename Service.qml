@@ -984,7 +984,10 @@ Item {
     // to the Store's likes) or a rating's rollback.
     var likeBefore = storeItem.likeStatus(videoId)
     var ratingOut = !!_ratesOut[videoId]
+    var epoch = storeItem.resetEpoch
     backend.request("nowContext", { videoId: videoId }, function(reply) {
+      // P1: asked before the Store was emptied: the identity before's.
+      if (epoch !== storeItem.resetEpoch) return
       if (root._nowFetching === videoId) root._nowFetching = ""
       if (!reply.ok) {
         root.nowContextFailure = { videoId: videoId, message: reply.error.message }
@@ -1740,7 +1743,9 @@ Item {
   // worker is up for other work, 5 wait, or the oldest waited 15 min) and
   // whenever a panel opens, so no worker starts for one song. An unknown
   // result drops the batch: a missing play beats a double count. Turning
-  // recording off, signing out or another account drops what waits.
+  // recording off, signing out or another account drops what waits. P1
+  // (acct-5): each play keeps the identity key it was made under, and the
+  // worker refuses a batch it would send as another identity.
   readonly property bool recordHistory: prefs.recordHistory === true
   readonly property string playStatePath: cacheDir + "/pending-plays.json"
   property var pendingPlays: []
@@ -1827,9 +1832,10 @@ Item {
     _counted = next
   }
 
+  // P1 (acct-5): stamped with the identity the worker last said it acts as.
   function _countPlay(play, videoId) {
     _markCounted(play)
-    _setPendingPlays(Model.withPendingPlay(pendingPlays, videoId, Date.now()))
+    _setPendingPlays(Model.withPendingPlay(pendingPlays, videoId, Date.now(), _identityKey))
     flushPlays(false)
   }
 
@@ -1872,7 +1878,8 @@ Item {
     // drops the batch rather than sending it again.
     _setPendingPlays(Model.markSent(pending, batch))
     _writePlayState()
-    backend.request("reportPlays", { videoIds: batch.map(function(play) { return play.videoId }) }, function(reply) {
+    // P1 (acct-5): with the identity the plays were made under (Model.reportParams).
+    backend.request("reportPlays", Model.reportParams(batch), function(reply) {
       root._reporting = false
       var after = Model.afterReport(root.pendingPlays, batch, reply, Date.now())
       root._setPendingPlays(after.pending)
@@ -2048,6 +2055,7 @@ Item {
   // reads itself again (LibraryView).
   property int accountEpoch: 0
   property string _identityKey: ""
+  property bool _identityFileSeen: false
   property string _accountSeen: ""
   // Counted up by setQuality: a stream asked for before is at the old quality.
   property int _qualityEpoch: 0
@@ -2262,13 +2270,20 @@ Item {
 
   function _identityFileRead(text) {
     var changed = text !== _identityText
+    var first = !_identityFileSeen
+    _identityFileSeen = true
     _identityText = text
     _savedIdentity = Model.savedIdentity(text)
     // Switched while the worker is stopped (`bin/ytm call switchAccount`):
-    // the name and the list were the identity's before.
+    // the name and the list were the identity's before, and so are the
+    // plays waiting for history (P1, acct-5: the worker that starts next
+    // acts as the new one, and a batch queued before its ready event would
+    // go out as it; the worker also refuses a batch stamped with another
+    // identity's key).
     if (changed && backend.workerState !== "ready") {
       identityInfo = null
       accounts = null
+      if (!first) dropPendingPlays()
     }
     Qt.callLater(root._nameIdentity)
   }
@@ -3065,6 +3080,16 @@ Item {
     return true
   }
 
+  // P1: true while the song's own menu is being read (readSongTokens, or
+  // the song playing's nowContext): a typed search song's menu waits for it
+  // (SearchView).
+  function songMenuPending(videoId) {
+    if (!videoId) return false
+    if (_nowFetching === videoId) return true
+    var read = storeItem.tokenReadOf(videoId)
+    return !!read && read.state === "pending"
+  }
+
   // S on Now when the song (videoId: the queue row under the cursor, or the
   // one playing) has no library control in hand (Panel.saveNowSong, for
   // Model.nowSaveNotice): { state: "read" } once its own menu answered
@@ -3140,7 +3165,11 @@ Item {
     var name = Model.uploadFileName(text)
     uploading = uploading.concat([name])
     notify("Uploading", name)
-    backend.request("uploadSong", { path: text }, function(reply) {
+    // P1 (acct-4): the identity it is asked as; one that waits on the upload
+    // lane while the account changes is refused by the worker, unsent.
+    var params = { path: text }
+    if (_identityKey !== "") params.identityKey = _identityKey
+    backend.request("uploadSong", params, function(reply) {
       var left = root.uploading.slice()
       var at = left.indexOf(name)
       if (at >= 0) left.splice(at, 1)
@@ -3805,16 +3834,19 @@ Item {
     thumbsEnabled: root.panelsOpen > 0
     stateDir: root.cacheDir
     nowKeep: root.currentTrack ? root.currentTrack.videoId : ""
-    // Library (S2): each chip's sort order, saved in player.json.
-    libraryOrders: root.prefs.libraryOrders
+    // P1 (acct-3): signed in, words typed with a pause are searched signed out.
+    signedIn: root.signedIn
   }
 
   Connections {
     target: storeItem
     function onTrackHinted(track) { root.speculate(track) }
-    // Library (S2): O on a chip.
-    function onLibraryOrderChosen(chip, order) {
-      root.setPref("libraryOrders", Model.withLibraryOrder(root.prefs.libraryOrders, chip, order))
+    // P1: the Store was emptied (another identity, a sign-in, a location): a
+    // nowContext still out belongs to the one before, and the song playing
+    // is asked for again.
+    function onResetEpochChanged() {
+      root._nowFetching = ""
+      if (root.positionWanted) nowCheck.restart()
     }
   }
 

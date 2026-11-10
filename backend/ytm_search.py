@@ -28,6 +28,7 @@ from ytmusicapi.parsers.browsing import parse_song_flat
 from ytmusicapi.parsers.search import get_search_params, parse_search_result
 from ytmusicapi.parsers.songs import parse_song_runs
 
+import ytm_auth as auth
 import ytm_normalize as norm
 import ytm_pages as pages
 import ytm_raw as raw
@@ -468,6 +469,17 @@ def listing(yt, response, body, query, search_filter, scope, limit, http):
             "spelling": spelling(response_rows, query)}
 
 
+def typing_client(worker):
+    """The signed-out client of a search that was typed, not submitted.
+
+    A signed-in search joins the account's search history (the web adds a
+    search there when it is submitted), so the words of a pause in typing
+    must never go out with the account: they would come back among the
+    account's past searches. The worker's content location (S16) applies.
+    """
+    return raw.install(auth.anonymous_client(settings=worker.client_settings()))
+
+
 def m_search(worker, params):
     """Search YouTube Music, your library (``scope: "library"``) or your uploads (``"uploads"``).
 
@@ -475,28 +487,36 @@ def m_search(worker, params):
     episodes, profiles, order, spelling}``. Filtered (or uploads): ``{items,
     cursor, hasMore, spelling}``; send ``cursor`` back for the next page.
     ``exact`` searches the words as typed (no spelling correction).
+    ``anonymous`` (search as you type): signed out (typing_client), never
+    with the account, so the half-typed words stay out of its search
+    history; its cursor pages go the same way. The library and uploads
+    scopes need the account: BAD_REQUEST with it.
     """
     query = req_str(params, "query")
     search_filter = _opt_choice(params, "filter", FILTERS)
     scope = _opt_choice(params, "scope", SCOPES)
     exact = opt_bool(params, "exact")
+    anonymous = opt_bool(params, "anonymous")
     limit = opt_int(params, "limit", PAGE_ITEMS, high=100)
     cursor = opt_cursor(params)
     check_scope(search_filter, scope)
+    if anonymous and scope:
+        raise WorkerError("BAD_REQUEST", "Your library and uploads are searched with your account only")
     if scope:
         worker.require_auth()
+    yt = typing_client(worker) if anonymous else worker.yt
     listed = bool(search_filter) or scope == "uploads"
     body = search_body(query, search_filter, scope, exact)
     if cursor:
         if not listed:
             raise WorkerError("BAD_REQUEST", "Only a filtered search has more pages")
         rtype = result_type(search_filter, scope)
-        found, cursor = pages.fetch(worker.yt, "search", body, "ctoken", None, lambda c: items(c, rtype),
+        found, cursor = pages.fetch(yt, "search", body, "ctoken", None, lambda c: items(c, rtype),
                                     cursor=cursor, min_items=limit, max_http=MAX_HTTP)
         return {"items": unique(found), "cursor": cursor, "hasMore": bool(cursor)}
-    response, http = pages.first_page(worker.yt, "search", body)[:2]
+    response, http = pages.first_page(yt, "search", body)[:2]
     if listed:
-        return listing(worker.yt, response, body, query, search_filter, scope, limit, http)
+        return listing(yt, response, body, query, search_filter, scope, limit, http)
     return grouped(response, query, scope)
 
 

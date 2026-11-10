@@ -227,19 +227,11 @@ var PREF_RULES = {
   autoplay: _bool(true),
   shuffle: _bool(false),
   repeat: normalizeRepeat,
-  // S2: the Library chip, and the sort order chosen per chip.
+  // S2: the Library chip. P1 (acct-1): no sort orders: YouTube saves the
+  // one picked with O on the account, and a saved one sent again on every
+  // load changed the sort of whichever account it was sent as. A file that
+  // still has libraryOrders loses it on the next save.
   libraryChip: function(value) { return typeof value === "string" && CHIP_PATTERN.test(value) ? value : "playlists" },
-  libraryOrders: function(value) {
-    var out = {}
-    if (!value || typeof value !== "object" || Array.isArray(value)) return out
-    for (var chip in value) {
-      var order = value[chip]
-      if (!CHIP_PATTERN.test(chip)) continue
-      if ((typeof order === "string" && order !== "" && order.length <= 64)
-          || (typeof order === "number" && order >= 0 && Math.floor(order) === order)) out[chip] = order
-    }
-    return out
-  },
   // S6: chart country, ZZ is global.
   chartsCountry: function(value) { return typeof value === "string" && /^[A-Z]{2}$/.test(value) ? value : "ZZ" },
   // S16: content location ("" is the account's own) and audio quality.
@@ -703,10 +695,13 @@ function suggestionRows(suggestions, selected) {
 // ---- caches ---------------------------------------------------------------------
 
 // S7: the scope ("", "library", "uploads") and an exact search (no spelling
-// fix) are part of the key; a plain search keeps its old key.
-function searchKey(query, filter, scope, exact) {
+// fix) are part of the key; a plain search keeps its old key. P1 (acct-3):
+// so is a typed search's (`typed`: read signed out while typing), so the
+// account's search for the same words is asked for when they are submitted.
+function searchKey(query, filter, scope, exact, typed) {
   var key = (filter || "") + "|" + String(query || "").trim().toLowerCase()
-  return scope || exact ? key + "|" + (scope || "") + (exact ? "|exact" : "") : key
+  key = scope || exact ? key + "|" + (scope || "") + (exact ? "|exact" : "") : key
+  return typed === true ? key + "|typed" : key
 }
 
 // Every cover URL (thumb / thumbLarge) inside a result, deduplicated.
@@ -1948,11 +1943,14 @@ if (typeof module !== "undefined") {
 // Artists (S8 and S10 push Podcasts and Uploads), switched with h / l and
 // kept in prefs.libraryChip. A chip's list is its worker method's, fetched
 // only once the chip is shown and read about 50 at a time (Store's
-// loadLibraryList / loadLibraryMore). O cycles a chip's sort orders, kept
-// per chip in prefs.libraryOrders as the worker's ids: a_to_z, z_to_a,
-// recently_added, or menu:<n> for an option only the served menu has (Most
-// songs). Recent activity (the library landing) and Subscriptions open as
-// pages, their orders shown as chips there.
+// loadLibraryList / loadLibraryMore). O sends a chip's next sort order
+// (the worker's ids: a_to_z, z_to_a, recently_added, or menu:<n> for an
+// option only the served menu has, Most songs), which YouTube saves on the
+// account as the web's sort menu does; every other load sends none and
+// shows the order YouTube marks selected (P1, acct-1: nothing is kept on
+// this machine, so another identity's or account's sort is never sent).
+// Recent activity (the library landing) and Subscriptions open as pages,
+// their orders shown as chips there.
 
 var LIBRARY_CHIPS = [
   { key: "playlists", title: "Playlists", method: "libraryPlaylists" },
@@ -1980,21 +1978,6 @@ function nextLibraryChip(key, delta) {
   for (var i = 0; i < LIBRARY_CHIPS.length; i++) if (LIBRARY_CHIPS[i].key === key) at = i
   var n = LIBRARY_CHIPS.length
   return LIBRARY_CHIPS[((at + (delta < 0 ? -1 : 1)) % n + n) % n].key
-}
-
-// prefs.libraryOrders[chip], or null for the order YouTube has saved.
-function libraryOrderOf(orders, chip) {
-  var value = orders && typeof orders === "object" ? orders[chip] : undefined
-  return value === undefined || value === null ? null : value
-}
-
-// A copy of prefs.libraryOrders with chip's order set (null removes it).
-function withLibraryOrder(orders, chip, order) {
-  var next = {}
-  for (var key in orders || {}) next[key] = orders[key]
-  if (order === null || order === undefined) delete next[chip]
-  else next[chip] = order
-  return normalizePref("libraryOrders", next)
 }
 
 function sameOrder(a, b) {
@@ -2167,8 +2150,6 @@ if (typeof module !== "undefined") {
     libraryChipSpec: libraryChipSpec,
     libraryChip: libraryChip,
     nextLibraryChip: nextLibraryChip,
-    libraryOrderOf: libraryOrderOf,
-    withLibraryOrder: withLibraryOrder,
     sameOrder: sameOrder,
     nextOrder: nextOrder,
     orderTitle: orderTitle,
@@ -5973,16 +5954,21 @@ function playCheckMs(timePos, speed) {
 }
 
 // ---- pending plays ------------------------------------------------------------------------
-// A pending play is { videoId, at (ms since the epoch), retryAt?, sent? },
-// oldest first. `sent` marks the batch a reportPlays call has out (written
-// to the file before the call): never in another batch, and dropped when
-// the file is read again, since a reload or crash mid-call left its outcome
-// unknown.
+// A pending play is { videoId, at (ms since the epoch), key?, retryAt?,
+// sent? }, oldest first. `sent` marks the batch a reportPlays call has out
+// (written to the file before the call): never in another batch, and
+// dropped when the file is read again, since a reload or crash mid-call
+// left its outcome unknown. P1 (acct-5): `key` is the identity the play was
+// made under (the worker's identity key, when one had said), sent with its
+// batch so the worker never reports it as another identity.
+
+var _IDENTITY_KEY = /^[0-9]{1,2}:[0-9a-f]{0,40}$/
 
 function _pendingPlay(play, now) {
   if (!play || typeof play !== "object" || !_VIDEO_ID.test(String(play.videoId || ""))) return null
   if (typeof play.at !== "number" || !isFinite(play.at) || now - play.at >= PENDING_TTL_MS || play.at > now + 60000) return null
   var out = { videoId: String(play.videoId), at: play.at }
+  if (typeof play.key === "string" && _IDENTITY_KEY.test(play.key)) out.key = play.key
   if (typeof play.retryAt === "number" && isFinite(play.retryAt) && play.retryAt > now) out.retryAt = play.retryAt
   if (play.sent === true) out.sent = true
   return out
@@ -5999,8 +5985,11 @@ function prunePending(pending, now) {
   return out.length > PENDING_MAX ? out.slice(out.length - PENDING_MAX) : out
 }
 
-function withPendingPlay(pending, videoId, now) {
-  return prunePending((Array.isArray(pending) ? pending : []).concat([{ videoId: videoId, at: now }]), now)
+// `key`: the identity key the play was made under ("" or absent: unknown).
+function withPendingPlay(pending, videoId, now, key) {
+  var play = { videoId: videoId, at: now }
+  if (key) play.key = key
+  return prunePending((Array.isArray(pending) ? pending : []).concat([play]), now)
 }
 
 // A pending play's identity (the same song played twice is two plays).
@@ -6056,10 +6045,23 @@ function nextFlushAt(pending, now) {
 }
 
 // What one reportPlays call sends: the oldest ready plays (`force`, as when
-// a panel opens: the waiting ones too), at most REPORT_CALL_MAX.
+// a panel opens: the waiting ones too), at most REPORT_CALL_MAX, all made
+// under the identity of the oldest (P1: one key a call).
 function reportBatch(pending, now, force) {
   var list = prunePending(pending, now)
-  return (force === true ? _unsent(list) : readyPlays(list, now)).slice(0, REPORT_CALL_MAX)
+  var ready = force === true ? _unsent(list) : readyPlays(list, now)
+  var key = ready.length > 0 ? ready[0].key || "" : ""
+  return ready.filter(function(play) { return (play.key || "") === key }).slice(0, REPORT_CALL_MAX)
+}
+
+// The reportPlays params of a batch: its songs and, when known, the identity
+// they were played under (the worker refuses the call, unsent, when it acts
+// as another one; the shell then drops the batch).
+function reportParams(batch) {
+  var list = Array.isArray(batch) ? batch : []
+  var params = { videoIds: list.map(function(play) { return play.videoId }) }
+  if (list.length > 0 && list[0].key) params.identityKey = list[0].key
+  return params
 }
 
 // The shell's timeout for a call of `count` plays (a player request and a ping each).
@@ -6111,8 +6113,13 @@ function afterReport(pending, batch, reply, now) {
   for (i = 0; i < list.length; i++) {
     var what = outcome[pendingKey(list[i])]
     if (what === "done") continue
-    if (what === "retry") next.push({ videoId: list[i].videoId, at: list[i].at, retryAt: now + REPORT_RETRY_MS })
-    else next.push(list[i])
+    if (what === "retry") {
+      var again = { videoId: list[i].videoId, at: list[i].at, retryAt: now + REPORT_RETRY_MS }
+      if (list[i].key) again.key = list[i].key
+      next.push(again)
+    } else {
+      next.push(list[i])
+    }
   }
   return { pending: prunePending(next, now), reported: reported, dropped: dropped, waiting: waiting }
 }
@@ -6264,6 +6271,7 @@ if (typeof module !== "undefined") {
     flushDue: flushDue,
     nextFlushAt: nextFlushAt,
     reportBatch: reportBatch,
+    reportParams: reportParams,
     reportTimeoutMs: reportTimeoutMs,
     afterReport: afterReport,
     parsePlayState: parsePlayState,
@@ -7941,5 +7949,29 @@ if (typeof module !== "undefined") {
     autoplaySetApart: autoplaySetApart,
     editorInitial: editorInitial,
     editorRows: editorRows
+  })
+}
+
+// ==== final review fixes (P1) =================================================================
+// priv-1: what a list played from a page is called in the queue's context
+// (queue.json, IPC status, "Playing from"). Your own channel's page is
+// titled with the account's name (a brand account's name when acting as
+// one), which must never reach a file or the status: it is "Your channel".
+
+function ownChannelPage(ref, page) {
+  if (ref && ref.kind === "myChannel") return true
+  var header = page && typeof page === "object" ? page.header : null
+  return !!header && typeof header === "object" && header.own === true
+}
+
+function contextTitle(ref, page, title) {
+  if (ownChannelPage(ref, page)) return PAGE_KINDS.myChannel ? String(PAGE_KINDS.myChannel.title) : "Your channel"
+  return String(title || "")
+}
+
+if (typeof module !== "undefined") {
+  Object.assign(module.exports, {
+    ownChannelPage: ownChannelPage,
+    contextTitle: contextTitle
   })
 }

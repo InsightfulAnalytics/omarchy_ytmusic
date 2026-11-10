@@ -59,6 +59,11 @@ Item {
     store.loadCollection(ref, function(reply) {
       if (root.refKey !== key) return
       root.loading = false
+      // P1: asked before the Store was emptied (another identity): again.
+      if (reply.stale) {
+        root.load()
+        return
+      }
       if (reply.ok) {
         root.page = reply.result
         root._pageKey = key

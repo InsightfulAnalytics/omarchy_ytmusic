@@ -41,22 +41,17 @@ test("orders: O cycles from the current one, titles come as served", () => {
   assert.ok(Model.sameOrder(null, undefined) && !Model.sameOrder("a_to_z", "z_to_a"))
 })
 
-test("prefs: the chip and each chip's order survive a round trip", () => {
+test("prefs: the chip survives a round trip; no sort order is kept (P1, acct-1)", () => {
   let prefs = Model.parsePrefs("")
   assert.equal(prefs.libraryChip, "playlists")
-  assert.deepEqual(prefs.libraryOrders, {})
-  let orders = Model.withLibraryOrder(prefs.libraryOrders, "albums", "a_to_z")
-  orders = Model.withLibraryOrder(orders, "artists", "menu:3")
-  assert.deepEqual(orders, { albums: "a_to_z", artists: "menu:3" })
-  assert.deepEqual(prefs.libraryOrders, {}, "copy on write")
-  prefs = Model.withPref(Model.withPref(prefs, "libraryOrders", orders), "libraryChip", "artists")
+  assert.equal("libraryOrders" in prefs, false)
+  prefs = Model.withPref(Model.withPref(prefs, "libraryOrders", { albums: "a_to_z" }), "libraryChip", "artists")
+  assert.equal("libraryOrders" in prefs, false, "not a pref any more")
   const back = Model.parsePrefs(Model.serializePrefs(prefs))
   assert.equal(back.libraryChip, "artists")
-  assert.deepEqual(back.libraryOrders, { albums: "a_to_z", artists: "menu:3" })
-  assert.equal(Model.libraryOrderOf(back.libraryOrders, "artists"), "menu:3")
-  assert.equal(Model.libraryOrderOf(back.libraryOrders, "songs"), null)
-  assert.deepEqual(Model.withLibraryOrder(back.libraryOrders, "albums", null), { artists: "menu:3" }, "null forgets it")
-  assert.deepEqual(Model.withLibraryOrder({}, "Bad chip!", "a_to_z"), {}, "invalid chips are dropped")
+  assert.equal("libraryOrders" in back, false)
+  assert.equal(Model.libraryOrderOf, undefined)
+  assert.equal(Model.withLibraryOrder, undefined)
 })
 
 test("playlists chip: entry rows, then your and saved playlists, the order in the first heading", () => {

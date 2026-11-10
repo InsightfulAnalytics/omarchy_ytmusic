@@ -22,6 +22,11 @@
   SUPPORTED_LOCATIONS, or "" for YouTube's own guess. The language stays
   English (the parsers match English text).
 
+A request that waits on a lane (an upload, a batch of plays) carries the
+key of the identity it was asked under (``identityKey``) and is refused,
+unsent, when the worker acts as another one by its turn
+(``require_identity_key``).
+
 Brand accounts: YouTube Music removes history entries and takes uploads only
 for the session's own account (ytmusicapi's remove_history_items and
 upload_song), so those methods call ``require_own_identity`` first
@@ -35,7 +40,7 @@ from urllib.parse import parse_qsl, urlsplit
 import ytm_auth as auth
 import ytm_normalize as norm
 import ytm_raw as raw
-from ytm_proto import WorkerError
+from ytm_proto import WorkerError, unsent
 
 ACCOUNTS_ENDPOINT = "account/accounts_list"
 
@@ -144,6 +149,25 @@ def identity_summary(worker):
     login = login_of(worker)
     tag = hashlib.sha1(page_id.encode()).hexdigest()[:12] if page_id else ""
     return {"key": f"{login}:{tag}", "brand": bool(page_id), "own": not chosen, "authUser": login}
+
+
+def require_identity_key(worker, params, what):
+    """BAD_REQUEST (nothing sent) when ``params.identityKey``, the identity
+    the shell asked under (identity_summary's key), is not the one the worker
+    acts as now. A request that waits on a lane runs as whatever client the
+    worker holds when its turn comes: an upload queued behind another, or
+    plays queued while the worker started as an identity switched from the
+    command line, would otherwise go to another account. Without the key
+    (the command line's own requests) nothing is checked."""
+    expected = params.get("identityKey")
+    if expected is None:
+        return
+    if not isinstance(expected, str) or len(expected) > 64:
+        raise WorkerError("BAD_REQUEST", "'identityKey' must be an identity key")
+    summary = identity_summary(worker)
+    if summary is None or summary["key"] != expected:
+        raise unsent(WorkerError("BAD_REQUEST", f"The account in use changed after {what} was asked for; "
+                                                "nothing was sent"))
 
 
 def require_own_identity(worker, what):
