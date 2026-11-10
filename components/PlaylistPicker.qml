@@ -92,7 +92,7 @@ Rectangle {
       id: closeButton
       anchors.right: parent.right
       iconText: "󰅖"
-      tooltipText: "Cancel (Esc)"
+      tooltipText: Model.withKey("Cancel", "back")
       foreground: root.foreground
       onClicked: root.close()
     }

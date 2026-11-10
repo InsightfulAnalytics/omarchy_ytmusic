@@ -418,6 +418,18 @@ def collection(kind, data, collection_id=None):
     }
 
 
+def artist_radio_id(data):
+    """The artist's radio mix (RDEM...). ytmusicapi reads it from the radio
+    button's watchEndpoint only, and some artists' button (Radiohead's,
+    signed in) is a watchPlaylistEndpoint; the radio and shuffle mixes share
+    the artist's suffix (RDEM... / RDAO...)."""
+    radio_id = data.get("radioId")
+    shuffle_id = data.get("shuffleId") or ""
+    if not radio_id and shuffle_id.startswith("RDAO"):
+        radio_id = "RDEM" + shuffle_id[4:]
+    return radio_id
+
+
 def artist_page(channel_id, data):
     name = data.get("name") or ""
     page_artists = [{"name": name, "id": channel_id}] if name else []
@@ -434,6 +446,9 @@ def artist_page(channel_id, data):
         "albums": normalize_list((data.get("albums") or {}).get("results"), lambda a: album(a, page_artists), "artist album"),
         "singles": normalize_list((data.get("singles") or {}).get("results"), lambda a: album(a, page_artists), "artist single"),
         "songsPlaylistId": songs.get("browseId"),
+        # YouTube's own mixes for the artist's Radio and Shuffle (RDEM / RDAO).
+        "radioId": artist_radio_id(data),
+        "shuffleId": data.get("shuffleId"),
     }
 
 

@@ -50,6 +50,11 @@ Item {
     : isArtist ? (page.songs || []) : (page.tracks || [])
   readonly property var rows: !page ? [] : isPage ? Model.pageRows(page) : isArtist ? Model.flattenArtist(page)
     : isHistory ? Model.historyRows(tracks) : Model.trackRows(tracks)
+  // The page shows part of its list (Liked Music past 200 songs, a page with
+  // more to load, an artist's top songs): Play, Shuffle and Queue all then
+  // read the whole list (Service.playItem), at most 500 queued.
+  readonly property bool incomplete: !!page && (page.truncated === true || isArtist
+    || (isPage && (!!page.cursor || page.hasMore === true)))
   readonly property var orders: page && Array.isArray(page.orders) ? page.orders : []
   readonly property var currentOrder: order !== null ? order : (page && page.order !== undefined ? page.order : null)
   readonly property alias results: resultList
@@ -64,6 +69,8 @@ Item {
   signal openRequested(var item)
   // The page itself went away (playlist deleted).
   signal closeRequested()
+  // A row's menu, or the page's (M): Panel opens it.
+  signal itemMenuRequested(var request)
 
   ConfirmGate {
     id: gate
@@ -220,10 +227,11 @@ Item {
     if (service && service.unsure(reply) && shows(requested)) load(true)
   }
 
-  // A second press within 4 s deletes.
-  function deletePlaylist() {
+  // A second press within 4 s deletes; `confirmed` when the page menu
+  // already asked twice.
+  function deletePlaylist(confirmed) {
     if (!editable || !service) return
-    if (!gate.arm("delete:" + page.id)) return
+    if (confirmed !== true && !gate.arm("delete:" + page.id)) return
     var requested = ref
     service.deletePlaylist({ playlistId: page.id, title: page.title }, function(reply) {
       if (reply.ok) {
@@ -252,14 +260,53 @@ Item {
     else root.openRequested(item)
   }
 
+  // n / a: a song, or a whole album or playlist row (an artist's albums).
   function playNext(index) {
     var row = resultList.rowAt(index)
-    if (row && row.item.type === "track" && service) service.playNext(row.item)
+    if (row && Model.canQueue(row.item) && service) service.playItem(row.item, "next")
   }
 
   function addToQueue(index) {
     var row = resultList.rowAt(index)
-    if (row && row.item.type === "track" && service) service.addToQueue(row.item)
+    if (row && Model.canQueue(row.item) && service) service.playItem(row.item, "queue")
+  }
+
+  // ---- menus (F3) -------------------------------------------------------------------
+
+  function menu(index) {
+    var row = resultList.rowAt(index)
+    if (!row || Model.menuKind(row.item) === "") return
+    var removable = row.item.type === "track" && (editable || isLiked)
+    root.itemMenuRequested({ item: row.item, owner: root, index: index,
+      ctx: { pageKind: ref ? ref.kind : "", owned: editable, removable: removable,
+             removeTitle: isLiked ? "Remove from Liked Music" : "Remove from playlist" } })
+  }
+
+  // The page as an item for its own menu: the opened item, completed from
+  // the page (an album's audio playlist feeds Start radio).
+  function pageItem() {
+    if (!target) return null
+    var item = ({})
+    for (var key in target) item[key] = target[key]
+    if (page && !item.playlistId && page.playlistId && ref && (ref.kind === "album" || ref.kind === "playlist"))
+      item.playlistId = page.playlistId
+    if (page && !item.title && !item.name && (page.title || page.name)) item.title = page.title || page.name
+    return item
+  }
+
+  // M: the header buttons' twins, then what the item offers (radio, share,
+  // go to artist) and Delete on your own playlist.
+  function pageMenu() {
+    return { item: pageItem(), owner: root, index: -1, title: title, subtitle: subtitle,
+             ctx: { page: true, pageKind: ref ? ref.kind : "", owned: editable, hasTracks: tracks.length > 0 } }
+  }
+
+  // Play, Shuffle, Queue all (mode now, shuffle, queue; next from the menu).
+  function playAll(mode) {
+    if (!service) return
+    var item = pageItem()
+    if (incomplete && Model.tracksForParams(item)) service.playItem(item, mode)
+    else service.playTracks(tracks, mode, { playlistId: page ? page.playlistId || null : null, title: title, radio: false }, title)
   }
 
   Row {
@@ -315,9 +362,10 @@ Item {
         Button {
           iconText: "󰐊"
           text: "Play"
+          tooltipText: root.incomplete ? "Plays all of it, not only what is shown (at most 500 songs)" : ""
           foreground: root.foreground
           fontSize: Style.font.caption
-          onClicked: root.service.playCollection(root.tracks, 0, false)
+          onClicked: root.playAll("now")
         }
 
         Button {
@@ -325,14 +373,15 @@ Item {
           tooltipText: "Turn shuffle on and play in random order"
           foreground: root.foreground
           fontSize: Style.font.caption
-          onClicked: root.service.playCollection(root.tracks, 0, true)
+          onClicked: root.playAll("shuffle")
         }
 
         Button {
           text: "Queue all"
+          tooltipText: "Add to the queue (" + Model.keyHint("pageMenu") + " has more)"
           foreground: root.foreground
           fontSize: Style.font.caption
-          onClicked: root.service.queueAll(root.tracks)
+          onClicked: root.playAll("queue")
         }
 
         Button {
@@ -365,7 +414,7 @@ Item {
         required property var modelData
         text: String(modelData.title || "")
         selected: modelData.index === root.currentOrder
-        tooltipText: "Sort order (O)"
+        tooltipText: Model.withKey("Sort order", "order")
         foreground: root.foreground
         fontSize: Style.font.caption
         onClicked: root.setOrder(modelData.index)
@@ -397,6 +446,7 @@ Item {
     bar: root.bar
     store: root.store
     rows: root.rows
+    owner: root
     listKey: root.refKey
     removable: root.editable || root.isLiked
     removeTooltip: root.isLiked ? "Remove from Liked Music" : "Remove from playlist"

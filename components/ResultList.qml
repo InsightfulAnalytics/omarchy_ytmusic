@@ -25,6 +25,10 @@ ListView {
   // The Load more row's state, set by the owner.
   property bool moreBusy: false
   property string moreError: ""
+  // The view the rows belong to: a right-click (or a row's menu button)
+  // opens owner.menu(index) when the owner has one.
+  property var owner: null
+  readonly property bool hasMenu: !!owner && typeof owner.menu === "function"
 
   readonly property color foreground: bar ? bar.foreground : Color.foreground
   readonly property string fontFamily: bar ? bar.fontFamily : Style.font.family
@@ -34,6 +38,7 @@ ListView {
   signal playNextRequested(int index)
   signal addToQueueRequested(int index)
   signal removeRequested(int index)
+  signal menuRequested(int index)
   // The cursor came within 5 rows of the end, or the list was scrolled to
   // the bottom (debounced), or G was pressed: time to load more.
   signal nearEnd()
@@ -63,6 +68,26 @@ ListView {
 
   function rowAt(index) {
     return index >= 0 && index < _shown.length && !_shown[index].header ? _shown[index] : null
+  }
+
+  // A row's place (its key, and how many rows before it share it), to find
+  // it again after the rows changed: indexOfPlace gives its index now, or
+  // -1 when it is gone. (A menu acts on the row it was opened for.)
+  function placeAt(index) {
+    return Model.rowPlace(_shown, index)
+  }
+
+  function indexOfPlace(place) {
+    return Model.findPlace(_shown, place)
+  }
+
+  // The row's menu: the cursor moves onto it first, so the menu and the
+  // keys act on the same row.
+  function requestMenu(index) {
+    if (!Model.selectableRow(_shown[index])) return
+    cursorIndex = index
+    menuRequested(index)
+    if (hasMenu) owner.menu(index)
   }
 
   // ---- keeping the place --------------------------------------------------------
@@ -222,11 +247,13 @@ ListView {
         cursor: row.index === root.cursorIndex
         showQueueActions: true
         showRemove: root.removable
+        showMenu: root.hasMenu
         removeTooltip: root.removeTooltip
         onActivated: root.activated(row.index)
         onPlayNextRequested: root.playNextRequested(row.index)
         onAddToQueueRequested: root.addToQueueRequested(row.index)
         onRemoveRequested: root.removeRequested(row.index)
+        onMenuRequested: root.requestMenu(row.index)
         onHoveredChanged: if (hovered) root.hintRow(row.index)
       }
     }
@@ -292,7 +319,7 @@ ListView {
             opacity: queryRow.query.removable && (queryHover.hovered || row.index === root.cursorIndex) ? 1 : 0
             enabled: opacity > 0
             iconText: "󰅖"
-            tooltipText: "Forget this search (x)"
+            tooltipText: Model.withKey("Forget this search", "remove")
             foreground: root.foreground
             onClicked: root.removeRequested(row.index)
           }
@@ -301,7 +328,8 @@ ListView {
     }
 
     // See all, Load more and action rows (selectable, in the query-row
-    // layout), and message rows (plain text, never selected).
+    // layout; an action row may show its key as a hint on the right), and
+    // message rows (plain text, never selected).
     Component {
       id: lineComponent
 
@@ -345,10 +373,23 @@ ListView {
         }
 
         Text {
+          id: lineHint
+          anchors.right: parent.right
+          anchors.rightMargin: Style.space(10)
+          anchors.verticalCenter: parent.verticalCenter
+          visible: text !== ""
+          textFormat: Text.PlainText
+          text: lineRow.line.hint ? String(lineRow.line.hint) : ""
+          color: Qt.darker(root.foreground, 1.6)
+          font.family: root.fontFamily
+          font.pixelSize: Style.font.caption
+        }
+
+        Text {
           id: lineLabel
           anchors.left: lineIcon.right
           anchors.leftMargin: Style.space(10)
-          anchors.right: parent.right
+          anchors.right: lineHint.visible ? lineHint.left : parent.right
           anchors.rightMargin: Style.space(8)
           anchors.verticalCenter: parent.verticalCenter
           textFormat: Text.PlainText
@@ -371,7 +412,9 @@ ListView {
         store: root.store
         item: row.modelData.item
         cursor: row.index === root.cursorIndex
+        showMenu: root.hasMenu
         onActivated: root.activated(row.index)
+        onMenuRequested: root.requestMenu(row.index)
       }
     }
   }

@@ -21,6 +21,8 @@ Item {
 
   signal openRequested(var item)
   signal leftField()
+  // A row's or the account's menu: Panel opens it.
+  signal itemMenuRequested(var request)
 
   function refresh(force) {
     if (signedIn && store) store.loadLibrary(force)
@@ -31,8 +33,31 @@ Item {
     if (row) root.openRequested(row.item)
   }
 
-  function playNext(index) {}
-  function addToQueue(index) {}
+  // n / a: Liked Music or a whole playlist (Service.playItem).
+  function playNext(index) {
+    var row = resultList.rowAt(index)
+    if (row && Model.canQueue(row.item) && service) service.playItem(row.item, "next")
+  }
+
+  function addToQueue(index) {
+    var row = resultList.rowAt(index)
+    if (row && Model.canQueue(row.item) && service) service.playItem(row.item, "queue")
+  }
+
+  function menu(index) {
+    var row = resultList.rowAt(index)
+    if (!row || Model.menuKind(row.item) === "") return
+    root.itemMenuRequested({ item: row.item, ctx: { pageKind: "library", owned: row.item.owned === true },
+                             owner: root, index: index })
+  }
+
+  // M: the account row's menu (Sign out; later slices add Your channel,
+  // Improve recommendations, Record plays, Account, Quality, Location).
+  function pageMenu() {
+    return { item: null, ctx: { page: true, pageKind: "library" }, owner: root, index: -1,
+             title: root.signedIn ? (root.account && root.account.name ? root.account.name : "Signed in") : "Not signed in",
+             subtitle: root.signedIn && root.account && root.account.handle ? root.account.handle : "" }
+  }
 
   function createPlaylist() {
     var name = nameField.text.trim()
@@ -106,7 +131,7 @@ Item {
         id: signOut
         anchors.verticalCenter: parent.verticalCenter
         text: "Sign out"
-        tooltipText: "Delete the saved session from this computer"
+        tooltipText: "Delete the saved session from this computer (also in the " + Model.keyHint("pageMenu") + " menu)"
         foreground: root.foreground
         fontSize: Style.font.caption
         onClicked: root.service.signOut()
@@ -177,6 +202,7 @@ Item {
       bar: root.bar
       store: root.store
       rows: root.rows
+      owner: root
 
       onActivated: function(index) { root.activate(index) }
     }

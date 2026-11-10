@@ -18,6 +18,8 @@ Item {
   readonly property alias results: resultList
 
   signal openRequested(var item)
+  // A row's menu, or the page's (Refresh): Panel opens it.
+  signal itemMenuRequested(var request)
 
   function refresh(force) {
     if (store) store.loadHome(force)
@@ -30,14 +32,26 @@ Item {
     else root.openRequested(row.item)
   }
 
+  // n / a: a song, or a whole album, playlist or mix (Service.playItem).
   function playNext(index) {
     var row = resultList.rowAt(index)
-    if (row && row.item.type === "track" && service) service.playNext(row.item)
+    if (row && Model.canQueue(row.item) && service) service.playItem(row.item, "next")
   }
 
   function addToQueue(index) {
     var row = resultList.rowAt(index)
-    if (row && row.item.type === "track" && service) service.addToQueue(row.item)
+    if (row && Model.canQueue(row.item) && service) service.playItem(row.item, "queue")
+  }
+
+  function menu(index) {
+    var row = resultList.rowAt(index)
+    if (!row || Model.menuKind(row.item) === "") return
+    root.itemMenuRequested({ item: row.item, ctx: { pageKind: "home" }, owner: root, index: index })
+  }
+
+  // M: the Refresh button's twin.
+  function pageMenu() {
+    return { item: null, ctx: { page: true, pageKind: "home" }, owner: root, index: -1, title: "Home", subtitle: "" }
   }
 
   onVisibleChanged: if (visible) refresh(false)
@@ -68,7 +82,7 @@ Item {
       anchors.right: parent.right
       anchors.verticalCenter: parent.verticalCenter
       iconText: "󰑐"
-      tooltipText: "Refresh"
+      tooltipText: "Refresh (also in the " + Model.keyHint("pageMenu") + " menu)"
       foreground: root.foreground
       fontSize: Style.font.caption
       onClicked: root.refresh(true)
@@ -84,6 +98,7 @@ Item {
     bar: root.bar
     store: root.store
     rows: root.rows
+    owner: root
 
     onActivated: function(index) { root.activate(index) }
     onPlayNextRequested: function(index) { root.playNext(index) }

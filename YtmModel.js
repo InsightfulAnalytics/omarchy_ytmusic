@@ -1355,3 +1355,468 @@ if (typeof module !== "undefined") {
     appendPage: appendPage
   })
 }
+
+// ==== menu (F3) ===========================================================================
+// One menu for every item (m, '.' or right-click), like the web's three-dot
+// menu. MENU_ACTIONS is a registry: a slice appends its entries in its own
+// section, and menuActions(item, ctx) lists the ones that apply. KEYS is the
+// one list of panel keys: Panel dispatches text keys through it, and the ?
+// overlay, the README keys row, Panel.qml's header comment and tooltips are
+// made from it. Whole albums, playlists, mixes and artists play through
+// Service.playItem (the worker's tracksFor), at most QUEUE_CAP at a time.
+
+var MUSIC_URL = "https://music.youtube.com/"
+var QUEUE_CAP = 500
+
+function _stripVl(id) {
+  var text = String(id || "")
+  return text.indexOf("VL") === 0 ? text.slice(2) : text
+}
+
+// Radio-style playlists (RD...) that play through the watch playlist;
+// RDCLAK (curated) and RDPN (New episodes) are ordinary playlists.
+function isMixId(id) {
+  var pid = _stripVl(id)
+  return pid.indexOf("RD") === 0 && pid.indexOf("RDCLAK") !== 0 && pid.indexOf("RDPN") !== 0
+}
+
+// What an item is to its menu and to whole-collection play: track, album,
+// playlist, mix, liked, artist, or "" (nothing to play or share).
+function menuKind(item) {
+  if (!item || typeof item !== "object") return ""
+  var type = item.type
+  if (type === "track") return item.videoId ? "track" : ""
+  if (type === "album") return item.browseId || item.playlistId ? "album" : ""
+  if (type === "playlist") {
+    if (!item.playlistId) return ""
+    if (_stripVl(item.playlistId) === "LM") return "liked"
+    return isMixId(item.playlistId) ? "mix" : "playlist"
+  }
+  if (type === "liked") return "liked"
+  if (type === "artist") return item.channelId ? "artist" : ""
+  return ""
+}
+
+function itemTitle(item) {
+  return item ? String(item.title || item.name || "") : ""
+}
+
+// Rows that n and a can put in the queue (a song, or all of a collection).
+function canQueue(item) {
+  var kind = menuKind(item)
+  return kind === "track" || kind === "album" || kind === "playlist" || kind === "mix" || kind === "liked"
+}
+
+// The worker's tracksFor params for a collection (null for a song or nothing).
+function tracksForParams(item) {
+  var kind = menuKind(item)
+  if (kind === "album") return item.browseId ? { kind: "album", id: item.browseId } : { kind: "playlist", id: _stripVl(item.playlistId) }
+  if (kind === "playlist") return { kind: "playlist", id: _stripVl(item.playlistId) }
+  if (kind === "mix") return { kind: "mix", id: _stripVl(item.playlistId) }
+  if (kind === "liked") return { kind: "liked", id: "LM" }
+  if (kind === "artist") return { kind: "artist", id: item.channelId }
+  return null
+}
+
+// The worker's radio params: a song, an album (its audio playlist, else its
+// page), a playlist, a mix (played as it is) or an artist.
+function radioParams(item) {
+  var kind = menuKind(item)
+  if (kind === "track") return { videoId: item.videoId }
+  if (kind === "album") return item.playlistId ? { playlistId: _stripVl(item.playlistId) } : { browseId: item.browseId }
+  if (kind === "playlist") return { playlistId: _stripVl(item.playlistId) }
+  if (kind === "mix") return { mixId: _stripVl(item.playlistId) }
+  if (kind === "artist") return { channelId: item.channelId }
+  return null
+}
+
+// The tracks of a collection the Store holds, when it holds all of them
+// (null for part of a list, or an artist page's few songs).
+function completeTracks(data) {
+  if (!data || typeof data !== "object") return null
+  if (data.type === "page") return data.cursor || data.hasMore || data.capped ? null : pageTracks(data)
+  if (data.type === "collection") return data.truncated ? null : (data.tracks || [])
+  return null
+}
+
+function shareUrl(item) {
+  var kind = menuKind(item)
+  if (kind === "track") return MUSIC_URL + "watch?v=" + item.videoId
+  if (kind === "album") return item.browseId ? MUSIC_URL + "browse/" + item.browseId : MUSIC_URL + "playlist?list=" + _stripVl(item.playlistId)
+  if (kind === "playlist") return MUSIC_URL + "playlist?list=" + _stripVl(item.playlistId)
+  if (kind === "artist") return MUSIC_URL + "channel/" + item.channelId
+  if (item && (item.type === "profile" || item.type === "channel") && item.channelId) return MUSIC_URL + "channel/" + item.channelId
+  return ""
+}
+
+// Artists of a song or album that have a page. (An item that went through
+// a QML signal holds its artists as a list Array.isArray does not accept.)
+function linkedArtists(item) {
+  var list = item && item.artists && typeof item.artists.length === "number" ? item.artists : []
+  var out = []
+  for (var i = 0; i < list.length; i++) if (list[i] && list[i].id) out.push(list[i])
+  return out
+}
+
+// The album page a song belongs to ({ type: "album", ... }), when its id is
+// known. A song whose album is known only by its audio playlist (OLAK5uy_)
+// has albumPlaylistOf() instead, looked up through the worker.
+function albumOf(item) {
+  var album = item && item.type === "track" ? item.album : null
+  if (!album || !album.id || String(album.id).indexOf("MPRE") !== 0) return null
+  return { type: "album", browseId: album.id, title: album.name || "", thumb: item.thumb || null, thumbLarge: item.thumbLarge || null }
+}
+
+function albumPlaylistOf(item) {
+  if (!item) return ""
+  var id = item.type === "track" && item.album ? item.album.id
+    : item.type === "album" && !item.browseId ? item.playlistId : ""
+  id = _stripVl(id)
+  return id.indexOf("OLAK5uy_") === 0 ? id : ""
+}
+
+// ---- the queue cap ------------------------------------------------------------------
+
+// At most `cap` playable tracks of a list, starting at the track `start`
+// indexes (or ending at the list's end, so a late start still keeps `cap`).
+// Returns { tracks, start (into tracks), total (playable), capped }.
+function capWindow(tracks, start, cap) {
+  var source = tracks || []
+  var limit = cap > 0 ? cap : QUEUE_CAP
+  var playableAt = []
+  for (var i = 0; i < source.length; i++) if (playable(source[i])) playableAt.push(i)
+  if (playableAt.length <= limit) return { tracks: source, start: Number(start) || 0, total: playableAt.length, capped: false }
+  var wanted = Number(start) || 0
+  var k = playableAt.length - 1
+  for (var p = 0; p < playableAt.length; p++) {
+    if (playableAt[p] >= wanted) {
+      k = p
+      break
+    }
+  }
+  var from = Math.max(0, Math.min(k, playableAt.length - limit))
+  var kept = playableAt.slice(from, from + limit).map(function(j) { return source[j] })
+  return { tracks: kept, start: k - from, total: playableAt.length, capped: true }
+}
+
+// `total` is the list's size; unknown (null), it says "the first".
+function queueCapNotice(kept, total) {
+  return { title: total > kept ? "Queued " + kept + " of " + total + " songs" : "Queued the first " + kept + " songs",
+           body: "At most " + QUEUE_CAP + " songs of one list go into the queue." }
+}
+
+// The cap notice when not all of a list went into the queue, else null.
+// `cut` is capWindow's reply; `partial` ({ total }, total null when
+// unknown) says the shell read only the start of the list (tracksFor with
+// a limit), so the list is longer than what it had.
+function capNotice(kept, cut, partial) {
+  if (partial) return queueCapNotice(kept, partial.total)
+  return cut && cut.capped ? queueCapNotice(kept, cut.total) : null
+}
+
+// Many tracks to play next, in their order. With a current entry each one
+// goes right after it, last first, so they end up in order; with none
+// they are appended and the first starts (as insert-next-play does).
+function playNextAllCommands(tracks, state) {
+  var list = (tracks || []).filter(playable)
+  if (list.length === 0) return { commands: [], tracks: [] }
+  if (!state || !(state.count > 0) || !(state.pos >= 0)) return queueAllCommands(list)
+  var commands = []
+  for (var i = list.length - 1; i >= 0; i--) commands.push(loadfile(list[i], "insert-next"))
+  return { commands: commands, tracks: list }
+}
+
+// ---- menu actions -------------------------------------------------------------------
+// An entry is { id, title, icon, key?, confirm?, applies(item, ctx), run(env) }.
+//   title    a string, or function(item, ctx)
+//   key      the KEYS id whose keys show as the row's hint
+//   confirm  the title shown after a first press; a second press within 4 s runs it
+//   applies  ctx: { signedIn, owned, inLibrary, liked, saved, subscribed,
+//            pageKind, isCurrent } plus page (the page's own menu, M),
+//            hasTracks, removable, removeTitle, autoplay, queueLength
+//   run      env: { item, ctx, index, owner, panel, service }; owner is the
+//            view the row is in, index the row's index when the entry runs
+//            (Panel finds the row again: rows may change while the menu is
+//            open), -1 on a page menu or when the row is gone; panel the Panel
+// A page menu (M) passes the page's item with ctx.page; play, shuffle and
+// queue entries then go to the owner's playAll(mode), the header buttons'
+// twin.
+
+function _kindIn(kinds) {
+  return function(item) { return kinds.indexOf(menuKind(item)) >= 0 }
+}
+
+function _pagePlays(ctx) {
+  return !!ctx && ctx.page === true && ctx.hasTracks === true
+}
+
+function _playMode(mode) {
+  return function(env) {
+    if (env.ctx && env.ctx.page && env.owner && typeof env.owner.playAll === "function") env.owner.playAll(mode)
+    else env.service.playItem(env.item, mode)
+  }
+}
+
+var _PLAYS = ["track", "album", "playlist", "mix", "liked"]
+var _SHUFFLES = ["album", "playlist", "liked", "artist"]
+var _RADIOS = ["track", "album", "playlist", "artist"]
+
+var MENU_ACTIONS = [
+  { id: "open", title: "Open", icon: "󰅂",
+    applies: function(item, ctx) { return menuKind(item) === "artist" && !ctx.page },
+    run: function(env) { env.panel.push(env.item) } },
+  { id: "play", title: "Play", icon: "󰐊",
+    applies: function(item, ctx) { return (_kindIn(_PLAYS)(item) && !ctx.isCurrent) || _pagePlays(ctx) },
+    run: function(env) {
+      // A song row plays as Enter does (the list around it); a row that is
+      // gone plays the song alone.
+      if (menuKind(env.item) === "track" && !env.ctx.page && env.index >= 0 && env.owner && typeof env.owner.activate === "function")
+        env.owner.activate(env.index)
+      else _playMode("now")(env)
+    } },
+  { id: "shuffle", title: "Shuffle", icon: "󰒝",
+    applies: function(item, ctx) { return _kindIn(_SHUFFLES)(item) || _pagePlays(ctx) },
+    run: _playMode("shuffle") },
+  { id: "playNext", title: "Play next", icon: "󰒭", key: "playNext",
+    applies: function(item, ctx) { return (_kindIn(_PLAYS)(item) || _pagePlays(ctx)) && !ctx.isCurrent && ctx.pageKind !== "queue" },
+    run: _playMode("next") },
+  { id: "addToQueue", title: "Add to queue", icon: "󰐕", key: "addToQueue",
+    applies: function(item, ctx) { return (_kindIn(_PLAYS)(item) || _pagePlays(ctx)) && !ctx.isCurrent && ctx.pageKind !== "queue" },
+    run: _playMode("queue") },
+  { id: "radio", title: "Start radio", icon: "󰐹", key: "radio",
+    applies: _kindIn(_RADIOS),
+    run: function(env) { env.service.startRadio(env.item) } },
+  { id: "addToPlaylist", title: "Add to playlist", icon: "󰐒", key: "addToPlaylist",
+    applies: function(item, ctx) { return menuKind(item) === "track" && ctx.signedIn === true },
+    run: function(env) { env.panel.openPicker([env.item]) } },
+  { id: "goArtist", title: "Go to artist", icon: "󰠃", key: "artist",
+    applies: function(item, ctx) {
+      var kind = menuKind(item)
+      return (kind === "track" || kind === "album") && linkedArtists(item).length > 0
+    },
+    run: function(env) { env.panel.goArtist(env.item) } },
+  { id: "goAlbum", title: "Go to album", icon: "󰀥", key: "album",
+    applies: function(item, ctx) {
+      return menuKind(item) === "track" && ctx.pageKind !== "album" && (!!albumOf(item) || albumPlaylistOf(item) !== "")
+    },
+    run: function(env) { env.panel.goAlbum(env.item) } },
+  { id: "share", title: "Copy link", icon: "󰌷",
+    applies: function(item) { return shareUrl(item) !== "" },
+    run: function(env) { env.service.copyLink(env.item) } },
+  { id: "remove", title: function(item, ctx) { return ctx.removeTitle || "Remove" }, icon: "󰅖", key: "remove",
+    applies: function(item, ctx) { return ctx.removable === true && !ctx.page },
+    run: function(env) { if (env.index >= 0) env.owner.remove(env.index) } },
+  { id: "deletePlaylist", title: "Delete playlist", icon: "󰩺", confirm: "Really delete? Choose again",
+    applies: function(item, ctx) { return ctx.page === true && ctx.owned === true && menuKind(item) === "playlist" },
+    run: function(env) { env.owner.deletePlaylist(true) } },
+  // Now (M): the queue header's twins.
+  { id: "autoplay", title: function(item, ctx) { return ctx.autoplay ? "Turn autoplay off" : "Turn autoplay on" }, icon: "󰐹",
+    applies: function(item, ctx) { return ctx.page === true && ctx.pageKind === "now" },
+    run: function(env) { env.service.toggleAutoplay() } },
+  { id: "clearQueue", title: "Clear the queue (keeps the current song)", icon: "󰆴",
+    applies: function(item, ctx) { return ctx.page === true && ctx.pageKind === "now" && ctx.queueLength > 1 },
+    run: function(env) { env.service.clearUpcoming() } },
+  // Home (M): the Refresh button's twin.
+  { id: "refresh", title: "Refresh", icon: "󰑐",
+    applies: function(item, ctx) { return ctx.page === true && ctx.pageKind === "home" },
+    run: function(env) { env.owner.refresh(true) } },
+  // Library (M): the account row. S9 and S14-S16 append Your channel,
+  // Improve recommendations, Record plays, Account, Quality and Location
+  // (applies: ctx.page && ctx.pageKind === "library").
+  { id: "signOut", title: "Sign out", icon: "󰍃",
+    applies: function(item, ctx) { return ctx.page === true && ctx.pageKind === "library" && ctx.signedIn === true },
+    run: function(env) { env.service.signOut() } },
+  { id: "signIn", title: "Sign in", icon: "󰍂",
+    applies: function(item, ctx) { return ctx.page === true && ctx.pageKind === "library" && ctx.signedIn !== true },
+    run: function(env) { env.service.signIn() } }
+]
+
+function _title(action, item, ctx) {
+  return typeof action.title === "function" ? String(action.title(item, ctx)) : String(action.title || "")
+}
+
+// The entries that apply to `item` (may be null on a page menu), in
+// registry order, with their titles and key hints resolved.
+function menuActions(item, ctx) {
+  var c = ctx || {}
+  var out = []
+  for (var i = 0; i < MENU_ACTIONS.length; i++) {
+    var action = MENU_ACTIONS[i]
+    var applies = false
+    try {
+      applies = !!action.applies(item || null, c)
+    } catch (e) {
+      applies = false
+    }
+    if (!applies) continue
+    out.push({ id: action.id, title: _title(action, item, c), icon: action.icon || "", hint: action.key ? keyHint(action.key) : "",
+               confirm: action.confirm || "", run: action.run })
+  }
+  return out
+}
+
+function menuAction(id) {
+  for (var i = 0; i < MENU_ACTIONS.length; i++) if (MENU_ACTIONS[i].id === id) return MENU_ACTIONS[i]
+  return null
+}
+
+// Result rows of resolved actions (action rows); `armed` is the id waiting
+// for its confirming second press.
+function actionRows(actions, armed) {
+  return (actions || []).map(function(action) {
+    var waiting = !!action.confirm && action.id === armed
+    return { item: { type: "action", id: action.id, title: waiting ? action.confirm : action.title,
+                     icon: action.icon, hint: action.hint || "" } }
+  })
+}
+
+// ---- keys ---------------------------------------------------------------------------
+// { id, keys, caught, title, group }: `keys` are the texts PanelKeyCatcher
+// hands to textKey (Panel dispatches them through keyId); `caught` are keys
+// the catcher handles itself, listed for help only. A key is bound once.
+
+var KEYS = [
+  { id: "tab", group: "Move", keys: ["1", "2", "3", "4"], label: ["1-4"], title: "switch tab: Now, Search, Library, Home" },
+  { id: "search", group: "Move", keys: ["/"], title: "search" },
+  { id: "move", group: "Move", caught: ["j", "k", "↑", "↓"], title: "move" },
+  { id: "top", group: "Move", keys: ["g"], title: "first row" },
+  { id: "bottom", group: "Move", keys: ["G"], title: "last row (loads more)" },
+  { id: "open", group: "Move", caught: ["Enter"], title: "play or open" },
+  { id: "horizontal", group: "Move", caught: ["h", "l", "←", "→"], title: "seek 10 s on Now, or the page's chips" },
+  { id: "back", group: "Move", caught: ["Esc"], title: "leave the field → close the picker or menu → back → close" },
+  { id: "playPause", group: "Play", caught: ["Space"], title: "play/pause" },
+  { id: "playNext", group: "Play", keys: ["n"], title: "play next (a song, album or playlist)" },
+  { id: "addToQueue", group: "Play", keys: ["a"], title: "add to queue" },
+  { id: "radio", group: "Play", keys: ["R"], title: "start radio from the row or the current song" },
+  { id: "shuffle", group: "Play", keys: ["s"], title: "shuffle" },
+  { id: "repeat", group: "Play", keys: ["r"], title: "repeat" },
+  { id: "like", group: "Song", keys: ["L"], title: "like" },
+  { id: "addToPlaylist", group: "Song", keys: ["p"], title: "add to playlist" },
+  { id: "artist", group: "Song", keys: ["A"], title: "go to artist (of the row or the current song)" },
+  { id: "album", group: "Song", keys: ["o"], title: "go to album" },
+  { id: "queueMove", group: "Song", keys: ["J", "K"], title: "move a queued song down / up" },
+  { id: "remove", group: "Song", caught: ["x"], title: "remove (queue, own playlist, Liked Music, recent search)" },
+  { id: "menu", group: "Menus", keys: ["m", "."], title: "the row's menu (or right-click)" },
+  { id: "pageMenu", group: "Menus", keys: ["M"], title: "the page's menu (Library: account)" },
+  { id: "order", group: "Menus", keys: ["O"], title: "next sort order on a page that has one" },
+  { id: "find", group: "Menus", keys: ["f"], title: "find, on pages that offer it" },
+  { id: "help", group: "Menus", keys: ["?"], title: "these keys" }
+]
+
+function _keyEntry(id) {
+  for (var i = 0; i < KEYS.length; i++) if (KEYS[i].id === id) return KEYS[i]
+  return null
+}
+
+function _keyLabel(entry) {
+  return entry.label || (entry.keys || []).concat(entry.caught || [])
+}
+
+// The action id a textKey text is bound to ("" when none).
+function keyId(text) {
+  for (var i = 0; i < KEYS.length; i++) {
+    if ((KEYS[i].keys || []).indexOf(text) >= 0) return KEYS[i].id
+  }
+  return ""
+}
+
+// "L", "m / ." for an id; "" when unknown.
+function keyHint(id) {
+  var entry = _keyEntry(id)
+  return entry ? _keyLabel(entry).join(" / ") : ""
+}
+
+// "Like (L)": a tooltip with its key.
+function withKey(text, id) {
+  var hint = keyHint(id)
+  return hint ? text + " (" + hint + ")" : text
+}
+
+// Ctrl, Alt and Meta chords are not shortcuts (Shift and the keypad are).
+var _CHORD_MODIFIERS = 0x04000000 | 0x08000000 | 0x10000000
+
+function chordAllowed(modifiers) {
+  return ((Number(modifiers) || 0) & _CHORD_MODIFIERS) === 0
+}
+
+function _capitalized(text) {
+  return text ? text.charAt(0).toUpperCase() + text.slice(1) : ""
+}
+
+// Rows for the ? overlay: a header per group, an action row per key (Enter
+// on one runs it).
+function keyHelp() {
+  var rows = []
+  var group = null
+  for (var i = 0; i < KEYS.length; i++) {
+    var entry = KEYS[i]
+    if (entry.group !== group) {
+      rows.push({ header: true, title: entry.group })
+      group = entry.group
+    }
+    rows.push({ item: { type: "action", id: "key:" + entry.id, title: _capitalized(entry.title), icon: "󰌌", hint: keyHint(entry.id) } })
+  }
+  return rows
+}
+
+var KEYS_NOTE = "Shortcuts are off while typing, and Ctrl or Alt chords do nothing. Back returns to the row and scroll position you left."
+
+// README's Panel keys cell.
+function keysReadme() {
+  return KEYS.map(function(entry) {
+    return _keyLabel(entry).map(function(k) { return "`" + k + "`" }).join(" / ") + " " + entry.title
+  }).join(" · ") + ". " + KEYS_NOTE
+}
+
+// Panel.qml's header comment lines, wrapped at `width` characters.
+function keysComment(width) {
+  var max = width || 78
+  var words = ("Keys (Model.KEYS; ? lists them): " + KEYS.map(function(entry) {
+    return _keyLabel(entry).join(" / ") + " " + entry.title
+  }).join(" · ") + ".").split(" ")
+  var lines = []
+  var line = "//"
+  for (var i = 0; i < words.length; i++) {
+    if (line.length + 1 + words[i].length > max && line !== "//") {
+      lines.push(line)
+      line = "//"
+    }
+    line += " " + words[i]
+  }
+  lines.push(line)
+  return lines
+}
+
+if (typeof module !== "undefined") {
+  Object.assign(module.exports, {
+    MUSIC_URL: MUSIC_URL,
+    QUEUE_CAP: QUEUE_CAP,
+    isMixId: isMixId,
+    menuKind: menuKind,
+    itemTitle: itemTitle,
+    canQueue: canQueue,
+    tracksForParams: tracksForParams,
+    radioParams: radioParams,
+    completeTracks: completeTracks,
+    shareUrl: shareUrl,
+    linkedArtists: linkedArtists,
+    albumOf: albumOf,
+    albumPlaylistOf: albumPlaylistOf,
+    capWindow: capWindow,
+    queueCapNotice: queueCapNotice,
+    capNotice: capNotice,
+    playNextAllCommands: playNextAllCommands,
+    MENU_ACTIONS: MENU_ACTIONS,
+    menuActions: menuActions,
+    menuAction: menuAction,
+    actionRows: actionRows,
+    KEYS: KEYS,
+    keyId: keyId,
+    keyHint: keyHint,
+    withKey: withKey,
+    chordAllowed: chordAllowed,
+    keyHelp: keyHelp,
+    keysReadme: keysReadme,
+    keysComment: keysComment
+  })
+}

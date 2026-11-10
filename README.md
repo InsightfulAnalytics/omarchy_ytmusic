@@ -62,13 +62,14 @@ this plugin, idle                                                     0 MiB
 ## Install
 
 ```bash
-omarchy-pkg-add uv deno    # mpv, mpv-mpris and yt-dlp already come with Omarchy
+omarchy-pkg-add uv deno    # mpv, mpv-mpris, yt-dlp and wl-clipboard already come with Omarchy
 omarchy plugin add https://github.com/Damir-VistaBlox/omarchy-ytmusic.git --enable
 ```
 
 `uv` runs the ytmusicapi helper (it builds its own Python environment on
-first use) and `deno` is yt-dlp's solver for YouTube's JavaScript challenge;
-if either is missing, the panel shows a banner with an **Install** button.
+first use), `deno` is yt-dlp's solver for YouTube's JavaScript challenge and
+`wl-copy` (wl-clipboard) puts Copy link on the clipboard; if one is missing,
+the panel shows a banner with an **Install** button.
 `omarchy plugin update` pulls new versions.
 
 Optional:
@@ -93,12 +94,13 @@ follow symlinks) and run `scripts/test.sh`.
 |---|---|
 | Bar icon | Left click: open/close the panel · Middle click: play/pause · Right click: switch icon ⇄ now-playing text · Wheel: previous/next track |
 | `SUPER + M` | Open/close the panel (`omarchy-shell shell toggle damir.ytmusic`, bound in `~/.config/hypr/bindings.lua`) |
-| Panel tabs | **Now** (playing + queue, like, add to playlist, Resume; an artist, the album or the cover opens its page), **Search** (field, filters, grouped results), **Library** (account, Liked Music, History, your and saved playlists, new playlist) and **Home** (your shelves); albums, playlists and artists open as pages with Play / Shuffle / Queue all; your own playlists can remove songs and be deleted (a second click within 4 s confirms) |
+| Panel tabs | **Now** (playing + queue, like, add to playlist, Resume; an artist, the album or the cover opens its page), **Search** (field, filters, grouped results), **Library** (account, Liked Music, History, your and saved playlists, new playlist) and **Home** (your shelves); albums, playlists and artists open as pages with Play / Shuffle / Queue all (a page that shows part of its list, such as Liked Music past 200 songs, plays all of it); your own playlists can remove songs and be deleted (a second click within 4 s confirms) |
+| Menus | Every row has a menu (`m`, `.`, right-click or its ⋮ button), like the web's three-dot menu: Play, Shuffle, Play next, Add to queue, Start radio, Add to playlist, Go to artist (a chooser when a song has several) or album, Copy link (a music.youtube.com link, through `wl-copy`), Remove. `n` / `a` queue a whole album, playlist or mix from any list, and `R` starts radio from the row or the song playing; radio replaces the queue, as on the web (from the song playing, that song plays on). At most 500 songs of one list go into the queue, with a notice. `M` opens the page's own menu: the header buttons' twins on a page, the account on Library (Sign out), Autoplay and Clear on Now, Refresh on Home. `?` lists every key; Enter on one runs it. |
 | Resume | After mpv has quit (idle timeout, logout, reboot) play/pause — middle click, media keys, `omarchy-shell ytmusic resume` or the Resume button — restores the queue, the track and its position. The snapshot is `~/.cache/omarchy-ytmusic/session.json`, saved after queue changes, on pause and every 30 s while playing. |
-| Search | Results appear as you type. An empty field lists your recent searches (`x` forgets one); while typing, matching recent searches and YouTube Music's suggestions show above the results — click one, or `Tab` / `Shift+Tab` to put it in the field. A search is remembered only when it led somewhere (Enter, or a result was played, opened or queued), in `~/.cache/omarchy-ytmusic/searches.json`. |
+| Search | Results appear as you type. An empty field lists your recent searches (`x` forgets one); while typing, matching recent searches and YouTube Music's suggestions show above the results; click one, or `Tab` / `Shift+Tab` to put it in the field. A search is remembered only when it led somewhere (Enter, a result played, opened or queued, or an entry chosen from a result's menu), in `~/.cache/omarchy-ytmusic/searches.json`. |
 | Shuffle / repeat | Buttons around the transport (or `s` / `r`). Shuffle mixes the songs after the current one and turning it off puts them back in their order (songs added meanwhile keep their places); with shuffle on, a clicked song plays first and the rest of its album or playlist follows shuffled, and a page's **Shuffle** button turns it on. Repeat cycles off → queue → this song (mpv's `loop-playlist` / `loop-file`, so MPRIS sees it too). Both are remembered in `~/.cache/omarchy-ytmusic/player.json`. |
 | Autoplay | On by default (**Autoplay** in the queue header, IPC `autoplay`): five seconds into the last song of the queue, up to 10 songs from YouTube Music's up-next list for it are appended — songs before videos, nothing that is already in the queue. Off while repeat is on. |
-| Panel keys | `1`-`4` switch tabs · `/` search · `j`/`k` or `↑`/`↓` move · `Enter` play or open · `n` play next · `a` add to queue · `L` like · `p` add to playlist · `A` / `o` open the artist / album (of the selected or current song) · `J`/`K` move a queued track · `x` remove (queue, own playlist, Liked Music, recent search) · `s` shuffle · `r` repeat · `Space` play/pause · `←`/`→` seek 10 s · `g` / `G` first / last row · `O` next sort order on a page that has one · `Esc` leave the field → close the picker → back → close. Shortcuts are off while typing. Back returns to the row and scroll position you left. |
+| Panel keys | `1-4` switch tab: Now, Search, Library, Home · `/` search · `j` / `k` / `↑` / `↓` move · `g` first row · `G` last row (loads more) · `Enter` play or open · `h` / `l` / `←` / `→` seek 10 s on Now, or the page's chips · `Esc` leave the field → close the picker or menu → back → close · `Space` play/pause · `n` play next (a song, album or playlist) · `a` add to queue · `R` start radio from the row or the current song · `s` shuffle · `r` repeat · `L` like · `p` add to playlist · `A` go to artist (of the row or the current song) · `o` go to album · `J` / `K` move a queued song down / up · `x` remove (queue, own playlist, Liked Music, recent search) · `m` / `.` the row's menu (or right-click) · `M` the page's menu (Library: account) · `O` next sort order on a page that has one · `f` find, on pages that offer it · `?` these keys. Shortcuts are off while typing, and Ctrl or Alt chords do nothing. Back returns to the row and scroll position you left. |
 | IPC | `search "query"` (opens the panel on the results) · `shuffle` / `repeat` / `autoplay` (toggle or cycle, print the new state) · `like` / `unlike` / `toggleLike` (current track) · `signIn` / `signOut` / `reloadAuth` |
 
 ### Signing in
@@ -148,16 +150,17 @@ after it closes.
 | `Service.qml` | State, mpv and worker connections, `ytmusic` IPC target |
 | `MpvClient.qml` | mpv JSON IPC client: request ids, observers, reconnects, starts the player |
 | `Backend.qml` | ytmusicapi worker process: lazy start, request/callback, retry once (never for edits) |
-| `YtmModel.js` | Pure helpers (queue commands, queue model, formatting, prefs, page kinds and See all routes, page rows, cursor keeping); shared with Node tests |
+| `YtmModel.js` | Pure helpers (queue commands, queue model, formatting, prefs, page kinds and See all routes, page rows, cursor keeping, the menu registry and the key table); shared with Node tests |
 | `BarWidget.qml` | Bar icon / now-playing, one per monitor; loads and unloads the panel |
 | `Panel.qml` | The dropdown (Omarchy `KeyboardPanel`): now playing + queue, keyboard control |
 | `Store.qml` | Last searches and recently opened pages (8, 5 min, at most 3000 items each, swept every minute), shared by all panels and kept across panel unloads |
-| `components/` | `NowPlayingView`, `QueueView`, `SearchView`, `LibraryView`, `HomeView`, `CollectionView`, `PlaylistPicker`, `SignInCard`, `ResultList`, `TrackRow`, `CollectionRow`, `CoverArt`, `ConfirmGate` |
+| `components/` | `NowPlayingView`, `QueueView`, `SearchView`, `LibraryView`, `HomeView`, `CollectionView`, `PlaylistPicker`, `ItemMenu` (row menu, chooser, key help), `SignInCard`, `ResultList`, `TrackRow`, `CollectionRow`, `CoverArt`, `ConfirmGate` |
 | `bin/ytm-mpv` | Starts/stops the detached mpv player (systemd user unit) |
 | `mpv/ytm-idle.lua` | Quits mpv after it has idled or been paused too long |
 | `backend/ytm.py` | ytmusicapi worker (`serve`) and CLI; PEP 723 script run with `uv`; merges the area modules' method tables |
 | `backend/ytm_proto.py` | `WorkerError` and parameter helpers shared by the worker and its area modules |
 | `backend/ytm_pages.py` | Continuation paging (`fetch`) and the generic See all reader (`browsePage`) |
+| `backend/ytm_play.py` | Whole collections as track lists (`tracksFor`), Start radio (`radio`), album pages from audio playlists (`albumBrowseId`) |
 | `backend/ytm_raw.py` | Raw responses beside ytmusicapi's: per-thread capture, rows with See all/Play all endpoints, items by page type, HTTP counts |
 | `backend/ytm_normalize.py` | Turns ytmusicapi responses into stable Track/Album/Playlist/Artist/Collection/Page shapes |
 | `backend/ytm_auth.py` | Session files and sign-in (Chromium cookie import, pasted headers); the signed-out client |
@@ -244,10 +247,10 @@ The shell runs `bin/ytm serve` and talks JSON lines over stdin/stdout. The
 worker exits on stdin EOF, or after 180 s without requests once no lane is
 busy. Requests are answered in order, except those of methods that run on a
 lane (a background thread per lane, one request at a time): `resolve`
-(streams), `suggestions` (suggest) and `browsePage` (pages); `upload` and
-`report` are reserved. A lane never waits for, or delays, the requests
-around it, and a `"cache": "prefer"` request for a laned method is answered
-from disk before it reaches its lane.
+(streams), `suggestions` (suggest), `browsePage` (pages) and `tracksFor`
+(tracks); `upload` and `report` are reserved. A lane never
+waits for, or delays, the requests around it, and a `"cache": "prefer"`
+request for a laned method is answered from disk before it reaches its lane.
 
 ```jsonc
 {"id":1,"method":"search","params":{"query":"daft punk","filter":"songs"}}
@@ -258,7 +261,8 @@ from disk before it reaches its lane.
 
 Methods: `ping`, `hello`, `reloadAuth`, `verifyAuth`, `configure`, `search`,
 `suggestions`, `home`, `history`, `libraryPlaylists`, `playlist`, `liked`,
-`album`, `artist`, `song`, `browsePage`, `upNext` (autoplay), `resolve`,
+`album`, `artist`, `song`, `browsePage`, `tracksFor`, `radio`,
+`albumBrowseId`, `upNext` (autoplay), `resolve`,
 `warmStreams`, `cacheThumbs`, `likeStatus`, `rate`, `createPlaylist`,
 `addToPlaylist`, `removeFromPlaylist`, `deletePlaylist`, `shutdown`. Error
 codes: `AUTH_REQUIRED`, `AUTH_EXPIRED`, `BAD_REQUEST`, `NOT_FOUND`, `NETWORK`,
@@ -325,6 +329,26 @@ need an update), `INTERNAL`.
   the cache was made with are recorded beside it (`data/client-settings`)
   and a new worker starts with them, so the configure after a restart that
   repeats them neither rebuilds the client nor clears the cache.
+- **`tracksFor({kind, id, limit?})`** reads every track of a collection,
+  for playing or queueing it from any list: `kind` is `album`
+  (`get_album`), `playlist` (`get_playlist`), `liked`, `mix` (the watch
+  playlist, 50 songs) or `artist` (its songs playlist, from the cached
+  artist page when there is one). The id decides first: an `RD...` id other
+  than `RDCLAK` and `RDPN` is a mix, `LM` is Liked Music, an album without
+  an `MPRE` id is its audio playlist. At most `limit` tracks (5000 by
+  default and at most; a playlist is read only that far):
+  `{playlistId, items, complete, total}`, `complete` false when there is
+  more. Play, Play next and Add to queue ask for 500, the queue's cap;
+  Shuffle reads up to 5000.
+- **`radio({videoId} | {playlistId} | {mixId} | {browseId} | {channelId},
+  limit?)`** is Start radio (50 songs by default, at most 200): a song's
+  radio (without the song itself), a playlist's or album audio playlist's
+  (`RDAMPL` + id), a mix as it is, an album page's (its audio playlist) or
+  an artist's (its `radioId` mix). `{playlistId, items}`.
+- **`albumBrowseId({playlistId})`** finds the album page (`MPRE...`) of an
+  album's audio playlist (`OLAK5uy_...`). ytmusicapi reads the playlist's
+  whole HTML page for it, so it is cached and asked only for a song whose
+  album has no page id.
 - **`resolve({videoId, account?})`** says which yt-dlp instance it used
   (`account: true|false`); without a saved session it is always signed out.
 - **Fixtures.** `bin/ytm record` always uses a signed-out client and drops

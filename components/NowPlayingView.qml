@@ -22,6 +22,8 @@ Column {
   readonly property bool albumLinked: !!track && !!track.album && !!track.album.id
 
   signal addToPlaylistRequested()
+  // The song's menu (the button by Add to playlist).
+  signal menuRequested()
   // An artist ({ name, id }) or the track's album was clicked.
   signal artistRequested(var artist)
   signal albumRequested(var track)
@@ -234,17 +236,28 @@ Column {
       anchors.verticalCenter: parent.verticalCenter
       visible: root.accountActions
       iconText: root.liked ? "󰋑" : "󰋕"
-      tooltipText: root.liked ? "Remove from Liked Music (L)" : "Like (L)"
+      tooltipText: Model.withKey(root.liked ? "Remove from Liked Music" : "Like", "like")
       foreground: root.liked ? Color.accent : root.foreground
       onClicked: root.service.toggleLike(root.track)
     }
 
     Button {
+      id: menuButton
       anchors.right: parent.right
+      anchors.verticalCenter: parent.verticalCenter
+      visible: !!root.track
+      iconText: "󰇙"
+      tooltipText: Model.withKey("More", "menu")
+      foreground: root.foreground
+      onClicked: root.menuRequested()
+    }
+
+    Button {
+      anchors.right: menuButton.visible ? menuButton.left : parent.right
       anchors.verticalCenter: parent.verticalCenter
       visible: root.accountActions
       iconText: "󰐒"
-      tooltipText: "Add to playlist (p)"
+      tooltipText: Model.withKey("Add to playlist", "addToPlaylist")
       foreground: root.foreground
       onClicked: root.addToPlaylistRequested()
     }
@@ -258,7 +271,7 @@ Column {
         readonly property bool shuffleOn: !!root.service && root.service.shuffle
         anchors.verticalCenter: parent.verticalCenter
         iconText: shuffleOn ? "󰒝" : "󰒞"
-        tooltipText: shuffleOn ? "Shuffle is on (s)" : "Shuffle (s)"
+        tooltipText: Model.withKey(shuffleOn ? "Shuffle is on" : "Shuffle", "shuffle")
         foreground: shuffleOn ? Color.accent : Qt.darker(root.foreground, 1.4)
         onClicked: root.service.toggleShuffle()
       }
@@ -299,7 +312,7 @@ Column {
         readonly property string loopMode: root.service ? root.service.repeatMode : "off"
         anchors.verticalCenter: parent.verticalCenter
         iconText: loopMode === "one" ? "󰑘" : loopMode === "all" ? "󰑖" : "󰑗"
-        tooltipText: loopMode === "one" ? "Repeating this song (r)" : loopMode === "all" ? "Repeating the queue (r)" : "Repeat (r)"
+        tooltipText: Model.withKey(loopMode === "one" ? "Repeating this song" : loopMode === "all" ? "Repeating the queue" : "Repeat", "repeat")
         foreground: loopMode !== "off" ? Color.accent : Qt.darker(root.foreground, 1.4)
         onClicked: root.service.cycleRepeat()
       }

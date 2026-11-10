@@ -45,6 +45,7 @@ import ytm_auth as auth  # noqa: E402
 import ytm_cache as caches  # noqa: E402
 import ytm_normalize as norm  # noqa: E402
 import ytm_pages as pages  # noqa: E402
+import ytm_play as play  # noqa: E402
 import ytm_raw as raw  # noqa: E402
 import ytm_streams as streams  # noqa: E402
 from ytm_proto import (  # noqa: E402, F401 - re-exported for tests and tools
@@ -70,12 +71,13 @@ PRIVACY = ("PRIVATE", "UNLISTED", "PUBLIC")
 CACHE_MODES = ("prefer", "refresh", "bypass")
 # Background threads ("lanes") for methods that must not hold up the requests
 # behind them: a stream lookup takes ~1 s, completions must show while a
-# search is still running, long page reads ("pages"), uploads and play
-# reports run beside browsing. A lane handles its own requests one at a time,
-# in order; replies carry the request id, so they may overtake each other.
+# search is still running, long page reads ("pages"), whole-collection reads
+# for playing ("tracks"), uploads and play reports run beside browsing. A
+# lane handles its own requests one at a time, in order; replies carry the
+# request id, so they may overtake each other.
 # (ytmusicapi's requests session is shared between lanes; requests' connection
 # pool and cookie jar are thread-safe, and ytm_raw keeps its state per thread.)
-KNOWN_LANES = ("streams", "suggest", "pages", "upload", "report")
+KNOWN_LANES = ("streams", "suggest", "pages", "tracks", "upload", "report")
 
 
 def classify(exc):
@@ -422,7 +424,7 @@ class _Core:
 
 # Area modules, in a fixed order. A slice that rewrites a core method moves it
 # out of the core tables into its module.
-AREA_MODULES = (pages,)
+AREA_MODULES = (pages, play)
 
 
 def merge_registries(sources):

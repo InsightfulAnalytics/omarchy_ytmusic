@@ -133,6 +133,8 @@ Item {
 
   function playNow(track) {
     if (!track || !track.videoId) return false
+    // The latest thing started wins over a Play or radio still loading.
+    _replaceToken++
     remember([track])
     withStream(track, function() {
       mpv.commands(Model.playNowCommands(track, { count: root.playlistCount, pos: root.playlistPos }))
@@ -422,6 +424,7 @@ Item {
     if (!canResume) return false
     var plan = Model.resumeCommands(session)
     if (plan.tracks.length === 0) return false
+    _replaceToken++
     if (typeof session.volume === "number") volume = session.volume
     remember(plan.tracks)
     // The snapshot keeps the queue as it was (shuffled or not), so turning
@@ -478,15 +481,26 @@ Item {
 
   // Replace the queue with `tracks`, starting at `start`. With shuffle mode
   // on, that song plays first and the rest is shuffled. `shuffleAll` (the
-  // Shuffle button) turns shuffle mode on and starts anywhere.
-  function playCollection(tracks, start, shuffleAll) {
+  // Shuffle button) turns shuffle mode on and starts anywhere. At most
+  // Model.QUEUE_CAP songs go in (from `start` on; a random pick when
+  // shuffling all), with a notice. `context` is what plays now
+  // ({ playlistId, title, radio }); null when unknown. `partial`
+  // ({ total }) says `tracks` is only the start of a longer list.
+  function playCollection(tracks, start, shuffleAll, context, partial) {
+    // The latest thing started wins over a Play or radio still loading.
+    _replaceToken++
     if (shuffleAll && !shuffle) {
       shuffle = true
       savePrefs()
     }
     var random = shuffle
-    var plan = Model.playCollectionCommands(tracks || [], start || 0, random, Date.now(), !shuffleAll)
+    var list = tracks || []
+    if (shuffleAll && list.length > Model.QUEUE_CAP) list = Model.shuffled(list.filter(Model.playable), Date.now())
+    var cut = Model.capWindow(list, start || 0, Model.QUEUE_CAP)
+    var plan = Model.playCollectionCommands(cut.tracks, cut.start, random, Date.now(), !shuffleAll)
     if (plan.tracks.length === 0) return false
+    noticeCut(plan.tracks.length, cut, partial)
+    playContext = context || null
     remember(plan.tracks)
     withStream(plan.tracks[plan.index], function() {
       mpv.commands(plan.commands)
@@ -502,12 +516,202 @@ Item {
     return true
   }
 
-  function queueAll(tracks) {
-    var plan = Model.queueAllCommands(tracks || [])
+  // At the end of the queue, at most Model.QUEUE_CAP. A `title` (a whole
+  // album or playlist) is named in a notification. `partial` as in
+  // playCollection.
+  function queueAll(tracks, title, partial) {
+    var cut = Model.capWindow(tracks || [], 0, Model.QUEUE_CAP)
+    var plan = Model.queueAllCommands(cut.tracks)
     if (plan.tracks.length === 0) return false
     remember(plan.tracks)
     mpv.commands(plan.commands)
+    if (!noticeCut(plan.tracks.length, cut, partial) && title)
+      notify("Added to queue", Model.joinParts([title, songCount(plan.tracks.length)]))
     return true
+  }
+
+  // ---- play anything (F3) ------------------------------------------------------------
+  // Rows of every kind play, queue, shuffle and start radio here: a song
+  // directly, an album, playlist, mix, Liked Music or artist once its
+  // tracks are read (itemTracks).
+
+  // What plays now, as the web's "Playing from": { playlistId, title, radio }
+  // or null. Set whenever the queue is replaced (playCollection, startRadio).
+  property var playContext: null
+  // Only the latest start replaces the queue: a Play, Shuffle or Start radio
+  // still loading gives way to any later one, and to a song or list started
+  // directly (playNow, playCollection, resume all count this up).
+  property int _replaceToken: 0
+  property string _copying: ""
+
+  function songCount(n) {
+    return n === 1 ? "1 song" : n + " songs"
+  }
+
+  function noticeCap(kept, total) {
+    var notice = Model.queueCapNotice(kept, total)
+    notify(notice.title, notice.body)
+  }
+
+  // The cap notice when not all of a list went in (Model.capNotice); true
+  // when it was shown.
+  function noticeCut(kept, cut, partial) {
+    var notice = Model.capNotice(kept, cut, partial)
+    if (notice) notify(notice.title, notice.body)
+    return !!notice
+  }
+
+  // A menu action that could not run: the Now tab shows it, and so does a
+  // notification (the action was chosen on another tab).
+  function failAction(title, message) {
+    fail(title + ": " + message)
+    notify(title, message)
+  }
+
+  // callback({ ok, tracks, playlistId, total, complete }) or an error reply.
+  // A collection the Store holds in full is used as it is; anything else is
+  // read by the worker (tracksFor, at most `limit` songs, else 5000; up to
+  // 120 s). `complete` is false when the list has more.
+  function itemTracks(item, callback, limit) {
+    var kind = Model.menuKind(item)
+    if (kind === "track") {
+      callback({ ok: true, tracks: [item], playlistId: null, total: 1, complete: true })
+      return
+    }
+    var ref = Model.pageRef(item)
+    var held = ref ? storeItem.cachedCollection(ref) : null
+    var tracks = Model.completeTracks(held)
+    if (tracks && tracks.length > 0) {
+      callback({ ok: true, tracks: tracks, playlistId: held.playlistId || null, total: tracks.length, complete: true })
+      return
+    }
+    var params = Model.tracksForParams(item)
+    if (!params) {
+      callback({ ok: false, error: { code: "BAD_REQUEST", message: "Nothing to play here" } })
+      return
+    }
+    if (limit > 0) params.limit = limit
+    backend.request("tracksFor", params, function(reply) {
+      if (!reply.ok) {
+        callback(reply)
+        return
+      }
+      var result = reply.result
+      callback({ ok: true, tracks: result.items || [], playlistId: result.playlistId || null,
+                 total: result.total, complete: result.complete === true })
+    }, 120000)
+  }
+
+  // mode: "now" | "shuffle" replace the queue; "next" | "queue" insert.
+  // `partial` ({ total }): `tracks` is only the start of the list.
+  function playTracks(tracks, mode, context, title, partial) {
+    if (mode === "next") return playNextAll(tracks, title, partial)
+    if (mode === "queue") return queueAll(tracks, title, partial)
+    return playCollection(tracks, 0, mode === "shuffle", context, partial)
+  }
+
+  // n / a / Play / Shuffle on any row, and every header Play on a page that
+  // holds only part of its list. Play, Play next and Add to queue read only
+  // the songs the queue takes (Model.QUEUE_CAP); Shuffle picks from all.
+  function playItem(item, mode) {
+    var kind = Model.menuKind(item)
+    if (kind === "") return false
+    if (kind === "track") {
+      if (mode === "next") return playNext(item)
+      if (mode === "queue") return addToQueue(item)
+      return playNow(item)
+    }
+    var replaces = mode !== "next" && mode !== "queue"
+    var token = replaces ? ++_replaceToken : _replaceToken
+    var title = Model.itemTitle(item)
+    itemTracks(item, function(result) {
+      if (replaces && token !== root._replaceToken) return
+      if (!result.ok) {
+        root.failAction("Couldn't play " + (title || "this"), result.error.message)
+        return
+      }
+      if (result.tracks.length === 0) {
+        root.failAction("Couldn't play " + (title || "this"), "It has no songs")
+        return
+      }
+      root.playTracks(result.tracks, mode, { playlistId: result.playlistId, title: title, radio: false }, title,
+                      result.complete ? null : { total: result.total })
+    }, mode === "shuffle" ? 0 : Model.QUEUE_CAP)
+    return true
+  }
+
+  // Many songs right after the current one, in their order (at most
+  // Model.QUEUE_CAP). `partial` as in playCollection.
+  function playNextAll(tracks, title, partial) {
+    var cut = Model.capWindow(tracks || [], 0, Model.QUEUE_CAP)
+    var plan = Model.playNextAllCommands(cut.tracks, { count: playlistCount, pos: playlistPos })
+    if (plan.tracks.length === 0) return false
+    remember(plan.tracks)
+    mpv.commands(plan.commands)
+    if (!noticeCut(plan.tracks.length, cut, partial) && title)
+      notify("Playing next", Model.joinParts([title, songCount(plan.tracks.length)]))
+    return true
+  }
+
+  // Start radio, like the web: the queue is replaced by the item's radio and
+  // it plays. From the song that is playing, that song plays on and only
+  // what follows it is replaced.
+  function startRadio(item) {
+    var params = Model.radioParams(item)
+    if (!params) return false
+    var token = ++_replaceToken
+    var seed = Model.menuKind(item) === "track" ? item : null
+    var title = Model.itemTitle(item)
+    backend.request("radio", params, function(reply) {
+      if (token !== root._replaceToken) return
+      if (!reply.ok) {
+        root.failAction("Couldn't start radio", reply.error.message)
+        return
+      }
+      var items = reply.result.items || []
+      var context = { playlistId: reply.result.playlistId || null, title: title, radio: true }
+      var current = root.currentTrack
+      if (seed && root.hasMedia && current && current.videoId === seed.videoId) {
+        var plan = Model.queueAllCommands(Model.capWindow(items, 0, Model.QUEUE_CAP).tracks)
+        root.remember(plan.tracks)
+        mpv.commands([["playlist-clear"]].concat(plan.commands))
+        root.setShuffleOrder([])
+        root.playContext = context
+        return
+      }
+      var list = seed ? [seed].concat(items.filter(function(t) { return t.videoId !== seed.videoId })) : items
+      if (!root.playCollection(list, 0, false, context)) root.failAction("Couldn't start radio", "No songs came back")
+    }, 30000)
+    return true
+  }
+
+  // Copy link: the item's music.youtube.com URL on the clipboard (wl-copy).
+  function copyLink(item) {
+    var url = Model.shareUrl(item)
+    if (url === "") return false
+    if (missingTools.indexOf("wl-copy") >= 0) {
+      failAction("Couldn't copy the link", "wl-copy is missing (" + installCommand + ")")
+      return false
+    }
+    _copying = url
+    copier.running = false
+    copier.command = ["wl-copy", url]
+    copier.running = true
+    return true
+  }
+
+  // callback(reply) with result { playlistId, browseId }: the album page of
+  // an audio playlist (OLAK5uy_...), cached by the worker.
+  function albumBrowseIdOf(playlistId, callback) {
+    backend.request("albumBrowseId", { playlistId: playlistId, cache: "prefer" }, callback, 30000)
+  }
+
+  Process {
+    id: copier
+    onExited: function(exitCode) {
+      if (exitCode === 0) root.notify("Link copied", root._copying)
+      else root.failAction("Couldn't copy the link", "wl-copy failed")
+    }
   }
 
   // ---- account actions ------------------------------------------------------------
@@ -993,7 +1197,8 @@ Item {
         autoplaySeed: _autoplaySeed,
         shuffle: shuffle,
         repeat: repeatMode,
-        shuffleOrder: shuffleOrder.length
+        shuffleOrder: shuffleOrder.length,
+        context: playContext
       },
       lastError: lastError,
       streams: {
@@ -1027,13 +1232,17 @@ Item {
   }
 
   // ---- required tools ------------------------------------------------------------
-  // Omarchy ships mpv, mpv-mpris and yt-dlp; uv (runs the ytmusicapi helper)
-  // and deno (yt-dlp's solver for YouTube's JavaScript challenge) usually have
-  // to be added. Checked at start and whenever a panel opens.
-  readonly property var requiredTools: ["uv", "mpv", "yt-dlp", "deno"]
+  // Omarchy ships mpv, mpv-mpris, yt-dlp and wl-clipboard (wl-copy, for
+  // Copy link); uv (runs the ytmusicapi helper) and deno (yt-dlp's solver for
+  // YouTube's JavaScript challenge) usually have to be added. Checked at
+  // start and whenever a panel opens.
+  readonly property var requiredTools: ["uv", "mpv", "yt-dlp", "deno", "wl-copy"]
+  // Tools whose package has another name.
+  readonly property var toolPackages: ({ "wl-copy": "wl-clipboard" })
   property var missingTools: []
   property var _missingFound: []
-  readonly property string installCommand: "omarchy-pkg-add " + missingTools.join(" ")
+  readonly property string installCommand: "omarchy-pkg-add "
+    + missingTools.map(function(tool) { return root.toolPackages[tool] || tool }).join(" ")
 
   function checkTools() {
     if (toolCheck.running) return

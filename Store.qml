@@ -295,6 +295,15 @@ Item {
     }, 60000)
   }
 
+  // ---- menu (F3) ------------------------------------------------------------------
+  // The collection held for ref, whatever its age (null when none): a whole
+  // album or playlist plays from a row without asking the worker again
+  // (Service.itemTracks, when Model.completeTracks says it is all there).
+  function cachedCollection(ref) {
+    var entry = ref ? _collections[ref.key] : null
+    return entry ? entry.data : null
+  }
+
   // ---- home ---------------------------------------------------------------------
   readonly property int homeTtlMs: 10 * 60 * 1000
   property var shelves: []

@@ -40,6 +40,8 @@ Item {
   signal openRequested(var item)
   // The field gave up focus (Down, Enter, Esc): the panel takes keys again.
   signal leftField()
+  // A row's menu (m, '.', right-click): Panel opens it.
+  signal itemMenuRequested(var request)
 
   function runSearch() {
     if (store) store.search(searchField.text, store.filter)
@@ -97,18 +99,31 @@ Item {
     else root.openRequested(row.item)
   }
 
+  // n / a: a song, or a whole album or playlist (Service.playItem).
   function playNext(index) {
     var row = resultList.rowAt(index)
-    if (!row || row.item.type !== "track" || !service) return
+    if (!row || !Model.canQueue(row.item) || !service) return
     rememberSearch()
-    service.playNext(row.item)
+    service.playItem(row.item, "next")
   }
 
   function addToQueue(index) {
     var row = resultList.rowAt(index)
-    if (!row || row.item.type !== "track" || !service) return
+    if (!row || !Model.canQueue(row.item) || !service) return
     rememberSearch()
-    service.addToQueue(row.item)
+    service.playItem(row.item, "queue")
+  }
+
+  function menu(index) {
+    var row = resultList.rowAt(index)
+    if (!row || Model.menuKind(row.item) === "") return
+    root.itemMenuRequested({ item: row.item, ctx: { pageKind: "search" }, owner: root, index: index })
+  }
+
+  // An entry of a result's menu ran (Panel calls this): the search led
+  // somewhere. A menu closed with Esc remembers nothing.
+  function menuChosen(actionId) {
+    rememberSearch()
   }
 
   // x on a recent search forgets it.
@@ -219,6 +234,7 @@ Item {
     bar: root.bar
     store: root.store
     rows: root.rows
+    owner: root
     // Typing or a new search starts a fresh list, as before pages kept
     // their place.
     listKey: root.store ? root.store.filter + "|" + root.store.query + "|" + searchField.text : ""

@@ -3,20 +3,29 @@ import Quickshell
 import qs.Commons
 import qs.Ui
 import "components"
+import "YtmModel.js" as Model
 
 // The YouTube Music dropdown. BarWidget.qml loads this and injects the bar,
 // the anchor button, the widget itself (bar identity) and the service.
 //
 // Tabs: Now (playing + queue), Search, Library and Home, with a page stack on
 // top for albums, playlists, Liked Music, History, artists and See all
-// pages, and the playlist picker.
-// Keys: 1-4 tabs · / search · j/k or ↑/↓ move · g/G top/bottom (G also loads
-// more) · Enter play/open · n play next · a add to queue · L like ·
-// p add to playlist · J/K move in queue · O next sort order (pages that
-// have one) · x remove (queue, playlist page, Liked Music) · Space
-// play/pause · ←/→ seek 10 s (Now) · Esc leave field → close picker → back →
-// close. Off the Now tab h/l go to the view's horizontal(dx) and f to its
-// find(), when it has them.
+// pages, the item menu (row menu, chooser, key help) and the playlist picker.
+// Keys (Model.KEYS; ? lists them): 1-4 switch tab: Now, Search, Library, Home
+// · / search · j / k / ↑ / ↓ move · g first row · G last row (loads more) ·
+// Enter play or open · h / l / ← / → seek 10 s on Now, or the page's chips ·
+// Esc leave the field → close the picker or menu → back → close · Space
+// play/pause · n play next (a song, album or playlist) · a add to queue · R
+// start radio from the row or the current song · s shuffle · r repeat · L
+// like · p add to playlist · A go to artist (of the row or the current song)
+// · o go to album · J / K move a queued song down / up · x remove (queue, own
+// playlist, Liked Music, recent search) · m / . the row's menu (or
+// right-click) · M the page's menu (Library: account) · O next sort order on
+// a page that has one · f find, on pages that offer it · ? these keys.
+// Text keys go through Model.keyId to runKey(); Ctrl and Alt chords are
+// ignored. Views offer optional hooks, checked with typeof: horizontal(dx),
+// cycleOrder(), find(), playNext(i) / addToQueue(i), menu(i), pageMenu(),
+// menuChosen(id) and placeAt(i) / indexOfPlace(place).
 Panel {
   id: root
   moduleName: "damir.ytmusic"
@@ -54,6 +63,7 @@ Panel {
 
   function setTab(key) {
     picker.close()
+    itemMenu.close()
     tab = key
     stack = []
     if (key === "search") Qt.callLater(focusSearch)
@@ -68,6 +78,7 @@ Panel {
   function push(item) {
     if (!item) return
     picker.close()
+    itemMenu.close()
     var next = stack.slice()
     var shown = collectionLoader.item
     if (next.length > 0 && shown) next[next.length - 1] = { item: next[next.length - 1].item, view: shown.viewState() }
@@ -77,9 +88,13 @@ Panel {
   }
 
   // The page underneath comes back with its saved view (CollectionView
-  // restores it from the wrapper).
+  // restores it from the wrapper). The overlays close first: the header's
+  // Back button stays clickable over them, and a menu's rows belong to the
+  // page that goes.
   function back() {
     if (stack.length === 0) return false
+    picker.close()
+    itemMenu.close()
     stack = stack.slice(0, -1)
     keyCatcher.forceActiveFocus()
     return true
@@ -88,12 +103,14 @@ Panel {
   // (Not "escape": QML rejects methods named after JS globals.)
   function handleEscape() {
     if (picker.open) picker.close()
+    else if (itemMenu.open) itemMenu.close()
     else if (!back()) close()
   }
 
   // The view whose list the keyboard cursor currently drives.
   function activeListOwner() {
     if (picker.open) return picker
+    if (itemMenu.open) return itemMenu
     if (page) return collectionLoader.item
     if (tab === "search") return searchView
     if (tab === "library") return libraryView
@@ -118,7 +135,7 @@ Panel {
   // Views and overlays with a text field, each listed once. While one
   // reports inputFocused, keys go to its field instead of the shortcuts.
   function inputOwners() {
-    return [libraryView, picker, collectionLoader.item]
+    return [libraryView, picker, itemMenu, collectionLoader.item]
   }
 
   function anyInputFocused() {
@@ -174,6 +191,19 @@ Panel {
     return service ? service.currentTrack : null
   }
 
+  // The item the keyboard is pointing at: a selected row of any kind, else
+  // the queue entry under the cursor on Now; null when neither.
+  function cursorItem() {
+    var list = activeList()
+    var row = list ? list.rowAt(list.cursorIndex) : null
+    if (row) return row.item
+    if (!list && tab === "now" && queueView.cursorIndex >= 0 && service) {
+      var entry = service.queue[queueView.cursorIndex]
+      if (entry) return entry.track
+    }
+    return null
+  }
+
   // The artist / album page of a track (from Now Playing, or `A` / `o` on
   // the selected row or the current track).
   function openArtist(artist) {
@@ -181,19 +211,187 @@ Panel {
   }
 
   function openArtistOf(track) {
-    var artists = track && track.artists ? track.artists : []
-    for (var i = 0; i < artists.length; i++) {
-      if (artists[i].id) return openArtist(artists[i])
+    var artists = Model.linkedArtists(track)
+    if (artists.length > 0) openArtist(artists[0])
+  }
+
+  // Go to artist from a menu: one with a page opens, several (a duet, a
+  // feature) give a chooser.
+  function goArtist(item) {
+    var artists = Model.linkedArtists(item)
+    if (artists.length === 1) {
+      openArtist(artists[0])
+    } else if (artists.length > 1) {
+      itemMenu.openChooser("Go to artist", Model.itemTitle(item), artists.map(function(artist) {
+        return { id: artist.id, title: artist.name, icon: "󰠃", value: artist }
+      }), function(choice) { root.openArtist(choice.value) })
+      keyCatcher.forceActiveFocus()
     }
   }
 
-  function openAlbumOf(track) {
-    if (!track || !track.album || !track.album.id) return
-    push({ type: "album", browseId: track.album.id, title: track.album.name,
-           thumb: track.thumb, thumbLarge: track.thumbLarge })
+  // Go to album: its page when the album id is known, else (an album known
+  // only by its audio playlist) the worker looks the page up, cached.
+  function goAlbum(item) {
+    var album = Model.albumOf(item)
+    if (album) {
+      push(album)
+      return
+    }
+    var playlistId = Model.albumPlaylistOf(item)
+    if (playlistId === "" || !service) return
+    service.albumBrowseIdOf(playlistId, function(reply) {
+      if (!reply.ok) {
+        root.service.failAction("Couldn't open the album", reply.error.message)
+        return
+      }
+      if (!root.opened) return
+      root.push({ type: "album", browseId: reply.result.browseId,
+                  title: item.album && item.album.name ? item.album.name : Model.itemTitle(item),
+                  thumb: item.thumb || null, thumbLarge: item.thumbLarge || null })
+    })
+  }
+
+  // R: radio from the row (a song, album, playlist, artist or mix), else
+  // from the song playing. It replaces the queue, as on the web.
+  function startRadio() {
+    if (!service) return
+    var item = cursorItem()
+    if (!Model.radioParams(item)) item = service.currentTrack
+    if (item) service.startRadio(item)
+  }
+
+  // ---- the item menu ------------------------------------------------------------------
+  // A view's menu(i) emits itemMenuRequested(request) and its pageMenu()
+  // returns one: { item, ctx, owner, index, title?, subtitle? }; ctx is the
+  // view's (pageKind, owned, removable, ...) and signedIn is added here.
+  // Model.menuActions picks the entries and ItemMenu shows them; the chosen
+  // one runs with this panel and the service, on the row the menu was
+  // opened for, found again by its place (rows can change while the menu is
+  // open: a refresh, a new like, the queue moving on).
+
+  // What keeps the places of an owner's rows: QueueView itself, or a view's
+  // ResultList.
+  function rowPlaces(owner) {
+    if (owner && typeof owner.placeAt === "function") return owner
+    if (owner && owner.results && typeof owner.results.placeAt === "function") return owner.results
+    return null
+  }
+
+  function openItemMenu(request) {
+    if (!request || !service) return false
+    var item = request.item || null
+    var ctx = {}
+    for (var key in request.ctx || {}) ctx[key] = request.ctx[key]
+    if (ctx.signedIn === undefined) ctx.signedIn = service.signedIn
+    var index = request.index >= 0 ? request.index : -1
+    var places = rowPlaces(request.owner)
+    var full = { item: item, ctx: ctx, owner: request.owner || null, index: index,
+                 place: index >= 0 && places ? places.placeAt(index) : null }
+    picker.close()
+    var opened = itemMenu.openMenu(full, Model.menuActions(item, ctx),
+      request.title || Model.itemTitle(item) || "Menu",
+      request.subtitle !== undefined ? request.subtitle : Model.itemSubtitle(item))
+    // A right-click while the search field had the keys.
+    if (opened) keyCatcher.forceActiveFocus()
+    return opened
+  }
+
+  // The row's index now: -1 when it is gone (Remove then does nothing, and
+  // Play plays the song alone).
+  function menuRowIndex(request) {
+    var places = rowPlaces(request.owner)
+    if (request.index < 0 || !request.place || !places) return request.index
+    return places.indexOfPlace(request.place)
+  }
+
+  function runMenuAction(action, request) {
+    if (!action || typeof action.run !== "function" || !request || !service) return
+    var owner = request.owner
+    // Search remembers a query that led somewhere.
+    if (owner && typeof owner.menuChosen === "function") owner.menuChosen(action.id)
+    action.run({ item: request.item, ctx: request.ctx, index: menuRowIndex(request), owner: owner,
+                 panel: root, service: service })
+  }
+
+  // The song playing: its own menu (the cover's menu button), or the Now
+  // tab's page menu (M), which adds the queue header's Autoplay and Clear.
+  function nowMenu(pageMenu) {
+    var track = service ? service.currentTrack : null
+    var ctx = { pageKind: pageMenu ? "now" : "nowPlaying", isCurrent: !!track }
+    if (pageMenu) {
+      ctx.page = true
+      ctx.autoplay = service.autoplay
+      ctx.queueLength = service.queue.length
+    }
+    return { item: track, ctx: ctx, owner: queueView, index: -1,
+             title: track ? Model.itemTitle(track) : "Queue", subtitle: track ? Model.itemSubtitle(track) : "" }
+  }
+
+  // m / . : the cursor row's menu; with no row, the page's.
+  function openRowMenu() {
+    var list = activeList()
+    if (list) {
+      if (list.cursorIndex >= 0 && ownerHook("menu", list.cursorIndex)) return
+      openPageMenu()
+    } else if (tab === "now" && !page) {
+      if (queueView.cursorIndex >= 0) queueView.menu(queueView.cursorIndex)
+      else openItemMenu(nowMenu(false))
+    }
+  }
+
+  // M: the page's own menu (on Library the account; on Now the queue).
+  function openPageMenu() {
+    if (!service) return
+    if (!page && tab === "now") {
+      openItemMenu(nowMenu(true))
+      return
+    }
+    var owner = activeListOwner()
+    if (owner && typeof owner.pageMenu === "function") openItemMenu(owner.pageMenu())
+  }
+
+  // ---- keys -----------------------------------------------------------------------------
+  // What a key does (Model.KEYS ids); `text` tells the tabs and J / K apart.
+  // While the item menu is open only tabs, g / G and ? work, and under the
+  // playlist picker only tabs and g / G: other keys would act on the rows
+  // underneath, or on the picker's own playlists (R), or open something the
+  // picker hides (?, M). The help (Enter on a key's row) also passes Enter,
+  // Esc and Space, which the catcher handles itself; x is left out there, so
+  // browsing the help never removes anything.
+  function runKey(id, text) {
+    if (id === "") return
+    if (picker.open && ["tab", "search", "top", "bottom"].indexOf(id) < 0) return
+    if (itemMenu.open && ["tab", "search", "top", "bottom", "help"].indexOf(id) < 0) return
+    if (id === "tab") {
+      var chosen = tabs[Number(text) - 1]
+      if (chosen) setTab(chosen.key)
+    }
+    else if (id === "search") setTab("search")
+    else if (id === "playNext") listAction("next")
+    else if (id === "addToQueue") listAction("queue")
+    else if (id === "radio") startRadio()
+    else if (id === "like") { if (service) service.toggleLike(cursorTrack()) }
+    else if (id === "addToPlaylist") openPicker([cursorTrack()])
+    else if (id === "artist") openArtistOf(cursorTrack())
+    else if (id === "album") goAlbum(cursorTrack())
+    else if (id === "shuffle") { if (service) service.toggleShuffle() }
+    else if (id === "repeat") { if (service) service.cycleRepeat() }
+    else if (id === "queueMove") { if (root.tab === "now" && (text === "J" || text === "K")) queueView.moveSelected(text === "J" ? 1 : -1) }
+    else if (id === "top") jumpCursor(false)
+    else if (id === "bottom") jumpCursor(true)
+    else if (id === "order") ownerHook("cycleOrder")
+    else if (id === "find") ownerHook("find")
+    else if (id === "menu") openRowMenu()
+    else if (id === "pageMenu") openPageMenu()
+    else if (id === "help") { itemMenu.openHelp(); keyCatcher.forceActiveFocus() }
+    else if (id === "open") activateCursor()
+    else if (id === "back") handleEscape()
+    else if (id === "playPause") { if (service) service.playPause() }
   }
 
   function removeCursor() {
+    // x acts on the rows of a view, never on what an overlay covers.
+    if (picker.open || itemMenu.open) return
     if (page && collectionLoader.item) {
       collectionLoader.item.remove(collectionLoader.item.results.cursorIndex)
     } else if (tab === "now" && !page) {
@@ -225,6 +423,7 @@ Panel {
   onOpenedChanged: {
     if (!opened) {
       picker.close()
+      itemMenu.close()
       return
     }
     queueView.cursorIndex = -1
@@ -272,25 +471,8 @@ Panel {
         if (root.service) root.service.playPause()
       }
       onDeleteRequested: root.removeCursor()
-      onTextKey: function(text) {
-        if (text === "1") root.setTab("now")
-        else if (text === "2" || text === "/") root.setTab("search")
-        else if (text === "3") root.setTab("library")
-        else if (text === "4") root.setTab("home")
-        else if (text === "n") root.listAction("next")
-        else if (text === "a") root.listAction("queue")
-        else if (text === "L" && root.service) root.service.toggleLike(root.cursorTrack())
-        else if (text === "p") root.openPicker([root.cursorTrack()])
-        else if (text === "A") root.openArtistOf(root.cursorTrack())
-        else if (text === "o") root.openAlbumOf(root.cursorTrack())
-        else if (text === "s" && root.service) root.service.toggleShuffle()
-        else if (text === "r" && root.service) root.service.cycleRepeat()
-        else if (text === "J" && root.tab === "now") queueView.moveSelected(1)
-        else if (text === "K" && root.tab === "now") queueView.moveSelected(-1)
-        else if (text === "g") root.jumpCursor(false)
-        else if (text === "G") root.jumpCursor(true)
-        else if (text === "O") root.ownerHook("cycleOrder")
-        else if (text === "f") root.ownerHook("find")
+      onTextKey: function(text, modifiers) {
+        if (Model.chordAllowed(modifiers)) root.runKey(Model.keyId(text), text)
       }
 
       Item {
@@ -305,7 +487,7 @@ Panel {
           Button {
             visible: !!root.page
             iconText: "󰁍"
-            tooltipText: "Back (Esc)"
+            tooltipText: Model.withKey("Back", "back")
             foreground: root.foreground
             onClicked: root.back()
           }
@@ -431,7 +613,8 @@ Panel {
             bar: root.bar
             onAddToPlaylistRequested: root.openPicker([root.service.currentTrack])
             onArtistRequested: function(artist) { root.openArtist(artist) }
-            onAlbumRequested: function(track) { root.openAlbumOf(track) }
+            onAlbumRequested: function(track) { root.goAlbum(track) }
+            onMenuRequested: root.openItemMenu(root.nowMenu(false))
           }
 
           PanelSeparator {
@@ -446,6 +629,7 @@ Panel {
             height: nowTab.height - nowPlaying.height - separator.height - nowTab.spacing * 2
             service: root.service
             bar: root.bar
+            onItemMenuRequested: function(request) { root.openItemMenu(request) }
           }
         }
 
@@ -456,6 +640,7 @@ Panel {
           service: root.service
           bar: root.bar
           onOpenRequested: function(item) { root.push(item) }
+          onItemMenuRequested: function(request) { root.openItemMenu(request) }
           onLeftField: keyCatcher.forceActiveFocus()
         }
 
@@ -466,6 +651,7 @@ Panel {
           service: root.service
           bar: root.bar
           onOpenRequested: function(item) { root.push(item) }
+          onItemMenuRequested: function(request) { root.openItemMenu(request) }
           onLeftField: keyCatcher.forceActiveFocus()
         }
 
@@ -476,6 +662,7 @@ Panel {
           service: root.service
           bar: root.bar
           onOpenRequested: function(item) { root.push(item) }
+          onItemMenuRequested: function(request) { root.openItemMenu(request) }
         }
 
         Loader {
@@ -487,8 +674,20 @@ Panel {
             bar: root.bar
             entry: root.topEntry
             onOpenRequested: function(item) { root.push(item) }
+            onItemMenuRequested: function(request) { root.openItemMenu(request) }
             onCloseRequested: root.back()
           }
+        }
+
+        // Under the picker: Add to playlist from the menu opens over it.
+        ItemMenu {
+          id: itemMenu
+          anchors.fill: parent
+          service: root.service
+          bar: root.bar
+          onClosed: keyCatcher.forceActiveFocus()
+          onChosen: function(action, request) { root.runMenuAction(action, request) }
+          onKeyChosen: function(keyId) { root.runKey(keyId, "") }
         }
 
         PlaylistPicker {

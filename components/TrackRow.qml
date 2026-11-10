@@ -4,7 +4,8 @@ import qs.Ui
 import "../YtmModel.js" as Model
 
 // One track: cover, title, artists and duration. Hovering (or the keyboard
-// cursor) swaps the duration for row actions.
+// cursor) swaps the duration for row actions; a right-click (or the menu
+// action) asks for the row's menu.
 Item {
   id: root
 
@@ -14,13 +15,14 @@ Item {
   property bool showMove: false
   property bool showRemove: false
   property bool showQueueActions: false
+  property bool showMenu: false
   property string removeTooltip: "Remove"
   property QtObject bar: null
   property var store: null
 
   readonly property color foreground: bar ? bar.foreground : Color.foreground
   readonly property string fontFamily: bar ? bar.fontFamily : Style.font.family
-  readonly property bool showActions: (hover.hovered || cursor) && (showMove || showRemove || showQueueActions)
+  readonly property bool showActions: (hover.hovered || cursor) && (showMove || showRemove || showQueueActions || showMenu)
   readonly property bool hovered: hover.hovered
 
   signal activated()
@@ -28,6 +30,7 @@ Item {
   signal moveRequested(int delta)
   signal playNextRequested()
   signal addToQueueRequested()
+  signal menuRequested()
 
   implicitHeight: Style.space(46)
 
@@ -44,8 +47,12 @@ Item {
 
   MouseArea {
     anchors.fill: parent
+    acceptedButtons: Qt.LeftButton | Qt.RightButton
     cursorShape: Qt.PointingHandCursor
-    onClicked: root.activated()
+    onClicked: function(mouse) {
+      if (mouse.button === Qt.RightButton) root.menuRequested()
+      else root.activated()
+    }
   }
 
   Row {
@@ -121,7 +128,7 @@ Item {
         PanelActionButton {
           visible: root.showQueueActions
           iconText: "󰒭"
-          tooltipText: "Play next"
+          tooltipText: Model.withKey("Play next", "playNext")
           foreground: root.foreground
           onClicked: root.playNextRequested()
         }
@@ -129,7 +136,7 @@ Item {
         PanelActionButton {
           visible: root.showQueueActions
           iconText: "󰐕"
-          tooltipText: "Add to queue"
+          tooltipText: Model.withKey("Add to queue", "addToQueue")
           foreground: root.foreground
           onClicked: root.addToQueueRequested()
         }
@@ -156,6 +163,14 @@ Item {
           tooltipText: root.removeTooltip
           foreground: root.foreground
           onClicked: root.removeRequested()
+        }
+
+        PanelActionButton {
+          visible: root.showMenu
+          iconText: "󰇙"
+          tooltipText: Model.withKey("More", "menu")
+          foreground: root.foreground
+          onClicked: root.menuRequested()
         }
       }
     }

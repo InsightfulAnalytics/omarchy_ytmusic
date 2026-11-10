@@ -1,8 +1,10 @@
 import QtQuick
 import qs.Commons
+import qs.Ui
 import "../YtmModel.js" as Model
 
-// An album, playlist or artist in a list; clicking opens it.
+// An album, playlist or artist in a list; clicking opens it, a right-click
+// (or the menu button shown on hover) asks for its menu.
 Item {
   id: root
 
@@ -10,12 +12,14 @@ Item {
   property bool cursor: false
   property QtObject bar: null
   property var store: null
+  property bool showMenu: false
 
   readonly property color foreground: bar ? bar.foreground : Color.foreground
   readonly property string fontFamily: bar ? bar.fontFamily : Style.font.family
   readonly property bool isArtist: item && item.type === "artist"
 
   signal activated()
+  signal menuRequested()
 
   implicitHeight: Style.space(50)
 
@@ -31,8 +35,12 @@ Item {
 
   MouseArea {
     anchors.fill: parent
+    acceptedButtons: Qt.LeftButton | Qt.RightButton
     cursorShape: Qt.PointingHandCursor
-    onClicked: root.activated()
+    onClicked: function(mouse) {
+      if (mouse.button === Qt.RightButton) root.menuRequested()
+      else root.activated()
+    }
   }
 
   Row {
@@ -54,7 +62,7 @@ Item {
 
     Column {
       anchors.verticalCenter: parent.verticalCenter
-      width: parent.width - cover.width - chevron.width - parent.spacing * 2
+      width: parent.width - cover.width - trailing.width - parent.spacing * 2
       spacing: Style.space(1)
 
       Text {
@@ -79,14 +87,34 @@ Item {
       }
     }
 
-    Text {
-      id: chevron
+    Item {
+      id: trailing
       anchors.verticalCenter: parent.verticalCenter
-      textFormat: Text.PlainText
-      text: "󰅂"
-      color: Qt.darker(root.foreground, 1.6)
-      font.family: root.fontFamily
-      font.pixelSize: Style.font.body
+      width: Math.max(chevron.implicitWidth, menuButton.implicitWidth)
+      height: parent.height
+
+      Text {
+        id: chevron
+        anchors.right: parent.right
+        anchors.verticalCenter: parent.verticalCenter
+        visible: !menuButton.visible
+        textFormat: Text.PlainText
+        text: "󰅂"
+        color: Qt.darker(root.foreground, 1.6)
+        font.family: root.fontFamily
+        font.pixelSize: Style.font.body
+      }
+
+      PanelActionButton {
+        id: menuButton
+        anchors.right: parent.right
+        anchors.verticalCenter: parent.verticalCenter
+        visible: root.showMenu && (hover.hovered || root.cursor)
+        iconText: "󰇙"
+        tooltipText: Model.withKey("More", "menu")
+        foreground: root.foreground
+        onClicked: root.menuRequested()
+      }
     }
   }
 }

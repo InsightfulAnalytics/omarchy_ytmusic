@@ -2,9 +2,11 @@ import QtQuick
 import QtQuick.Controls
 import qs.Commons
 import qs.Ui
+import "../YtmModel.js" as Model
 
-// The play queue (mpv's playlist): click to jump, hover to move or remove.
-// Owns its keyboard cursor; Panel.qml forwards keys.
+// The play queue (mpv's playlist): click to jump, hover to move or remove,
+// right-click (or m) for a song's menu. Owns its keyboard cursor; Panel.qml
+// forwards keys.
 Item {
   id: root
 
@@ -16,6 +18,9 @@ Item {
   readonly property string fontFamily: bar ? bar.fontFamily : Style.font.family
   readonly property var queue: service ? service.queue : []
   readonly property int currentIndex: service ? service.playlistPos : -1
+
+  // A song's menu: Panel opens it.
+  signal itemMenuRequested(var request)
 
   function ensureVisible(index) {
     if (index >= 0 && index < list.count) list.positionViewAtIndex(index, ListView.Contain)
@@ -35,6 +40,38 @@ Item {
     if (cursorIndex < 0 || !service) return false
     service.jumpTo(cursorIndex)
     return true
+  }
+
+  // The menu's Play jumps to the entry; its Remove takes it out.
+  function activate(index) {
+    if (index < 0 || !service) return false
+    return service.jumpTo(index)
+  }
+
+  function remove(index) {
+    if (index < 0 || !service) return
+    service.removeAt(index)
+  }
+
+  // A menu's entry, found again when it runs (the queue may have changed):
+  // mpv's playlist entry id, which stays with the entry when others move.
+  function placeAt(index) {
+    var entry = index >= 0 && index < queue.length ? queue[index] : null
+    return entry ? { entryId: entry.entryId } : null
+  }
+
+  function indexOfPlace(place) {
+    if (!place) return -1
+    for (var i = 0; i < queue.length; i++) if (queue[i].entryId === place.entryId) return i
+    return -1
+  }
+
+  function menu(index) {
+    var entry = index >= 0 && index < queue.length ? queue[index] : null
+    if (!entry || Model.menuKind(entry.track) === "") return
+    cursorIndex = index
+    root.itemMenuRequested({ item: entry.track, owner: root, index: index,
+      ctx: { pageKind: "queue", removable: true, removeTitle: "Remove from queue", isCurrent: index === currentIndex } })
   }
 
   function removeCursor() {
@@ -125,9 +162,11 @@ Item {
       cursor: index === root.cursorIndex
       showMove: true
       showRemove: true
+      showMenu: true
 
       onActivated: root.service.jumpTo(index)
       onRemoveRequested: root.service.removeAt(index)
+      onMenuRequested: root.menu(index)
       onMoveRequested: function(delta) { root.service.move(index, index + delta) }
     }
 
