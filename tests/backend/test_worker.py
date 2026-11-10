@@ -587,7 +587,8 @@ def test_client_settings_rebuild_and_clear_only_when_they_change(tmp_path, monke
     monkeypatch.setitem(ytm.SETTINGS, "theme", str)
     monkeypatch.setattr(ytm, "CLIENT_SETTINGS", {"location"})
     builds = []
-    monkeypatch.setattr(auth, "load_client", lambda: builds.append(1) or (FakeYT(), "none"))
+    # S16: the client settings reach load_client (location).
+    monkeypatch.setattr(auth, "load_client", lambda **kwargs: builds.append(1) or (FakeYT(), "none"))
     cache = caches.DiskCache(tmp_path / "data")
     album = {"browseId": "X"}
     cache.put("album", album, {"title": "cached"})

@@ -7,6 +7,9 @@ The session lives outside the plugin repository in ``~/.config/omarchy-ytmusic``
 - ``cookies.txt``  (0600): the same session for yt-dlp/mpv (Netscape format)
 - ``account.json`` (0600): display name/handle/photo only, no secrets; the
   shell reads this one to know whether you are signed in
+- ``identity.json`` (0600, S16): which identity of the session the worker
+  acts as (a brand account's pageId, a Google login's index), no names;
+  absent for the session's own account
 
 Default sign-in imports the session cookies straight from a Chromium profile.
 Pasting request headers is the fallback; it goes through the clipboard, whose
@@ -16,6 +19,7 @@ history Omarchy stores in plain text.
 import contextlib
 import json
 import os
+import re
 import shutil
 import tempfile
 import threading
@@ -29,6 +33,7 @@ CHROMIUM_PROFILES = (
 )
 SESSION_FILES = ("browser.json", "cookies.txt", "account.json")
 REQUIRED_COOKIE = "__Secure-3PAPISID"
+IDENTITY_FILE = "identity.json"
 
 
 class AuthError(Exception):
@@ -49,6 +54,10 @@ def cookies_path():
 
 def account_path():
     return config_dir() / "account.json"
+
+
+def identity_path():
+    return config_dir() / IDENTITY_FILE
 
 
 def ensure_config_dir():
@@ -93,19 +102,118 @@ def anonymous_client(factory=None):
         return _anonymous
 
 
-def load_client(factory=None):
-    """Return ``(client, state)`` with state ``"ok"``, ``"none"`` or ``"invalid"``."""
+def load_client(factory=None, settings=None, identity=None):
+    """Return ``(client, state)`` with state ``"ok"``, ``"none"`` or ``"invalid"``.
+
+    ``settings`` are the worker's client settings (S16: ``location``, passed
+    to YTMusic when ytmusicapi supports it). ``identity`` (``read_identity()``)
+    makes a signed-in client act as a brand account (``user=pageId``) and/or
+    another Google login of the session (its ``X-Goog-AuthUser``, set in
+    memory only: browser.json is never rewritten).
+    """
     make = factory or _ytmusic_class()
+    kwargs = _client_kwargs(settings)
     path = browser_path()
     if not path.exists():
-        return make(), "none"
+        return make(**kwargs), "none"
+    page_id = (identity or {}).get("pageId")
+    if page_id:
+        kwargs["user"] = page_id
     try:
-        client = make(str(path))
+        client = make(str(path), **kwargs)
     except Exception as exc:  # noqa: BLE001 - any failure means the file is unusable
         norm.log(f"saved session is unusable ({type(exc).__name__}); continuing signed out")
-        return make(), "invalid"
+        return make(**_client_kwargs(settings)), "invalid"
+    auth_user = (identity or {}).get("authUser")
+    if auth_user is not None:
+        set_auth_user(client, auth_user)
     remember_visitor_id(path, client)
     return client, "ok"
+
+
+def _client_kwargs(settings):
+    """YTMusic keyword arguments for the client settings ytmusicapi accepts."""
+    location = (settings or {}).get("location")
+    if not location:
+        return {}
+    from ytmusicapi.constants import SUPPORTED_LOCATIONS
+
+    return {"location": location} if location in SUPPORTED_LOCATIONS else {}
+
+
+def set_auth_user(client, auth_user):
+    """Send ``client``'s requests as Google login ``auth_user`` of the session."""
+    headers = getattr(client, "_auth_headers", None)
+    if headers is not None:
+        headers["x-goog-authuser"] = str(int(auth_user))
+
+
+def session_auth_user(client):
+    """The Google login index ``client`` sends (``X-Goog-AuthUser``), 0 when unset."""
+    headers = getattr(client, "_auth_headers", None) or {}
+    try:
+        value = headers.get("x-goog-authuser")
+        return int(value) if value is not None else 0
+    except (TypeError, ValueError, AttributeError):
+        return 0
+
+
+def saved_auth_user():
+    """The Google login index the saved session was imported as (browser.json's
+    x-goog-authuser; ``ytm auth --authuser N``), 0 when unknown."""
+    try:
+        saved = json.loads(browser_path().read_text())
+        value = next((v for k, v in saved.items() if k.lower() == "x-goog-authuser"), 0)
+        return int(value)
+    except (OSError, ValueError, TypeError, AttributeError):
+        return 0
+
+
+# ---- identity (S16) ---------------------------------------------------------------
+# Which identity of the saved session the worker acts as. Written by the
+# worker's switchAccount, read at every client build; no names, only ids.
+
+PAGE_ID = re.compile(r"[0-9]{1,40}")
+AUTH_USER_MAX = 9
+
+
+def checked_identity(page_id=None, auth_user=None):
+    """A checked identity dict, or None for the session's own account.
+
+    ``page_id``: a brand account's numeric pageId; ``auth_user``: a Google
+    login index (0 to AUTH_USER_MAX). Raises ValueError on anything else.
+    """
+    if page_id is not None and not (isinstance(page_id, str) and PAGE_ID.fullmatch(page_id)):
+        raise ValueError("pageId must be a brand account's numeric id")
+    if auth_user is not None and (isinstance(auth_user, bool) or not isinstance(auth_user, int)
+                                  or not 0 <= auth_user <= AUTH_USER_MAX):
+        raise ValueError(f"authUser must be a whole number from 0 to {AUTH_USER_MAX}")
+    if page_id is None and auth_user is None:
+        return None
+    return {"pageId": page_id, "authUser": auth_user}
+
+
+def read_identity():
+    """The saved identity (see ``checked_identity()``), None when none or unreadable."""
+    try:
+        saved = json.loads(identity_path().read_text())
+        return checked_identity(saved.get("pageId"), saved.get("authUser"))
+    except (OSError, ValueError, AttributeError):
+        return None
+
+
+def save_identity(chosen):
+    """Keep ``chosen`` (a ``checked_identity()`` dict or None) in identity.json, 0600;
+    the session's own account removes the file."""
+    if not chosen:
+        identity_path().unlink(missing_ok=True)
+        return
+    ensure_config_dir()
+    record = {"version": 1, "pageId": chosen.get("pageId"), "authUser": chosen.get("authUser")}
+    write_private(identity_path(), json.dumps(record, sort_keys=True) + "\n")
+
+
+# ---- end identity (S16) ------------------------------------------------------------
 
 
 def remember_visitor_id(path, client):
@@ -134,7 +242,7 @@ def whoami():
 
 def logout():
     removed = []
-    for name in SESSION_FILES:
+    for name in (*SESSION_FILES, IDENTITY_FILE):  # S16: the identity goes with the session
         path = config_dir() / name
         if path.exists():
             path.unlink()
@@ -233,6 +341,9 @@ def commit_session(write_browser, cookies, method, factory=None):
         for name in SESSION_FILES:
             os.chmod(staging / name, 0o600)
             os.replace(staging / name, directory / name)
+        # S16: a new session starts as its own account (the brand accounts
+        # and logins of the old one may not be its own).
+        identity_path().unlink(missing_ok=True)
         return account
     finally:
         shutil.rmtree(staging, ignore_errors=True)

@@ -24,7 +24,8 @@ Item {
   readonly property color foreground: bar ? bar.foreground : Color.foreground
   readonly property string fontFamily: bar ? bar.fontFamily : Style.font.family
   readonly property bool signedIn: !!service && service.signedIn
-  readonly property var account: service ? service.account : null
+  // S16: the identity in use (a brand account's own name and photo).
+  readonly property var account: service ? service.activeAccount : null
   readonly property string chip: Model.libraryChip(service && service.prefs ? service.prefs.libraryChip : "")
   readonly property bool isPlaylists: chip === "playlists"
   // The chip's list: libraryList's shape (Playlists: its orders and order).
@@ -120,13 +121,16 @@ Item {
                              owner: root, index: index })
   }
 
-  // M: the account row's menu (Add artists you like (S14), Record plays in
-  // history (S15), Sign out; later slices add Your channel, Account,
-  // Quality, Location).
+  // M: the account row's menu (S14: Add artists you like; S16: Switch
+  // account, Audio quality, Content location; S15: Record plays in history;
+  // Sign out; a later slice adds Your channel).
   function pageMenu() {
-    return { item: null, ctx: { page: true, pageKind: "library", recordHistory: root.recordHistory }, owner: root, index: -1,
+    return { item: null, ctx: { page: true, pageKind: "library", recordHistory: root.recordHistory,
+                                quality: service ? service.quality : "", location: service ? service.location : "",  // S16
+                                canUseOwnAccount: !!service && service.canUseOwnAccount },  // S16
+             owner: root, index: -1,
              title: root.signedIn ? (root.account && root.account.name ? root.account.name : "Signed in") : "Not signed in",
-             subtitle: root.signedIn && root.account && root.account.handle ? root.account.handle : "" }
+             subtitle: root.signedIn ? Model.accountCaption(root.account) : "" }
   }
 
   // ---- library actions (S4) ---------------------------------------------------------
@@ -197,6 +201,11 @@ Item {
 
   onVisibleChanged: Qt.callLater(refreshShown)
   onSignedInChanged: Qt.callLater(refreshShown)
+  // S16: another identity or location emptied the Store: the chip shown reads again.
+  Connections {
+    target: root.service
+    function onAccountEpochChanged() { Qt.callLater(root.refreshShown) }
+  }
   onChipChanged: Qt.callLater(refreshShown)
   onStoreChanged: Qt.callLater(refreshShown)
   Component.onDestruction: if (root.store && root.store.libraryShown === root.chip) root.store.libraryShown = ""
@@ -207,6 +216,7 @@ Item {
     service: root.service
     bar: root.bar
     expired: !!root.service && (root.service.authState === "expired" || root.service.authState === "invalid")
+    canUseOwnAccount: !!root.service && root.service.canUseOwnAccount  // S16
   }
 
   Item {
@@ -231,6 +241,7 @@ Item {
       }
 
       Column {
+        id: nameColumn
         anchors.verticalCenter: parent.verticalCenter
         width: parent.width - photo.width - recordPlays.width - signOut.width - parent.spacing * 3
         spacing: Style.space(1)
@@ -249,7 +260,7 @@ Item {
         Text {
           width: parent.width
           textFormat: Text.PlainText
-          text: root.account && root.account.handle ? root.account.handle : ""
+          text: Model.accountCaption(root.account)  // S16: the handle, and Brand account
           visible: text !== ""
           color: Qt.darker(root.foreground, 1.4)
           font.family: root.fontFamily
@@ -284,6 +295,16 @@ Item {
         fontSize: Style.font.caption
         onClicked: root.service.signOut()
       }
+    }
+
+    // S16: a click on the account (its photo or name) opens its menu, M's twin.
+    MouseArea {
+      x: accountRow.x
+      y: accountRow.y
+      width: nameColumn.x + nameColumn.width
+      height: accountRow.height
+      cursorShape: Qt.PointingHandCursor
+      onClicked: root.itemMenuRequested(root.pageMenu())
     }
 
     Row {

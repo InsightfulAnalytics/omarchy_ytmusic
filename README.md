@@ -99,13 +99,14 @@ follow symlinks) and run `scripts/test.sh`.
 | Bar icon | Left click: open/close the panel · Middle click: play/pause · Right click: switch icon ⇄ now-playing text · Wheel: previous/next track |
 | `SUPER + M` | Open/close the panel (`omarchy-shell shell toggle damir.ytmusic`, bound in `~/.config/hypr/bindings.lua`) |
 | Panel tabs | **Now** (playing + queue, like, dislike (the song skips), add to playlist, **Save** the queue into a playlist, Resume; an artist, the album or the cover opens its page; the queue header's pane chip, or `y`, switches the area below to **Lyrics**, time-synced with the line being sung highlighted when YouTube has them, or **Related**, the web's Related tab as a page), **Search** (field, filter chips with More, a scope chip, grouped results with Show all), **Library** (account, new playlist (with a privacy chip, `Alt+Left` / `Alt+Right` while typing, and an optional description; an invite link pasted there joins that playlist instead), and chips switched with `h` / `l`: **Playlists** with Liked Music, History, Recent activity and your and saved playlists; **Songs** with Shuffle all (YouTube's shuffle of the whole library); **Albums**; **Artists** with Subscriptions. `O` or the sort button cycles a chip's sort order, named in its first heading; the chip and each order are remembered, and YouTube saves the order on your account as the web does. Long lists load about 50 at a time), **Home** (every shelf of the web's feed, loaded a few at a time as you scroll, with the mood chips above it switched with `h` / `l`; a shelf ends in **See all** when the web has one and in **Play all** when it plays as a list, the list YouTube makes for it; a song plays its shelf from there, a mix opens as its page, and a podcast as its list of episodes) and **Explore** (`5`: rows for **New releases**, **Charts** and **Moods & genres**, then New albums & singles, Top songs (Premium accounts), Moods & genres (eight, and a row that shows all of them: some are on no other page), Trending, New music videos and Popular episodes when YouTube has them, each ending in See all; chart songs and artists lead with their rank and a rising, falling or steady mark. **Charts** opens in the country you chose last (Global at first): its first row, `O` or its `M` menu lists YouTube's countries, and the choice is remembered. The Moods & genres page lists its groups (For you, Moods & moments, Genres), and a category its playlists in the web's titled shelves. When the five tab labels do not fit, the tabs show icons); albums, playlists, mixes and artists open as pages with Play / Shuffle / Queue all (a page that shows part of its list, such as Liked Music past 200 songs or an artist's five top songs, plays all of it). An album or playlist header has its byline (album type, artists and year, or the playlist's author; names are links, and `A` with no row selected opens the album's artist), details (privacy of your own playlist, songs, duration, views, year, and how many songs are unavailable) and two lines of the description, with an **About** row for the rest; songs marked explicit carry a small boxed E. A playlist or Liked Music longer than its first read (200 to 300 songs) ends in **Load all N songs**, which reloads the whole list (up to 5000) with the cursor kept; `f` filters the page's songs by title, artist or album, ignoring case and accents (it loads the whole list first; Down goes to the matches, Esc clears it). An album lists its track numbers and then Other versions and the served recommendations, a playlist its related playlists, and a mix (My Supermix and the like) its first 50 songs; your own playlists can remove songs and be deleted (a second click within 4 s confirms), be edited (`e` or **Edit**: title, description and privacy and, under Advanced, the order and voting (the choices YouTube offers, under its own names), where new songs go, an invite link for collaborators that is copied (it needs wl-copy), and Close collaboration while it is on; what YouTube does not report says so, and YouTube cannot clear a description), have songs moved with `J` / `K` or a row's arrows (a playlist sorted by date or votes asks for Manual order first), and end in YouTube's **Suggestions** (`i` adds the one under the cursor, Enter plays it, **Refresh suggestions** asks again); songs show their net votes (`+3`) when voting is on. Sectioned pages end each section in a selectable **See all** row and long lists in **Load more**, which also loads by itself when the cursor nears the end. An artist's page has every shelf of the web page in its order, from Top songs to Fans might also like (and From your library when signed in); See all opens the whole list (all albums or singles, with the served sort orders as chips), and the header adds **Radio** (the artist's radio mix) and **About** (description and links; Enter on a link copies it), while **Shuffle** plays YouTube's shuffle mix of the artist. An album, a playlist that is not yours and a mix have **Save** (**Saved** once in your library) and an artist **Subscribe** (**Subscribed**); `S` saves or subscribes the row under the cursor (a song too, from a list that offers it) or, with no row, the page, and `D` dislikes the row's song or the one playing, which skips. The change shows at once and is put back if YouTube refuses it; if the worker stopped before answering, the page or Library list is read again and a notice says so (on Search, Home and Explore it asks you to open the item again to check) |
-| Menus | Every row has a menu (`m`, `.`, right-click or its ⋮ button), like the web's three-dot menu: Play, Shuffle, Play next, Add to queue, Start radio, Save to library or Remove from library (albums, playlists, mixes, songs), Subscribe or Unsubscribe, Add to or Remove from Liked Music, Dislike or Remove dislike, Add to playlist, Go to artist (a chooser when a song has several) or album, View credits (a song's performers, writers and producers as a page), Copy link (a music.youtube.com link, through `wl-copy`), Pin to or Unpin from Listen again (songs, and Home's albums, playlists and artists; the page menu pins an album, playlist, Liked Music or artist page; YouTube sometimes keeps an unpinned item there for a while), Not interested and Don't recommend artist on Home's cards (choose it twice within 4 s; the card leaves Home at once, and as with the web's Removed from Home toast, Home's `M` menu then offers Undo for 2 minutes), Save to playlist (a whole album or playlist; `p` on its row too) and Copy to new playlist (the picker asks again when a song is already there: Enter again adds it anyway), Remove, Remove from history (History rows; choose it twice), and for the song playing Play video version or Play song version. `n` / `a` queue a whole album, playlist or mix from any list, and `R` starts radio from the row, else from the artist page you are on, else from the song playing; radio replaces the queue, as on the web (from the song playing, that song plays on). At most 500 songs of one list go into the queue, with a notice. `M` opens the page's own menu: the header buttons' twins on a page (an artist's adds About; an album or playlist adds Load all, Find and About; your own playlist Edit playlist), the account on Library (**Add artists you like**: YouTube's suggested artists as a page, where `f` finds, Enter marks or unmarks one and the **Add N artists** row, pressed twice, adds the marked ones to your taste profile; it can only add, removing one is done on the web. Then Record plays in history and Sign out), Autoplay, Clear, Save the queue, Tune the queue, Playback speed and Loudness on Now, the scopes and More filters on Search, Refresh (and that Undo) on Home, Refresh on Explore, the country on Charts. `?` lists every key; Enter on one runs it. |
+| Menus | Every row has a menu (`m`, `.`, right-click or its ⋮ button), like the web's three-dot menu: Play, Shuffle, Play next, Add to queue, Start radio, Save to library or Remove from library (albums, playlists, mixes, songs), Subscribe or Unsubscribe, Add to or Remove from Liked Music, Dislike or Remove dislike, Add to playlist, Go to artist (a chooser when a song has several) or album, View credits (a song's performers, writers and producers as a page), Copy link (a music.youtube.com link, through `wl-copy`), Pin to or Unpin from Listen again (songs, and Home's albums, playlists and artists; the page menu pins an album, playlist, Liked Music or artist page; YouTube sometimes keeps an unpinned item there for a while), Not interested and Don't recommend artist on Home's cards (choose it twice within 4 s; the card leaves Home at once, and as with the web's Removed from Home toast, Home's `M` menu then offers Undo for 2 minutes), Save to playlist (a whole album or playlist; `p` on its row too) and Copy to new playlist (the picker asks again when a song is already there: Enter again adds it anyway), Remove, Remove from history (History rows; choose it twice), and for the song playing Play video version or Play song version. `n` / `a` queue a whole album, playlist or mix from any list, and `R` starts radio from the row, else from the artist page you are on, else from the song playing; radio replaces the queue, as on the web (from the song playing, that song plays on). At most 500 songs of one list go into the queue, with a notice. `M` opens the page's own menu: the header buttons' twins on a page (an artist's adds About; an album or playlist adds Load all, Find and About; your own playlist Edit playlist), the account on Library (**Add artists you like**: YouTube's suggested artists as a page, where `f` finds, Enter marks or unmarks one and the **Add N artists** row, pressed twice, adds the marked ones to your taste profile; it can only add, removing one is done on the web. Then Switch account, Audio quality, Content location, Record plays in history and Sign out), Autoplay, Clear, Save the queue, Tune the queue, Playback speed and Loudness on Now, the scopes and More filters on Search, Refresh (and that Undo) on Home, Refresh on Explore, the country on Charts. `?` lists every key; Enter on one runs it. |
 | Resume | After mpv has quit (idle timeout, logout, reboot) play/pause — middle click, media keys, `omarchy-shell ytmusic resume` or the Resume button — restores the queue, the track and its position. The snapshot is `~/.cache/omarchy-ytmusic/session.json`, saved after queue changes, on pause and every 30 s while playing. |
 | Search | Results appear as you type. **All** lists every kind of result in the order YouTube serves them under the top result (an artist's top result plays its Shuffle and Radio mixes from the menu): songs, videos, albums, artists, playlists, podcasts, episodes and profiles, each ending in **Show all**, which switches to that filter. The chips are All, Songs, Albums, Artists, Playlists and **More** (Videos, Featured and Community playlists, Podcasts, Episodes, Profiles; the chip then shows the one chosen); `h` / `l` cycle through all of them. A filtered list loads more as the cursor nears its end. Signed in, the chip at the end of the status line (or `M`) searches **YouTube Music**, your **Library** or your **Uploads**. When YouTube corrected your spelling the status says "Showing results for ..." and a **Search instead for** row searches the words as typed. An empty field lists your recent searches merged with your YouTube searches (signed in); `x` removes one, from YouTube too. While typing, matching recent searches and YouTube Music's suggestions show above the results, then up to five artists, songs or albums that open or play; click one, or `Tab` / `Shift+Tab` to put a suggestion in the field. A search is remembered only when it led somewhere (Enter, a result played, opened or queued, or an entry chosen from a result's menu), in `~/.cache/omarchy-ytmusic/searches.json`. Podcasts and profiles open as their browse pages for now, uploaded albums too. |
 | Shuffle / repeat | Buttons around the transport (or `s` / `r`). Shuffle mixes the songs after the current one and turning it off puts them back in their order (songs added meanwhile keep their places); with shuffle on, a clicked song plays first and the rest of its album or playlist follows shuffled, and a page's **Shuffle** button turns it on (an artist's plays YouTube's shuffle mix instead). Repeat cycles off → queue → this song (mpv's `loop-playlist` / `loop-file`, so MPRIS sees it too). Both are remembered in `~/.cache/omarchy-ytmusic/player.json`. |
 | Autoplay | On by default (**Autoplay** in the queue header, IPC `autoplay`): like the web's Up next, the queue never runs dry. Five seconds into a song with 3 or fewer songs after it, up to 10 more are appended as radio for whatever plays: an album or playlist goes on as its radio, a radio as it is, a single song as its own mix (songs before videos, nothing this queue already holds or played). If every pick is a repeat it tries the song's own radio once, then says "Autoplay found nothing new". The queue header shows **Playing from** (the album, playlist or radio) and one **Tune** chip (`t`, or a click, cycles All, Discover, Popular, Deep cuts and the rest; the Now page menu `M` lists them all): a chip replaces only the songs autoplay added, never yours, and songs you add go before autoplay's. For the song playing, its menu offers **Play video version** or **Play song version** when YouTube has the other one. Played songs more than 50 behind the current one leave the queue, so it stays small however long it runs; which entries autoplay added is kept in `~/.cache/omarchy-ytmusic/queue.json`. Off while repeat is on. |
 | Speed / loudness | `[` / `]` (any tab) or **Playback speed** in the Now page menu (`M`) play at 0.5x to 2x in steps of 0.25; Now shows a small **1.5x** badge (click it for the speeds) while it is not 1x. Music and podcast episodes keep separate speeds, applied whenever the kind of entry playing changes. **Loudness** in the same menu: **Off** (as the music comes), **YouTube** (like the web player: a song YouTube measures louder than its target is turned down by that much, never boosted; one more request per resolved song) or **Dynamic** (mpv's `dynaudnorm`, which evens out loud and quiet passages and so changes the music's dynamics). Both are remembered in `player.json`. A player started before `mpv/ytm-levels.lua` existed has it loaded by the shell (mpv's `load-script`). |
 | History | Off until you turn it on: **Record plays** on Library's account row (it reads **Recording plays** while on), **Record plays in history** in its `M` menu, or IPC `recordPlays`. Then every song, video or episode played for 10 s or more (mpv's position; a repeat-one loop counts again) goes to your YouTube Music history, as on the web, so it reaches History, Listen again, Recaps and your recommendations. Plays wait in `~/.cache/omarchy-ytmusic/pending-plays.json` (at most 200, none older than a day) and go in one batch when the worker is running anyway, when a panel opens, when 5 are waiting or 15 minutes after the oldest, so playing with the panel closed never starts the worker for one song. A batch whose outcome is unknown (the worker or the shell stopped mid-call) is dropped, not sent again: a missing play beats one counted twice. Turning it off, signing out or switching account drops what waits. While it is off, the first play of 10 s shows a one-time notice saying how to turn it on. On the History page, `x` pressed twice within 4 s (or the row's remove button clicked twice, or **Remove from history** in its menu) removes the entry from your YouTube Music history; it goes at once and comes back if YouTube refuses. |
+| Account / quality / location | Library's account row shows the account in use (its photo or name, or `M`, opens its menu). **Switch account** lists the identities of your session as the web's account switcher does: your own account and its brand accounts (and other Google accounts the browser is signed in to, when YouTube lists them); choosing one makes every later read and edit (Library, likes, playlists, history) go to it until you switch back, the row shows its name with **Brand account** under it, and the panel reads everything again. The choice is kept in `~/.config/omarchy-ytmusic/identity.json` (ids only, no names), so `bin/ytm` uses it too; signing in or out resets it. Another Google account is reached by signing in again as it (`bin/ytm auth --authuser N`, N its place in Chromium's account list). A brand account of another Google account signs in again as that account first, then you switch to it. If YouTube stops answering as the brand account in use (no longer managed), the session reads as expired and Library offers **Use your own account** besides signing in again. A brand account cannot remove History entries (YouTube Music does not support it): the remove button and menu entry are gone there and `x` says why. **Audio quality**: **Low** (about 70 kbps), **Normal** (about 128 kbps) or **High** (the best stream, Opus at about 130 to 160 kbps; the default), from the next song on, for the worker's stream lookups and mpv's own fallback alike. **Content location**: **Default** (YouTube decides from your connection) or one of the 109 countries YouTube Music supports, sent with every request for Home, Explore and search (signed in, the account's own region still decides most of Top songs and Trending), and Charts then opens in that country when Charts has it (68 countries do; for the others Charts stays where it was); the language stays English. Both are remembered in `player.json`. |
 | Panel keys | `1-5` switch tab: Now, Search, Library, Home, Explore · `/` search · `j` / `k` / `↑` / `↓` move · `g` first row · `G` last row (loads more), or a long list's Load all row · `Enter` play or open · `h` / `l` / `←` / `→` seek 10 s on Now, or the page's chips · `Esc` leave the field → close the picker, editor or menu → clear the filter → back → close · `Space` play/pause · `n` play next (a song, album or playlist) · `a` add to queue · `R` start radio from the row, the artist page or the current song · `s` shuffle · `r` repeat · `L` like · `S` save to library or subscribe (the row, else the page) · `D` dislike the row's song (again to undo) or the one playing, which skips · `p` add to playlist (the song, or a whole album or playlist row) · `A` go to artist (of the row, the album page or the current song) · `o` go to album · `J` / `K` move a queued song, or a song of your own playlist, down / up · `i` add the suggestion under the cursor to your playlist · `x` remove (queue, own playlist, Liked Music, recent search; History: press twice) · `m` / `.` the row's menu (or right-click) · `M` the page's menu (Library: account) · `O` next sort order on a page that has one (Charts: the country) · `f` find in a page's songs (album, playlist, Liked Music, History) or the suggested artists · `e` edit your playlist: details, order, voting, collaborators · `?` these keys · `y` cycle the pane under the song: Queue, Lyrics, Related · `t` cycle the queue tuner chip: All, Discover, Popular and the rest · `[` / `]` playback speed down / up (0.5x to 2x, kept apart for episodes). Shortcuts are off while typing, and Ctrl or Alt chords do nothing. Back returns to the row and scroll position you left. |
 | IPC | `search "query"` (opens the panel on the results) · `shuffle` / `repeat` / `autoplay` / `recordPlays` (toggle or cycle, print the new state; `recordPlays` is plays in YouTube Music history) · `like` / `unlike` / `toggleLike` (current track) · `signIn` / `signOut` / `reloadAuth` · `join "<invite link>"` (join a collaborative playlist; `bin/ytm join` does the same) |
 
@@ -161,7 +162,7 @@ after it closes.
 | `Panel.qml` | The dropdown (Omarchy `KeyboardPanel`): now playing + queue, keyboard control |
 | `Store.qml` | Last searches, the Explore page (30 min), recently opened pages (8, 5 min, Moods & genres a day, at most 3000 items each), the Library chips' lists (5 min, at most 2000 items each), Home's feed per chip (4 chips, 10 min, at most 40 shelves each), the songs' now contexts (20, 10 min) and lyrics (the 20 last shown, 30 min), swept every minute, shared by all panels and kept across panel unloads |
 | `components/` | `NowPlayingView`, `QueueView` (with the pane chip), `LyricsView`, `RelatedView`, `SearchView`, `LibraryView`, `HomeView`, `ExploreView`, `CollectionView`, `PlaylistPicker`, `PlaylistEditor`, `ItemMenu` (row menu, chooser, key help), `SignInCard`, `ResultList`, `TrackRow`, `CollectionRow`, `CoverArt`, `ConfirmGate`, `ExplicitBadge` |
-| `bin/ytm-mpv` | Starts/stops the detached mpv player (systemd user unit) |
+| `bin/ytm-mpv` | Starts/stops the detached mpv player (systemd user unit), with `player.json`'s audio quality as its `ytdl-format` |
 | `mpv/ytm-idle.lua` | Quits mpv after it has idled or been paused too long |
 | `mpv/ytm-streams.lua` | Plays the streams the worker resolved ahead of time (`user-data/ytm/streams`), falling back to yt-dlp |
 | `mpv/ytm-levels.lua` | Loudness levelling (`user-data/ytm/normalize`): YouTube's per-song gain as each file's own `volume-gain`, or the `dynaudnorm` filter |
@@ -179,12 +180,13 @@ after it closes.
 | `backend/ytm_edit.py` | Playlist edits: details, order, voting and collaboration (`editPlaylist`), moves, adds with the duplicate prompt, copies, joins; an owned playlist's settings and suggestions |
 | `backend/ytm_collections.py` | Albums, playlists, mixes, Liked Music and History (`album`, `playlist`, `liked`, `history`): first reads and whole reads, headers, related shelves |
 | `backend/ytm_history.py` | Plays reported to YouTube Music history (`reportPlays`, report lane) and History entries removed (`removeHistory`) |
+| `backend/ytm_account.py` | The session's identities (`accounts`), acting as a brand account or another login (`switchAccount`), the content location setting |
 | `backend/ytm_explore.py` | The Explore page (`explore`), Charts per country (`charts`), Moods & genres (`moods`) and a mood's playlists (`mood`), from ytmusicapi plus the raw rows |
 | `backend/ytm_raw.py` | Raw responses beside ytmusicapi's: per-thread capture, rows with See all/Play all endpoints, items by page type, HTTP counts; menu entries by icon (Listen again pins, Not interested, Don't recommend) |
 | `backend/ytm_normalize.py` | Turns ytmusicapi responses into stable Track/Album/Playlist/Artist/Collection/Page shapes |
-| `backend/ytm_auth.py` | Session files and sign-in (Chromium cookie import, pasted headers); the signed-out client |
+| `backend/ytm_auth.py` | Session files and sign-in (Chromium cookie import, pasted headers), the identity in use (`identity.json`); the signed-out client |
 | `backend/ytm_cache.py` | Response cache (schema-prefixed, cursor-free) and cover thumbnails |
-| `backend/ytm_streams.py` | Stream URLs through in-process yt-dlp (signed out, or with the account), with YouTube's loudness for levelling |
+| `backend/ytm_streams.py` | Stream URLs through in-process yt-dlp (signed out, or with the account) at the audio quality set, with YouTube's loudness for levelling |
 | `bin/ytm` | CLI wrapper (`uv run --script backend/ytm.py`, no bytecode) |
 | `scripts/test.sh` | Fixture secrets check + node + pytest, without caches |
 | `scripts/mem.sh` | PSS report: shell, mpv unit, worker |
@@ -194,7 +196,7 @@ Private files live outside this repository:
 
 | Path | Contents |
 |---|---|
-| `~/.config/omarchy-ytmusic/` (0700) | `browser.json`, `cookies.txt` (0600), `account.json` |
+| `~/.config/omarchy-ytmusic/` (0700) | `browser.json`, `cookies.txt` (0600), `account.json`, `identity.json` (the brand account or login in use: ids only) |
 | `$XDG_RUNTIME_DIR/omarchy-ytmusic/` (0700) | mpv IPC socket |
 | `~/.cache/omarchy-ytmusic/` (0700) | resume snapshot (`session.json`), preferences (`player.json`), recent searches (`searches.json`), the queue's autoplay entries, "Playing from" and tuner chip (`queue.json`), plays waiting for YouTube Music history (`pending-plays.json`), response and cover caches |
 
@@ -256,7 +258,11 @@ Checked in Phase 7 (2026-09-11):
 - The session lives in `~/.config/omarchy-ytmusic/` (0700; `browser.json`,
   `cookies.txt`, `account.json` 0600). The shell only reads `account.json`
   (name, handle, photo); the worker reads the session, and mpv's yt-dlp only
-  when `YTM_STREAM_WITH_ACCOUNT=1`, and then by file path.
+  when `YTM_STREAM_WITH_ACCOUNT=1`, and then by file path. `identity.json`
+  (0600) holds only the ids of the identity in use (a brand account's
+  pageId, a login index); the names of the session's identities stay in
+  the worker's replies and the shell's memory (`accounts` is not cached),
+  never in a file or the log.
 - No session data in the git history (scanned for cookie values and account
   e-mails), the journal, `omarchy-shell ytmusic status` or process command
   lines. Recorded fixtures are scrubbed, and `scripts/test.sh` fails on
@@ -299,17 +305,17 @@ Methods: `ping`, `hello`, `reloadAuth`, `verifyAuth`, `configure`, `search`,
 `suggestions`, `removeSuggestion`, `homeFeed`, `shelfQueue`, `homeLegacy`,
 `history`, `libraryPlaylists`, `librarySongs`, `libraryAlbums`,
 `libraryArtists`, `librarySubscriptions`, `libraryLanding`, `playlist`,
-`liked`, `album`, `artist`, `artistAlbums`, `song`, `browsePage`,
-`tracksFor`, `radio`, `albumBrowseId`, `nowContext`, `lyrics`, `related`,
-`credits`, `upNext` (autoplay), `queueFrom`, `explore`, `charts`, `moods`,
-`mood`, `resolve`, `warmStreams`, `cacheThumbs`, `likeStatus`, `rate`,
+`liked`, `album`, `artist`, `artistAlbums`, `song`, `browsePage`, `tracksFor`,
+`radio`, `albumBrowseId`, `nowContext`, `lyrics`, `related`, `credits`,
+`upNext` (autoplay), `queueFrom`, `explore`, `charts`, `moods`, `mood`,
+`resolve`, `warmStreams`, `cacheThumbs`, `likeStatus`, `rate`,
 `createPlaylist`, `addToPlaylist`, `removeFromPlaylist`, `deletePlaylist`,
 `editPlaylist`, `movePlaylistItem`, `joinPlaylist`, `playlistSettings`,
 `playlistSuggestions`, `rateCollection`, `subscribe`, `songLibrary`,
-`feedback`, `tasteProfile`, `setTasteProfile`, `reportPlays`,
-`removeHistory`, `shutdown`. Error codes: `AUTH_REQUIRED`, `AUTH_EXPIRED`,
-`BAD_REQUEST`, `NOT_FOUND`, `NETWORK`, `RATE_LIMITED` (retryable),
-`UPSTREAM` (unexpected response; ytmusicapi may need an update),
+`feedback`, `tasteProfile`, `setTasteProfile`, `reportPlays`, `removeHistory`,
+`accounts`, `switchAccount`, `shutdown`. Error codes: `AUTH_REQUIRED`,
+`AUTH_EXPIRED`, `BAD_REQUEST`, `NOT_FOUND`, `NETWORK`, `RATE_LIMITED`
+(retryable), `UPSTREAM` (unexpected response; ytmusicapi may need an update),
 `DUPLICATE` (`addToPlaylist`: already in that playlist), `INTERNAL`.
 
 - **Registry.** The core methods live in `backend/ytm.py`; each area module
@@ -457,7 +463,11 @@ Methods: `ping`, `hello`, `reloadAuth`, `verifyAuth`, `configure`, `search`,
   and a new worker starts with them, so the configure after a restart that
   repeats them neither rebuilds the client nor clears the cache. Settings
   today: `normalize` (`off`, `youtube`, `dynamic`; the shell's loudness
-  levelling, see `resolve`).
+  levelling, see `resolve`), `quality` (`low`, `normal`, `high`; the
+  resolver's yt-dlp format, see `resolve`) and `location` (a client
+  setting: one of ytmusicapi's `SUPPORTED_LOCATIONS`, passed as
+  `YTMusic(location=...)`; `""` or no key is YouTube's own guess; `ZZ` and
+  unknown codes are `BAD_REQUEST`). The language stays English.
 - **Home** (`homeFeed({params?, cursor?})`, on the pages lane) reads the
   raw `FEmusic_home` browse and parses each row on its own, so every shelf
   the web shows is there (podcasts, episodes, profiles, library artists and
@@ -697,9 +707,37 @@ Methods: `ping`, `hello`, `reloadAuth`, `verifyAuth`, `configure`, `search`,
   `historyToken` (fresh replies only) through `remove_history_items`; a
   token YouTube does not process is `UPSTREAM` with `stale: true` (the page
   was out of date, and the shell reads History again). ytmusicapi notes that
-  removing does not work for brand accounts. Both drop the cached History.
-- **`resolve({videoId, account?})`** says which yt-dlp instance it used
+  removing does not work for brand accounts, so as one `removeHistory` is
+  `BAD_REQUEST` with nothing sent. Both drop the cached History.
+- **Accounts** (signed in, unlaned, never cached). `accounts({})` reads the
+  web's account switcher (raw `account/accounts_list`, one request):
+  `{items: [{index, name, handle, photo, selected, brand, pageId?, authUser,
+  otherLogin}], identity}`, the session's own account first, then its brand
+  accounts (`pageId`), then other Google logins' when YouTube lists them
+  (`authUser` from each identity's sign-in URL). `switchAccount({pageId|null,
+  authUser?})` acts as that identity from now on: it saves the ids in
+  `identity.json` (0600, no names), rebuilds the client as
+  `YTMusic(auth, user=pageId)` (another login: its `X-Goog-AuthUser`, in
+  memory; `browser.json` is never rewritten), which bumps the generation,
+  clears the disk cache and checks the new identity with one account-menu
+  request; if YouTube does not answer as it, the previous identity is
+  restored (`UPSTREAM`; `NETWORK` or `RATE_LIMITED` when it cannot tell;
+  `AUTH_EXPIRED` when the session's own account does not answer). `{identity,
+  changed, account: {name, handle, photo}, auth}`. When YouTube stops
+  answering as the saved identity (a brand account no longer managed: HTTP
+  500), the session check marks the session expired, but `accounts` (then
+  read as the session's own account) and `switchAccount` still work, so
+  `switchAccount({pageId: null})` goes back. `identity` (`{key, brand, own,
+  authUser}`, the key a hash, no names) is also in `hello` and the ready
+  event when signed in. Called through `bin/ytm call`, a switch asks a
+  running shell to reload. As a brand account, `removeHistory` (and S10's
+  uploads, `ytm_account.require_upload_identity`) answer `BAD_REQUEST`.
+- **`resolve({videoId, account?, quality?})`** says which yt-dlp instance it used
   (`account: true|false`); without a saved session it is always signed out.
+  `quality` (else the setting; `high` by default) picks the format: `low`
+  `bestaudio[abr<=70]/worstaudio`, `normal` `bestaudio[abr<=130]/bestaudio`,
+  `high` `bestaudio[acodec=opus]/bestaudio/best` (mpv's `ytdl-format` gets
+  the same string); `format` and `abr` in the reply say what was picked.
   While the `normalize` setting is `youtube` the reply also carries
   `loudnessDb`: `playerConfig.audioConfig.loudnessDb` of the song's player
   response (dB above YouTube Music's loudness target; one request through the
@@ -780,6 +818,21 @@ call and reports `AUTH_EXPIRED` if that lookup fails.
   (turned down 3.49 dB), "Bangarang" +2.27, "Karma Police" -1.43 and "High
   and Dry" -5.53 (left alone); the extra `player` request takes 0.23 to
   0.43 s on the streams lane, 0 for a song asked before.
+- **Account, quality and location (S16).** Measured 2026-11-10: the
+  account switcher (`account/accounts_list`) lists each identity with its
+  `pageIdToken` (brand accounts) and a sign-in URL whose `authuser` names
+  its Google login; under `YTMusic(auth, user=pageId)` YouTube marks the
+  brand account selected, the account menu names it, and Library differs
+  (22 playlists against 2). A second login could not be checked (one login
+  in the session): `X-Goog-AuthUser: 1` there answers a signed-out account
+  menu, so other logins are reached by signing in again as them. Karma
+  Police resolves to opus 250 at 68.8 kbps (Low), AAC 140 at 129.6 (Normal)
+  and opus 251 at 135.0 (High). `location` sets the client's `gl`: signed
+  out it changes New releases a lot (12 of 24 shared between the default
+  and US); signed in, Top songs and Trending stay the account's own and
+  only New releases move a little (against the default, AU shares 16 of 24
+  New albums & singles and 20 of 24 New music videos, US 18 of 24 New
+  releases, GB 24 of 24).
 - **Likely picks.** While a panel is open, the stream of what you'll
   probably play next — a search's first song, the row under the keyboard
   cursor or the pointer after 350 ms — is resolved in the background (one at

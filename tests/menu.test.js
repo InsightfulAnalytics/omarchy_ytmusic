@@ -55,9 +55,13 @@ test("menuActions per type", () => {
 
 test("menuActions follow ctx: signed out hides account entries; page, queue and current rows", () => {
   assert.ok(!ids(Model.menuActions(song, { signedIn: false })).includes("addToPlaylist"))
-  // S14: the taste builder, then S15: Record plays in history, both before Sign out.
-  assert.deepEqual(ids(Model.menuActions(null, { page: true, pageKind: "library", signedIn: true })), ["tasteProfile", "recordHistory", "signOut"])
-  assert.deepEqual(ids(Model.menuActions(null, { page: true, pageKind: "library", signedIn: false })), ["signIn"])
+  // S14: the taste builder; S16: Switch account, Audio quality and Content
+  // location (the last two signed out too); S15: Record plays in history;
+  // all before Sign out.
+  assert.deepEqual(ids(Model.menuActions(null, { page: true, pageKind: "library", signedIn: true })),
+    ["tasteProfile", "switchAccount", "audioQuality", "contentLocation", "recordHistory", "signOut"])
+  assert.deepEqual(ids(Model.menuActions(null, { page: true, pageKind: "library", signedIn: false })),
+    ["audioQuality", "contentLocation", "signIn"])
   // A row's menu on Library or Home has no account or page entries.
   assert.deepEqual(ids(Model.menuActions(playlist, { pageKind: "library", signedIn: true })),
     ["play", "shuffle", "playNext", "addToQueue", "radio", "saveToPlaylist", "copyToNewPlaylist", "share"])

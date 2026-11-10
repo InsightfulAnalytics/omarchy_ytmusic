@@ -10,6 +10,9 @@ Column {
   property var service: null
   property QtObject bar: null
   property bool expired: false
+  // S16: expired while acting as a brand account or another login, which
+  // may be all YouTube stopped answering as (Service.useOwnAccount).
+  property bool canUseOwnAccount: false
 
   readonly property color foreground: bar ? bar.foreground : Color.foreground
   readonly property string fontFamily: bar ? bar.fontFamily : Style.font.family
@@ -44,6 +47,27 @@ Column {
     text: root.expired ? "Sign in again" : "Sign in"
     foreground: root.foreground
     onClicked: if (root.service) root.service.signIn()
+  }
+
+  // S16
+  Text {
+    width: parent.width
+    visible: root.canUseOwnAccount
+    textFormat: Text.PlainText
+    text: "YouTube Music stopped answering as the brand account or Google login in use. "
+      + "Your own account may still work."
+    color: Qt.darker(root.foreground, 1.3)
+    font.family: root.fontFamily
+    font.pixelSize: Style.font.bodySmall
+    wrapMode: Text.Wrap
+  }
+
+  Button {
+    visible: root.canUseOwnAccount
+    iconText: "󰀄"
+    text: "Use your own account"
+    foreground: root.foreground
+    onClicked: if (root.service) root.service.useOwnAccount()
   }
 
   Text {

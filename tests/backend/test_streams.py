@@ -294,3 +294,91 @@ def test_a_failed_stream_asks_no_loudness():
     worker.handle({"id": 1, "method": "configure", "params": {"normalize": "youtube"}})
     assert resolve(worker)["error"]["code"] == "NOT_FOUND"
     assert client.requests == []
+
+
+# ---- quality (S16) ------------------------------------------------------------------------
+# The worker setting `quality` (prefs.quality) picks the resolver's format;
+# the shell gives mpv's own fallback (ytdl-format) the same strings.
+
+
+def test_quality_formats():
+    assert streams.QUALITIES == ("low", "normal", "high")
+    assert streams.QUALITY_FORMATS == {"low": "bestaudio[abr<=70]/worstaudio",
+                                       "normal": "bestaudio[abr<=130]/bestaudio",
+                                       "high": "bestaudio[acodec=opus]/bestaudio/best"}
+    assert streams.format_for("high") == streams.FORMAT == streams.format_for(None) == streams.format_for("x")
+    assert streams.format_for("low") == "bestaudio[abr<=70]/worstaudio"
+
+
+def test_quality_formats_match_the_shell_and_the_player_script():
+    from conftest import ROOT
+
+    model = (ROOT / "YtmModel.js").read_text()
+    player = (ROOT / "bin" / "ytm-mpv").read_text()
+    for quality, fmt in streams.QUALITY_FORMATS.items():
+        assert f'{quality}: "{fmt}"' in model, f"YtmModel.js QUALITY_FORMATS.{quality}"
+        assert f"'{fmt}'" in player, f"bin/ytm-mpv {quality}"
+
+
+def test_each_quality_has_its_own_instance_and_format(config_dir, monkeypatch):
+    monkeypatch.delenv("YTM_STREAM_WITH_ACCOUNT", raising=False)
+    make = factory(info={"url": "https://x/a?expire=5", "format_id": "249", "abr": 50.1})
+    resolver = streams.Resolver(factory=make)
+    resolver.resolve("v")
+    resolver.resolve("v", quality="low")
+    resolver.resolve("w", quality="low")
+    resolver.resolve("v", quality="high")
+    assert [y.opts["format"] for y in make.made] == [streams.FORMAT, "bestaudio[abr<=70]/worstaudio"]
+    assert [len(y.calls) for y in make.made] == [2, 2]
+    resolver.warm("normal")
+    assert make.made[-1].opts["format"] == "bestaudio[abr<=130]/bestaudio" and len(make.made) == 3
+
+
+class QualityResolver(FakeResolver):
+    def __init__(self):
+        super().__init__({"url": "https://x", "expires": 5})
+        self.asked = []
+
+    def resolve(self, video_id, account=None, quality=None):
+        self.asked.append(quality)
+        return super().resolve(video_id, account)
+
+
+def test_worker_resolves_at_the_quality_set():
+    resolver = QualityResolver()
+    worker = ytm.Worker(object(), "none", resolver=resolver)
+    assert worker.handle({"id": 1, "method": "resolve", "params": {"videoId": "abc"}})["ok"]
+    reply = worker.handle({"id": 2, "method": "configure", "params": {"quality": "low"}})
+    assert reply["result"] == {"settings": {"quality": "low"}, "ignored": [], "reloaded": False}
+    assert "quality" not in ytm.CLIENT_SETTINGS, "quality never rebuilds the client or clears the cache"
+    worker.handle({"id": 3, "method": "resolve", "params": {"videoId": "abc"}})
+    worker.handle({"id": 4, "method": "resolve", "params": {"videoId": "abc", "quality": "normal"}})
+    worker.handle({"id": 5, "method": "configure", "params": {"quality": "high"}})
+    worker.handle({"id": 6, "method": "resolve", "params": {"videoId": "abc"}})
+    assert resolver.asked == [None, "low", "normal", None], "high is the resolver's default (no argument)"
+    bad = worker.handle({"id": 7, "method": "resolve", "params": {"videoId": "abc", "quality": "best"}})
+    assert bad["error"]["code"] == "BAD_REQUEST" and resolver.asked[-1] is None and len(resolver.asked) == 4
+    for value in ("ultra", None, 1):
+        assert worker.handle({"id": 8, "method": "configure", "params": {"quality": value}})["error"]["code"] == "BAD_REQUEST"
+
+
+def test_warm_up_loads_the_instance_for_the_quality_set():
+    class WarmResolver(QualityResolver):
+        def __init__(self):
+            super().__init__()
+            self.warmed = []
+
+        def warm(self, quality=None):
+            self.warmed.append(quality)
+
+    resolver = WarmResolver()
+    worker = ytm.Worker(object(), "none", resolver=resolver)
+    assert worker.handle({"id": 1, "method": "warmStreams"})["ok"]
+    worker.wait_for_warm()
+    assert worker.handle({"id": 2, "method": "configure", "params": {"quality": "low"}})["ok"]
+    assert worker.handle({"id": 3, "method": "warmStreams"})["ok"]
+    worker.wait_for_warm()
+    assert worker.handle({"id": 4, "method": "configure", "params": {"quality": "high"}})["ok"]
+    assert worker.handle({"id": 5, "method": "warmStreams"})["ok"]
+    worker.wait_for_warm()
+    assert resolver.warmed == [None, "low", None], "high (and none set) warms the default instance"

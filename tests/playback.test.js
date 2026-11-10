@@ -135,9 +135,11 @@ test("loudness modes, the chooser and the worker's settings", () => {
   const rows = Model.normalizeChoices("youtube")
   assert.deepEqual(rows.map(r => r.value), ["off", "youtube", "dynamic"])
   assert.deepEqual(rows.filter(r => r.icon === "󰄬").map(r => r.value), ["youtube"])
-  assert.deepEqual(Model.workerSettings(Model.parsePrefs("")), { normalize: "off" })
-  assert.deepEqual(Model.workerSettings(Model.withPref(Model.parsePrefs(""), "normalize", "youtube")), { normalize: "youtube" })
-  assert.deepEqual(Model.workerSettings(null), { normalize: "off" })
+  // S16 adds quality (and location once one is set).
+  assert.deepEqual(Model.workerSettings(Model.parsePrefs("")), { normalize: "off", quality: "high" })
+  assert.deepEqual(Model.workerSettings(Model.withPref(Model.parsePrefs(""), "normalize", "youtube")),
+    { normalize: "youtube", quality: "high" })
+  assert.deepEqual(Model.workerSettings(null), { normalize: "off", quality: "high" })
 })
 
 test("the Now page menu has Playback speed and Loudness; [ and ] step the speed", () => {

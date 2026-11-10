@@ -217,3 +217,58 @@ def test_anonymous_client_uses_the_factory_once(monkeypatch):
     first = auth.anonymous_client(factory=make)
     assert auth.anonymous_client(factory=make) is first
     assert made == [{"language": "en"}]
+
+
+# ---- identity and client settings (S16) ---------------------------------------------------
+
+
+class KwargsClient(FakeClient):
+    def __init__(self, path=None, **kwargs):
+        super().__init__(path)
+        self.kwargs = kwargs
+        self._auth_headers = {"x-goog-authuser": "0"} if path else {}
+
+
+def test_load_client_passes_identity_and_location(config_dir):
+    config_dir.mkdir(parents=True)
+    (config_dir / "browser.json").write_text(json.dumps({"cookie": "SID=a", "x-goog-authuser": "0"}))
+    client, state = auth.load_client(factory=KwargsClient)
+    assert state == "ok" and client.kwargs == {}, "no identity, no settings: YTMusic(path) as before"
+    client, _ = auth.load_client(factory=KwargsClient, settings={"location": "AU"},
+                                 identity={"pageId": "1234", "authUser": None})
+    assert client.kwargs == {"user": "1234", "location": "AU"} and client._auth_headers["x-goog-authuser"] == "0"
+    client, _ = auth.load_client(factory=KwargsClient, identity={"pageId": None, "authUser": 2})
+    assert client.kwargs == {} and client._auth_headers["x-goog-authuser"] == "2"
+    assert json.loads((config_dir / "browser.json").read_text())["x-goog-authuser"] == "0", "set in memory only"
+    assert auth.load_client(factory=KwargsClient, settings={"location": "ZZ"})[0].kwargs == {}
+
+
+def test_load_client_signed_out_ignores_the_identity(config_dir):
+    client, state = auth.load_client(factory=KwargsClient, settings={"location": "DE"},
+                                     identity={"pageId": "1234", "authUser": 1})
+    assert state == "none" and client.kwargs == {"location": "DE"} and client.path is None
+
+
+def test_identity_file_is_private_ids_only(config_dir):
+    assert auth.read_identity() is None
+    auth.save_identity(auth.checked_identity("1234", 1))
+    path = config_dir / "identity.json"
+    assert mode(path) == 0o600 and mode(config_dir) == 0o700
+    assert json.loads(path.read_text()) == {"version": 1, "pageId": "1234", "authUser": 1}
+    assert auth.read_identity() == {"pageId": "1234", "authUser": 1}
+    auth.save_identity(None)
+    assert not path.exists() and auth.read_identity() is None
+    assert auth.checked_identity(None, None) is None
+    for page_id, auth_user in (("12a", None), (5, None), (None, 10), (None, -1), (None, True), (None, 1.0)):
+        with pytest.raises(ValueError):
+            auth.checked_identity(page_id, auth_user)
+
+
+def test_saved_auth_user_reads_the_session_index(config_dir):
+    assert auth.saved_auth_user() == 0
+    config_dir.mkdir(parents=True)
+    (config_dir / "browser.json").write_text(json.dumps({"X-Goog-AuthUser": "2"}))
+    assert auth.saved_auth_user() == 2
+    (config_dir / "browser.json").write_text("{broken")
+    assert auth.saved_auth_user() == 0
+    assert auth.session_auth_user(KwargsClient("p")) == 0 and auth.session_auth_user(object()) == 0

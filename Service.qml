@@ -173,10 +173,12 @@ Item {
     }
     _resolving[videoId] = callback ? [callback] : []
     resolvingCount++
+    var epoch = _qualityEpoch  // S16
     backend.request("resolve", { videoId: videoId }, function(reply) {
       var waiting = root._resolving[videoId] || []
       delete root._resolving[videoId]
       root.resolvingCount = Math.max(0, root.resolvingCount - 1)
+      if (reply.ok && epoch !== root._qualityEpoch) return root._resolveAgain(videoId, waiting)  // S16: old quality
       if (reply.ok) root.addStream(videoId, reply.result)
       else console.warn("ytmusic: no stream for " + videoId + ": " + reply.error.message)
       for (var i = 0; i < waiting.length; i++) waiting[i](reply.ok)
@@ -814,6 +816,7 @@ Item {
   // Called by `ytm auth` / `ytm logout` over IPC after they change the files.
   function reloadAuth() {
     accountFile.reload()
+    identityFile.reload()  // S16: a switch by `bin/ytm call switchAccount`
     applyAuthChange()
     return true
   }
@@ -846,8 +849,9 @@ Item {
   onAuthStateChanged: {
     if ((authState === "expired" || authState === "invalid") && !expiryNotified) {
       expiryNotified = true
+      var notice = Model.expiryNotice(authState === "expired" ? identity : null)  // S16: perhaps only the identity in use
       Quickshell.execDetached(["omarchy-notification-send", "--app-name", "YouTube Music",
-        "YouTube Music sign-in expired", "Click to sign in again (or use the Library tab).",
+        notice.title, notice.body,
         "--exec", "omarchy-launch-floating-terminal-with-presentation", signInCommand()])
     }
   }
@@ -1793,6 +1797,292 @@ Item {
     }
     function onPrefsLoadedChanged() { root._armReportTimer() }
     function onSignedInChanged() { root._armReportTimer() }
+  }
+
+  // ---- account (S16) -------------------------------------------------------------------
+  // Library's account menu: Switch account, Audio quality, Content location.
+  // - The identity the worker acts as is Backend.identity ({ key, brand, own,
+  //   authUser }, from its ready event, hello, accounts and switchAccount).
+  //   Before the worker said (and while it is stopped) identity.json tells
+  //   which kind it is, without names. The session's identities
+  //   (`accounts`) and the name of a brand account in use live in memory
+  //   only: names never reach a file or the log. Another identity (switched
+  //   here, or by `bin/ytm call switchAccount` and reloadAuth) empties the
+  //   Store and drops plays waiting for history: they belong to the one
+  //   before.
+  // - When YouTube stops answering as the brand account or login in use, the
+  //   session reads as expired: Library offers your own account
+  //   (useOwnAccount), which checks the session itself.
+  // - The audio quality (prefs.quality) is the worker's resolver format and
+  //   mpv's ytdl-format, set over IPC because the player unit's
+  //   --ytdl-format is fixed when it starts (bin/ytm-mpv reads player.json).
+  // - The content location (prefs.location) is the worker's client setting;
+  //   a change empties the Store too (the worker clears its disk cache).
+
+  // identity.json as Model.savedIdentity() reads it; null before it was read.
+  property var _savedIdentity: null
+  property string _identityText: ""
+  readonly property var identity: Model.shownIdentity(account !== null, backend.workerState === "ready",
+                                                      backend.identity, _savedIdentity)
+  readonly property bool identityBrand: !!identity && identity.brand === true
+  // Expired while acting as another identity: your own account may still work.
+  readonly property bool canUseOwnAccount: authState === "expired" && Model.otherIdentity(identity)
+  // { name, handle, photo } of the brand account or other login in use, or null.
+  property var identityInfo: null
+  // What the account row shows (account.json's for the session's own account).
+  readonly property var activeAccount: Model.activeAccount(account, identity, identityInfo)
+  // The last `accounts` reply as { items, at }, or null.
+  property var accounts: null
+  property bool accountsLoading: false
+  property var _accountsWaiting: []
+  property bool switching: false
+  // Counted up when the identity or the location changes: a list on show
+  // reads itself again (LibraryView).
+  property int accountEpoch: 0
+  property string _identityKey: ""
+  property string _accountSeen: ""
+  // Counted up by setQuality: a stream asked for before is at the old quality.
+  property int _qualityEpoch: 0
+  readonly property string quality: Model.qualityMode(prefs.quality)
+  readonly property string location: Model.locationCode(prefs.location)
+  // mpv's ytdl-format (its yt-dlp fallback); "" before the prefs are read.
+  readonly property string ytdlFormat: prefsLoaded ? Model.qualityFormat(quality) : ""
+
+  onYtdlFormatChanged: _applyYtdlFormat()
+
+  function _applyYtdlFormat() {
+    if (ytdlFormat !== "" && mpv.up) mpv.command(["set_property", "ytdl-format", ytdlFormat])
+  }
+
+  // From the next song on: streams resolved at the old quality are
+  // forgotten (the song playing keeps its own) and the next one is
+  // resolved again, after the binding has sent the worker the new setting.
+  function setQuality(value) {
+    var next = Model.qualityMode(value)
+    if (next === quality) return true
+    _qualityEpoch++
+    setPref("quality", next)
+    Qt.callLater(root._requalifyStreams)
+    return true
+  }
+
+  // A lookup sent before a quality change answered (resolveStream): its
+  // stream is not kept; the song is looked up again at the new quality and
+  // `waiting` (resolveStream's callbacks) runs when that answers.
+  function _resolveAgain(videoId, waiting) {
+    resolveStream(videoId, function(ok) {
+      for (var i = 0; i < waiting.length; i++) waiting[i](ok)
+    })
+  }
+
+  function _requalifyStreams() {
+    var keep = currentTrack && currentTrack.videoId && streams[currentTrack.videoId] ? currentTrack.videoId : ""
+    var next = ({})
+    if (keep !== "") next[keep] = streams[keep]
+    streams = next
+    pushStreams()
+    preResolveUpcoming()
+  }
+
+  // A location Charts has also opens Charts there next (S6's chartsCountry);
+  // the default and the locations Charts lacks leave Charts where it was.
+  function setLocation(code) {
+    var next = Model.locationCode(code)
+    if (next === location) return true
+    setPref("location", next)
+    var country = Model.chartsCountryForLocation(next)
+    if (country !== "") setPref("chartsCountry", country)
+    _contentChanged()
+    return true
+  }
+
+  function _contentChanged() {
+    storeItem.reset()
+    accountEpoch++
+  }
+
+  // The worker reported its identity: another one than before (both signed
+  // in) means what shows and what waits belong to the old one.
+  function _identitySeen() {
+    var reported = backend.identity
+    var key = reported && typeof reported.key === "string" ? reported.key : ""
+    if (key === _identityKey) return
+    identityFile.reload()  // the worker may have written it
+    var before = _identityKey
+    _identityKey = key
+    accounts = null
+    identityInfo = null
+    if (before !== "" && key !== "") {
+      dropPendingPlays()  // S15
+      _contentChanged()
+    }
+    // After the reply that brought it: switchAccount's names the identity itself.
+    Qt.callLater(root._nameIdentity)
+  }
+
+  // A brand account or another login in use: ask the worker its name, once,
+  // while a panel is open to show it.
+  function _nameIdentity() {
+    if (!Model.otherIdentity(identity) || identityInfo || !signedIn || panelsOpen === 0 || accountsLoading) return
+    loadAccounts(null)
+  }
+
+  // callback(reply) with reply.result.items (a list younger than
+  // Model.ACCOUNTS_TTL_MS is used again). One request at a time.
+  function loadAccounts(callback) {
+    if (Model.accountsFresh(accounts, Date.now())) {
+      _nameFrom(accounts.items)
+      if (callback) callback({ ok: true, result: { items: accounts.items } })
+      return
+    }
+    if (callback) _accountsWaiting = _accountsWaiting.concat([callback])
+    if (accountsLoading) return
+    accountsLoading = true
+    backend.request("accounts", ({}), function(reply) {
+      root.accountsLoading = false
+      var waiting = root._accountsWaiting
+      root._accountsWaiting = []
+      if (reply.ok) {
+        var items = reply.result && Array.isArray(reply.result.items) ? reply.result.items : []
+        root.accounts = { items: items, at: Date.now() }
+        root._nameFrom(items)
+      }
+      for (var i = 0; i < waiting.length; i++) waiting[i](reply)
+    })
+  }
+
+  // The name of the brand account or login in use, from the list's selected one.
+  function _nameFrom(items) {
+    var chosen = Model.selectedAccount(items)
+    if (chosen && Model.otherIdentity(identity))
+      identityInfo = { name: chosen.name || "", handle: chosen.handle || "", photo: chosen.photo || "" }
+  }
+
+  // Library's Switch account: the chooser opens once the list is there (on
+  // the panel it was asked from, if it is still open).
+  function openAccountChooser(panel) {
+    if (!signedIn) return false
+    loadAccounts(function(reply) {
+      if (!reply.ok) {
+        root.failAction("Accounts not loaded", reply.error ? reply.error.message : "")
+        return
+      }
+      if (!panel || panel.opened === false || typeof panel.openChooser !== "function") return
+      panel.openChooser({ title: "Switch account", subtitle: "Likes, playlists and history go to the account in use",
+                          choices: Model.accountChoices(reply.result.items),
+                          onChoice: function(choice) { root.chooseAccount(choice.value) } })
+    })
+    return true
+  }
+
+  // A chooser row's value ({ kind, item }, Model.accountChoices).
+  function chooseAccount(value) {
+    if (!value) return false
+    if (value.kind === "switch") return switchAccount(value.item)
+    if (value.kind === "signIn") {
+      if (value.item.brand === true) {  // the login's own account first, then a switch
+        var first = Model.signInFirstNotice(value.item)
+        notify(first.title, first.body)
+      }
+      return signInAs(value.item.authUser)
+    }
+    if (value.kind === "another") {
+      var notice = Model.anotherLoginNotice()
+      notify(notice.title, notice.body)
+      return true
+    }
+    return false  // the one in use
+  }
+
+  // The worker acts as `item` (an `accounts` item) from now on; the identity
+  // watcher above empties the Store when its reply arrives.
+  function switchAccount(item) {
+    if (!item || !signedIn) return false
+    return _sendSwitch(Model.switchParams(item), item)
+  }
+
+  // Back to the session's own account while the session reads as expired
+  // as another identity (Library's card and M). The worker checks the
+  // session as that account; its reply's auth says whether it answered.
+  function useOwnAccount() {
+    if (!canUseOwnAccount) return false
+    return _sendSwitch({ pageId: null }, null)
+  }
+
+  function _sendSwitch(params, item) {
+    if (switching) return false
+    switching = true
+    backend.request("switchAccount", params, function(reply) {
+      root.switching = false
+      if (!reply.ok) {
+        root.failAction("Account not switched", reply.error ? reply.error.message : "")
+        return
+      }
+      var result = reply.result || {}
+      if (result.auth === "ok") root.expiryNotified = false  // a later expiry tells again
+      if (result.account && Model.otherIdentity(root.identity)) root.identityInfo = result.account
+      var notice = Model.switchedNotice(item, result.account)
+      root.notify(notice.title, notice.body)
+    }, 30000)
+    return true
+  }
+
+  // Another Google login of the browser: sign in again as it.
+  function signInAs(authUser) {
+    if (typeof authUser !== "number") return false
+    Quickshell.execDetached(["omarchy-launch-floating-terminal-with-presentation",
+                             signInCommand() + " --authuser " + Math.floor(authUser)])
+    return true
+  }
+
+  Connections {
+    target: backend
+    function onIdentityChanged() { root._identitySeen() }
+  }
+
+  // Read at start and again when the worker reports another identity or
+  // `ytm` asks for reloadAuth; the worker writes it (0600, ids only).
+  FileView {
+    id: identityFile
+    path: root.configDir + "/identity.json"
+    watchChanges: true
+    printErrors: false
+    onLoaded: root._identityFileRead(text())
+    onLoadFailed: root._identityFileRead("")
+    onFileChanged: reload()
+  }
+
+  function _identityFileRead(text) {
+    var changed = text !== _identityText
+    _identityText = text
+    _savedIdentity = Model.savedIdentity(text)
+    // Switched while the worker is stopped (`bin/ytm call switchAccount`):
+    // the name and the list were the identity's before.
+    if (changed && backend.workerState !== "ready") {
+      identityInfo = null
+      accounts = null
+    }
+    Qt.callLater(root._nameIdentity)
+  }
+
+  Connections {
+    target: mpv
+    function onReady() { root._applyYtdlFormat() }
+  }
+
+  Connections {
+    target: root
+    function onPanelsOpenChanged() { root._nameIdentity() }
+    function onSignedInChanged() { root._nameIdentity() }
+    // Signed out or in again: the list and the name were the old session's.
+    function onAccountChanged() {
+      var seen = JSON.stringify(root.account)
+      if (seen === root._accountSeen) return
+      root._accountSeen = seen
+      root.accounts = null
+      root.identityInfo = null
+      root._nameIdentity()
+    }
   }
 
   // ---- playlists ---------------------------------------------------------------------
@@ -2801,6 +3091,9 @@ Item {
       lastError: lastError,
       // S15: plays recorded in YouTube Music history.
       history: { record: recordHistory, pending: pendingPlays.length, reporting: _reporting, noticeShown: historyNoticeShown },
+      // S16: the identity in use (no names), the audio quality and the content location.
+      account: { identity: identity ? { brand: identity.brand === true, own: identity.own !== false, authUser: identity.authUser } : null,
+                 quality: quality, ytdlFormat: ytdlFormat, location: location, accounts: accounts ? accounts.items.length : null },
       streams: {
         fresh: Object.keys(Model.pruneStreams(streams, nowSec(), 50)),
         resolving: resolvingCount,
