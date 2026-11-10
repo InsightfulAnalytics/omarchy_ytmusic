@@ -70,6 +70,8 @@ def test_requested_formats_fallback_and_missing_url():
     ("ERROR: [youtube] abc: Private video. Sign in", "NOT_FOUND", False),
     ("ERROR: [youtube] abc: Unable to download API page: timed out", "NETWORK", True),
     ("ERROR: [youtube] abc: Some new signature problem", "UPSTREAM", False),
+    ("ERROR: [youtube] abc: Sign in to confirm you’re not a bot. Use --cookies-from-browser", "BOT_CHECK", False),
+    ("ERROR: [youtube] abc: Unable to download webpage: HTTP Error 429: Too Many Requests", "BOT_CHECK", False),
 ])
 def test_errors_are_mapped(message, code, retryable):
     with pytest.raises(streams.StreamError) as err:

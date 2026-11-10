@@ -348,7 +348,12 @@ function entryById(queue, id) {
 // What to tell you after a track failed to play. `streak` counts failures in
 // a row; at 3 the service stops instead of running through the whole queue.
 // `offline`: the worker couldn't reach YouTube recently either.
-function playbackNotice(streak, title, detail, offline) {
+// botCheck: a lookup was refused by YouTube's bot check or rate limit (the
+// worker's BOT_CHECK) a short while ago. Waiting is the fix, not an update.
+function playbackNotice(streak, title, detail, offline, botCheck) {
+  if (botCheck)
+    return { key: "bot-check", title: "YouTube is refusing playback for now",
+             body: "Too many requests from this connection, so YouTube asked it to confirm it isn't a bot. Playback stopped; wait a few minutes, then press play." }
   if (streak >= 3 && offline)
     return { key: "offline", title: "Can't reach YouTube Music",
              body: "Playback stopped. Check the connection, then press play to continue." }

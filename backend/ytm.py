@@ -3,7 +3,7 @@
 # requires-python = ">=3.12"
 # dependencies = [
 #   "ytmusicapi==1.12.2",
-#   "yt-dlp",
+#   "yt-dlp[default]",
 #   "secretstorage",
 # ]
 # ///

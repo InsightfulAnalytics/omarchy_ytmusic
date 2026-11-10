@@ -189,6 +189,9 @@ test("failed tracks are found by entry id and notices escalate", () => {
   assert.equal(Model.playbackNotice(3, '"A"', "x", false).key, "errors-in-a-row")
   assert.equal(Model.playbackNotice(4, '"A"', "x", true).key, "offline")
   assert.match(Model.playbackNotice(3, '"A"', "x", true).body, /connection/)
+  assert.equal(Model.playbackNotice(1, '"A"', "x", false, true).key, "bot-check", "a bot check names itself on the first failure")
+  assert.equal(Model.playbackNotice(3, '"A"', "x", true, true).key, "bot-check", "and wins over offline")
+  assert.doesNotMatch(Model.playbackNotice(1, '"A"', "x", false, true).body, /update/)
 })
 
 test("pruneMeta keeps only queued tracks", () => {

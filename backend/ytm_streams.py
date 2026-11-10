@@ -69,10 +69,17 @@ class _Quiet:
         pass  # raised as an exception right after; reported from there
 
 
+BOT_CHECK_WORDS = ("not a bot", "too many requests", "http error 429")
+
+
 def _error(exc):
     message = str(exc).strip().splitlines()[0] if str(exc).strip() else type(exc).__name__
     message = re.sub(r"^ERROR:\s*", "", message)
     lowered = message.lower()
+    # YouTube refusing this connection: its bot check, or rate limiting. Not
+    # retryable, and before NETWORK: a 429 also reads "unable to download".
+    if any(word in lowered for word in BOT_CHECK_WORDS):
+        return StreamError("BOT_CHECK", message)
     if any(word in lowered for word in ("unavailable", "private video", "removed", "not available", "members-only")):
         return StreamError("NOT_FOUND", message)
     if any(word in lowered for word in ("unable to download", "timed out", "connection", "network", "temporary failure")):
