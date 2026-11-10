@@ -1480,6 +1480,58 @@ Item {
     homeUndo = null
   }
 
+  // ---- song tokens (G2) ------------------------------------------------------------------
+  // Each queued song's library and Listen again tokens with their states
+  // (videoId -> Model.liveTokensOf), which the queue itself never holds:
+  // Service.remember strips them from what mpv, session.json, queue.json
+  // and the status keep. Memory only, never written or logged; the Service
+  // trims it with the queue's metadata, and reset() empties it (they are
+  // the account's). Service.withLiveTokens puts them back on a menu's item.
+  property var liveTokens: ({})
+  readonly property int liveTokenCount: Object.keys(liveTokens).length
+  // videoId -> { state: "pending" } while that song's own menu is read for
+  // its tokens (Service.readSongTokens), { state: "read" } once it answered
+  // (with or without them), { state: "failed", message } when it failed.
+  // No tokens in it; trimmed and emptied with liveTokens.
+  property var tokenReads: ({})
+  // Counted up by reset(): a read sent before belongs to the old session.
+  property int tokenSeq: 0
+
+  function keepLiveTokens(tracks) {
+    var next = Model.liveTokensPut(liveTokens, tracks)
+    if (next !== liveTokens) liveTokens = next
+  }
+
+  function liveTokensOf(videoId) {
+    return videoId && liveTokens[videoId] ? liveTokens[videoId] : null
+  }
+
+  function forgetLiveTokens(videoId) {
+    if (videoId && liveTokens[videoId]) liveTokens = _with(liveTokens, videoId, undefined)
+  }
+
+  // keep: videoId -> anything (the Service's meta after its trim).
+  function trimLiveTokens(keep) {
+    var next = Model.liveTokensTrim(liveTokens, keep)
+    if (next !== liveTokens) liveTokens = next
+    var reads = Model.liveTokensTrim(tokenReads, keep)
+    if (reads !== tokenReads) tokenReads = reads
+  }
+
+  function tokenReadOf(videoId) {
+    return videoId && tokenReads[videoId] ? tokenReads[videoId] : null
+  }
+
+  function setTokenRead(videoId, read) {
+    if (videoId) tokenReads = _with(tokenReads, videoId, read || undefined)
+  }
+
+  function _resetSongTokens() {
+    liveTokens = ({})
+    tokenReads = ({})
+    tokenSeq++
+  }
+
   // ---- cover thumbnails on disk (url -> local path) ------------------------------
   readonly property int maxThumbs: 2000
   property var thumbs: ({})
@@ -1562,6 +1614,7 @@ Item {
     _resetPodcasts()  // S8
     _resetProfiles()  // S9
     _resetRecommendations()  // S14
+    _resetSongTokens()  // G2
     _nowContexts = ({})
     // A failure may have come from the old session. Pending loads clear
     // themselves (every request is answered, at the latest by its timeout).

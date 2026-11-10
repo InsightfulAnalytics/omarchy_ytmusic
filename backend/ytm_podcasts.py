@@ -9,6 +9,11 @@ Reads (all CACHEABLE, on the pages lane):
   pages up to PAGE_EPISODES episodes (at most MAX_HTTP requests); ``cursor``
   reads the next ones. Header ``{browseId, podcastId, author {name, id},
   description, saved}``; one section, Episodes (tracks of kind ``episode``).
+  G3: ``orders`` (Latest, Oldest, Popular, Creator provided) and ``filters``
+  (In progress, Unplayed, Played) as served, ``{index, title, selected}``;
+  ``order`` / ``filter`` (indexes) read the list again in them, and a filter
+  nothing matches gives the served ``message``. Every episode row (here and
+  wherever ytm_raw meets one) keeps the start of its ``description``.
 - ``episode({videoId})`` (an ``MPED`` browseId too): an episode's page from
   the raw ``MPED`` browse. ytmusicapi 1.12.2's get_episode raises KeyError
   on a description whose 0:00 timestamp has no startTimeSeconds (most
@@ -23,7 +28,8 @@ Reads (all CACHEABLE, on the pages lane):
   keyed by what it holds, never by its title. Latest episodes' See all
   carries the page type CHANNEL_EPISODES, which the shell routes to
   ``channelEpisodes``. Header ``{channelId, subscribeId, subscribed,
-  subscribers}``. Its episode rows link no podcast in their subtitle; each
+  subscribers}``; its cover is the avatar (G3: not the banner). Its episode
+  rows link no podcast in their subtitle; each
   names the one its menu's BROADCAST entry goes to (menu_podcast), titled
   from the Podcasts row.
 - ``channelEpisodes({channelId, params, cursor?})``: all of a channel's
@@ -58,6 +64,7 @@ podcast, episode and channel pages, trimmed.
 
 import re
 
+from ytmusicapi.continuations import get_continuation_string
 from ytmusicapi.navigation import MMRIR, MNIR, MRLIR, MTRIR, nav
 from ytmusicapi.parsers._utils import get_flex_column_item
 from ytmusicapi.parsers.library import parse_artists
@@ -213,7 +220,10 @@ def episode_item(data, podcast=None, name_of=None):
     from the raw row, how much of it was played (progress_of: ``progress``,
     ``progressText``, ``resumeSec``) and ``podcast`` (given, else the row's
     linked credit, else the podcast its menu goes to, named by ``name_of``:
-    a channel's episode rows link nothing in their subtitle)."""
+    a channel's episode rows link nothing in their subtitle). G3: also the
+    start of its description (``description``, at most DESCRIPTION_MAX
+    characters), which Find in show matches; every episode row ytm_raw
+    reads comes here (artist pages, See all grids)."""
     parsed = parse_episode(data)
     runs = nav(data, ["subtitle", "runs"], True)
     progress = nav(data, ["playbackProgress", "musicPlaybackProgressRenderer"], True) or {}
@@ -225,6 +235,7 @@ def episode_item(data, podcast=None, name_of=None):
         credit = {"name": name, "id": browse_id} if name else None
     value = norm.episode(dict(parsed, date=_date(runs), duration=None, duration_seconds=seconds, podcast=credit))
     value.update(progress_of(progress, seconds))
+    value["description"] = description_start(raw.text(data.get("description")))  # G3: Find in show (every run)
     return _with_page(value)
 
 
@@ -236,6 +247,7 @@ def _items(contents, podcast=None, name_of=None):
             continue
         try:
             value = episode_item(content[MMRIR], podcast, name_of) if MMRIR in content else raw.item(content)
+            value = raw.pin_fields(content, value)  # G2: each row's Pin to Listen again
         except _PARSE_ERRORS as exc:
             norm.log(f"skipped malformed podcast item: {type(exc).__name__}")
             continue
@@ -263,6 +275,158 @@ def _shelf(response, keys=("musicShelfRenderer",)):
 def _thumbnails(header):
     return nav(header, ["thumbnail", "musicThumbnailRenderer", "thumbnail", "thumbnails"], True) \
         or nav(header, ["foregroundThumbnail", "musicThumbnailRenderer", "thumbnail", "thumbnails"], True)
+
+
+# ---- G3 (podcasts more): avatars, descriptions, episode orders and filters ----------------
+
+
+def channel_avatar(header):
+    """A channel header's picture: its foregroundThumbnail (the square avatar
+    the web shows round). Its ``thumbnail`` is the wide banner, the fallback
+    (podcast and episode headers have only that one; ytm_users._avatar reads
+    a profile's the same way)."""
+    return nav(header, ["foregroundThumbnail", "musicThumbnailRenderer", "thumbnail", "thumbnails"], True) \
+        or _thumbnails(header)
+
+
+# The start of an episode row's description an item keeps (Find in show
+# matches it): a guest or topic is named early; the rest is sponsors, links
+# and timestamps, about 3 KB a row on a show like Lex Fridman's.
+DESCRIPTION_MAX = 400
+
+
+def description_start(text):
+    """At most DESCRIPTION_MAX characters of a description, cut at a space;
+    None when there is none."""
+    if not isinstance(text, str) or not text.strip():
+        return None
+    text = text.strip()
+    if len(text) <= DESCRIPTION_MAX:
+        return text
+    cut = text[:DESCRIPTION_MAX]
+    space = cut.rfind(" ")
+    return (cut[:space] if space > DESCRIPTION_MAX // 2 else cut).rstrip()
+
+
+# A podcast's episodes come with a chip cloud: its first chip opens a menu
+# of orders (Latest, Oldest, Popular, Creator provided), the others filter
+# (In progress, Unplayed, Played). Each option reloads the list by its own
+# reload continuation (browseSectionListReloadEndpoint), as the web does;
+# the tokens stay in the worker and the shell sends an option's index. The
+# chips are told apart by what they do (a menu, or a reload), never by
+# their titles.
+_RELOAD = ["browseSectionListReloadEndpoint", "continuation", "reloadContinuationData", "continuation"]
+
+
+def _chips(response):
+    found = raw.section_list(response)
+    chips = nav(found, ["header", "chipCloudRenderer", "chips"], True) if isinstance(found, dict) else None
+    return [c["chipCloudChipRenderer"] for c in chips or []
+            if isinstance(c, dict) and isinstance(c.get("chipCloudChipRenderer"), dict)]
+
+
+def _menu_items(chip):
+    items = nav(chip, ["navigationEndpoint", "openPopupAction", "popup", "menuPopupRenderer", "items"], True)
+    return items if isinstance(items, list) else None
+
+
+def _order_options(response):
+    """``[(title, selected, token)]``: the entries of the chip that opens a
+    menu. The selected one is ticked (CHECK), else the one the chip names."""
+    for chip in _chips(response):
+        items = _menu_items(chip)
+        if items is None:
+            continue
+        out = []
+        for entry in items:
+            data = next(iter(entry.values()), None) if isinstance(entry, dict) and entry else None
+            if not isinstance(data, dict):
+                continue
+            endpoint = data.get("navigationEndpoint") or data.get("serviceEndpoint")
+            out.append((raw.text(data.get("text")) or "", nav(data, ["icon", "iconType"], True) == "CHECK",
+                        nav(endpoint, _RELOAD, True)))
+        if out and not any(selected for _, selected, _ in out):
+            shown = raw.text(chip.get("text"))
+            out = [(title, title == shown, token) for title, _, token in out]
+        return out
+    return []
+
+
+def _filter_options(response):
+    """``[(title, selected, token)]``: the other chips, each a reload of its
+    own (a selected chip may carry only its deselect command)."""
+    return [(raw.text(chip.get("text")) or "", chip.get("isSelected") is True,
+             nav(chip, ["navigationEndpoint", *_RELOAD], True))
+            for chip in _chips(response) if _menu_items(chip) is None]
+
+
+def _listed(options):
+    return [{"index": i, "title": title, "selected": selected} for i, (title, selected, _) in enumerate(options)]
+
+
+def episode_orders(response):
+    """``[{index, title, selected}]`` of a podcast page's episode orders."""
+    return _listed(_order_options(response))
+
+
+def episode_filters(response):
+    """``[{index, title, selected}]`` of a podcast page's episode filters."""
+    return _listed(_filter_options(response))
+
+
+def _selected(options):
+    return next((i for i, (_, selected, _) in enumerate(options) if selected), None)
+
+
+def _option_index(params, key):
+    """``params[key]``: an option's index (an int), or None."""
+    value = params.get(key)
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        raise WorkerError("BAD_REQUEST", f"'{key}' must be the index of one of the podcast's {key}s")
+    return value
+
+
+def _reload(yt, body, options, index, key):
+    """The list again in option ``index`` of ``options``: one request."""
+    if index >= len(options):
+        raise WorkerError("BAD_REQUEST", f"'{key}' is not one of this podcast's {key}s")
+    token = options[index][2]
+    if not token:
+        raise WorkerError("UPSTREAM", "That episode list cannot be loaded")
+    return yt._send_request("browse", dict(body), get_continuation_string(token))
+
+
+def reloaded(yt, body, base, order=None, chosen=None):
+    """``(response, http)``: the episodes of a podcast page ``base`` (one
+    request already spent) in the order and filter asked for: one request
+    each, the filter read from the ordered list's chips, so both hold (at
+    most 3 in all)."""
+    response, http = base, 1
+    if order is not None:
+        response, http = _reload(yt, body, _order_options(response), order, "order"), http + 1
+    if chosen is not None:
+        response, http = _reload(yt, body, _filter_options(response), chosen, "filter"), http + 1
+    return response, http
+
+
+def episode_shelf(response):
+    """The episodes of a podcast page (its musicShelfRenderer) or of a reload
+    (continuationContents.musicShelfContinuation)."""
+    shelf = nav(response, ["continuationContents", "musicShelfContinuation"], True)
+    return shelf if isinstance(shelf, dict) else _shelf(response)
+
+
+def served_message(shelf):
+    """The text of a shelf's messageRenderer ("No episodes match the filters
+    you applied."), or None."""
+    for content in (shelf or {}).get("contents") or []:
+        data = content.get("messageRenderer") if isinstance(content, dict) else None
+        if isinstance(data, dict):
+            return raw.text(data.get("text")) or None
+    return None
+# ---- end G3
 
 
 def _like_menu_toggle(header):
@@ -307,18 +471,33 @@ def episode_saved(header):
     return None if first is None else first.get("isToggled") is True
 
 
+def _with_pin(out, header):
+    """G2: a page header ``out`` with ``pin`` (``{pinned, listenAgainTokens}``)
+    when the served header's menu has Pin to Listen again (signed in), as an
+    album's or an artist's has; without the key otherwise."""
+    pin = raw.buttons_pin(header)
+    if pin is not None:
+        out["pin"] = pin
+    return out
+
+
 # ---- podcast -----------------------------------------------------------------------------
 
 
-def _cached_title(worker, browse_id):
+def _cached_title(worker, browse_id, extra=None):
     """The podcast's title from its first page's disk copy (a cursor page
-    carries no header), or None."""
-    try:
-        hit = worker.cache().get("podcast", {"browseId": browse_id})
-    except Exception:  # noqa: BLE001 - an unreadable cache is a miss
-        hit = None
-    page = hit[0] if hit is not None else None
-    return page.get("title") or None if isinstance(page, dict) else None
+    carries no header), or None. G3: the copy in the same order and filter
+    (``extra``) first, then the plain one."""
+    keys = [dict({"browseId": browse_id}, **extra)] if extra else []
+    for key in keys + [{"browseId": browse_id}]:
+        try:
+            hit = worker.cache().get("podcast", key)
+        except Exception:  # noqa: BLE001 - an unreadable cache is a miss
+            hit = None
+        page = hit[0] if hit is not None else None
+        if isinstance(page, dict) and page.get("title"):
+            return page["title"]
+    return None
 
 
 def _podcast_page(browse_id, title, items, cursor, header=None, thumbnails=None, first=True):
@@ -331,12 +510,16 @@ def _podcast_page(browse_id, title, items, cursor, header=None, thumbnails=None,
 def podcast_header(browse_id, header):
     author = _credit(nav(header, ["straplineTextOne", "runs"], True))
     description = raw.text(nav(header, ["description", "musicDescriptionShelfRenderer", "description"], True))
-    return {"browseId": browse_id, "podcastId": podcast_id(browse_id), "author": author,
-            "description": description or None, "saved": podcast_saved(header)}
+    out = {"browseId": browse_id, "podcastId": podcast_id(browse_id), "author": author,
+           "description": description or None, "saved": podcast_saved(header)}
+    return _with_pin(out, header)  # G2
 
 
 def m_podcast(worker, params):
-    """``{browseId | playlistId, cursor?}``: a podcast page (see the module docstring)."""
+    """``{browseId | playlistId, order?, filter?, cursor?}``: a podcast page
+    (see the module docstring). G3: ``order`` and ``filter`` are indexes of
+    the page's ``orders`` and ``filters``; the list is read again in them
+    (reloaded) and its cursor pages go on in them."""
     given = opt_str(params, "browseId") or opt_str(params, "playlistId")
     pid = podcast_id(given)
     if not pid:
@@ -344,26 +527,34 @@ def m_podcast(worker, params):
     browse_id = PODCAST_PREFIX + pid
     body = {"browseId": browse_id}
     cursor = opt_cursor(params)
+    order, chosen = _option_index(params, "order"), _option_index(params, "filter")  # G3
     yt = worker.yt
     if cursor:
-        title = _cached_title(worker, browse_id)
+        extra = {k: v for k, v in (("order", order), ("filter", chosen)) if v is not None}
+        title = _cached_title(worker, browse_id, extra)
         credit = {"name": title, "id": browse_id} if title else None
         items, cursor = pages.fetch(yt, "browse", body, "ctoken", None, _episodes(credit), cursor=cursor,
                                     min_items=PAGE_EPISODES, max_http=MAX_HTTP)
         return _podcast_page(browse_id, None, items, cursor, first=False)
-    first = pages.first_page(yt, "browse", body)
-    response = first[0]
-    header = nav(response, _HEADER, True)
+    base = pages.first_page(yt, "browse", body)[0]
+    header = nav(base, _HEADER, True)
     if not isinstance(header, dict):
         raise WorkerError("NOT_FOUND", "YouTube Music has no such podcast")
     title = raw.text(header.get("title")) or ""
     credit = {"name": title, "id": browse_id} if title else None
-    shelf = _shelf(response)
+    response, http = reloaded(yt, body, base, order, chosen)  # G3
+    shelf = episode_shelf(response)
     items, cursor = [], None
     if shelf is not None:
         items, cursor = pages.fetch(yt, "browse", body, "ctoken", lambda _: shelf, _episodes(credit),
-                                    min_items=PAGE_EPISODES, max_http=MAX_HTTP, first=first)
-    return _podcast_page(browse_id, title, items, cursor, podcast_header(browse_id, header), _thumbnails(header))
+                                    min_items=PAGE_EPISODES, max_http=MAX_HTTP, first=(response, http))
+    page = _podcast_page(browse_id, title, items, cursor, podcast_header(browse_id, header), _thumbnails(header))
+    # G3: the orders and filters the list is in now, and a served message
+    # ("No episodes match the filters you applied.").
+    orders, filters = _order_options(response), _filter_options(response)
+    page.update(orders=_listed(orders), order=_selected(orders), filters=_listed(filters), filter=_selected(filters),
+                message=served_message(shelf))
+    return page
 
 
 # ---- episode -------------------------------------------------------------------------------
@@ -468,6 +659,7 @@ def build_episode(video_id, response):
         "description": description,
         "descriptionRuns": description_runs(runs, video_id), "episode": episode,
     }
+    _with_pin(header_out, header)  # G2
     return norm.page("episode", video_id, title, header_out["date"], thumbnails, sections, header=header_out)
 
 
@@ -545,7 +737,7 @@ def build_channel(channel_id, response):
     head = {"channelId": channel_id, "subscribeId": button.get("channelId") or channel_id,
             "subscribed": subscribed, "subscribers": subscribers}
     title = raw.text(data.get("title")) or ""
-    return norm.page("channel", channel_id, title, subscribers, _thumbnails(data),
+    return norm.page("channel", channel_id, title, subscribers, channel_avatar(data),
                      channel_sections(channel_id, raw.rows(response), title or None), header=head, round=True)
 
 

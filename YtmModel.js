@@ -2752,9 +2752,10 @@ function staleToken(reply) {
 // The owner's callback for an edit's reply: CollectionView's and
 // LibraryView's editCallback() reload the page or chip shown when the
 // edit's outcome is unknown or a token was stale (they return true when
-// they did). Null for owners without one (Search, Home).
-function editCallbackOf(owner) {
-  return owner && typeof owner.editCallback === "function" ? owner.editCallback() : null
+// they did). Null for owners without one (Search, Home). G2: `item` is
+// what the edit touches (QueueView reads that song's menu again).
+function editCallbackOf(owner, item) {
+  return owner && typeof owner.editCallback === "function" ? owner.editCallback(item) : null
 }
 
 // ---- menu entries and keys -------------------------------------------------------------
@@ -2793,7 +2794,7 @@ var _LIBRARY_ACTIONS = [
   { id: "saveSong", title: function(item, ctx) { return ctx.inLibrary === true ? "Remove from library" : "Save to library" },
     icon: "󰃅", key: "save",
     applies: function(item, ctx) { return ctx.signedIn === true && canSaveSong(item, ctx.inLibrary !== true) },
-    run: function(env) { env.service.setSongLibrary(env.item, env.ctx.inLibrary !== true, editCallbackOf(env.owner)) } },
+    run: function(env) { env.service.setSongLibrary(env.item, env.ctx.inLibrary !== true, editCallbackOf(env.owner, env.item)) } },
   // Liked Music's own rows have Remove from Liked Music already.
   { id: "like", title: function(item, ctx) { return ctx.liked === true ? "Remove from Liked Music" : "Add to Liked Music" },
     icon: "󰋕", key: "like",
@@ -5805,7 +5806,7 @@ var _RECOMMENDATION_ACTIONS = [
     icon: PIN_ICON,
     applies: function(item, ctx) { return ctx.signedIn === true && canPin(item, _pinnedIn(item, ctx)) },
     run: function(env) {
-      env.service.setPinned(env.item, !_pinnedIn(env.item, env.ctx), editCallbackOf(env.owner), env.ctx.pinSource || null)
+      env.service.setPinned(env.item, !_pinnedIn(env.item, env.ctx), editCallbackOf(env.owner, env.item), env.ctx.pinSource || null)
     } },
   // Home's cards only (their tokens are Home's); Home's menu has the Undo.
   { id: "notInterested", title: "Not interested", icon: "󰜺", confirm: "Really not interested? Choose again",
@@ -6972,5 +6973,368 @@ if (typeof module !== "undefined") {
     libraryRows: libraryRows,
     withoutUpload: withoutUpload,
     withUploads: withUploads
+  })
+}
+
+// ==== song tokens (G2) ======================================================================
+// Save to library and Pin to Listen again wherever the web's menus offer
+// them: the song playing and every queue row too. The queue keeps no
+// tokens (Service.remember strips them, so mpv's meta, session.json,
+// queue.json and the status stay token-free); the Store holds each queued
+// song's in memory instead (liveTokens, by videoId), from the reply it was
+// queued from and from its nowContext (`current`, read again after a stale
+// token or an unknown outcome). A menu or S on Now gets them back through
+// Service.withLiveTokens, which also looks in the up-next list of the song
+// playing. Rows elsewhere carry their own (the worker reads the pin on
+// every row now, and the podcast and episode pages' headers). An upload
+// (S10) gets neither, as on the web: no tokens are held or put back for
+// it, and its menus and S never offer them.
+
+var LIVE_TOKEN_KEYS = ["inLibrary", "libraryTokens", "pinned", "listenAgainTokens"]
+
+function _tokenPair(value, a, b) {
+  return value && typeof value === "object" && (value[a] || value[b]) ? value : null
+}
+
+// { inLibrary, libraryTokens, pinned, listenAgainTokens } of a track (or a
+// nowContext's `current`) that carries library or Listen again tokens,
+// each state only with its tokens; null when it carries neither.
+function liveTokensOf(value) {
+  if (!value || typeof value !== "object") return null
+  var library = _tokenPair(value.libraryTokens, "add", "remove")
+  var pin = _tokenPair(value.listenAgainTokens, "pin", "unpin")
+  if (!library && !pin) return null
+  return { inLibrary: library && typeof value.inLibrary === "boolean" ? value.inLibrary : null, libraryTokens: library,
+           pinned: pin && typeof value.pinned === "boolean" ? value.pinned : null, listenAgainTokens: pin }
+}
+
+// `map` (videoId -> liveTokensOf) with the tokens of `tracks` put in: a
+// copy, or the same map when none of them carries any. A track without
+// tokens (from a disk copy) leaves what the map holds for its song; an
+// upload's are never held (S10: it has no Save or Pin).
+function liveTokensPut(map, tracks) {
+  var next = null
+  for (var i = 0; i < (tracks || []).length; i++) {
+    var track = tracks[i]
+    var entry = track && track.videoId && !isUploadTrack(track) ? liveTokensOf(track) : null
+    if (!entry) continue
+    if (!next) {
+      next = {}
+      for (var key in map || {}) next[key] = map[key]
+    }
+    next[String(track.videoId)] = entry
+  }
+  return next || map || {}
+}
+
+// `map` with only the songs `keep` has (Service.meta after its trim); the
+// same map when none goes.
+function liveTokensTrim(map, keep) {
+  var out = {}
+  var dropped = false
+  for (var key in map || {}) {
+    if (keep && keep[key]) out[key] = map[key]
+    else dropped = true
+  }
+  return dropped ? out : map
+}
+
+// A nowContext reply's `current` as a track-like { videoId, ... } for
+// liveTokensPut; null without one.
+function nowCurrentTokens(context) {
+  if (!context || !context.videoId || !context.current || typeof context.current !== "object") return null
+  var out = { videoId: String(context.videoId) }
+  for (var i = 0; i < LIVE_TOKEN_KEYS.length; i++) out[LIVE_TOKEN_KEYS[i]] = context.current[LIVE_TOKEN_KEYS[i]]
+  return out
+}
+
+// The tokens nowContext `context` brings for videoId: its `current` when
+// it is that song's, else that song's entry in its up-next list; null when
+// it has none.
+function nowContextTokens(context, videoId) {
+  if (!context || !videoId) return null
+  if (context.videoId === videoId) return liveTokensOf(context.current)
+  var items = context.items || []
+  for (var i = 0; i < items.length; i++) if (items[i] && items[i].videoId === videoId) return liveTokensOf(items[i])
+  return null
+}
+
+// A copy of `track` with the library tokens and the Listen again pin it
+// lacks, each pair (with its state) from the first of `sources`
+// (liveTokensOf entries; nulls are skipped) that has it. The track itself
+// when it lacks nothing or no source has what it lacks, and for an upload
+// (S10: the web's upload menus have neither Save to library nor Pin).
+function withLiveTokens(track, sources) {
+  if (!track || typeof track !== "object" || !track.videoId || isUploadTrack(track)) return track
+  var library = null
+  var pin = null
+  for (var i = 0; i < (sources || []).length; i++) {
+    var source = sources[i]
+    if (!source) continue
+    if (!library && source.libraryTokens && !_tokenPair(track.libraryTokens, "add", "remove")) library = source
+    if (!pin && source.listenAgainTokens && !_tokenPair(track.listenAgainTokens, "pin", "unpin")) pin = source
+  }
+  if (!library && !pin) return track
+  var out = {}
+  for (var key in track) out[key] = track[key]
+  if (library) {
+    out.libraryTokens = library.libraryTokens
+    out.inLibrary = library.inLibrary
+  }
+  if (pin) {
+    out.listenAgainTokens = pin.listenAgainTokens
+    out.pinned = pin.pinned
+  }
+  return out
+}
+
+// What S on Now says when the song under the cursor (or playing) has
+// nothing to save. o: { signedIn, menu (Service.songMenuState: its own
+// menu "read", "loading", "failed" with a message, or "unread") }. Only a
+// menu that was read and had no library entry is "no library control";
+// an upload (S10) never has one, so its menu is not asked for.
+function nowSaveNotice(track, o) {
+  var s = o || {}
+  var menu = s.menu || {}
+  if (!track) return "Nothing is playing"
+  if (s.signedIn !== true) return "Sign in to use your library"
+  if (isUploadTrack(track)) return "YouTube Music offers no library control for uploads"
+  if (menu.state === "loading") return "Its menu is still loading; try again in a moment"
+  if (menu.state === "failed")
+    return "Its menu did not load" + (menu.message ? ": " + menu.message : "") + ". Asking again; try in a moment"
+  if (menu.state === "unread") return "Its library control is not loaded; play it or open its album"
+  return "YouTube Music offers no library control for " + mediaTitle(track)
+}
+
+// A page item with its header's pin (withPagePin) on a copy: a view's
+// bound item (an episode page's episode, a podcast's) stays as it was read.
+function withPagePinCopy(item, page) {
+  if (!item || typeof item !== "object" || !pagePin(page)) return item
+  var out = {}
+  for (var key in item) out[key] = item[key]
+  return withPagePin(out, page)
+}
+
+// S10 with G2: no Save to library and no Pin to Listen again on an upload
+// (a song, album or artist), whatever tokens a list or a nowContext brings
+// with it: the web's upload menus offer neither, and S does nothing to it.
+var _g2SongTokens = songTokens
+songTokens = function(track) { return isUploadItem(track) ? null : _g2SongTokens(track) }
+var _g2CanPin = canPin
+canPin = function(item, pinned) { return !isUploadItem(item) && _g2CanPin(item, pinned) }
+
+if (typeof module !== "undefined") {
+  Object.assign(module.exports, {
+    LIVE_TOKEN_KEYS: LIVE_TOKEN_KEYS,
+    liveTokensOf: liveTokensOf,
+    liveTokensPut: liveTokensPut,
+    liveTokensTrim: liveTokensTrim,
+    nowCurrentTokens: nowCurrentTokens,
+    nowContextTokens: nowContextTokens,
+    withLiveTokens: withLiveTokens,
+    nowSaveNotice: nowSaveNotice,
+    withPagePinCopy: withPagePinCopy,
+    songTokens: songTokens,
+    canPin: canPin
+  })
+}
+
+// ==== podcasts more (G3) ======================================================================
+// A podcast page's episode orders (Latest, Oldest, Popular, Creator
+// provided) and filters (In progress, Unplayed, Played), shown as the web's
+// chip cloud: one sort chip (a click or M's Sort opens its chooser; O
+// cycles the orders), then the filter chips (h / l cycle them, a click
+// picks one, a second click clears it). The worker reads the list again in
+// them (`order` and `filter`: an option's index). M has both as choosers.
+// f on a podcast is Find in show: its episodes' titles and the start of
+// their descriptions, once every page of them is loaded (a page of about
+// 100 at a time, one request each), up to the Store's cap
+// (maxCollectionItems), which the rows then name.
+
+var EPISODE_FILTER_ALL = "All episodes"
+var CLEAR_FILTER_ID = "podcast:clearFilter"
+var FIND_MORE_ID = "podcast:findMore"
+var SORT_ICON = "󰒺"
+var FILTER_ICON = "󰈲"
+var EPISODE_CHOSEN_ICON = "󰄬"
+
+// The params a page is asked with: S3's (its order, Load all) and its
+// episode filter (an index; null for none).
+var _g3PageExtra = pageExtra
+pageExtra = function(order, all, filter) {
+  var extra = _g3PageExtra(order, all)
+  if (filter !== null && filter !== undefined) {
+    extra = extra || {}
+    extra.filter = filter
+  }
+  return extra
+}
+
+function _isPodcastPage(page) {
+  return !!page && page.type === "page" && page.kind === "podcast"
+}
+
+function episodeFilters(page) {
+  return _isPodcastPage(page) && Array.isArray(page.filters) ? page.filters : []
+}
+
+function _optionTitle(list, index) {
+  for (var i = 0; i < (list || []).length; i++) if (list[i] && list[i].index === index) return String(list[i].title || "")
+  return ""
+}
+
+// "Unplayed"; "All episodes" for none.
+function episodeFilterTitle(filters, current) {
+  return current === null || current === undefined ? EPISODE_FILTER_ALL : (_optionTitle(filters, current) || EPISODE_FILTER_ALL)
+}
+
+// The sort chip's text: the order shown ("" when the page has none).
+function episodeOrderTitle(orders, current) {
+  var title = _optionTitle(orders, current)
+  if (title) return title
+  for (var i = 0; i < (orders || []).length; i++) if (orders[i] && orders[i].selected) return String(orders[i].title || "")
+  return ""
+}
+
+// h / l: the filter after (dx > 0) or before the current one; none (all
+// episodes) sits between the last and the first.
+function nextEpisodeFilter(filters, current, dx) {
+  var cycle = [null]
+  for (var i = 0; i < (filters || []).length; i++) if (filters[i]) cycle.push(filters[i].index)
+  var at = cycle.indexOf(current === undefined ? null : current)
+  if (at < 0) at = 0
+  return cycle[(at + (dx < 0 ? -1 : 1) + cycle.length) % cycle.length]
+}
+
+// The choosers (ItemMenu.openChooser), the current one ticked.
+function episodeOrderChoices(orders, current) {
+  return (orders || []).filter(function(o) { return !!o }).map(function(o) {
+    return { id: "order:" + o.index, title: String(o.title || ""), icon: o.index === current ? EPISODE_CHOSEN_ICON : SORT_ICON,
+             value: o.index }
+  })
+}
+
+function episodeFilterChoices(filters, current) {
+  var none = current === null || current === undefined
+  var rows = [{ id: "filter:none", title: EPISODE_FILTER_ALL, icon: none ? EPISODE_CHOSEN_ICON : FILTER_ICON, value: null }]
+  for (var i = 0; i < (filters || []).length; i++) {
+    var f = filters[i]
+    if (f) rows.push({ id: "filter:" + f.index, title: String(f.title || ""), icon: f.index === current ? EPISODE_CHOSEN_ICON : FILTER_ICON,
+                       value: f.index })
+  }
+  return rows
+}
+
+// ---- Find in show ------------------------------------------------------------------------
+
+// A podcast page with episodes to find in.
+function episodeFindable(page) {
+  return _isPodcastPage(page) && pageTracks(page).length > 0
+}
+
+var _g3CanFind = canFind
+canFind = function(page) { return _g3CanFind(page) || episodeFindable(page) }
+
+function _episodeFindText(item) {
+  return foldText([item.title || "", item.description || ""].join("\n"))
+}
+
+// The section that holds the episodes (keyed "episodes", else the first
+// with tracks), -1 when none.
+function _episodeSection(page) {
+  var sections = page && page.sections ? page.sections : []
+  var fallback = -1
+  for (var s = 0; s < sections.length; s++) {
+    if (sections[s] && sections[s].key === "episodes") return s
+    if (fallback < 0 && sectionTracks(page, s).length > 0) fallback = s
+  }
+  return fallback
+}
+
+// The episodes every word of `text` matches (title or the start of the
+// description), as rows that play the list from there; then a Load more
+// row while pages are left (opts.loading: one is on its way), else a
+// message when none matched, and one when the list stopped at the Store's
+// cap (appendPage's `capped`: the show has more than was searched).
+function episodeFindRows(page, text, opts) {
+  var o = opts || {}
+  var rows = []
+  var s = _episodeSection(page)
+  var list = s >= 0 ? sectionTracks(page, s) : []
+  var words = foldText(text).split(/\s+/).filter(function(w) { return w !== "" })
+  for (var i = 0; i < list.length; i++) {
+    var hay = _episodeFindText(list[i])
+    var all = true
+    for (var w = 0; w < words.length && all; w++) all = hay.indexOf(words[w]) >= 0
+    if (all) rows.push({ item: list[i], sectionIndex: s, trackIndex: i })
+  }
+  var more = !!page && (!!page.cursor || page.hasMore === true)
+  if (more || o.loading === true)
+    rows.push({ item: { type: "loadMore", id: FIND_MORE_ID, title: "Load every episode to find in",
+                        busyTitle: "Loading every episode… " + groupedCount(list.length) + " so far" } })
+  else {
+    if (rows.length === 0) rows.push({ item: { type: "message", title: "No episodes match \"" + String(text).trim() + "\"" } })
+    if (!!page && page.capped === true)
+      rows.push({ item: { type: "message", title: "Searched the first " + groupedCount(list.length) + " episodes only; the show has more" } })
+  }
+  return rows
+}
+
+// A filter nothing matched: YouTube's message, then a row that clears it
+// (Enter; h / l cycle the filters instead, so they are not its hint).
+function clearFilterRow(page) {
+  return _isPodcastPage(page) && page.filter !== null && page.filter !== undefined && pageTracks(page).length === 0
+    ? { item: { type: "action", id: CLEAR_FILTER_ID, title: "Show all episodes", icon: FILTER_ICON } }
+    : null
+}
+
+// S8's rows, or the episodes Find in show matches (opts.find, opts.loading).
+var _g3PodcastRows = podcastRows
+podcastRows = function(page, opts) {
+  var o = opts || {}
+  if (episodeFindable(page) && String(o.find || "").trim() !== "") return episodeFindRows(page, o.find, o)
+  var rows = _g3PodcastRows(page, opts)
+  var clear = clearFilterRow(page)
+  return clear ? rows.concat([clear]) : rows
+}
+
+// ---- menus and keys ----------------------------------------------------------------------
+
+var _g3FindTitle = menuAction("find").title
+menuAction("find").title = function(item, ctx) {
+  if (ctx && ctx.pageKind === "podcast") return "Find in show"
+  return typeof _g3FindTitle === "function" ? _g3FindTitle(item, ctx) : _g3FindTitle
+}
+_keyEntry("find").title = "find in a page's songs (album, playlist, Liked Music, History), a podcast's episodes or the suggested artists"
+
+// M: the sort chip's and the filter chips' twins (O and h / l are the keys).
+_insertAfter(MENU_ACTIONS, "find", [
+  { id: "episodeOrder", title: function(item, ctx) { return "Sort: " + (ctx.episodeOrderTitle || "as served") }, icon: SORT_ICON,
+    key: "order",
+    applies: function(item, ctx) { return ctx.page === true && ctx.episodeOrders === true },
+    run: function(env) { if (env.owner && typeof env.owner.chooseOrder === "function") env.owner.chooseOrder() } },
+  { id: "episodeFilter", title: function(item, ctx) { return "Filter: " + (ctx.episodeFilterTitle || EPISODE_FILTER_ALL) },
+    icon: FILTER_ICON, key: "horizontal",
+    applies: function(item, ctx) { return ctx.page === true && ctx.episodeFilters === true },
+    run: function(env) { if (env.owner && typeof env.owner.chooseFilter === "function") env.owner.chooseFilter() } }
+])
+
+if (typeof module !== "undefined") {
+  Object.assign(module.exports, {
+    EPISODE_FILTER_ALL: EPISODE_FILTER_ALL,
+    CLEAR_FILTER_ID: CLEAR_FILTER_ID,
+    FIND_MORE_ID: FIND_MORE_ID,
+    pageExtra: pageExtra,
+    canFind: canFind,
+    podcastRows: podcastRows,
+    episodeFilters: episodeFilters,
+    episodeFilterTitle: episodeFilterTitle,
+    episodeOrderTitle: episodeOrderTitle,
+    nextEpisodeFilter: nextEpisodeFilter,
+    episodeOrderChoices: episodeOrderChoices,
+    episodeFilterChoices: episodeFilterChoices,
+    episodeFindable: episodeFindable,
+    episodeFindRows: episodeFindRows,
+    clearFilterRow: clearFilterRow
   })
 }

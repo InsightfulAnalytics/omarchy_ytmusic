@@ -5,7 +5,8 @@
   the Lyrics and Related tab ids, the song/video twin (``counterpart``), the
   queue header's "Playing from", its tuner chips and YouTube's own up-next
   list. ``likeStatus`` is a thin alias of it (the shell's refresh after an
-  unsure rating).
+  unsure rating). G2: ``current`` is what the song's own menu offers (Save
+  to library, Pin to Listen again, with their tokens).
 - ``upNext`` (autoplay, S12) plays a finite context (an album, a playlist,
   Liked Music) on as its radio and a radio as it is; ``queueFrom`` is the
   queue a tuner chip (All, Discover, Popular...) plays.
@@ -101,6 +102,22 @@ def _current(tracks, video_id):
     return None, None, None
 
 
+# G2: what the song playing's own menu offers, read from its watch entry as
+# norm.track reads any row: Save to library and Pin to Listen again.
+SONG_TOKEN_KEYS = ("inLibrary", "libraryTokens", "pinned", "listenAgainTokens")
+
+
+def song_tokens(current):
+    """``{inLibrary, libraryTokens, pinned, listenAgainTokens}`` of the watch
+    track ``current`` (None without one; the tokens are None signed out).
+    They are account-bound: nowContext is never disk-cached, and the shell
+    keeps them in memory only, never in the queue it saves."""
+    if not isinstance(current, dict) or not current.get("videoId"):
+        return None
+    track = norm.track(current)
+    return {key: track[key] for key in SONG_TOKEN_KEYS}
+
+
 def now_context(worker, video_id, playlist_id=None):
     with raw.capture(("next",)) as cap:
         data = worker.yt.get_watch_playlist(videoId=video_id, playlistId=playlist_id, limit=CONTEXT_LIMIT)
@@ -113,6 +130,7 @@ def now_context(worker, video_id, playlist_id=None):
         "videoId": video_id,
         "playlistId": data.get("playlistId"),
         "likeStatus": norm.like_status((current or {}).get("likeStatus")),
+        "current": song_tokens(current),  # G2
         "lyricsId": data.get("lyrics"),
         "relatedId": data.get("related"),
         "counterpart": counterpart,
@@ -124,7 +142,8 @@ def now_context(worker, video_id, playlist_id=None):
 
 def m_now_context(worker, params):
     """``{videoId, playlistId?}``: one 'next' request. Never cached (the like
-    status must be current); the shell keeps a short memo per video.
+    status must be current, and ``current`` and ``items`` hold account-bound
+    tokens); the shell keeps a short memo per video, in memory.
 
     Signed in, the session is checked first (once per worker, about 0.1 s):
     an expired one answers AUTH_EXPIRED, so the shell marks it and tells the
