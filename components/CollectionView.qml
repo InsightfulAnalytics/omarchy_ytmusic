@@ -27,6 +27,12 @@ import "../YtmModel.js" as Model
 // (Subscribe), a channel's episodes, New episodes and Episodes for Later (x
 // removes one). These pages have no Shuffle.
 //
+// Podcasts more (G3): a podcast's episode orders are one sort chip (a
+// click opens its chooser; O cycles) and its filters are chips after it
+// (h / l cycle them), both in M too; f is Find in show, over every episode
+// once all pages are loaded (up to the Store's cap, which its rows name).
+// An artist page served without shelves shows no Radio.
+//
 // Profiles (S9): a profile's page (its rows, each ending in See all when
 // the web has one, and Subscribe), Your channel (the same page for the
 // account's own channel, without Subscribe) and the library's Profiles.
@@ -103,6 +109,10 @@ Item {
   property var tasteMarks: ({})
   property bool tasteSending: false
   property int _tasteSeq: 0
+  // ---- podcasts more (G3)
+  // The episode filter asked for (an `index` of page.filters), null for
+  // all episodes; kept like `order` (Back restores it).
+  property var filter: null
 
   readonly property var store: service ? service.store : null
   readonly property color foreground: bar ? bar.foreground : Color.foreground
@@ -121,7 +131,13 @@ Item {
   // One binding (S13's Suggestions included), so Back's place is looked up
   // in the whole list, never in a half-updated one. S8: a podcast or
   // episode page leads with its About row.
-  readonly property var rows: !page ? [] : isPage ? Model.podcastRows(page, { about: descriptionText.truncated, aboutOpen: aboutOpen })
+  readonly property var rows: !page ? [] : isPage ? Model.podcastRows(page, { about: descriptionText.truncated, aboutOpen: aboutOpen,
+                                                                             // G3: Find in show. The busy flags are read only
+                                                                             // while finding: otherwise a Load more would
+                                                                             // rebuild every sectioned page's rows twice more.
+                                                                             find: findText,
+                                                                             loading: episodeFind && findText.trim() !== ""
+                                                                                      && (loadingMore || _moreWanted) })
     // S14: the taste page's Add row and suggested artists.
     : isTaste ? Model.tasteRows(page, { marked: tasteMarks, find: findText, armed: gate.armed(Model.TASTE_ADD_ID),
                                         sending: tasteSending })
@@ -161,7 +177,7 @@ Item {
   readonly property bool inputFocused: findField.activeFocus
   // The list's identity: the page and its order, not how much of it is
   // read, so Load all keeps the cursor and the scroll.
-  readonly property string listId: entry ? (Model.pageRef(entry.item, Model.pageExtra(order, false)) || { key: "" }).key : ""
+  readonly property string listId: entry ? (Model.pageRef(entry.item, Model.pageExtra(order, false, filter)) || { key: "" }).key : ""
   // Library actions (S4): Save on an album, a playlist that is not yours or
   // a mix; Subscribe on an artist. The state shown is the Store's (an edit
   // made here), else the page header's, else the library's lists.
@@ -198,6 +214,11 @@ Item {
   readonly property bool canSavePodcastPage: signedIn && !!podcastSaveItem
   readonly property bool podcastPageSaved: canSavePodcastPage && !!store
     && store.podcastSavedState(podcastSaveItem.podcastId, headerFlag("saved")) === true
+  // G3: a podcast's episode filters (with them, its orders show as one sort
+  // chip), and Find in show.
+  readonly property var filters: Model.episodeFilters(page)
+  readonly property bool episodeChips: filters.length > 0
+  readonly property bool episodeFind: Model.episodeFindable(page)
 
   signal openRequested(var item)
   // The page itself went away (playlist deleted).
@@ -225,10 +246,11 @@ Item {
     _opened = entry
     var view = entry ? entry.view : null
     order = view && view.order !== undefined ? view.order : null
+    filter = view && view.filter !== undefined ? view.filter : null  // G3
     full = !!view && view.full === true
     aboutOpen = !!view && view.aboutOpen === true
     closeFind()
-    ref = entry ? Model.pageRef(entry.item, Model.pageExtra(order, full)) : null
+    ref = entry ? Model.pageRef(entry.item, Model.pageExtra(order, full, filter)) : null
     page = null
     error = ""
     loading = false
@@ -268,11 +290,12 @@ Item {
         root.page = reply.result
         if (wanted) root.loadMore(true)
         root._pageLoaded()  // S13
+        root._findMore()  // G3
       } else if (root.full && Model.canLoadAll(root.page)) {
         // Load all failed over the first read: that stays, and its Load
         // all row says why (Enter tries again).
         root.full = false
-        root.ref = Model.pageRef(root.entry.item, Model.pageExtra(root.order, false))
+        root.ref = Model.pageRef(root.entry.item, Model.pageExtra(root.order, false, root.filter))
         root.moreError = reply.error.message
       } else {
         root.error = reply.error.message
@@ -299,22 +322,26 @@ Item {
       root.loadingMore = false
       if (reply.ok) root.page = reply.result
       else if (!reply.stale) root.moreError = reply.error.message
+      if (reply.ok) root._findMore()  // G3
     }, page)
   }
 
   // For Back: the sort order, Load all, the About row and the list's place.
   function viewState() {
-    return { order: order, full: full, aboutOpen: aboutOpen, list: resultList.viewState(), edits: _editsState() }
+    return { order: order, full: full, aboutOpen: aboutOpen, list: resultList.viewState(), edits: _editsState(),
+             filter: filter }  // G3
   }
 
   function restore(view) {
     if (!view) return
     aboutOpen = view.aboutOpen === true
     var wantsAll = view.full === true
-    if (((view.order !== undefined && view.order !== order) || wantsAll !== full) && entry) {
+    var wantsFilter = view.filter !== undefined ? view.filter : null  // G3
+    if (((view.order !== undefined && view.order !== order) || wantsAll !== full || wantsFilter !== filter) && entry) {
       if (view.order !== undefined) order = view.order
       full = wantsAll
-      ref = Model.pageRef(entry.item, Model.pageExtra(order, full))
+      filter = wantsFilter
+      ref = Model.pageRef(entry.item, Model.pageExtra(order, full, filter))
       _pendingView = view.list || null
       load(false)
       return
@@ -343,7 +370,7 @@ Item {
   function setOrder(index) {
     if (!entry || loading || index === currentOrder) return
     order = index
-    ref = Model.pageRef(entry.item, Model.pageExtra(index, full))
+    ref = Model.pageRef(entry.item, Model.pageExtra(index, full, filter))
     error = ""
     loadingMore = false
     moreError = ""
@@ -451,6 +478,8 @@ Item {
     else if (item.chapter && service) service.playChapter(item.chapter, episodeTrack)
     // Collections (S3): the About row shows or hides the description.
     else if (item.id === Model.COLLECTION_ABOUT_ID) toggleAbout()
+    // G3: a filter nothing matched: Show all episodes.
+    else if (item.id === Model.CLEAR_FILTER_ID) setFilter(null)
     // Explore (S6): Charts' Country row opens the country chooser.
     else if (item.id === Model.CHARTS_COUNTRY_ID) chooseCountry()
     // S13: Refresh suggestions.
@@ -541,7 +570,10 @@ Item {
                     podcastSaved: podcastPageSaved, canSavePodcastPage: canSavePodcastPage,
                     episodeSaved: episodePageSaved, canSaveEpisodePage: canSaveEpisodePage,
                     // S14: the page's pin token's source, and the taste page's marks.
-                    pinSource: Model.pinSource(ref), tasteMarked: isTaste ? Model.tasteMarked(page, tasteMarks).length : 0 } }
+                    pinSource: Model.pinSource(ref), tasteMarked: isTaste ? Model.tasteMarked(page, tasteMarks).length : 0,
+                    // G3: a podcast's sort chip and filter chips.
+                    episodeOrders: episodeChips && orders.length > 1, episodeOrderTitle: Model.episodeOrderTitle(orders, currentOrder),
+                    episodeFilters: episodeChips, episodeFilterTitle: Model.episodeFilterTitle(filters, filter) } }
   }
 
   // Play, Shuffle, Queue all (mode now, shuffle, queue; next from the menu).
@@ -590,7 +622,7 @@ Item {
     if (!entry || !canLoadAll || loading) return false
     full = true
     moreError = ""
-    ref = Model.pageRef(entry.item, Model.pageExtra(order, true))
+    ref = Model.pageRef(entry.item, Model.pageExtra(order, true, filter))
     load(false)
     return true
   }
@@ -606,6 +638,7 @@ Item {
     if (canLoadAll) loadAll()
     findOpen = true
     findField.forceActiveFocus()
+    _findMore()  // G3: Find in show reads every episode
     return true
   }
 
@@ -1049,6 +1082,55 @@ Item {
     return sent
   }
 
+  // ---- podcasts more (G3) ----------------------------------------------------------
+
+  // A filter chip, h / l, the M chooser or Show all episodes: the list again
+  // with that filter (null: all episodes), in the same order.
+  function setFilter(index) {
+    var value = index === undefined ? null : index
+    if (!entry || loading || value === filter) return false
+    filter = value
+    ref = Model.pageRef(entry.item, Model.pageExtra(order, full, filter))
+    error = ""
+    loadingMore = false
+    moreError = ""
+    load(false)
+    return true
+  }
+
+  // h / l (Panel's horizontal hook): the next or previous filter, all
+  // episodes between the last and the first. False on other pages.
+  function horizontal(dx) {
+    if (!episodeChips || !dx) return false
+    return setFilter(Model.nextEpisodeFilter(filters, filter, dx))
+  }
+
+  // The sort chip and the M menu's Sort: the orders, the shown one ticked.
+  function chooseOrder() {
+    if (!episodeChips || orders.length < 2) return false
+    root.chooserRequested({ title: "Sort episodes", subtitle: title, choices: Model.episodeOrderChoices(orders, currentOrder),
+                            onChoice: function(choice) { if (root) root.setOrder(choice.value) } })
+    return true
+  }
+
+  // The M menu's Filter: all episodes or one filter.
+  function chooseFilter() {
+    if (!episodeChips) return false
+    root.chooserRequested({ title: "Filter episodes", subtitle: title, choices: Model.episodeFilterChoices(filters, filter),
+                            onChoice: function(choice) { if (root) root.setFilter(choice.value) } })
+    return true
+  }
+
+  // Find in show reads the whole show: while the filter is open, every
+  // page after the first, one after another (a page of about 100 episodes,
+  // one request each). A disk copy is refreshed first (its cursor is not
+  // kept); a failure stops it (the Load more row tries again).
+  function _findMore() {
+    if (findOpen && episodeFind && !!page && (!!page.cursor || page.hasMore === true) && !loadingMore && !loading
+        && moreError === "")
+      loadMore(true)
+  }
+
   Row {
     id: header
     width: parent.width
@@ -1209,7 +1291,7 @@ Item {
         }
 
         Button {
-          visible: root.isArtist
+          visible: root.isArtist && !!root.radioItem  // G3: none on a header-only page
           text: "Radio"
           tooltipText: "Start the artist's radio"
           foreground: root.foreground
@@ -1314,7 +1396,9 @@ Item {
     TextField {
       id: findField
       width: parent.width - stopFind.width - parent.spacing
-      placeholderText: root.isTaste ? "Find artists" : "Find songs by title, artist or album"
+      placeholderText: root.isTaste ? "Find artists"
+        : root.episodeFind ? "Find episodes by title or description"  // G3
+        : "Find songs by title, artist or album"
       foreground: root.foreground
       font.family: root.fontFamily
 
@@ -1341,7 +1425,9 @@ Item {
     }
   }
 
-  // The page's sort orders as served (O cycles them).
+  // The page's sort orders as served (O cycles them). G3: a podcast's are
+  // one chip that opens their chooser, then its filter chips (h / l), the
+  // web's one row.
   Flow {
     id: orderRow
     anchors.top: findRow.bottom
@@ -1349,10 +1435,10 @@ Item {
     width: parent.width
     height: visible ? implicitHeight : 0
     spacing: Style.space(4)
-    visible: root.orders.length > 1
+    visible: root.orders.length > 1 || root.episodeChips
 
     Repeater {
-      model: root.orders
+      model: root.episodeChips ? [] : root.orders
 
       Button {
         required property var modelData
@@ -1362,6 +1448,32 @@ Item {
         foreground: root.foreground
         fontSize: Style.font.caption
         onClicked: root.setOrder(modelData.index)
+      }
+    }
+
+    // ---- G3: the sort chip and the filter chips
+    Button {
+      visible: root.episodeChips && root.orders.length > 1
+      iconText: "󰅀"
+      text: Model.episodeOrderTitle(root.orders, root.currentOrder)
+      tooltipText: Model.withKey("Sort episodes", "order")
+      foreground: root.foreground
+      fontSize: Style.font.caption
+      onClicked: root.chooseOrder()
+    }
+
+    Repeater {
+      model: root.episodeChips ? root.filters : []
+
+      Button {
+        required property var modelData
+        text: String(modelData.title || "")
+        selected: modelData.index === root.filter
+        // h / l cycle the filters; a second click (no key) shows all.
+        tooltipText: modelData.index === root.filter ? "Show all episodes" : Model.withKey("Filter episodes", "horizontal")
+        foreground: root.foreground
+        fontSize: Style.font.caption
+        onClicked: root.setFilter(modelData.index === root.filter ? null : modelData.index)
       }
     }
   }

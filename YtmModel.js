@@ -6637,3 +6637,203 @@ if (typeof module !== "undefined") {
     anotherLoginNotice: anotherLoginNotice
   })
 }
+
+// ==== podcasts more (G3) ======================================================================
+// A podcast page's episode orders (Latest, Oldest, Popular, Creator
+// provided) and filters (In progress, Unplayed, Played), shown as the web's
+// chip cloud: one sort chip (a click or M's Sort opens its chooser; O
+// cycles the orders), then the filter chips (h / l cycle them, a click
+// picks one, a second click clears it). The worker reads the list again in
+// them (`order` and `filter`: an option's index). M has both as choosers.
+// f on a podcast is Find in show: its episodes' titles and the start of
+// their descriptions, once every page of them is loaded (a page of about
+// 100 at a time, one request each), up to the Store's cap
+// (maxCollectionItems), which the rows then name.
+
+var EPISODE_FILTER_ALL = "All episodes"
+var CLEAR_FILTER_ID = "podcast:clearFilter"
+var FIND_MORE_ID = "podcast:findMore"
+var SORT_ICON = "󰒺"
+var FILTER_ICON = "󰈲"
+var EPISODE_CHOSEN_ICON = "󰄬"
+
+// The params a page is asked with: S3's (its order, Load all) and its
+// episode filter (an index; null for none).
+var _g3PageExtra = pageExtra
+pageExtra = function(order, all, filter) {
+  var extra = _g3PageExtra(order, all)
+  if (filter !== null && filter !== undefined) {
+    extra = extra || {}
+    extra.filter = filter
+  }
+  return extra
+}
+
+function _isPodcastPage(page) {
+  return !!page && page.type === "page" && page.kind === "podcast"
+}
+
+function episodeFilters(page) {
+  return _isPodcastPage(page) && Array.isArray(page.filters) ? page.filters : []
+}
+
+function _optionTitle(list, index) {
+  for (var i = 0; i < (list || []).length; i++) if (list[i] && list[i].index === index) return String(list[i].title || "")
+  return ""
+}
+
+// "Unplayed"; "All episodes" for none.
+function episodeFilterTitle(filters, current) {
+  return current === null || current === undefined ? EPISODE_FILTER_ALL : (_optionTitle(filters, current) || EPISODE_FILTER_ALL)
+}
+
+// The sort chip's text: the order shown ("" when the page has none).
+function episodeOrderTitle(orders, current) {
+  var title = _optionTitle(orders, current)
+  if (title) return title
+  for (var i = 0; i < (orders || []).length; i++) if (orders[i] && orders[i].selected) return String(orders[i].title || "")
+  return ""
+}
+
+// h / l: the filter after (dx > 0) or before the current one; none (all
+// episodes) sits between the last and the first.
+function nextEpisodeFilter(filters, current, dx) {
+  var cycle = [null]
+  for (var i = 0; i < (filters || []).length; i++) if (filters[i]) cycle.push(filters[i].index)
+  var at = cycle.indexOf(current === undefined ? null : current)
+  if (at < 0) at = 0
+  return cycle[(at + (dx < 0 ? -1 : 1) + cycle.length) % cycle.length]
+}
+
+// The choosers (ItemMenu.openChooser), the current one ticked.
+function episodeOrderChoices(orders, current) {
+  return (orders || []).filter(function(o) { return !!o }).map(function(o) {
+    return { id: "order:" + o.index, title: String(o.title || ""), icon: o.index === current ? EPISODE_CHOSEN_ICON : SORT_ICON,
+             value: o.index }
+  })
+}
+
+function episodeFilterChoices(filters, current) {
+  var none = current === null || current === undefined
+  var rows = [{ id: "filter:none", title: EPISODE_FILTER_ALL, icon: none ? EPISODE_CHOSEN_ICON : FILTER_ICON, value: null }]
+  for (var i = 0; i < (filters || []).length; i++) {
+    var f = filters[i]
+    if (f) rows.push({ id: "filter:" + f.index, title: String(f.title || ""), icon: f.index === current ? EPISODE_CHOSEN_ICON : FILTER_ICON,
+                       value: f.index })
+  }
+  return rows
+}
+
+// ---- Find in show ------------------------------------------------------------------------
+
+// A podcast page with episodes to find in.
+function episodeFindable(page) {
+  return _isPodcastPage(page) && pageTracks(page).length > 0
+}
+
+var _g3CanFind = canFind
+canFind = function(page) { return _g3CanFind(page) || episodeFindable(page) }
+
+function _episodeFindText(item) {
+  return foldText([item.title || "", item.description || ""].join("\n"))
+}
+
+// The section that holds the episodes (keyed "episodes", else the first
+// with tracks), -1 when none.
+function _episodeSection(page) {
+  var sections = page && page.sections ? page.sections : []
+  var fallback = -1
+  for (var s = 0; s < sections.length; s++) {
+    if (sections[s] && sections[s].key === "episodes") return s
+    if (fallback < 0 && sectionTracks(page, s).length > 0) fallback = s
+  }
+  return fallback
+}
+
+// The episodes every word of `text` matches (title or the start of the
+// description), as rows that play the list from there; then a Load more
+// row while pages are left (opts.loading: one is on its way), else a
+// message when none matched, and one when the list stopped at the Store's
+// cap (appendPage's `capped`: the show has more than was searched).
+function episodeFindRows(page, text, opts) {
+  var o = opts || {}
+  var rows = []
+  var s = _episodeSection(page)
+  var list = s >= 0 ? sectionTracks(page, s) : []
+  var words = foldText(text).split(/\s+/).filter(function(w) { return w !== "" })
+  for (var i = 0; i < list.length; i++) {
+    var hay = _episodeFindText(list[i])
+    var all = true
+    for (var w = 0; w < words.length && all; w++) all = hay.indexOf(words[w]) >= 0
+    if (all) rows.push({ item: list[i], sectionIndex: s, trackIndex: i })
+  }
+  var more = !!page && (!!page.cursor || page.hasMore === true)
+  if (more || o.loading === true)
+    rows.push({ item: { type: "loadMore", id: FIND_MORE_ID, title: "Load every episode to find in",
+                        busyTitle: "Loading every episode… " + groupedCount(list.length) + " so far" } })
+  else {
+    if (rows.length === 0) rows.push({ item: { type: "message", title: "No episodes match \"" + String(text).trim() + "\"" } })
+    if (!!page && page.capped === true)
+      rows.push({ item: { type: "message", title: "Searched the first " + groupedCount(list.length) + " episodes only; the show has more" } })
+  }
+  return rows
+}
+
+// A filter nothing matched: YouTube's message, then a row that clears it
+// (Enter; h / l cycle the filters instead, so they are not its hint).
+function clearFilterRow(page) {
+  return _isPodcastPage(page) && page.filter !== null && page.filter !== undefined && pageTracks(page).length === 0
+    ? { item: { type: "action", id: CLEAR_FILTER_ID, title: "Show all episodes", icon: FILTER_ICON } }
+    : null
+}
+
+// S8's rows, or the episodes Find in show matches (opts.find, opts.loading).
+var _g3PodcastRows = podcastRows
+podcastRows = function(page, opts) {
+  var o = opts || {}
+  if (episodeFindable(page) && String(o.find || "").trim() !== "") return episodeFindRows(page, o.find, o)
+  var rows = _g3PodcastRows(page, opts)
+  var clear = clearFilterRow(page)
+  return clear ? rows.concat([clear]) : rows
+}
+
+// ---- menus and keys ----------------------------------------------------------------------
+
+var _g3FindTitle = menuAction("find").title
+menuAction("find").title = function(item, ctx) {
+  if (ctx && ctx.pageKind === "podcast") return "Find in show"
+  return typeof _g3FindTitle === "function" ? _g3FindTitle(item, ctx) : _g3FindTitle
+}
+_keyEntry("find").title = "find in a page's songs (album, playlist, Liked Music, History), a podcast's episodes or the suggested artists"
+
+// M: the sort chip's and the filter chips' twins (O and h / l are the keys).
+_insertAfter(MENU_ACTIONS, "find", [
+  { id: "episodeOrder", title: function(item, ctx) { return "Sort: " + (ctx.episodeOrderTitle || "as served") }, icon: SORT_ICON,
+    key: "order",
+    applies: function(item, ctx) { return ctx.page === true && ctx.episodeOrders === true },
+    run: function(env) { if (env.owner && typeof env.owner.chooseOrder === "function") env.owner.chooseOrder() } },
+  { id: "episodeFilter", title: function(item, ctx) { return "Filter: " + (ctx.episodeFilterTitle || EPISODE_FILTER_ALL) },
+    icon: FILTER_ICON, key: "horizontal",
+    applies: function(item, ctx) { return ctx.page === true && ctx.episodeFilters === true },
+    run: function(env) { if (env.owner && typeof env.owner.chooseFilter === "function") env.owner.chooseFilter() } }
+])
+
+if (typeof module !== "undefined") {
+  Object.assign(module.exports, {
+    EPISODE_FILTER_ALL: EPISODE_FILTER_ALL,
+    CLEAR_FILTER_ID: CLEAR_FILTER_ID,
+    FIND_MORE_ID: FIND_MORE_ID,
+    pageExtra: pageExtra,
+    canFind: canFind,
+    podcastRows: podcastRows,
+    episodeFilters: episodeFilters,
+    episodeFilterTitle: episodeFilterTitle,
+    episodeOrderTitle: episodeOrderTitle,
+    nextEpisodeFilter: nextEpisodeFilter,
+    episodeOrderChoices: episodeOrderChoices,
+    episodeFilterChoices: episodeFilterChoices,
+    episodeFindable: episodeFindable,
+    episodeFindRows: episodeFindRows,
+    clearFilterRow: clearFilterRow
+  })
+}
