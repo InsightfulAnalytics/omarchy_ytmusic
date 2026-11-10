@@ -74,9 +74,9 @@ test("prefs round trip: location and quality are kept and sent to the worker", (
 })
 
 test("Library's M menu: Switch account, Audio quality, Content location, then Record plays and Sign out", () => {
-  // S14's Add artists you like comes first.
+  // S14's Add artists you like comes first, then S9's Your channel.
   assert.deepEqual(ids(Model.menuActions(null, library)),
-    ["tasteProfile", "switchAccount", "audioQuality", "contentLocation", "recordHistory", "signOut"])
+    ["tasteProfile", "myChannel", "switchAccount", "audioQuality", "contentLocation", "recordHistory", "signOut"])
   assert.deepEqual(ids(Model.menuActions(null, Object.assign({}, library, { signedIn: false }))),
     ["audioQuality", "contentLocation", "signIn"], "quality and location are not account-only")
   const titled = Model.menuActions(null, Object.assign({ quality: "low", location: "AU" }, library))

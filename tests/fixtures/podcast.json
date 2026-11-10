@@ -1,0 +1,2482 @@
+{
+ "contents": {
+  "twoColumnBrowseResultsRenderer": {
+   "secondaryContents": {
+    "sectionListRenderer": {
+     "contents": [
+      {
+       "musicShelfRenderer": {
+        "contents": [
+         {
+          "musicMultiRowListItemRenderer": {
+           "thumbnail": {
+            "musicThumbnailRenderer": {
+             "thumbnail": {
+              "thumbnails": [
+               {
+                "url": "https://i.ytimg.com/vi/Gu4syP_IzQs/hq720.jpg?sqp=-oaymwEKCNUGEN8DIABIWg&rs=AMzJL3n6MGqKtKXxiCgg6rs0n_wdrKF-xw",
+                "width": 853,
+                "height": 479
+               }
+              ]
+             }
+            }
+           },
+           "onTap": {
+            "watchEndpoint": {
+             "videoId": "Gu4syP_IzQs",
+             "params": "8gEDmAEI",
+             "watchEndpointMusicSupportedConfigs": {
+              "watchEndpointMusicConfig": {
+               "musicVideoType": "MUSIC_VIDEO_TYPE_PODCAST_EPISODE"
+              }
+             }
+            }
+           },
+           "subtitle": {
+            "runs": [
+             {
+              "text": "241K views"
+             },
+             {
+              "text": " • "
+             },
+             {
+              "text": "Jul 31"
+             }
+            ]
+           },
+           "playbackProgress": {
+            "musicPlaybackProgressRenderer": {
+             "playbackProgressPercentage": 0,
+             "playbackProgressText": {
+              "runs": [
+               {
+                "text": " • "
+               },
+               {
+                "text": "4 hr 1 min"
+               }
+              ]
+             },
+             "durationText": {
+              "runs": [
+               {
+                "text": " • "
+               },
+               {
+                "text": "4 hr 1 min"
+               }
+              ]
+             },
+             "playedText": {
+              "runs": [
+               {
+                "text": " • "
+               },
+               {
+                "text": "Played",
+                "textColor": 4294921797
+               }
+              ]
+             }
+            }
+           },
+           "title": {
+            "runs": [
+             {
+              "text": "Show 74 - Mania for Subjugation IV",
+              "navigationEndpoint": {
+               "browseEndpoint": {
+                "browseId": "MPEDGu4syP_IzQs",
+                "browseEndpointContextSupportedConfigs": {
+                 "browseEndpointContextMusicConfig": {
+                  "pageType": "MUSIC_PAGE_TYPE_NON_MUSIC_AUDIO_TRACK_PAGE"
+                 }
+                }
+               }
+              }
+             }
+            ]
+           },
+           "description": {
+            "runs": [
+             {
+              "text": "The stage is set for an in-person showdown between Alexander and Persia's Great King. The resulting Battle of Issus, although often ignored by Hollywood, is one of the most important battles in all ancient history. It gets its due here."
+             }
+            ]
+           },
+           "displayStyle": "MUSIC_MULTI_ROW_LIST_ITEM_DISPLAY_STYLE_DETAILED"
+          }
+         },
+         {
+          "musicMultiRowListItemRenderer": {
+           "thumbnail": {
+            "musicThumbnailRenderer": {
+             "thumbnail": {
+              "thumbnails": [
+               {
+                "url": "https://i.ytimg.com/vi/fI2xUkLdoGo/hq720.jpg?sqp=-oaymwEKCNUGEN8DIABIWg&rs=AMzJL3mTrjmdqhI2oORwWDcc5nodvyRkDA",
+                "width": 853,
+                "height": 479
+               }
+              ]
+             }
+            }
+           },
+           "onTap": {
+            "watchEndpoint": {
+             "videoId": "fI2xUkLdoGo",
+             "params": "8gEDmAEI",
+             "watchEndpointMusicSupportedConfigs": {
+              "watchEndpointMusicConfig": {
+               "musicVideoType": "MUSIC_VIDEO_TYPE_PODCAST_EPISODE"
+              }
+             }
+            }
+           },
+           "subtitle": {
+            "runs": [
+             {
+              "text": "293K views"
+             },
+             {
+              "text": " • "
+             },
+             {
+              "text": "Dec 22, 2025"
+             }
+            ]
+           },
+           "playbackProgress": {
+            "musicPlaybackProgressRenderer": {
+             "playbackProgressPercentage": 0,
+             "playbackProgressText": {
+              "runs": [
+               {
+                "text": " • "
+               },
+               {
+                "text": "4 hr 14 min"
+               }
+              ]
+             },
+             "durationText": {
+              "runs": [
+               {
+                "text": " • "
+               },
+               {
+                "text": "4 hr 14 min"
+               }
+              ]
+             },
+             "playedText": {
+              "runs": [
+               {
+                "text": " • "
+               },
+               {
+                "text": "Played",
+                "textColor": 4294921797
+               }
+              ]
+             }
+            }
+           },
+           "title": {
+            "runs": [
+             {
+              "text": "Show 73 - Mania for Subjugation III",
+              "navigationEndpoint": {
+               "browseEndpoint": {
+                "browseId": "MPEDfI2xUkLdoGo",
+                "browseEndpointContextSupportedConfigs": {
+                 "browseEndpointContextMusicConfig": {
+                  "pageType": "MUSIC_PAGE_TYPE_NON_MUSIC_AUDIO_TRACK_PAGE"
+                 }
+                }
+               }
+              }
+             }
+            ]
+           },
+           "description": {
+            "runs": [
+             {
+              "text": "Attacking the largest empire the world had ever seen is a huge endeavor at any age, but try doing it at 21. Alexander, fusing the qualities of a Napoleon with a gladiator, aims for immortality. The Persians are just in his way."
+             }
+            ]
+           },
+           "displayStyle": "MUSIC_MULTI_ROW_LIST_ITEM_DISPLAY_STYLE_DETAILED"
+          }
+         },
+         {
+          "musicMultiRowListItemRenderer": {
+           "thumbnail": {
+            "musicThumbnailRenderer": {
+             "thumbnail": {
+              "thumbnails": [
+               {
+                "url": "https://i.ytimg.com/vi/k4LYrQq3NKA/hq720.jpg?sqp=-oaymwEKCNUGEN8DIABIWg&rs=AMzJL3nRxPCgQxm_EbWullvQJ727Itl1xA",
+                "width": 853,
+                "height": 479
+               }
+              ]
+             }
+            }
+           },
+           "onTap": {
+            "watchEndpoint": {
+             "videoId": "k4LYrQq3NKA",
+             "params": "8gEDmAEI",
+             "watchEndpointMusicSupportedConfigs": {
+              "watchEndpointMusicConfig": {
+               "musicVideoType": "MUSIC_VIDEO_TYPE_PODCAST_EPISODE"
+              }
+             }
+            }
+           },
+           "subtitle": {
+            "runs": [
+             {
+              "text": "104K views"
+             },
+             {
+              "text": " • "
+             },
+             {
+              "text": "Nov 28, 2025"
+             }
+            ]
+           },
+           "playbackProgress": {
+            "musicPlaybackProgressRenderer": {
+             "playbackProgressPercentage": 0,
+             "playbackProgressText": {
+              "runs": [
+               {
+                "text": " • "
+               },
+               {
+                "text": "1 hr 23 min"
+               }
+              ]
+             },
+             "durationText": {
+              "runs": [
+               {
+                "text": " • "
+               },
+               {
+                "text": "1 hr 23 min"
+               }
+              ]
+             },
+             "playedText": {
+              "runs": [
+               {
+                "text": " • "
+               },
+               {
+                "text": "Played",
+                "textColor": 4294921797
+               }
+              ]
+             }
+            }
+           },
+           "title": {
+            "runs": [
+             {
+              "text": "EP34 Atomic Accountability",
+              "navigationEndpoint": {
+               "browseEndpoint": {
+                "browseId": "MPEDk4LYrQq3NKA",
+                "browseEndpointContextSupportedConfigs": {
+                 "browseEndpointContextMusicConfig": {
+                  "pageType": "MUSIC_PAGE_TYPE_NON_MUSIC_AUDIO_TRACK_PAGE"
+                 }
+                }
+               }
+              }
+             }
+            ]
+           },
+           "description": {
+            "runs": [
+             {
+              "text": "Dan visits with Professor Alex Wellerstein, whose new book about Truman and the dropping of the atomic bombs will challenge everything you think you know about the subject."
+             }
+            ]
+           },
+           "displayStyle": "MUSIC_MULTI_ROW_LIST_ITEM_DISPLAY_STYLE_DETAILED"
+          }
+         },
+         {
+          "musicMultiRowListItemRenderer": {
+           "thumbnail": {
+            "musicThumbnailRenderer": {
+             "thumbnail": {
+              "thumbnails": [
+               {
+                "url": "https://i.ytimg.com/vi/sUZlAKAHsk4/hq720.jpg?sqp=-oaymwEKCNUGEN8DIABIWg&rs=AMzJL3nbmZPxm56iZPEuo7mmNKIiSOLBUw",
+                "width": 853,
+                "height": 479
+               }
+              ]
+             }
+            }
+           },
+           "onTap": {
+            "watchEndpoint": {
+             "videoId": "sUZlAKAHsk4",
+             "params": "8gEDmAEI",
+             "watchEndpointMusicSupportedConfigs": {
+              "watchEndpointMusicConfig": {
+               "musicVideoType": "MUSIC_VIDEO_TYPE_PODCAST_EPISODE"
+              }
+             }
+            }
+           },
+           "subtitle": {
+            "runs": [
+             {
+              "text": "122K views"
+             },
+             {
+              "text": " • "
+             },
+             {
+              "text": "Jul 5, 2025"
+             }
+            ]
+           },
+           "playbackProgress": {
+            "musicPlaybackProgressRenderer": {
+             "playbackProgressPercentage": 0,
+             "playbackProgressText": {
+              "runs": [
+               {
+                "text": " • "
+               },
+               {
+                "text": "1 hr 31 min"
+               }
+              ]
+             },
+             "durationText": {
+              "runs": [
+               {
+                "text": " • "
+               },
+               {
+                "text": "1 hr 31 min"
+               }
+              ]
+             },
+             "playedText": {
+              "runs": [
+               {
+                "text": " • "
+               },
+               {
+                "text": "Played",
+                "textColor": 4294921797
+               }
+              ]
+             }
+            }
+           },
+           "title": {
+            "runs": [
+             {
+              "text": "EP33 Sledgehammer and Big Shot",
+              "navigationEndpoint": {
+               "browseEndpoint": {
+                "browseId": "MPEDsUZlAKAHsk4",
+                "browseEndpointContextSupportedConfigs": {
+                 "browseEndpointContextMusicConfig": {
+                  "pageType": "MUSIC_PAGE_TYPE_NON_MUSIC_AUDIO_TRACK_PAGE"
+                 }
+                }
+               }
+              }
+             }
+            ]
+           },
+           "description": {
+            "runs": [
+             {
+              "text": "Henry Sledge, son of Eugene Sledge, writer of the classic war memoir “With the Old Breed at Peleliu and Okinawa” has released a book that includes tons of material left out of his dad's memoir along with details about growing up as the son of “Sledgehammer”"
+             }
+            ]
+           },
+           "displayStyle": "MUSIC_MULTI_ROW_LIST_ITEM_DISPLAY_STYLE_DETAILED"
+          }
+         },
+         {
+          "musicMultiRowListItemRenderer": {
+           "thumbnail": {
+            "musicThumbnailRenderer": {
+             "thumbnail": {
+              "thumbnails": [
+               {
+                "url": "https://i.ytimg.com/vi/wqjQ5jcN0tU/hq720.jpg?sqp=-oaymwEKCNUGEN8DIABIWg&rs=AMzJL3kBtjOGOTbY3BotfhyVGdqFDyzDTQ",
+                "width": 853,
+                "height": 479
+               }
+              ]
+             }
+            }
+           },
+           "onTap": {
+            "watchEndpoint": {
+             "videoId": "wqjQ5jcN0tU",
+             "params": "8gEDmAEI",
+             "watchEndpointMusicSupportedConfigs": {
+              "watchEndpointMusicConfig": {
+               "musicVideoType": "MUSIC_VIDEO_TYPE_PODCAST_EPISODE"
+              }
+             }
+            }
+           },
+           "subtitle": {
+            "runs": [
+             {
+              "text": "69K views"
+             },
+             {
+              "text": " • "
+             },
+             {
+              "text": "Mar 28, 2025"
+             }
+            ]
+           },
+           "playbackProgress": {
+            "musicPlaybackProgressRenderer": {
+             "playbackProgressPercentage": 0,
+             "playbackProgressText": {
+              "runs": [
+               {
+                "text": " • "
+               },
+               {
+                "text": "2 hr 30 min"
+               }
+              ]
+             },
+             "durationText": {
+              "runs": [
+               {
+                "text": " • "
+               },
+               {
+                "text": "2 hr 30 min"
+               }
+              ]
+             },
+             "playedText": {
+              "runs": [
+               {
+                "text": " • "
+               },
+               {
+                "text": "Played",
+                "textColor": 4294921797
+               }
+              ]
+             }
+            }
+           },
+           "title": {
+            "runs": [
+             {
+              "text": "EP32 The Show with Mike Rowe",
+              "navigationEndpoint": {
+               "browseEndpoint": {
+                "browseId": "MPEDwqjQ5jcN0tU",
+                "browseEndpointContextSupportedConfigs": {
+                 "browseEndpointContextMusicConfig": {
+                  "pageType": "MUSIC_PAGE_TYPE_NON_MUSIC_AUDIO_TRACK_PAGE"
+                 }
+                }
+               }
+              }
+             }
+            ]
+           },
+           "description": {
+            "runs": [
+             {
+              "text": "Dan has an extended and completely unplanned conversation with TV and podcast host Mike Rowe about jobs, history, media, politics and the current zeitgeist.\n\nhttps://mikeroweworks.org/"
+             }
+            ]
+           },
+           "displayStyle": "MUSIC_MULTI_ROW_LIST_ITEM_DISPLAY_STYLE_DETAILED"
+          }
+         },
+         {
+          "musicMultiRowListItemRenderer": {
+           "thumbnail": {
+            "musicThumbnailRenderer": {
+             "thumbnail": {
+              "thumbnails": [
+               {
+                "url": "https://i.ytimg.com/vi/N1wz1WPfI34/hq720.jpg?sqp=-oaymwEKCNUGEN8DIABIWg&rs=AMzJL3ldmOktN0GUgHMrUvdAR4GQxXyZBA",
+                "width": 853,
+                "height": 479
+               }
+              ]
+             }
+            }
+           },
+           "onTap": {
+            "watchEndpoint": {
+             "videoId": "N1wz1WPfI34",
+             "params": "8gEDmAEI",
+             "watchEndpointMusicSupportedConfigs": {
+              "watchEndpointMusicConfig": {
+               "musicVideoType": "MUSIC_VIDEO_TYPE_PODCAST_EPISODE"
+              }
+             }
+            }
+           },
+           "subtitle": {
+            "runs": [
+             {
+              "text": "95K views"
+             },
+             {
+              "text": " • "
+             },
+             {
+              "text": "Jan 13, 2025"
+             }
+            ]
+           },
+           "playbackProgress": {
+            "musicPlaybackProgressRenderer": {
+             "playbackProgressPercentage": 0,
+             "playbackProgressText": {
+              "runs": [
+               {
+                "text": " • "
+               },
+               {
+                "text": "1 hr 11 min"
+               }
+              ]
+             },
+             "durationText": {
+              "runs": [
+               {
+                "text": " • "
+               },
+               {
+                "text": "1 hr 11 min"
+               }
+              ]
+             },
+             "playedText": {
+              "runs": [
+               {
+                "text": " • "
+               },
+               {
+                "text": "Played",
+                "textColor": 4294921797
+               }
+              ]
+             }
+            }
+           },
+           "title": {
+            "runs": [
+             {
+              "text": "EP31 Kushite Conversations",
+              "navigationEndpoint": {
+               "browseEndpoint": {
+                "browseId": "MPEDN1wz1WPfI34",
+                "browseEndpointContextSupportedConfigs": {
+                 "browseEndpointContextMusicConfig": {
+                  "pageType": "MUSIC_PAGE_TYPE_NON_MUSIC_AUDIO_TRACK_PAGE"
+                 }
+                }
+               }
+              }
+             }
+            ]
+           },
+           "description": {
+            "runs": [
+             {
+              "text": "Dan talks with writer, broadcaster and journalist Zeinab Badawi about the ancient African kingdom of Kush and her book on African history."
+             }
+            ]
+           },
+           "displayStyle": "MUSIC_MULTI_ROW_LIST_ITEM_DISPLAY_STYLE_DETAILED"
+          }
+         },
+         {
+          "musicMultiRowListItemRenderer": {
+           "thumbnail": {
+            "musicThumbnailRenderer": {
+             "thumbnail": {
+              "thumbnails": [
+               {
+                "url": "https://i.ytimg.com/vi/clX0sY-gfvk/hq720.jpg?sqp=-oaymwEKCNUGEN8DIABIWg&rs=AMzJL3mCges9wrqQ-fWpTj3KyiBRaJAu2g",
+                "width": 853,
+                "height": 479
+               }
+              ]
+             }
+            }
+           },
+           "onTap": {
+            "watchEndpoint": {
+             "videoId": "clX0sY-gfvk",
+             "params": "8gEDmAEI",
+             "watchEndpointMusicSupportedConfigs": {
+              "watchEndpointMusicConfig": {
+               "musicVideoType": "MUSIC_VIDEO_TYPE_PODCAST_EPISODE"
+              }
+             }
+            }
+           },
+           "subtitle": {
+            "runs": [
+             {
+              "text": "1.2M views"
+             },
+             {
+              "text": " • "
+             },
+             {
+              "text": "Jan 3, 2025"
+             }
+            ]
+           },
+           "playbackProgress": {
+            "musicPlaybackProgressRenderer": {
+             "playbackProgressPercentage": 0,
+             "playbackProgressText": {
+              "runs": [
+               {
+                "text": " • "
+               },
+               {
+                "text": "3 hr 51 min"
+               }
+              ]
+             },
+             "durationText": {
+              "runs": [
+               {
+                "text": " • "
+               },
+               {
+                "text": "3 hr 51 min"
+               }
+              ]
+             },
+             "playedText": {
+              "runs": [
+               {
+                "text": " • "
+               },
+               {
+                "text": "Played",
+                "textColor": 4294921797
+               }
+              ]
+             }
+            }
+           },
+           "title": {
+            "runs": [
+             {
+              "text": "Dan Carlin's Hardcore History 72 Mania for Subjugation II",
+              "navigationEndpoint": {
+               "browseEndpoint": {
+                "browseId": "MPEDclX0sY-gfvk",
+                "browseEndpointContextSupportedConfigs": {
+                 "browseEndpointContextMusicConfig": {
+                  "pageType": "MUSIC_PAGE_TYPE_NON_MUSIC_AUDIO_TRACK_PAGE"
+                 }
+                }
+               }
+              }
+             }
+            ]
+           },
+           "description": {
+            "runs": [
+             {
+              "text": "Is it safe to hand control of the deadliest army in the world to a 20-year old? If you are Thracian, Triballian, Illyrian or Theban, the answer is definitely no. Alexander becomes king and fights off threats to his rule in all directions."
+             }
+            ]
+           },
+           "displayStyle": "MUSIC_MULTI_ROW_LIST_ITEM_DISPLAY_STYLE_DETAILED"
+          }
+         },
+         {
+          "musicMultiRowListItemRenderer": {
+           "thumbnail": {
+            "musicThumbnailRenderer": {
+             "thumbnail": {
+              "thumbnails": [
+               {
+                "url": "https://i.ytimg.com/vi/qEfMa3LLazg/hq720.jpg?sqp=-oaymwEKCNUGEN8DIABIWg&rs=AMzJL3koa-nLhCRSA0LWKHyaPx3GglgoIA",
+                "width": 853,
+                "height": 479
+               }
+              ]
+             }
+            }
+           },
+           "onTap": {
+            "watchEndpoint": {
+             "videoId": "qEfMa3LLazg",
+             "params": "8gEDmAEI",
+             "watchEndpointMusicSupportedConfigs": {
+              "watchEndpointMusicConfig": {
+               "musicVideoType": "MUSIC_VIDEO_TYPE_PODCAST_EPISODE"
+              }
+             }
+            }
+           },
+           "subtitle": {
+            "runs": [
+             {
+              "text": "329K views"
+             },
+             {
+              "text": " • "
+             },
+             {
+              "text": "Aug 1, 2024"
+             }
+            ]
+           },
+           "playbackProgress": {
+            "musicPlaybackProgressRenderer": {
+             "playbackProgressPercentage": 0,
+             "playbackProgressText": {
+              "runs": [
+               {
+                "text": " • "
+               },
+               {
+                "text": "1 hr 37 min"
+               }
+              ]
+             },
+             "durationText": {
+              "runs": [
+               {
+                "text": " • "
+               },
+               {
+                "text": "1 hr 37 min"
+               }
+              ]
+             },
+             "playedText": {
+              "runs": [
+               {
+                "text": " • "
+               },
+               {
+                "text": "Played",
+                "textColor": 4294921797
+               }
+              ]
+             }
+            }
+           },
+           "title": {
+            "runs": [
+             {
+              "text": "EP30 So, you say you want a revolution?",
+              "navigationEndpoint": {
+               "browseEndpoint": {
+                "browseId": "MPEDqEfMa3LLazg",
+                "browseEndpointContextSupportedConfigs": {
+                 "browseEndpointContextMusicConfig": {
+                  "pageType": "MUSIC_PAGE_TYPE_NON_MUSIC_AUDIO_TRACK_PAGE"
+                 }
+                }
+               }
+              }
+             }
+            ]
+           },
+           "description": {
+            "runs": [
+             {
+              "text": "This show could also have been called “Violent Reflections” as Dan repurposes old work he did on the revolutionary era of the late 1960s. This is NOT a deep HH-style look at the period, but is instead a brief gaze at a potential “Past is Prologue” moment."
+             }
+            ]
+           },
+           "displayStyle": "MUSIC_MULTI_ROW_LIST_ITEM_DISPLAY_STYLE_DETAILED"
+          }
+         },
+         {
+          "musicMultiRowListItemRenderer": {
+           "thumbnail": {
+            "musicThumbnailRenderer": {
+             "thumbnail": {
+              "thumbnails": [
+               {
+                "url": "https://i.ytimg.com/vi/RpfGzVSNdnU/hq720.jpg?sqp=-oaymwEKCNUGEN8DIABIWg&rs=AMzJL3msbqR8bFOLr03o_HnCtWfH0WeclA",
+                "width": 853,
+                "height": 479
+               }
+              ]
+             }
+            }
+           },
+           "onTap": {
+            "watchEndpoint": {
+             "videoId": "RpfGzVSNdnU",
+             "params": "8gEDmAEI",
+             "watchEndpointMusicSupportedConfigs": {
+              "watchEndpointMusicConfig": {
+               "musicVideoType": "MUSIC_VIDEO_TYPE_PODCAST_EPISODE"
+              }
+             }
+            }
+           },
+           "subtitle": {
+            "runs": [
+             {
+              "text": "1M views"
+             },
+             {
+              "text": " • "
+             },
+             {
+              "text": "Jun 8, 2024"
+             }
+            ]
+           },
+           "playbackProgress": {
+            "musicPlaybackProgressRenderer": {
+             "playbackProgressPercentage": 0,
+             "playbackProgressText": {
+              "runs": [
+               {
+                "text": " • "
+               },
+               {
+                "text": "4 hr 11 min"
+               }
+              ]
+             },
+             "durationText": {
+              "runs": [
+               {
+                "text": " • "
+               },
+               {
+                "text": "4 hr 11 min"
+               }
+              ]
+             },
+             "playedText": {
+              "runs": [
+               {
+                "text": " • "
+               },
+               {
+                "text": "Played",
+                "textColor": 4294921797
+               }
+              ]
+             }
+            }
+           },
+           "title": {
+            "runs": [
+             {
+              "text": "Dan Carlin's Hardcore History 71 - Mania for Subjugation",
+              "navigationEndpoint": {
+               "browseEndpoint": {
+                "browseId": "MPEDRpfGzVSNdnU",
+                "browseEndpointContextSupportedConfigs": {
+                 "browseEndpointContextMusicConfig": {
+                  "pageType": "MUSIC_PAGE_TYPE_NON_MUSIC_AUDIO_TRACK_PAGE"
+                 }
+                }
+               }
+              }
+             }
+            ]
+           },
+           "description": {
+            "runs": [
+             {
+              "text": "What's the recipe for making a historically world-class apex predator? In the case of Alexander the Great, it might be the three Ns: Nature, Nurture, and Nepotism."
+             }
+            ]
+           },
+           "displayStyle": "MUSIC_MULTI_ROW_LIST_ITEM_DISPLAY_STYLE_DETAILED"
+          }
+         },
+         {
+          "musicMultiRowListItemRenderer": {
+           "thumbnail": {
+            "musicThumbnailRenderer": {
+             "thumbnail": {
+              "thumbnails": [
+               {
+                "url": "https://i.ytimg.com/vi/0fKY2heVWoU/hq720.jpg?sqp=-oaymwEKCNUGEN8DIABIWg&rs=AMzJL3mI1O4NDHeFMesyIBGIl43RUOQP4g",
+                "width": 853,
+                "height": 479
+               }
+              ]
+             }
+            }
+           },
+           "onTap": {
+            "watchEndpoint": {
+             "videoId": "0fKY2heVWoU",
+             "params": "8gEDmAEI",
+             "watchEndpointMusicSupportedConfigs": {
+              "watchEndpointMusicConfig": {
+               "musicVideoType": "MUSIC_VIDEO_TYPE_PODCAST_EPISODE"
+              }
+             }
+            }
+           },
+           "subtitle": {
+            "runs": [
+             {
+              "text": "129K views"
+             },
+             {
+              "text": " • "
+             },
+             {
+              "text": "Apr 5, 2024"
+             }
+            ]
+           },
+           "playbackProgress": {
+            "musicPlaybackProgressRenderer": {
+             "playbackProgressPercentage": 0,
+             "playbackProgressText": {
+              "runs": [
+               {
+                "text": " • "
+               },
+               {
+                "text": "1 hr 1 min"
+               }
+              ]
+             },
+             "durationText": {
+              "runs": [
+               {
+                "text": " • "
+               },
+               {
+                "text": "1 hr 1 min"
+               }
+              ]
+             },
+             "playedText": {
+              "runs": [
+               {
+                "text": " • "
+               },
+               {
+                "text": "Played",
+                "textColor": 4294921797
+               }
+              ]
+             }
+            }
+           },
+           "title": {
+            "runs": [
+             {
+              "text": "EP29 The Handmaidens of the Apocalypse",
+              "navigationEndpoint": {
+               "browseEndpoint": {
+                "browseId": "MPED0fKY2heVWoU",
+                "browseEndpointContextSupportedConfigs": {
+                 "browseEndpointContextMusicConfig": {
+                  "pageType": "MUSIC_PAGE_TYPE_NON_MUSIC_AUDIO_TRACK_PAGE"
+                 }
+                }
+               }
+              }
+             }
+            ]
+           },
+           "description": {
+            "runs": [
+             {
+              "text": "Investigative journalist Annie Jacobsen joins Dan to discuss the contents of her new book which, using insider and expert information, dramatically outlines how a nuclear war might unfold.\n\nNuclear War: A Scenario by Annie Jacobsen \nhttps://amzn.to/3U8lGMR"
+             }
+            ]
+           },
+           "displayStyle": "MUSIC_MULTI_ROW_LIST_ITEM_DISPLAY_STYLE_DETAILED"
+          }
+         },
+         {
+          "musicMultiRowListItemRenderer": {
+           "thumbnail": {
+            "musicThumbnailRenderer": {
+             "thumbnail": {
+              "thumbnails": [
+               {
+                "url": "https://i.ytimg.com/vi/paO72-zA650/hq720.jpg?sqp=-oaymwEKCNUGEN8DIABIWg&rs=AMzJL3mkGFtT87XtCPrFN3t1n6ruhKg9ZQ",
+                "width": 853,
+                "height": 479
+               }
+              ]
+             }
+            }
+           },
+           "onTap": {
+            "watchEndpoint": {
+             "videoId": "paO72-zA650",
+             "params": "8gEDmAEI",
+             "watchEndpointMusicSupportedConfigs": {
+              "watchEndpointMusicConfig": {
+               "musicVideoType": "MUSIC_VIDEO_TYPE_PODCAST_EPISODE"
+              }
+             }
+            }
+           },
+           "subtitle": {
+            "runs": [
+             {
+              "text": "247K views"
+             },
+             {
+              "text": " • "
+             },
+             {
+              "text": "Feb 15, 2024"
+             }
+            ]
+           },
+           "playbackProgress": {
+            "musicPlaybackProgressRenderer": {
+             "playbackProgressPercentage": 0,
+             "playbackProgressText": {
+              "runs": [
+               {
+                "text": " • "
+               },
+               {
+                "text": "3 hr 18 min"
+               }
+              ]
+             },
+             "durationText": {
+              "runs": [
+               {
+                "text": " • "
+               },
+               {
+                "text": "3 hr 18 min"
+               }
+              ]
+             },
+             "playedText": {
+              "runs": [
+               {
+                "text": " • "
+               },
+               {
+                "text": "Played",
+                "textColor": 4294921797
+               }
+              ]
+             }
+            }
+           },
+           "title": {
+            "runs": [
+             {
+              "text": "EP28 Superhumanly Inhuman",
+              "navigationEndpoint": {
+               "browseEndpoint": {
+                "browseId": "MPEDpaO72-zA650",
+                "browseEndpointContextSupportedConfigs": {
+                 "browseEndpointContextMusicConfig": {
+                  "pageType": "MUSIC_PAGE_TYPE_NON_MUSIC_AUDIO_TRACK_PAGE"
+                 }
+                }
+               }
+              }
+             }
+            ]
+           },
+           "description": {
+            "runs": [
+             {
+              "text": "This show starts off with an extended discussion of the genocide of Jews in the Holocaust and the associated dangers of extreme governmental power followed by an interview with Holocaust expert and historian Dan Stone."
+             }
+            ]
+           },
+           "displayStyle": "MUSIC_MULTI_ROW_LIST_ITEM_DISPLAY_STYLE_DETAILED"
+          }
+         },
+         {
+          "musicMultiRowListItemRenderer": {
+           "thumbnail": {
+            "musicThumbnailRenderer": {
+             "thumbnail": {
+              "thumbnails": [
+               {
+                "url": "https://i.ytimg.com/vi/7vYiY4NrtD0/hq720.jpg?sqp=-oaymwEKCNUGEN8DIABIWg&rs=AMzJL3nP-oAyZXo6aC14oyF_YsUB4Ivzgw",
+                "width": 853,
+                "height": 479
+               }
+              ]
+             }
+            }
+           },
+           "onTap": {
+            "watchEndpoint": {
+             "videoId": "7vYiY4NrtD0",
+             "params": "8gEDmAEI",
+             "watchEndpointMusicSupportedConfigs": {
+              "watchEndpointMusicConfig": {
+               "musicVideoType": "MUSIC_VIDEO_TYPE_PODCAST_EPISODE"
+              }
+             }
+            }
+           },
+           "subtitle": {
+            "runs": [
+             {
+              "text": "408K views"
+             },
+             {
+              "text": " • "
+             },
+             {
+              "text": "Nov 22, 2023"
+             }
+            ]
+           },
+           "playbackProgress": {
+            "musicPlaybackProgressRenderer": {
+             "playbackProgressPercentage": 0,
+             "playbackProgressText": {
+              "runs": [
+               {
+                "text": " • "
+               },
+               {
+                "text": "6 hr 24 min"
+               }
+              ]
+             },
+             "durationText": {
+              "runs": [
+               {
+                "text": " • "
+               },
+               {
+                "text": "6 hr 24 min"
+               }
+              ]
+             },
+             "playedText": {
+              "runs": [
+               {
+                "text": " • "
+               },
+               {
+                "text": "Played",
+                "textColor": 4294921797
+               }
+              ]
+             }
+            }
+           },
+           "title": {
+            "runs": [
+             {
+              "text": "Dan Carlin's Hardcore History 70 - Twilight of the Æsir II",
+              "navigationEndpoint": {
+               "browseEndpoint": {
+                "browseId": "MPED7vYiY4NrtD0",
+                "browseEndpointContextSupportedConfigs": {
+                 "browseEndpointContextMusicConfig": {
+                  "pageType": "MUSIC_PAGE_TYPE_NON_MUSIC_AUDIO_TRACK_PAGE"
+                 }
+                }
+               }
+              }
+             }
+            ]
+           },
+           "description": {
+            "runs": [
+             {
+              "text": "Pagan Viking Sea Kings spend the 10th and 11th centuries morphing into Christian monarchs. But with rulers like Harald Bluetooth and Svein Forkbeard it’s debatable whether things will be any less horrific for Scandinavia’s neighbors"
+             }
+            ]
+           },
+           "displayStyle": "MUSIC_MULTI_ROW_LIST_ITEM_DISPLAY_STYLE_DETAILED"
+          }
+         },
+         {
+          "musicMultiRowListItemRenderer": {
+           "thumbnail": {
+            "musicThumbnailRenderer": {
+             "thumbnail": {
+              "thumbnails": [
+               {
+                "url": "https://i.ytimg.com/vi/06SJNeTofjM/hq720.jpg?sqp=-oaymwEKCNUGEN8DIABIWg&rs=AMzJL3kn7_xpHrUYl0Uji-dKczfS9Hc2Fg",
+                "width": 853,
+                "height": 479
+               }
+              ]
+             }
+            }
+           },
+           "onTap": {
+            "watchEndpoint": {
+             "videoId": "06SJNeTofjM",
+             "params": "8gEDmAEI",
+             "watchEndpointMusicSupportedConfigs": {
+              "watchEndpointMusicConfig": {
+               "musicVideoType": "MUSIC_VIDEO_TYPE_PODCAST_EPISODE"
+              }
+             }
+            }
+           },
+           "subtitle": {
+            "runs": [
+             {
+              "text": "226K views"
+             },
+             {
+              "text": " • "
+             },
+             {
+              "text": "Aug 15, 2023"
+             }
+            ]
+           },
+           "playbackProgress": {
+            "musicPlaybackProgressRenderer": {
+             "playbackProgressPercentage": 0,
+             "playbackProgressText": {
+              "runs": [
+               {
+                "text": " • "
+               },
+               {
+                "text": "1 hr 10 min"
+               }
+              ]
+             },
+             "durationText": {
+              "runs": [
+               {
+                "text": " • "
+               },
+               {
+                "text": "1 hr 10 min"
+               }
+              ]
+             },
+             "playedText": {
+              "runs": [
+               {
+                "text": " • "
+               },
+               {
+                "text": "Played",
+                "textColor": 4294921797
+               }
+              ]
+             }
+            }
+           },
+           "title": {
+            "runs": [
+             {
+              "text": "EP27 More Steppe Stories",
+              "navigationEndpoint": {
+               "browseEndpoint": {
+                "browseId": "MPED06SJNeTofjM",
+                "browseEndpointContextSupportedConfigs": {
+                 "browseEndpointContextMusicConfig": {
+                  "pageType": "MUSIC_PAGE_TYPE_NON_MUSIC_AUDIO_TRACK_PAGE"
+                 }
+                }
+               }
+              }
+             }
+            ]
+           },
+           "description": {
+            "runs": [
+             {
+              "text": "Huns, Mongols, Turks, Scythians and other nomadic steppe tribes are longtime interests of Dan's. In this show he interviews historian Kenneth W. Harl who specializes in the study of those fascinating peoples.\r\n\r\n Show Note 1. Empires of the Steppes: A History of the Nomadic Tribes Who Shaped Civilization by Kenneth W. Harl 2. China Marches West: The Qing Conquest of Central Eurasia by Peter C. Perdue"
+             }
+            ]
+           },
+           "displayStyle": "MUSIC_MULTI_ROW_LIST_ITEM_DISPLAY_STYLE_DETAILED"
+          }
+         },
+         {
+          "musicMultiRowListItemRenderer": {
+           "thumbnail": {
+            "musicThumbnailRenderer": {
+             "thumbnail": {
+              "thumbnails": [
+               {
+                "url": "https://i.ytimg.com/vi/pZN4zAUmCPo/hq720.jpg?sqp=-oaymwEKCNUGEN8DIABIWg&rs=AMzJL3lC3brRC5N94ZRDR3F2YzBe_leMfw",
+                "width": 853,
+                "height": 479
+               }
+              ]
+             }
+            }
+           },
+           "onTap": {
+            "watchEndpoint": {
+             "videoId": "pZN4zAUmCPo",
+             "params": "8gEDmAEI",
+             "watchEndpointMusicSupportedConfigs": {
+              "watchEndpointMusicConfig": {
+               "musicVideoType": "MUSIC_VIDEO_TYPE_PODCAST_EPISODE"
+              }
+             }
+            }
+           },
+           "subtitle": {
+            "runs": [
+             {
+              "text": "120K views"
+             },
+             {
+              "text": " • "
+             },
+             {
+              "text": "May 31, 2023"
+             }
+            ]
+           },
+           "playbackProgress": {
+            "musicPlaybackProgressRenderer": {
+             "playbackProgressPercentage": 0,
+             "playbackProgressText": {
+              "runs": [
+               {
+                "text": " • "
+               },
+               {
+                "text": "1 hr 42 min"
+               }
+              ]
+             },
+             "durationText": {
+              "runs": [
+               {
+                "text": " • "
+               },
+               {
+                "text": "1 hr 42 min"
+               }
+              ]
+             },
+             "playedText": {
+              "runs": [
+               {
+                "text": " • "
+               },
+               {
+                "text": "Played",
+                "textColor": 4294921797
+               }
+              ]
+             }
+            }
+           },
+           "title": {
+            "runs": [
+             {
+              "text": "EP26 Dig This!",
+              "navigationEndpoint": {
+               "browseEndpoint": {
+                "browseId": "MPEDpZN4zAUmCPo",
+                "browseEndpointContextSupportedConfigs": {
+                 "browseEndpointContextMusicConfig": {
+                  "pageType": "MUSIC_PAGE_TYPE_NON_MUSIC_AUDIO_TRACK_PAGE"
+                 }
+                }
+               }
+              }
+             }
+            ]
+           },
+           "description": {
+            "runs": [
+             {
+              "text": "Daniele Bolelli the fabulous host of “History on Fire” and I fanboy out over archaeology. We had some inexplicable audio problems at times with the recording, so hopefully that doesn't detract from the greatness of the guest.\r\n\r\n  1. Uncovering the Past: A history of Archaeology by William H Stiebing Jr. 2. Empire of Horses: The first nomadic civilization and the making of China by John Man  3. Long-hidden ruins of vast network of Maya cities could recast history  4. Desert monoliths reveal oldest blueprints for human-made megastructures by NBC News"
+             }
+            ]
+           },
+           "displayStyle": "MUSIC_MULTI_ROW_LIST_ITEM_DISPLAY_STYLE_DETAILED"
+          }
+         },
+         {
+          "musicMultiRowListItemRenderer": {
+           "thumbnail": {
+            "musicThumbnailRenderer": {
+             "thumbnail": {
+              "thumbnails": [
+               {
+                "url": "https://i.ytimg.com/vi/GYAn-1HE9Y8/hq720.jpg?sqp=-oaymwEKCNUGEN8DIABIWg&rs=AMzJL3mlNt_lrC3fDFPI_MeEW-OhVWOY-Q",
+                "width": 853,
+                "height": 479
+               }
+              ]
+             }
+            }
+           },
+           "onTap": {
+            "watchEndpoint": {
+             "videoId": "GYAn-1HE9Y8",
+             "params": "8gEDmAEI",
+             "watchEndpointMusicSupportedConfigs": {
+              "watchEndpointMusicConfig": {
+               "musicVideoType": "MUSIC_VIDEO_TYPE_PODCAST_EPISODE"
+              }
+             }
+            }
+           },
+           "subtitle": {
+            "runs": [
+             {
+              "text": "175K views"
+             },
+             {
+              "text": " • "
+             },
+             {
+              "text": "Apr 1, 2023"
+             }
+            ]
+           },
+           "playbackProgress": {
+            "musicPlaybackProgressRenderer": {
+             "playbackProgressPercentage": 0,
+             "playbackProgressText": {
+              "runs": [
+               {
+                "text": " • "
+               },
+               {
+                "text": "1 hr 12 min"
+               }
+              ]
+             },
+             "durationText": {
+              "runs": [
+               {
+                "text": " • "
+               },
+               {
+                "text": "1 hr 12 min"
+               }
+              ]
+             },
+             "playedText": {
+              "runs": [
+               {
+                "text": " • "
+               },
+               {
+                "text": "Played",
+                "textColor": 4294921797
+               }
+              ]
+             }
+            }
+           },
+           "title": {
+            "runs": [
+             {
+              "text": "EP25 The Long View",
+              "navigationEndpoint": {
+               "browseEndpoint": {
+                "browseId": "MPEDGYAn-1HE9Y8",
+                "browseEndpointContextSupportedConfigs": {
+                 "browseEndpointContextMusicConfig": {
+                  "pageType": "MUSIC_PAGE_TYPE_NON_MUSIC_AUDIO_TRACK_PAGE"
+                 }
+                }
+               }
+              }
+             }
+            ]
+           },
+           "description": {
+            "runs": [
+             {
+              "text": "Dan tries focusing a much wider historical lens on perennial human issues like war, land ownership, immigration, ethnicity, environmental worries and the double-edged sword that is human inventiveness. \n1. “Agricola and Germania” by Tacitus \n2.  “A Most Dangerous Book: Tacitus's Germania from the Roman Empire to the Third Reich” by  Christopher B. Krebs"
+             }
+            ]
+           },
+           "displayStyle": "MUSIC_MULTI_ROW_LIST_ITEM_DISPLAY_STYLE_DETAILED"
+          }
+         },
+         {
+          "musicMultiRowListItemRenderer": {
+           "thumbnail": {
+            "musicThumbnailRenderer": {
+             "thumbnail": {
+              "thumbnails": [
+               {
+                "url": "https://i.ytimg.com/vi/eosMB1jfa_0/hq720.jpg?sqp=-oaymwEKCNUGEN8DIABIWg&rs=AMzJL3np7Glf4Y89l-53asZgJOwDuYnjoA",
+                "width": 853,
+                "height": 479
+               }
+              ]
+             }
+            }
+           },
+           "onTap": {
+            "watchEndpoint": {
+             "videoId": "eosMB1jfa_0",
+             "params": "8gEDmAEI",
+             "watchEndpointMusicSupportedConfigs": {
+              "watchEndpointMusicConfig": {
+               "musicVideoType": "MUSIC_VIDEO_TYPE_PODCAST_EPISODE"
+              }
+             }
+            }
+           },
+           "subtitle": {
+            "runs": [
+             {
+              "text": "89K views"
+             },
+             {
+              "text": " • "
+             },
+             {
+              "text": "Feb 13, 2023"
+             }
+            ]
+           },
+           "playbackProgress": {
+            "musicPlaybackProgressRenderer": {
+             "playbackProgressPercentage": 0,
+             "playbackProgressText": {
+              "runs": [
+               {
+                "text": " • "
+               },
+               {
+                "text": "2 hr 52 min"
+               }
+              ]
+             },
+             "durationText": {
+              "runs": [
+               {
+                "text": " • "
+               },
+               {
+                "text": "2 hr 52 min"
+               }
+              ]
+             },
+             "playedText": {
+              "runs": [
+               {
+                "text": " • "
+               },
+               {
+                "text": "Played",
+                "textColor": 4294921797
+               }
+              ]
+             }
+            }
+           },
+           "title": {
+            "runs": [
+             {
+              "text": "EP24 Manifesting the Muse with Rick",
+              "navigationEndpoint": {
+               "browseEndpoint": {
+                "browseId": "MPEDeosMB1jfa_0",
+                "browseEndpointContextSupportedConfigs": {
+                 "browseEndpointContextMusicConfig": {
+                  "pageType": "MUSIC_PAGE_TYPE_NON_MUSIC_AUDIO_TRACK_PAGE"
+                 }
+                }
+               }
+              }
+             }
+            ]
+           },
+           "description": {
+            "runs": [
+             {
+              "text": "Rick Rubin joins Dan to discuss human creativity. This unusual show evolves as it goes though and by the end covers a wide array of subjects and topics. By the end it isn't even clear who is asking questions and who is answering them.\r\n\r\n 1. “Broken Record” with Rick Rubin and Malcolm Gladwell https://www.pushkin.fm/podcasts/broken-record 2. “Tetragrammaton” podcast with Rick Rubin https://tunein.com/radio/Tetragrammaton-with-Rick-Rubin-p3496748/  3. “From Cyrus to Alexander: A History of the Persian Empire” by Pierre Briant 4. “The Creative Habit: Learn It and Use It for Life” by Twyla Tharp 5. “The Artist's Way” by Julia Cameron 6. “Daily Creative Habit Creative Journal” by Mike Brennan"
+             }
+            ]
+           },
+           "displayStyle": "MUSIC_MULTI_ROW_LIST_ITEM_DISPLAY_STYLE_DETAILED"
+          }
+         },
+         {
+          "musicMultiRowListItemRenderer": {
+           "thumbnail": {
+            "musicThumbnailRenderer": {
+             "thumbnail": {
+              "thumbnails": [
+               {
+                "url": "https://i.ytimg.com/vi/R1_IGVzaPUo/hq720.jpg?sqp=-oaymwEKCNUGEN8DIABIWg&rs=AMzJL3lChWlcZcQbFtQFqfc--NtwsW4byw",
+                "width": 853,
+                "height": 479
+               }
+              ]
+             }
+            }
+           },
+           "onTap": {
+            "watchEndpoint": {
+             "videoId": "R1_IGVzaPUo",
+             "params": "8gEDmAEI",
+             "watchEndpointMusicSupportedConfigs": {
+              "watchEndpointMusicConfig": {
+               "musicVideoType": "MUSIC_VIDEO_TYPE_PODCAST_EPISODE"
+              }
+             }
+            }
+           },
+           "subtitle": {
+            "runs": [
+             {
+              "text": "1.2M views"
+             },
+             {
+              "text": " • "
+             },
+             {
+              "text": "Jan 16, 2023"
+             }
+            ]
+           },
+           "playbackProgress": {
+            "musicPlaybackProgressRenderer": {
+             "playbackProgressPercentage": 0,
+             "playbackProgressText": {
+              "runs": [
+               {
+                "text": " • "
+               },
+               {
+                "text": "5 hr 14 min"
+               }
+              ]
+             },
+             "durationText": {
+              "runs": [
+               {
+                "text": " • "
+               },
+               {
+                "text": "5 hr 14 min"
+               }
+              ]
+             },
+             "playedText": {
+              "runs": [
+               {
+                "text": " • "
+               },
+               {
+                "text": "Played",
+                "textColor": 4294921797
+               }
+              ]
+             }
+            }
+           },
+           "title": {
+            "runs": [
+             {
+              "text": "Dan Carlin's Hardcore History 69 - Twilight of the Æsir",
+              "navigationEndpoint": {
+               "browseEndpoint": {
+                "browseId": "MPEDR1_IGVzaPUo",
+                "browseEndpointContextSupportedConfigs": {
+                 "browseEndpointContextMusicConfig": {
+                  "pageType": "MUSIC_PAGE_TYPE_NON_MUSIC_AUDIO_TRACK_PAGE"
+                 }
+                }
+               }
+              }
+             }
+            ]
+           },
+           "description": {
+            "runs": [
+             {
+              "text": "This show picks up where Dan’s Thor’s Angels show left off. In the early Middle Ages Pagan Germanic-language speakers like the Vikings are a dying breed. Many of their contemporaries wish they’d die faster.\n\nThor's Angels Link\nhttps://www.dancarlin.com/product/hardcore-history-41-thors-angels/"
+             }
+            ]
+           },
+           "displayStyle": "MUSIC_MULTI_ROW_LIST_ITEM_DISPLAY_STYLE_DETAILED"
+          }
+         },
+         {
+          "musicMultiRowListItemRenderer": {
+           "thumbnail": {
+            "musicThumbnailRenderer": {
+             "thumbnail": {
+              "thumbnails": [
+               {
+                "url": "https://i.ytimg.com/vi/9hmY2MuFr7A/hq720.jpg?sqp=-oaymwEKCNUGEN8DIABIWg&rs=AMzJL3l1eTw9VP6DJa6nYGZVCW8j5up_6w",
+                "width": 853,
+                "height": 479
+               }
+              ]
+             }
+            }
+           },
+           "onTap": {
+            "watchEndpoint": {
+             "videoId": "9hmY2MuFr7A",
+             "params": "8gEDmAEI",
+             "watchEndpointMusicSupportedConfigs": {
+              "watchEndpointMusicConfig": {
+               "musicVideoType": "MUSIC_VIDEO_TYPE_PODCAST_EPISODE"
+              }
+             }
+            }
+           },
+           "subtitle": {
+            "runs": [
+             {
+              "text": "91K views"
+             },
+             {
+              "text": " • "
+             },
+             {
+              "text": "Nov 16, 2022"
+             }
+            ]
+           },
+           "playbackProgress": {
+            "musicPlaybackProgressRenderer": {
+             "playbackProgressPercentage": 0,
+             "playbackProgressText": {
+              "runs": [
+               {
+                "text": " • "
+               },
+               {
+                "text": "1 hr 6 min"
+               }
+              ]
+             },
+             "durationText": {
+              "runs": [
+               {
+                "text": " • "
+               },
+               {
+                "text": "1 hr 6 min"
+               }
+              ]
+             },
+             "playedText": {
+              "runs": [
+               {
+                "text": " • "
+               },
+               {
+                "text": "Played",
+                "textColor": 4294921797
+               }
+              ]
+             }
+            }
+           },
+           "title": {
+            "runs": [
+             {
+              "text": "EP23 Boxing with Ghosts",
+              "navigationEndpoint": {
+               "browseEndpoint": {
+                "browseId": "MPED9hmY2MuFr7A",
+                "browseEndpointContextSupportedConfigs": {
+                 "browseEndpointContextMusicConfig": {
+                  "pageType": "MUSIC_PAGE_TYPE_NON_MUSIC_AUDIO_TRACK_PAGE"
+                 }
+                }
+               }
+              }
+             }
+            ]
+           },
+           "description": {
+            "runs": [
+             {
+              "text": "Ready for an argument? Like Dan's quote voice? Waiting to hear Dan discuss boxing? Then you've hit the trifecta. Boxing expert Mike Silver and Dan discuss whether today's modern fighters could compete with those of yesteryear.\r\n\r\n1. The Arc of Boxing: The Rise and Decline of the Sweet Science by Mike Silver \nhttps://amzn.to/3gcuOyH\n2. The Night the Referee Hit Back: Memorable Moments from the World of Boxing by Mike Silver \nhttps://amzn.to/3hLpKSp\n3. Stars in the Ring: Jewish Champions in the Golden Age of Boxing: A Photographic History by Mike Silver \nhttps://amzn.to/3GoNgie\n\n4. Mike Silver boxing website\nhttp://www.mikesilverboxing.com"
+             }
+            ]
+           },
+           "displayStyle": "MUSIC_MULTI_ROW_LIST_ITEM_DISPLAY_STYLE_DETAILED"
+          }
+         },
+         {
+          "musicMultiRowListItemRenderer": {
+           "thumbnail": {
+            "musicThumbnailRenderer": {
+             "thumbnail": {
+              "thumbnails": [
+               {
+                "url": "https://i.ytimg.com/vi/J0P8ysPuNEU/hq720.jpg?sqp=-oaymwEKCNUGEN8DIABIWg&rs=AMzJL3k_quomQO71s4Fpj_gqrqWesRBPPA",
+                "width": 853,
+                "height": 479
+               }
+              ]
+             }
+            }
+           },
+           "onTap": {
+            "watchEndpoint": {
+             "videoId": "J0P8ysPuNEU",
+             "params": "8gEDmAEI",
+             "watchEndpointMusicSupportedConfigs": {
+              "watchEndpointMusicConfig": {
+               "musicVideoType": "MUSIC_VIDEO_TYPE_PODCAST_EPISODE"
+              }
+             }
+            }
+           },
+           "subtitle": {
+            "runs": [
+             {
+              "text": "48K views"
+             },
+             {
+              "text": " • "
+             },
+             {
+              "text": "Aug 19, 2022"
+             }
+            ]
+           },
+           "playbackProgress": {
+            "musicPlaybackProgressRenderer": {
+             "playbackProgressPercentage": 0,
+             "playbackProgressText": {
+              "runs": [
+               {
+                "text": " • "
+               },
+               {
+                "text": "21 min"
+               }
+              ]
+             },
+             "durationText": {
+              "runs": [
+               {
+                "text": " • "
+               },
+               {
+                "text": "21 min"
+               }
+              ]
+             },
+             "playedText": {
+              "runs": [
+               {
+                "text": " • "
+               },
+               {
+                "text": "Played",
+                "textColor": 4294921797
+               }
+              ]
+             }
+            }
+           },
+           "title": {
+            "runs": [
+             {
+              "text": "EP22 The Fabulous Bill Barrett",
+              "navigationEndpoint": {
+               "browseEndpoint": {
+                "browseId": "MPEDJ0P8ysPuNEU",
+                "browseEndpointContextSupportedConfigs": {
+                 "browseEndpointContextMusicConfig": {
+                  "pageType": "MUSIC_PAGE_TYPE_NON_MUSIC_AUDIO_TRACK_PAGE"
+                 }
+                }
+               }
+              }
+             }
+            ]
+           },
+           "description": {
+            "runs": [
+             {
+              "text": "Bill Barrett has been the voice of Dan Carlin’s podcasts since they began in 2005. In this retrospective Dan looks back at samples of Bill’s catalog of  work."
+             }
+            ]
+           },
+           "displayStyle": "MUSIC_MULTI_ROW_LIST_ITEM_DISPLAY_STYLE_DETAILED"
+          }
+         },
+         {
+          "musicMultiRowListItemRenderer": {
+           "thumbnail": {
+            "musicThumbnailRenderer": {
+             "thumbnail": {
+              "thumbnails": [
+               {
+                "url": "https://i.ytimg.com/vi/Ggtbo6MBUNg/hq720.jpg?sqp=-oaymwEKCNUGEN8DIABIWg&rs=AMzJL3kfZw0w6P3Xk7HidJeNXpVZduSX7Q",
+                "width": 853,
+                "height": 479
+               }
+              ]
+             }
+            }
+           },
+           "onTap": {
+            "watchEndpoint": {
+             "videoId": "Ggtbo6MBUNg",
+             "params": "8gEDmAEI",
+             "watchEndpointMusicSupportedConfigs": {
+              "watchEndpointMusicConfig": {
+               "musicVideoType": "MUSIC_VIDEO_TYPE_PODCAST_EPISODE"
+              }
+             }
+            }
+           },
+           "subtitle": {
+            "runs": [
+             {
+              "text": "107K views"
+             },
+             {
+              "text": " • "
+             },
+             {
+              "text": "Jul 27, 2022"
+             }
+            ]
+           },
+           "playbackProgress": {
+            "musicPlaybackProgressRenderer": {
+             "playbackProgressPercentage": 0,
+             "playbackProgressText": {
+              "runs": [
+               {
+                "text": " • "
+               },
+               {
+                "text": "1 hr 39 min"
+               }
+              ]
+             },
+             "durationText": {
+              "runs": [
+               {
+                "text": " • "
+               },
+               {
+                "text": "1 hr 39 min"
+               }
+              ]
+             },
+             "playedText": {
+              "runs": [
+               {
+                "text": " • "
+               },
+               {
+                "text": "Played",
+                "textColor": 4294921797
+               }
+              ]
+             }
+            }
+           },
+           "title": {
+            "runs": [
+             {
+              "text": "EP21 Hollandansandbrook",
+              "navigationEndpoint": {
+               "browseEndpoint": {
+                "browseId": "MPEDGgtbo6MBUNg",
+                "browseEndpointContextSupportedConfigs": {
+                 "browseEndpointContextMusicConfig": {
+                  "pageType": "MUSIC_PAGE_TYPE_NON_MUSIC_AUDIO_TRACK_PAGE"
+                 }
+                }
+               }
+              }
+             }
+            ]
+           },
+           "description": {
+            "runs": [
+             {
+              "text": "Tom Holland and Dominic Sandbrook stop by to continue the conversation with Dan that began on their own podcast The Rest is History.\r\n\r\n 1. “Rubicon” by Tom Holland  2. “Dominion” by Tom Holland 3. “Persian Fire” by Tom Holland"
+             }
+            ]
+           },
+           "displayStyle": "MUSIC_MULTI_ROW_LIST_ITEM_DISPLAY_STYLE_DETAILED"
+          }
+         }
+        ],
+        "shelfDivider": {
+         "musicShelfDividerRenderer": {
+          "hidden": true
+         }
+        }
+       }
+      }
+     ],
+     "header": {
+      "chipCloudRenderer": {
+       "chips": [
+        {
+         "chipCloudChipRenderer": {
+          "style": {
+           "styleType": "STYLE_ICON_SECOND"
+          },
+          "text": {
+           "runs": [
+            {
+             "text": "Latest"
+            }
+           ]
+          },
+          "navigationEndpoint": {
+           "openPopupAction": {
+            "popup": {
+             "menuPopupRenderer": {
+              "items": [
+               {
+                "menuNavigationItemRenderer": {
+                 "text": {
+                  "simpleText": "Latest"
+                 },
+                 "icon": {
+                  "iconType": "CHECK"
+                 },
+                 "navigationEndpoint": {
+                  "browseSectionListReloadEndpoint": {
+                   "targetId": "browse-feedMPSPPLIJumiHv10VhoiQHAahw2E9ErgZ-jc0tC"
+                  }
+                 }
+                }
+               },
+               {
+                "menuNavigationItemRenderer": {
+                 "text": {
+                  "simpleText": "Oldest"
+                 },
+                 "navigationEndpoint": {
+                  "browseSectionListReloadEndpoint": {
+                   "targetId": "browse-feedMPSPPLIJumiHv10VhoiQHAahw2E9ErgZ-jc0tC"
+                  }
+                 }
+                }
+               },
+               {
+                "menuNavigationItemRenderer": {
+                 "text": {
+                  "simpleText": "Popular"
+                 },
+                 "navigationEndpoint": {
+                  "browseSectionListReloadEndpoint": {
+                   "targetId": "browse-feedMPSPPLIJumiHv10VhoiQHAahw2E9ErgZ-jc0tC"
+                  }
+                 }
+                }
+               },
+               {
+                "menuNavigationItemRenderer": {
+                 "text": {
+                  "simpleText": "Creator provided"
+                 },
+                 "navigationEndpoint": {
+                  "browseSectionListReloadEndpoint": {
+                   "targetId": "browse-feedMPSPPLIJumiHv10VhoiQHAahw2E9ErgZ-jc0tC"
+                  }
+                 }
+                }
+               }
+              ]
+             }
+            },
+            "popupType": "DIALOG",
+            "reusePopup": true
+           }
+          },
+          "icon": {
+           "iconType": "EXPAND"
+          },
+          "uniqueId": "YTM SDP Sort Chip",
+          "notSelectable": true
+         }
+        },
+        {
+         "chipCloudChipRenderer": {
+          "text": {
+           "simpleText": "In progress"
+          },
+          "navigationEndpoint": {
+           "browseSectionListReloadEndpoint": {
+            "targetId": "browse-feedMPSPPLIJumiHv10VhoiQHAahw2E9ErgZ-jc0tC"
+           }
+          },
+          "isSelected": false,
+          "onDeselectedCommand": {
+           "browseSectionListReloadEndpoint": {
+            "targetId": "browse-feedMPSPPLIJumiHv10VhoiQHAahw2E9ErgZ-jc0tC"
+           }
+          },
+          "uniqueId": "YTM SDP In progress Chip"
+         }
+        },
+        {
+         "chipCloudChipRenderer": {
+          "text": {
+           "simpleText": "Unplayed"
+          },
+          "navigationEndpoint": {
+           "browseSectionListReloadEndpoint": {
+            "targetId": "browse-feedMPSPPLIJumiHv10VhoiQHAahw2E9ErgZ-jc0tC"
+           }
+          },
+          "isSelected": false,
+          "onDeselectedCommand": {
+           "browseSectionListReloadEndpoint": {
+            "targetId": "browse-feedMPSPPLIJumiHv10VhoiQHAahw2E9ErgZ-jc0tC"
+           }
+          },
+          "uniqueId": "YTM SDP Unplayed Chip"
+         }
+        },
+        {
+         "chipCloudChipRenderer": {
+          "text": {
+           "simpleText": "Played"
+          },
+          "navigationEndpoint": {
+           "browseSectionListReloadEndpoint": {
+            "targetId": "browse-feedMPSPPLIJumiHv10VhoiQHAahw2E9ErgZ-jc0tC"
+           }
+          },
+          "isSelected": false,
+          "onDeselectedCommand": {
+           "browseSectionListReloadEndpoint": {
+            "targetId": "browse-feedMPSPPLIJumiHv10VhoiQHAahw2E9ErgZ-jc0tC"
+           }
+          },
+          "uniqueId": "YTM SDP Played Chip"
+         }
+        }
+       ],
+       "horizontalScrollable": true,
+       "selectionBehavior": "CHIP_CLOUD_SELECTION_BEHAVIOR_SINGLE_SELECT"
+      }
+     },
+     "targetId": "browse-feedMPSPPLIJumiHv10VhoiQHAahw2E9ErgZ-jc0tC"
+    }
+   },
+   "tabs": [
+    {
+     "tabRenderer": {
+      "content": {
+       "sectionListRenderer": {
+        "contents": [
+         {
+          "musicResponsiveHeaderRenderer": {
+           "thumbnail": {
+            "musicThumbnailRenderer": {
+             "thumbnail": {
+              "thumbnails": [
+               {
+                "url": "https://i.ytimg.com/pl_c/PLIJumiHv10VhoiQHAahw2E9ErgZ-jc0tC/studio_square_thumbnail.jpg?sqp=CJaqy9cG-oaymwEKCKAEEKAEIABIWqLzl_8DBgiNmrPTBg&rs=AMzJL3kqpRQqNNeeKxLStAk_njya2-7Mug",
+                "width": 544,
+                "height": 544
+               }
+              ]
+             }
+            }
+           },
+           "buttons": [
+            {
+             "buttonRenderer": {
+              "style": "STYLE_DARK_ON_WHITE",
+              "icon": {
+               "iconType": "SHARE"
+              },
+              "command": {}
+             }
+            },
+            {
+             "toggleButtonRenderer": {
+              "isToggled": false,
+              "isDisabled": false,
+              "defaultIcon": {
+               "iconType": "BOOKMARK_BORDER"
+              },
+              "defaultText": {
+               "runs": [
+                {
+                 "text": "Save to library"
+                }
+               ]
+              },
+              "toggledIcon": {
+               "iconType": "BOOKMARK"
+              },
+              "toggledText": {
+               "runs": [
+                {
+                 "text": "Saved to library"
+                }
+               ]
+              },
+              "defaultNavigationEndpoint": {
+               "modalEndpoint": {
+                "modal": {
+                 "modalWithTitleAndButtonRenderer": {
+                  "title": {
+                   "runs": [
+                    {
+                     "text": "Save this for later"
+                    }
+                   ]
+                  },
+                  "content": {
+                   "runs": [
+                    {
+                     "text": "Save favorites to your library after signing in"
+                    }
+                   ]
+                  },
+                  "button": {
+                   "buttonRenderer": {
+                    "style": "STYLE_BLUE_TEXT",
+                    "isDisabled": false,
+                    "text": {
+                     "runs": [
+                      {
+                       "text": "Sign in"
+                      }
+                     ]
+                    },
+                    "navigationEndpoint": {
+                     "signInEndpoint": {
+                      "hack": true
+                     }
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              }
+             }
+            },
+            {
+             "menuRenderer": {
+              "items": [
+               {
+                "menuServiceItemRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Find in show"
+                   }
+                  ]
+                 },
+                 "icon": {
+                  "iconType": "SEARCH"
+                 },
+                 "serviceEndpoint": {
+                  "playlistFilterSearchEndpoint": {
+                   "playlistId": "PLIJumiHv10VhoiQHAahw2E9ErgZ-jc0tC"
+                  }
+                 }
+                }
+               },
+               {
+                "toggleMenuServiceItemRenderer": {
+                 "defaultText": {
+                  "runs": [
+                   {
+                    "text": "Save to library"
+                   }
+                  ]
+                 },
+                 "defaultIcon": {
+                  "iconType": "BOOKMARK_BORDER"
+                 },
+                 "defaultServiceEndpoint": {
+                  "modalEndpoint": {
+                   "modal": {
+                    "modalWithTitleAndButtonRenderer": {
+                     "title": {
+                      "runs": [
+                       {
+                        "text": "Save this for later"
+                       }
+                      ]
+                     },
+                     "content": {
+                      "runs": [
+                       {
+                        "text": "Save favorites to your library after signing in"
+                       }
+                      ]
+                     },
+                     "button": {
+                      "buttonRenderer": {
+                       "style": "STYLE_BLUE_TEXT",
+                       "isDisabled": false,
+                       "text": {
+                        "runs": [
+                         {
+                          "text": "Sign in"
+                         }
+                        ]
+                       },
+                       "navigationEndpoint": {
+                        "signInEndpoint": {
+                         "hack": true
+                        }
+                       }
+                      }
+                     }
+                    }
+                   }
+                  }
+                 },
+                 "toggledText": {
+                  "runs": [
+                   {
+                    "text": "Remove from library"
+                   }
+                  ]
+                 },
+                 "toggledIcon": {
+                  "iconType": "BOOKMARK"
+                 },
+                 "toggledServiceEndpoint": {
+                  "likeEndpoint": {
+                   "status": "INDIFFERENT",
+                   "target": {
+                    "playlistId": "PLIJumiHv10VhoiQHAahw2E9ErgZ-jc0tC"
+                   }
+                  }
+                 },
+                 "isToggled": false
+                }
+               },
+               {
+                "menuNavigationItemRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Share"
+                   }
+                  ]
+                 },
+                 "icon": {
+                  "iconType": "SHARE"
+                 },
+                 "navigationEndpoint": {}
+                }
+               }
+              ]
+             }
+            }
+           ],
+           "title": {
+            "runs": [
+             {
+              "text": "Dan Carlin's Hardcore History"
+             }
+            ]
+           },
+           "subtitle": {},
+           "straplineTextOne": {
+            "runs": [
+             {
+              "text": "Dan Carlin",
+              "navigationEndpoint": {
+               "browseEndpoint": {
+                "browseId": "UC3RcjbuyF5M1U4R62zjE3hg",
+                "browseEndpointContextSupportedConfigs": {
+                 "browseEndpointContextMusicConfig": {
+                  "pageType": "MUSIC_PAGE_TYPE_USER_CHANNEL"
+                 }
+                }
+               }
+              }
+             }
+            ]
+           },
+           "straplineThumbnail": {
+            "musicThumbnailRenderer": {
+             "thumbnail": {
+              "thumbnails": [
+               {
+                "url": "https://yt3.ggpht.com/L3mp2AOya1O26vEkh7RgJF9PKJztL5PBdHX_gTGd2rEDKvF52cL5eo087E7s_l-irRX4AMluuw=s96-c-k-c0x00000000-no-cc-rj-rp",
+                "width": 96,
+                "height": 96
+               }
+              ]
+             }
+            }
+           }
+          }
+         }
+        ],
+        "targetId": "browse-feedMPSPPLIJumiHv10VhoiQHAahw2E9ErgZ-jc0tC_header"
+       }
+      }
+     }
+    }
+   ]
+  }
+ },
+ "background": {
+  "musicThumbnailRenderer": {
+   "thumbnail": {
+    "thumbnails": [
+     {
+      "url": "https://i.ytimg.com/pl_c/PLIJumiHv10VhoiQHAahw2E9ErgZ-jc0tC/studio_square_thumbnail.jpg?sqp=CJaqy9cG-oaymwEKCKAEEKAEIABIWqLzl_8DBgiNmrPTBg&rs=AMzJL3kqpRQqNNeeKxLStAk_njya2-7Mug",
+      "width": 544,
+      "height": 544
+     }
+    ]
+   }
+  }
+ }
+}

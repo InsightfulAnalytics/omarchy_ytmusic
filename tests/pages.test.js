@@ -122,7 +122,8 @@ test("routeEndpoint defaults", () => {
 test("routes: the most specific match wins, ties go to the route added last", () => {
   const added = [
     { prefix: "VLRDPN", target: () => ({ type: "newEpisodes" }) },
-    { pageType: "MUSIC_PAGE_TYPE_USER_CHANNEL", target: (ep, id) => ({ type: "user", channelId: id }) },
+    // As specific as S9's profile route (page type and UC prefix): added last, it wins the tie.
+    { pageType: "MUSIC_PAGE_TYPE_USER_CHANNEL", prefix: "UC", target: (ep, id) => ({ type: "user", channelId: id }) },
     { browseId: "FEmusic_moods_and_genres", target: () => ({ type: "moods" }) },
     { prefix: "FEmusic_moods_and_genres", target: () => ({ type: "moodsPrefix" }) },
     { prefix: "MPRE", target: () => ({ type: "albumLater" }) },

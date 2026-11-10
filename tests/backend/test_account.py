@@ -248,6 +248,19 @@ def test_switching_to_the_identity_in_use_changes_nothing(signed_in):
     assert len(FakeYTMusic.built) == 1 and not (signed_in / "identity.json").exists()
 
 
+@pytest.mark.parametrize("refused", [False, True])
+def test_a_switch_forgets_your_channel(signed_in, refused):
+    # S9 x S16: your channel (myChannel, the off-disk rule) is the identity's
+    # own, so after a switch (or a refused one, which builds the client
+    # again) it is read afresh from the new client's account menu.
+    worker = ytm.Worker()
+    worker.own_channel, worker.own_channel_known = "UCownaccount", True
+    FakeYTMusic.refuse = {BRAND_ID} if refused else set()
+    reply = call(worker, "switchAccount", pageId=BRAND_ID)
+    assert reply["ok"] is not refused
+    assert worker.own_channel is None and worker.own_channel_known is False
+
+
 def test_an_identity_youtube_does_not_answer_for_is_not_kept(signed_in, tmp_path):
     cache = caches.DiskCache(tmp_path / "data")
     album = {"browseId": "X"}

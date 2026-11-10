@@ -165,10 +165,10 @@ test("a shelf's strapline heads it; its rows keep the title", () => {
   assert.equal(rows[2].item.sectionTitle, "Nils Frahm")
 })
 
-test("a podcast opens as its browse page until S8", () => {
+test("a podcast opens as its own page (S8)", () => {
   const ref = Model.pageRef({ type: "podcast", browseId: "MPSPPLx", title: "A show" })
   assert.equal(ref.kind, "podcast")
-  assert.equal(ref.method, "browsePage")
+  assert.equal(ref.method, "podcast")
   assert.deepEqual(ref.params, { browseId: "MPSPPLx" })
   assert.equal(ref.id, "MPSPPLx")
   assert.equal(Model.pageRef({ type: "podcast" }), null, "no browseId")

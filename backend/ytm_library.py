@@ -198,11 +198,12 @@ def _page(method, browse_id, items, cursor, orders=None, order=None, header=None
                      order=order, message=message)
 
 
-def _read_list(worker, params, method, parse, layout, offered=ORDERS, header_of=None):
+def _read_list(worker, params, method, parse, layout, offered=ORDERS, header_of=None, browse_id=None):
     """A page of one library list: ``{type: "page", kind: method, sections: [one
-    section], cursor, orders, order, header, message}``."""
+    section], cursor, orders, order, header, message}``. ``browse_id``: a list
+    of another module (S8's podcasts and channels); else BROWSE_IDS[method]."""
     worker.require_auth()
-    browse_id = BROWSE_IDS[method]
+    browse_id = browse_id or BROWSE_IDS[method]
     order = order_param(params)
     cursor = opt_cursor(params)
     body = _body(browse_id, order)

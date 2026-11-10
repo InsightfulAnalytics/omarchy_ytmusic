@@ -1,0 +1,1019 @@
+{
+ "contents": {
+  "twoColumnBrowseResultsRenderer": {
+   "secondaryContents": {
+    "sectionListRenderer": {
+     "contents": [
+      {
+       "musicDescriptionShelfRenderer": {
+        "description": {
+         "runs": [
+          {
+           "text": "Ankur Moitra, Steven Brunton and Alex Kontorovich are three mathematicians who can speak to this incredible moment in the history of mathematics, when AI solved some of its hardest problems: Navier-Stokes, the quasi-Riemann hypothesis, the unique games conjecture and hundreds of other problems. Ankur Moitra is a mathematician at MIT (visiting the Institute for Advanced Study in Princeton) working in theoretical computer science, who can speak to the unique games conjecture, complexity theory and the mathematics of how AI learns. Steven Brunton is a mathematician and fluid dynamics expert at UW, who can speak to Navier-Stokes, turbulence and machine learning for fluid dynamics. Alex Kontorovich is a mathematician at Rutgers specializing in number theory, who can speak to the Riemann hypothesis, Lean and machine-checked proofs.\nThank you for listening ❤ Check out our sponsors: "
+          },
+          {
+           "text": "https://lexfridman.com/sponsors/ep503-sb",
+           "navigationEndpoint": {
+            "urlEndpoint": {
+             "url": "https://lexfridman.com/sponsors/ep503-sb"
+            }
+           }
+          },
+          {
+           "text": "\nSee below for timestamps, transcript, and to give feedback, submit questions, contact Lex, etc.\n\n*Transcript:*\n"
+          },
+          {
+           "text": "https://lexfridman.com/math-ai-crisis...",
+           "navigationEndpoint": {
+            "urlEndpoint": {
+             "url": "https://lexfridman.com/math-ai-crisis-transcript"
+            }
+           }
+          },
+          {
+           "text": "\n\n*CONTACT LEX:*\n*Feedback* - give feedback to Lex: "
+          },
+          {
+           "text": "https://lexfridman.com/survey",
+           "navigationEndpoint": {
+            "urlEndpoint": {
+             "url": "https://lexfridman.com/survey"
+            }
+           }
+          },
+          {
+           "text": "\n*AMA* - submit questions, videos or call-in: "
+          },
+          {
+           "text": "https://lexfridman.com/ama",
+           "navigationEndpoint": {
+            "urlEndpoint": {
+             "url": "https://lexfridman.com/ama"
+            }
+           }
+          },
+          {
+           "text": "\n*Hiring* - join our team: "
+          },
+          {
+           "text": "https://lexfridman.com/hiring",
+           "navigationEndpoint": {
+            "urlEndpoint": {
+             "url": "https://lexfridman.com/hiring"
+            }
+           }
+          },
+          {
+           "text": "\n*Other* - other ways to get in touch: "
+          },
+          {
+           "text": "https://lexfridman.com/contact",
+           "navigationEndpoint": {
+            "urlEndpoint": {
+             "url": "https://lexfridman.com/contact"
+            }
+           }
+          },
+          {
+           "text": "\n\n*EPISODE LINKS:*\nAnkur's Website: "
+          },
+          {
+           "text": "https://people.csail.mit.edu/moitra/",
+           "navigationEndpoint": {
+            "urlEndpoint": {
+             "url": "https://people.csail.mit.edu/moitra/"
+            }
+           }
+          },
+          {
+           "text": "\nAlex's X: "
+          },
+          {
+           "text": "https://x.com/AlexKontorovich",
+           "navigationEndpoint": {
+            "urlEndpoint": {
+             "url": "https://x.com/AlexKontorovich"
+            }
+           }
+          },
+          {
+           "text": "\nAlex's Website: "
+          },
+          {
+           "text": "https://sites.math.rutgers.edu/~alexk/",
+           "navigationEndpoint": {
+            "urlEndpoint": {
+             "url": "https://sites.math.rutgers.edu/~alexk/"
+            }
+           }
+          },
+          {
+           "text": "\nSteven's X: "
+          },
+          {
+           "text": "https://x.com/eigensteve",
+           "navigationEndpoint": {
+            "urlEndpoint": {
+             "url": "https://x.com/eigensteve"
+            }
+           }
+          },
+          {
+           "text": "\nSteven's YouTube: "
+          },
+          {
+           "text": "https://youtube.com/@Eigensteve",
+           "navigationEndpoint": {
+            "urlEndpoint": {
+             "url": "https://youtube.com/@Eigensteve"
+            }
+           }
+          },
+          {
+           "text": "\nSteven's Website: "
+          },
+          {
+           "text": "https://eigensteve.com",
+           "navigationEndpoint": {
+            "urlEndpoint": {
+             "url": "https://eigensteve.com/"
+            }
+           }
+          },
+          {
+           "text": "\nLean: "
+          },
+          {
+           "text": "https://lean-lang.org/",
+           "navigationEndpoint": {
+            "urlEndpoint": {
+             "url": "https://lean-lang.org/"
+            }
+           }
+          },
+          {
+           "text": "\n\n*SPONSORS:*\nTo support this podcast, check out our sponsors & get discounts:\n*Wispr Flow:* AI-powered voice dictation app.\nGo to "
+          },
+          {
+           "text": "https://lexfridman.com/s/wispr_flow-e...",
+           "navigationEndpoint": {
+            "urlEndpoint": {
+             "url": "https://lexfridman.com/s/wispr_flow-ep503-sb"
+            }
+           }
+          },
+          {
+           "text": "\n*Fin:* AI agent for customer service.\nGo to "
+          },
+          {
+           "text": "https://lexfridman.com/s/fin-ep503-sb",
+           "navigationEndpoint": {
+            "urlEndpoint": {
+             "url": "https://lexfridman.com/s/fin-ep503-sb"
+            }
+           }
+          },
+          {
+           "text": "\n*LMNT:* Zero-sugar electrolyte drink mix.\nGo to "
+          },
+          {
+           "text": "https://lexfridman.com/s/lmnt-ep503-sb",
+           "navigationEndpoint": {
+            "urlEndpoint": {
+             "url": "https://lexfridman.com/s/lmnt-ep503-sb"
+            }
+           }
+          },
+          {
+           "text": "\n*Blitzy:* AI agent for large enterprise codebases.\nGo to "
+          },
+          {
+           "text": "https://lexfridman.com/s/blitzy-ep503-sb",
+           "navigationEndpoint": {
+            "urlEndpoint": {
+             "url": "https://lexfridman.com/s/blitzy-ep503-sb"
+            }
+           }
+          },
+          {
+           "text": "\n*Shopify:* Sell stuff online.\nGo to "
+          },
+          {
+           "text": "https://lexfridman.com/s/shopify-ep50...",
+           "navigationEndpoint": {
+            "urlEndpoint": {
+             "url": "https://lexfridman.com/s/shopify-ep503-sb"
+            }
+           }
+          },
+          {
+           "text": "\n*NetSuite:* Business management software.\nGo to "
+          },
+          {
+           "text": "https://lexfridman.com/s/netsuite-ep5...",
+           "navigationEndpoint": {
+            "urlEndpoint": {
+             "url": "https://lexfridman.com/s/netsuite-ep503-sb"
+            }
+           }
+          },
+          {
+           "text": "\n*Perplexity:* AI-powered answer engine.\nGo to "
+          },
+          {
+           "text": "https://lexfridman.com/s/perplexity-e...",
+           "navigationEndpoint": {
+            "urlEndpoint": {
+             "url": "https://lexfridman.com/s/perplexity-ep503-sb"
+            }
+           }
+          },
+          {
+           "text": "\n\n*OUTLINE:*\n"
+          },
+          {
+           "text": "0:00",
+           "navigationEndpoint": {
+            "watchEndpoint": {
+             "videoId": "ZAzWPE9CItg",
+             "continuePlayback": true
+            }
+           }
+          },
+          {
+           "text": " - Introduction\n"
+          },
+          {
+           "text": "1:56",
+           "navigationEndpoint": {
+            "watchEndpoint": {
+             "videoId": "ZAzWPE9CItg",
+             "continuePlayback": true,
+             "startTimeSeconds": 116
+            }
+           }
+          },
+          {
+           "text": " - Crisis moment in mathematics\n"
+          },
+          {
+           "text": "10:13",
+           "navigationEndpoint": {
+            "watchEndpoint": {
+             "videoId": "ZAzWPE9CItg",
+             "continuePlayback": true,
+             "startTimeSeconds": 613
+            }
+           }
+          },
+          {
+           "text": " - Will AI \"solve\" mathematics?\n"
+          },
+          {
+           "text": "26:24",
+           "navigationEndpoint": {
+            "watchEndpoint": {
+             "videoId": "ZAzWPE9CItg",
+             "continuePlayback": true,
+             "startTimeSeconds": 1584
+            }
+           }
+          },
+          {
+           "text": " - Can AI create new math?\n"
+          },
+          {
+           "text": "1:05:56",
+           "navigationEndpoint": {
+            "watchEndpoint": {
+             "videoId": "ZAzWPE9CItg",
+             "continuePlayback": true,
+             "startTimeSeconds": 3956
+            }
+           }
+          },
+          {
+           "text": " - Riemann hypothesis\n"
+          },
+          {
+           "text": "1:29:49",
+           "navigationEndpoint": {
+            "watchEndpoint": {
+             "videoId": "ZAzWPE9CItg",
+             "continuePlayback": true,
+             "startTimeSeconds": 5389
+            }
+           }
+          },
+          {
+           "text": " - Navier-Stokes\n"
+          },
+          {
+           "text": "1:55:45",
+           "navigationEndpoint": {
+            "watchEndpoint": {
+             "videoId": "ZAzWPE9CItg",
+             "continuePlayback": true,
+             "startTimeSeconds": 6945
+            }
+           }
+          },
+          {
+           "text": " - How nature computes\n"
+          },
+          {
+           "text": "2:04:39",
+           "navigationEndpoint": {
+            "watchEndpoint": {
+             "videoId": "ZAzWPE9CItg",
+             "continuePlayback": true,
+             "startTimeSeconds": 7479
+            }
+           }
+          },
+          {
+           "text": " - Unique Games Conjecture and complexity theory\n"
+          },
+          {
+           "text": "2:19:31",
+           "navigationEndpoint": {
+            "watchEndpoint": {
+             "videoId": "ZAzWPE9CItg",
+             "continuePlayback": true,
+             "startTimeSeconds": 8371
+            }
+           }
+          },
+          {
+           "text": " - How mathematicians think\n"
+          },
+          {
+           "text": "2:33:08",
+           "navigationEndpoint": {
+            "watchEndpoint": {
+             "videoId": "ZAzWPE9CItg",
+             "continuePlayback": true,
+             "startTimeSeconds": 9188
+            }
+           }
+          },
+          {
+           "text": " - Is math invented or discovered?\n"
+          },
+          {
+           "text": "2:39:16",
+           "navigationEndpoint": {
+            "watchEndpoint": {
+             "videoId": "ZAzWPE9CItg",
+             "continuePlayback": true,
+             "startTimeSeconds": 9556
+            }
+           }
+          },
+          {
+           "text": " - Can AI solve P vs NP?\n"
+          },
+          {
+           "text": "2:49:31",
+           "navigationEndpoint": {
+            "watchEndpoint": {
+             "videoId": "ZAzWPE9CItg",
+             "continuePlayback": true,
+             "startTimeSeconds": 10171
+            }
+           }
+          },
+          {
+           "text": " - Why LLMs work so well\n"
+          },
+          {
+           "text": "3:03:57",
+           "navigationEndpoint": {
+            "watchEndpoint": {
+             "videoId": "ZAzWPE9CItg",
+             "continuePlayback": true,
+             "startTimeSeconds": 11037
+            }
+           }
+          },
+          {
+           "text": " - Problems AI can't solve yet\n"
+          },
+          {
+           "text": "3:08:27",
+           "navigationEndpoint": {
+            "watchEndpoint": {
+             "videoId": "ZAzWPE9CItg",
+             "continuePlayback": true,
+             "startTimeSeconds": 11307,
+             "playerParams": "0gcJCWMAwfN6Pr3D"
+            }
+           }
+          },
+          {
+           "text": " - Grigori Perelman\n"
+          },
+          {
+           "text": "3:17:45",
+           "navigationEndpoint": {
+            "watchEndpoint": {
+             "videoId": "ZAzWPE9CItg",
+             "continuePlayback": true,
+             "startTimeSeconds": 11865
+            }
+           }
+          },
+          {
+           "text": " - Advice for young people\n\n*PODCAST LINKS:*\n- Podcast Website: "
+          },
+          {
+           "text": "https://lexfridman.com/podcast",
+           "navigationEndpoint": {
+            "urlEndpoint": {
+             "url": "https://lexfridman.com/podcast"
+            }
+           }
+          },
+          {
+           "text": "\n- Apple Podcasts: "
+          },
+          {
+           "text": "https://apple.co/2lwqZIr",
+           "navigationEndpoint": {
+            "urlEndpoint": {
+             "url": "https://apple.co/2lwqZIr"
+            }
+           }
+          },
+          {
+           "text": "\n- Spotify: "
+          },
+          {
+           "text": "https://open.spotify.com/episode/0ndq...",
+           "navigationEndpoint": {
+            "urlEndpoint": {
+             "url": "https://open.spotify.com/episode/0ndqMvnUJkNmQrhK98R09Y"
+            }
+           }
+          },
+          {
+           "text": "\n- RSS: "
+          },
+          {
+           "text": "https://lexfridman.com/feed/podcast/",
+           "navigationEndpoint": {
+            "urlEndpoint": {
+             "url": "https://lexfridman.com/feed/podcast/"
+            }
+           }
+          },
+          {
+           "text": "\n- Podcast Playlist: "
+          },
+          {
+           "text": "https://www.youtube.com/playlist?list...",
+           "navigationEndpoint": {
+            "urlEndpoint": {
+             "url": "https://www.youtube.com/playlist?list=PLrAXtmErZgOdP_8GztsuKi9nrraNbKKp4"
+            }
+           }
+          },
+          {
+           "text": "\n- Clips Channel: "
+          },
+          {
+           "text": "https://www.youtube.com/lexclips",
+           "navigationEndpoint": {
+            "urlEndpoint": {
+             "url": "https://www.youtube.com/lexclips"
+            }
+           }
+          },
+          {
+           "text": "\n\n*SOCIAL LINKS:*\n- X: "
+          },
+          {
+           "text": "https://x.com/lexfridman",
+           "navigationEndpoint": {
+            "urlEndpoint": {
+             "url": "https://x.com/lexfridman"
+            }
+           }
+          },
+          {
+           "text": "\n- Instagram: "
+          },
+          {
+           "text": "https://instagram.com/lexfridman",
+           "navigationEndpoint": {
+            "urlEndpoint": {
+             "url": "https://instagram.com/lexfridman"
+            }
+           }
+          },
+          {
+           "text": "\n- TikTok: "
+          },
+          {
+           "text": "https://tiktok.com/@lexfridman",
+           "navigationEndpoint": {
+            "urlEndpoint": {
+             "url": "https://tiktok.com/@lexfridman"
+            }
+           }
+          },
+          {
+           "text": "\n- LinkedIn: "
+          },
+          {
+           "text": "https://linkedin.com/in/lexfridman",
+           "navigationEndpoint": {
+            "urlEndpoint": {
+             "url": "https://linkedin.com/in/lexfridman"
+            }
+           }
+          },
+          {
+           "text": "\n- Facebook: "
+          },
+          {
+           "text": "https://facebook.com/lexfridman",
+           "navigationEndpoint": {
+            "urlEndpoint": {
+             "url": "https://facebook.com/lexfridman"
+            }
+           }
+          },
+          {
+           "text": "\n- Patreon: "
+          },
+          {
+           "text": "https://patreon.com/lexfridman",
+           "navigationEndpoint": {
+            "urlEndpoint": {
+             "url": "https://patreon.com/lexfridman"
+            }
+           }
+          },
+          {
+           "text": "\n- Telegram: "
+          },
+          {
+           "text": "https://t.me/lexfridman",
+           "navigationEndpoint": {
+            "urlEndpoint": {
+             "url": "https://t.me/lexfridman"
+            }
+           }
+          },
+          {
+           "text": "\n- Reddit: "
+          },
+          {
+           "text": "https://reddit.com/r/lexfridman",
+           "navigationEndpoint": {
+            "urlEndpoint": {
+             "url": "https://reddit.com/r/lexfridman"
+            }
+           }
+          }
+         ]
+        },
+        "maxCollapsedLines": 0,
+        "maxExpandedLines": 0
+       }
+      }
+     ]
+    }
+   },
+   "tabs": [
+    {
+     "tabRenderer": {
+      "content": {
+       "sectionListRenderer": {
+        "contents": [
+         {
+          "musicResponsiveHeaderRenderer": {
+           "thumbnail": {
+            "musicThumbnailRenderer": {
+             "thumbnail": {
+              "thumbnails": [
+               {
+                "url": "https://i.ytimg.com/vi/ZAzWPE9CItg/hq720.jpg?sqp=-oaymwEKCNUGEN8DIABIWg&rs=AMzJL3ljFlDRD0a21IGDKcOChFzyPbj0nA",
+                "width": 853,
+                "height": 479
+               }
+              ]
+             }
+            }
+           },
+           "buttons": [
+            {
+             "toggleButtonRenderer": {
+              "isToggled": false,
+              "defaultIcon": {
+               "iconType": "ADD_CIRCLE"
+              },
+              "defaultServiceEndpoint": {
+               "modalEndpoint": {
+                "modal": {
+                 "modalWithTitleAndButtonRenderer": {
+                  "title": {
+                   "runs": [
+                    {
+                     "text": "Save this for later"
+                    }
+                   ]
+                  },
+                  "content": {
+                   "runs": [
+                    {
+                     "text": "Save favorites to your library after signing in"
+                    }
+                   ]
+                  },
+                  "button": {
+                   "buttonRenderer": {
+                    "style": "STYLE_BLUE_TEXT",
+                    "isDisabled": false,
+                    "text": {
+                     "runs": [
+                      {
+                       "text": "Sign in"
+                      }
+                     ]
+                    },
+                    "navigationEndpoint": {
+                     "signInEndpoint": {
+                      "hack": true
+                     }
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              },
+              "toggledIcon": {
+               "iconType": "PLAYLIST_ADD_CHECK"
+              },
+              "toggledServiceEndpoint": {
+               "playlistEditEndpoint": {
+                "playlistId": "SE",
+                "actions": [
+                 {
+                  "action": "ACTION_REMOVE_VIDEO_BY_VIDEO_ID",
+                  "removedVideoId": "ZAzWPE9CItg"
+                 },
+                 {
+                  "action": "ACTION_REMOVE_WATCHED_VIDEOS",
+                  "suppressSuccessToast": true
+                 }
+                ],
+                "params": "cGQ%3D"
+               }
+              },
+              "defaultTooltip": "Queue to Episodes for Later",
+              "toggledTooltip": "Remove from Episodes for Later",
+              "toggledAccessibilityData": {},
+              "preventAutoToggle": true
+             }
+            },
+            {
+             "musicPlayButtonRenderer": {
+              "playNavigationEndpoint": {
+               "watchEndpoint": {
+                "videoId": "ZAzWPE9CItg",
+                "params": "8gEDmAEI",
+                "playerParams": "0gcJCQkB-iE-y48-",
+                "watchEndpointMusicSupportedConfigs": {
+                 "watchEndpointMusicConfig": {
+                  "musicVideoType": "MUSIC_VIDEO_TYPE_PODCAST_EPISODE"
+                 }
+                }
+               }
+              },
+              "playIcon": {
+               "iconType": "PLAY_ARROW"
+              },
+              "pauseIcon": {
+               "iconType": "PAUSE"
+              },
+              "iconColor": 4278387459,
+              "backgroundColor": 0,
+              "activeBackgroundColor": 0,
+              "loadingIndicatorColor": 14745645,
+              "playingIcon": {
+               "iconType": "PAUSE"
+              },
+              "iconLoadingColor": 0,
+              "activeScaleFactor": 1,
+              "accessibilityPlayData": {},
+              "accessibilityPauseData": {},
+              "playbackIdMatchers": [
+               {
+                "videoId": "ZAzWPE9CItg"
+               }
+              ]
+             }
+            },
+            {
+             "menuRenderer": {
+              "items": [
+               {
+                "menuServiceItemRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Play next"
+                   }
+                  ]
+                 },
+                 "icon": {
+                  "iconType": "QUEUE_PLAY_NEXT"
+                 },
+                 "serviceEndpoint": {
+                  "queueAddEndpoint": {
+                   "queueTarget": {
+                    "videoId": "ZAzWPE9CItg",
+                    "onEmptyQueue": {
+                     "watchEndpoint": {
+                      "videoId": "ZAzWPE9CItg"
+                     }
+                    }
+                   },
+                   "queueInsertPosition": "INSERT_AFTER_CURRENT_VIDEO",
+                   "commands": [
+                    {
+                     "addToToastAction": {
+                      "item": {
+                       "notificationTextRenderer": {
+                        "successResponseText": {
+                         "runs": [
+                          {
+                           "text": "Episode will play next"
+                          }
+                         ]
+                        }
+                       }
+                      }
+                     }
+                    }
+                   ]
+                  }
+                 }
+                }
+               },
+               {
+                "menuServiceItemRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Add to queue"
+                   }
+                  ]
+                 },
+                 "icon": {
+                  "iconType": "ADD_TO_REMOTE_QUEUE"
+                 },
+                 "serviceEndpoint": {
+                  "queueAddEndpoint": {
+                   "queueTarget": {
+                    "videoId": "ZAzWPE9CItg",
+                    "onEmptyQueue": {
+                     "watchEndpoint": {
+                      "videoId": "ZAzWPE9CItg"
+                     }
+                    }
+                   },
+                   "queueInsertPosition": "INSERT_AT_END",
+                   "commands": [
+                    {
+                     "addToToastAction": {
+                      "item": {
+                       "notificationTextRenderer": {
+                        "successResponseText": {
+                         "runs": [
+                          {
+                           "text": "Episode added to queue"
+                          }
+                         ]
+                        }
+                       }
+                      }
+                     }
+                    }
+                   ]
+                  }
+                 }
+                }
+               },
+               {
+                "menuServiceItemDownloadRenderer": {
+                 "serviceEndpoint": {
+                  "offlineVideoEndpoint": {
+                   "videoId": "ZAzWPE9CItg",
+                   "onAddCommand": {
+                    "getDownloadActionCommand": {
+                     "videoId": "ZAzWPE9CItg",
+                     "params": "CAI%3D"
+                    }
+                   }
+                  }
+                 }
+                }
+               },
+               {
+                "menuNavigationItemRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Save to playlist"
+                   }
+                  ]
+                 },
+                 "icon": {
+                  "iconType": "ADD_TO_PLAYLIST"
+                 },
+                 "navigationEndpoint": {
+                  "modalEndpoint": {
+                   "modal": {
+                    "modalWithTitleAndButtonRenderer": {
+                     "title": {
+                      "runs": [
+                       {
+                        "text": "Save this for later"
+                       }
+                      ]
+                     },
+                     "content": {
+                      "runs": [
+                       {
+                        "text": "Make playlists and share them after signing in"
+                       }
+                      ]
+                     },
+                     "button": {
+                      "buttonRenderer": {
+                       "style": "STYLE_BLUE_TEXT",
+                       "isDisabled": false,
+                       "text": {
+                        "runs": [
+                         {
+                          "text": "Sign in"
+                         }
+                        ]
+                       },
+                       "navigationEndpoint": {
+                        "signInEndpoint": {
+                         "hack": true
+                        }
+                       }
+                      }
+                     }
+                    }
+                   }
+                  }
+                 }
+                }
+               },
+               {
+                "menuNavigationItemRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Go to podcast"
+                   }
+                  ]
+                 },
+                 "icon": {
+                  "iconType": "BROADCAST"
+                 },
+                 "navigationEndpoint": {
+                  "browseEndpoint": {
+                   "browseId": "MPSPPLrAXtmErZgOdP_8GztsuKi9nrraNbKKp4",
+                   "browseEndpointContextSupportedConfigs": {
+                    "browseEndpointContextMusicConfig": {
+                     "pageType": "MUSIC_PAGE_TYPE_PODCAST_SHOW_DETAIL_PAGE"
+                    }
+                   }
+                  }
+                 }
+                }
+               },
+               {
+                "menuNavigationItemRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Share"
+                   }
+                  ]
+                 },
+                 "icon": {
+                  "iconType": "SHARE"
+                 },
+                 "navigationEndpoint": {}
+                }
+               }
+              ]
+             }
+            }
+           ],
+           "title": {
+            "runs": [
+             {
+              "text": "AI Crisis in Math: Navier-Stokes, Riemann Hypothesis & Complexity Theory | Lex Fridman Podcast #503"
+             }
+            ]
+           },
+           "subtitle": {
+            "runs": [
+             {
+              "text": "1.5M views"
+             },
+             {
+              "text": " • "
+             },
+             {
+              "text": "Oct 26"
+             }
+            ]
+           },
+           "progress": {
+            "musicPlaybackProgressRenderer": {
+             "playbackProgressPercentage": 0,
+             "playbackProgressText": {
+              "runs": [
+               {
+                "text": " • "
+               },
+               {
+                "text": "3 hr 34 min"
+               }
+              ]
+             },
+             "durationText": {
+              "runs": [
+               {
+                "text": " • "
+               },
+               {
+                "text": "3 hr 34 min"
+               }
+              ]
+             },
+             "playedText": {
+              "runs": [
+               {
+                "text": " • "
+               },
+               {
+                "text": "Played",
+                "textColor": 4294921797
+               }
+              ]
+             }
+            }
+           },
+           "straplineTextOne": {
+            "runs": [
+             {
+              "text": "Lex Fridman Podcast",
+              "navigationEndpoint": {
+               "browseEndpoint": {
+                "browseId": "MPSPPLrAXtmErZgOdP_8GztsuKi9nrraNbKKp4",
+                "browseEndpointContextSupportedConfigs": {
+                 "browseEndpointContextMusicConfig": {
+                  "pageType": "MUSIC_PAGE_TYPE_PODCAST_SHOW_DETAIL_PAGE"
+                 }
+                }
+               }
+              }
+             }
+            ]
+           }
+          }
+         }
+        ]
+       }
+      }
+     }
+    }
+   ]
+  }
+ },
+ "background": {
+  "musicThumbnailRenderer": {
+   "thumbnail": {
+    "thumbnails": [
+     {
+      "url": "https://i.ytimg.com/vi/ZAzWPE9CItg/hq720.jpg?sqp=-oaymwEKCNUGEN8DIABIWg&rs=AMzJL3ljFlDRD0a21IGDKcOChFzyPbj0nA",
+      "width": 853,
+      "height": 479
+     }
+    ]
+   }
+  }
+ }
+}

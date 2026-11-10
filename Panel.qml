@@ -24,24 +24,25 @@ import "YtmModel.js" as Model
 // r repeat · L like · S save to library or subscribe (the row, else the page)
 // · D dislike the row's song (again to undo) or the one playing, which skips
 // · p add to playlist (the song, or a whole album or playlist row) · A go to
-// artist (of the row, the album page or the current song) · o go to album · J
-// / K move a queued song, or a song of your own playlist, down / up · i add
-// the suggestion under the cursor to your playlist · x remove (queue, own
-// playlist, Liked Music, recent search; History: press twice) · m / . the
-// row's menu (or right-click) · M the page's menu (Library: account) · O next
-// sort order on a page that has one (Charts: the country) · f find in a
-// page's songs (album, playlist, Liked Music, History) or the suggested
-// artists · e edit your playlist: details, order, voting, collaborators · ?
-// these keys · y cycle the pane under the song: Queue, Lyrics, Related · t
-// cycle the queue tuner chip: All, Discover, Popular and the rest · [ / ]
-// playback speed down / up (0.5x to 2x, kept apart for episodes).
+// artist (of the row, the album page or the current song) · o go to album (an
+// episode's podcast) · J / K move a queued song, or a song of your own
+// playlist, down / up · i add the suggestion under the cursor to your
+// playlist · x remove (queue, own playlist, Liked Music, Episodes for Later,
+// recent search; History: press twice) · m / . the row's menu (or
+// right-click) · M the page's menu (Library: account) · O next sort order on
+// a page that has one (Charts: the country) · f find in a page's songs
+// (album, playlist, Liked Music, History) or the suggested artists · e edit
+// your playlist: details, order, voting, collaborators · ? these keys · y
+// cycle the pane under the song: Queue, Lyrics, Related · t cycle the queue
+// tuner chip: All, Discover, Popular and the rest · [ / ] playback speed down
+// / up (0.5x to 2x, kept apart for episodes).
 // Text keys go through Model.keyId to runKey(); Ctrl and Alt chords are
 // ignored. Views offer optional hooks, checked with typeof: horizontal(dx),
 // cycleOrder(), find(), playNext(i) / addToQueue(i), menu(i), pageMenu(),
 // menuChosen(id), placeAt(i) / indexOfPlace(place), pageRadio(),
-// pageArtist(), clearFind(), (S4) toggleSave() and editCallback(), and
-// (S13) moveTrack(delta), addSuggestion() and editTarget() (the playlist
-// editor's target; Panel opens PlaylistEditor over the page).
+// pageArtist(), clearFind(), (S4) toggleSave() and editCallback(), (S8)
+// saveRow(i), and (S13) moveTrack(delta), addSuggestion() and editTarget()
+// (the playlist editor's target; Panel opens PlaylistEditor over the page).
 Panel {
   id: root
   moduleName: "damir.ytmusic"
@@ -239,8 +240,9 @@ Panel {
 
   // The artist / album page of a track (from Now Playing, or `A` / `o` on
   // the selected row or the current track).
+  // S8: an episode's credit is its podcast (MPSP...), which opens as one.
   function openArtist(artist) {
-    if (artist && artist.id) push({ type: "artist", channelId: artist.id, name: artist.name, thumb: null })
+    if (artist && artist.id) push(Model.creditItem(artist))
   }
 
   function openArtistOf(track) {
@@ -265,6 +267,12 @@ Panel {
   // Go to album: its page when the album id is known, else (an album known
   // only by its audio playlist) the worker looks the page up, cached.
   function goAlbum(item) {
+    // S8: an episode's "album" is its podcast.
+    var podcast = Model.podcastItemOf(item)
+    if (podcast) {
+      push(podcast)
+      return
+    }
     var album = Model.albumOf(item)
     if (album) {
       push(album)
@@ -331,6 +339,10 @@ Panel {
     var row = list ? list.rowAt(list.cursorIndex) : null
     var item = row ? row.item : null
     var target = Model.saveTarget(item, service.saveContext(item))
+    // S8: a view may take S on its row itself (the optional saveRow(i) hook:
+    // Episodes for Later removes the episode, as x does).
+    var owner = activeListOwner()
+    if (target === "row" && owner && typeof owner.saveRow === "function" && owner.saveRow(list.cursorIndex)) return
     if (target === "row") service.toggleSaveItem(item, Model.editCallbackOf(activeListOwner()))
     else if (target === "page") ownerHook("toggleSave")
     else service.failAction("Nothing to save", Model.menuKind(item) === "track"

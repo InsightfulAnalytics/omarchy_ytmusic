@@ -5,7 +5,8 @@ import "../YtmModel.js" as Model
 
 // An album, playlist or artist in a list; clicking opens it, a right-click
 // (or the menu button shown on hover) asks for its menu. An explicit album
-// has a boxed E before its subtitle (S3).
+// has a boxed E before its subtitle (S3). Artists, profiles and channels
+// have round covers (S9).
 Item {
   id: root
 
@@ -17,7 +18,7 @@ Item {
 
   readonly property color foreground: bar ? bar.foreground : Color.foreground
   readonly property string fontFamily: bar ? bar.fontFamily : Style.font.family
-  readonly property bool isArtist: item && item.type === "artist"
+  readonly property bool roundCover: Model.roundCover(item)
 
   signal activated()
   signal menuRequested()
@@ -54,7 +55,7 @@ Item {
       id: cover
       anchors.verticalCenter: parent.verticalCenter
       size: Style.space(38)
-      radius: root.isArtist ? size / 2 : Math.max(2, Math.round(size * 0.1))
+      radius: root.roundCover ? size / 2 : Math.max(2, Math.round(size * 0.1))
       store: root.store
       source: root.item && root.item.thumb ? root.item.thumb : ""
       foreground: root.foreground

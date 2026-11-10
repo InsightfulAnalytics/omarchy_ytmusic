@@ -289,7 +289,12 @@ ORDER_DEPENDENTS = {"FEmusic_liked_playlists": ("libraryPlaylists",),
                     "FEmusic_liked_albums": ("libraryAlbums",),
                     "FEmusic_library_corpus_track_artists": ("libraryArtists",),
                     "FEmusic_library_corpus_artists": ("librarySubscriptions",),
-                    "FEmusic_library_landing": ("libraryLanding",)}
+                    "FEmusic_library_landing": ("libraryLanding",),
+                    # S8: the library's podcasts and channels (ytm_podcasts).
+                    "FEmusic_library_non_music_audio_list": ("libraryPodcasts",),
+                    "FEmusic_library_non_music_audio_channels_list": ("libraryChannels",),
+                    # S9: the library's profiles (ytm_users).
+                    "FEmusic_library_user_profile_channels_list": ("libraryProfiles",)}
 
 
 def saves_order(browse_id):
@@ -323,6 +328,7 @@ def m_browse_page(worker, params):
         if order is not None and saves_order(browse_id):
             forget_order(worker, browse_id)
     response, _, options, base = first
+    keep_off_disk(worker, browse_id, base)  # S9: your own channel's See all pages
     title, subtitle, thumbnails = _header(base)
     if order is None:
         order = next((o["index"] for o in options if o["selected"]), None)
@@ -342,6 +348,44 @@ def m_browse_page(worker, params):
         if layout else None
     return norm.page("browse", browse_id, title, subtitle, thumbnails, _sections(entries, list_title, layout),
                      cursor, orders=options, order=order, round=round_cover)
+
+
+# ---- S9: your own channel stays off the disk ---------------------------------------------
+# Your channel's pages are titled with your account's name, which never
+# reaches the disk cache. Such a page is known by the subscribe button its
+# header disables, or by the id the account menu links (Worker.own_channel,
+# read by verify_session); until a signed-in worker has read that menu
+# (Worker.own_channel_known), no page of a channel (UC...) is stored.
+# ytm_users reads them the same way.
+
+
+def subscribe_button(response):
+    """The page header's subscribeButtonRenderer, ``{}`` when it has none."""
+    header = response.get("header") if isinstance(response, dict) else None
+    data = next(iter(header.values()), {}) if isinstance(header, dict) and header else {}
+    button = nav(data, ["subscriptionButton", "subscribeButtonRenderer"], True) if isinstance(data, dict) else None
+    return button if isinstance(button, dict) else {}
+
+
+def is_own_channel(worker, channel_id, response):
+    """``channel_id``'s page (``response``) is your own channel: its subscribe
+    button is disabled, or the account menu links that id."""
+    if subscribe_button(response).get("enabled") is False:
+        return True
+    own = getattr(worker, "own_channel", None)
+    return bool(own) and channel_id == own
+
+
+def keep_off_disk(worker, channel_id, response):
+    """Keep this request's answer out of the disk cache when it may be your
+    own channel's page; True then."""
+    maybe = is_own_channel(worker, channel_id, response) or (
+        getattr(worker, "auth", None) == "ok" and not getattr(worker, "own_channel_known", False)
+        and isinstance(channel_id, str) and channel_id.startswith("UC"))
+    skip = getattr(worker, "skip_store", None)
+    if maybe and callable(skip):
+        skip()
+    return maybe
 
 
 def record_browse(yt, params):

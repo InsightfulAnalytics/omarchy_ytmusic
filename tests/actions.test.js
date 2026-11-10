@@ -105,7 +105,7 @@ test("S: the row's item, else the page; nothing on an item without anything to s
   assert.equal(Model.saveAction(album), "save")
   assert.equal(Model.saveAction(artist), "subscribe")
   assert.equal(Model.saveAction(song(1, { libraryTokens: tokens })), "saveSong")
-  assert.equal(Model.saveAction({ type: "profile", channelId: "UCuser" }), "", "until S9 adds profiles")
+  assert.equal(Model.saveAction({ type: "profile", channelId: "UCuser" }), "subscribe", "S9: profiles subscribe")
 })
 
 test("worker params: albums by page, playlists by id, artists by page, songs by token", () => {

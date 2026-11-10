@@ -37,10 +37,14 @@ function utf8Length(text) {
 }
 
 // Per-file loadfile options. mpv's %n% form carries the value's byte length,
-// so titles with commas, quotes or '=' need no escaping.
-function loadfileOptions(track) {
+// so titles with commas, quotes or '=' need no escaping. S8: `start`
+// ({ seconds } or { percent }, startOption) starts the file there (an
+// episode's resume point or chapter).
+function loadfileOptions(track, start) {
   var title = mediaTitle(track)
-  return title ? "force-media-title=%" + utf8Length(title) + "%" + title : ""
+  var options = title ? "force-media-title=%" + utf8Length(title) + "%" + title : ""
+  var at = startOption(start)
+  return at ? (options ? options + "," : "") + at : options
 }
 
 function loadfile(track, flag) {
@@ -2144,15 +2148,8 @@ PAGE_KINDS.liked.claims = function(item) {
   return item.type === "playlist" && _stripVl(item.playlistId) === "LM"
 }
 
-// A user channel (Recent activity, Subscriptions) opens as its browse page
-// until S9 gives profiles a page of their own.
-if (!PAGE_KINDS.profile) {
-  PAGE_KINDS.profile = {
-    method: "browsePage", title: "Profile", round: true,
-    params: function(t) { return t.channelId ? { browseId: t.channelId } : null },
-    id: function(t) { return t.channelId }
-  }
-}
+// A user channel (Recent activity, Subscriptions) opens as a profile page
+// (S9's PAGE_KINDS.user).
 
 if (typeof module !== "undefined") {
   Object.assign(module.exports, {
@@ -3604,15 +3601,7 @@ ROUTES.push({ pageType: "MUSIC_PAGE_TYPE_USER_CHANNEL", prefix: "UC", when: func
   target: function(ep, id) { return { type: "browse", browseId: id, params: ep.params, title: ep.title || "" } } })
 
 // A podcast on a Home shelf (the Podcasts chip has whole shelves of them)
-// opens as its browse page, which reads an MPSP page's episodes, until S8
-// gives podcasts a page of their own.
-if (!PAGE_KINDS.podcast) {
-  PAGE_KINDS.podcast = {
-    method: "browsePage", title: "Podcast", round: false,
-    params: function(t) { return t.browseId ? { browseId: t.browseId } : null },
-    id: function(t) { return t.browseId }
-  }
-}
+// opens as its own page (S8's PAGE_KINDS.podcast).
 
 // All, then the served chips ({ title, params }; one without params is left out).
 function homeChipList(served) {
@@ -4263,6 +4252,799 @@ if (typeof module !== "undefined") {
     pastSearchRows: pastSearchRows,
     typingRows: typingRows,
     appendSearchPage: appendSearchPage
+  })
+}
+
+// ==== podcasts (S8) ==========================================================================
+// Podcasts, episodes and podcast channels as pages of their own: a podcast
+// (MPSP...) lists its episodes (tracks of kind "episode", a cursor page at
+// a time), an episode (MPED..., or its videoId) has Play or Resume, Save
+// (Episodes for Later), its description and its chapters, a channel its
+// rows (Latest episodes with See all, Podcasts, Videos, Playlists) and
+// Subscribe. The Library's Podcasts chip starts with Episodes for Later
+// (its count), New episodes and Channels, then the saved podcasts. S saves
+// a podcast (its library toggle) or an episode (Episodes for Later), the
+// row's or the page's.
+//
+// Resume: a played episode's place is kept here (Service saves it every
+// 15 s while it plays and on pause or stop, in positions.json, at most
+// POSITIONS_MAX episodes, the oldest dropped; one played to its end is kept
+// as finished). Starting an episode goes on from that place, else from
+// YouTube's progress percentage (start=<pct>%, which needs no duration),
+// else from the start; nothing is written back to YouTube. A chapter row
+// seeks when its episode plays, otherwise it plays the episode from there.
+
+var POSITIONS_MAX = 200
+// A place this early is no place to resume from; one this close to the
+// end (seconds) or past FINISHED_PERCENT counts as played.
+var POSITION_MIN_SEC = 10
+var POSITION_END_SEC = 30
+var FINISHED_PERCENT = 95
+// The page type the worker gives a channel's Latest episodes See all.
+var CHANNEL_EPISODES_PAGE = "YTM_CHANNEL_EPISODES"
+var SAVED_EPISODES_ID = "SE"
+var NEW_EPISODES_ID = "RDPN"
+var CHAPTER_PREFIX = "chapter:"
+var PODCAST_ICON = "󰦔"
+// Kinds whose header has no Shuffle (episodes are listened to in order).
+var PODCAST_KINDS = ["podcast", "episode", "channel", "channelEpisodes", "savedEpisodes", "newEpisodes", "libraryChannels"]
+
+function isPodcastKind(kind) {
+  return PODCAST_KINDS.indexOf(kind) >= 0
+}
+
+function isEpisode(item) {
+  return !!item && item.type === "track" && item.kind === "episode" && !!item.videoId
+}
+
+function _podcastBrowseId(item) {
+  if (!item) return ""
+  if (item.browseId && String(item.browseId).indexOf("MPSP") === 0) return String(item.browseId)
+  return item.podcastId ? "MPSP" + _stripVl(item.podcastId) : ""
+}
+
+function _episodeVideoId(item) {
+  if (!item) return ""
+  if (item.videoId) return String(item.videoId)
+  var id = String(item.browseId || "")
+  return id.indexOf("MPED") === 0 ? id.slice(4) : ""
+}
+
+PAGE_KINDS.podcast = {
+  method: "podcast", title: "Podcast", round: false,
+  params: function(t) { var id = _podcastBrowseId(t); return id ? { browseId: id } : null },
+  id: function(t) { return _podcastBrowseId(t) },
+  subtitle: function(page) { return podcastSubtitle(page) }
+}
+PAGE_KINDS.episode = {
+  method: "episode", title: "Episode", round: false,
+  params: function(t) { var id = _episodeVideoId(t); return id ? { videoId: id } : null },
+  id: function(t) { return _episodeVideoId(t) },
+  adapt: function(result) { return episodePage(result) },
+  subtitle: function(page) { return episodeSubtitle(page) }
+}
+PAGE_KINDS.channel = {
+  method: "channel", title: "Channel", round: true,
+  params: function(t) { return t.channelId ? { channelId: t.channelId } : null },
+  id: function(t) { return t.channelId }
+}
+PAGE_KINDS.channelEpisodes = {
+  method: "channelEpisodes", title: "Episodes", round: false,
+  params: function(t) { return t.channelId && t.params ? { channelId: t.channelId, params: t.params } : null },
+  id: function(t) { return t.channelId }
+}
+// Episodes for Later: listed as a playlist too (SE), so its rows open here.
+PAGE_KINDS.savedEpisodes = {
+  method: "savedEpisodes", title: "Episodes for Later", round: false,
+  claims: function(item) { return item.type === "playlist" && _stripVl(item.playlistId) === SAVED_EPISODES_ID },
+  params: function() { return {} },
+  id: function() { return SAVED_EPISODES_ID }
+}
+PAGE_KINDS.newEpisodes = {
+  method: "newEpisodes", title: "New episodes", round: false,
+  claims: function(item) { return item.type === "playlist" && _stripVl(item.playlistId) === NEW_EPISODES_ID },
+  params: function() { return {} },
+  id: function() { return NEW_EPISODES_ID }
+}
+PAGE_KINDS.libraryChannels = {
+  method: "libraryChannels", title: "Channels", round: false,
+  params: function() { return {} },
+  id: function() { return "channels" }
+}
+
+ROUTES.push(
+  { prefix: "MPSP", target: function(ep, id) { return { type: "podcast", browseId: id, title: ep.title || "" } } },
+  { prefix: "MPED", target: function(ep, id) { return { type: "episode", videoId: id.slice(4), browseId: id, title: ep.title || "" } } },
+  { browseId: "VL" + SAVED_EPISODES_ID, target: function(ep) { return { type: "savedEpisodes", title: ep.title || "" } } },
+  { browseId: SAVED_EPISODES_ID, target: function(ep) { return { type: "savedEpisodes", title: ep.title || "" } } },
+  { browseId: "VL" + NEW_EPISODES_ID, target: function(ep) { return { type: "newEpisodes", title: ep.title || "" } } },
+  { browseId: NEW_EPISODES_ID, target: function(ep) { return { type: "newEpisodes", title: ep.title || "" } } },
+  { pageType: CHANNEL_EPISODES_PAGE,
+    target: function(ep, id) { return ep.params ? { type: "channelEpisodes", channelId: id, params: ep.params, title: ep.title || "" } : null } })
+
+// ---- episodes in lists ------------------------------------------------------------------
+
+// "4 hr 1 min", "38 min", "45 sec"; "" when unknown.
+function episodeLength(seconds) {
+  var total = Math.floor(Number(seconds))
+  if (!isFinite(total) || total <= 0) return ""
+  var hours = Math.floor(total / 3600)
+  var minutes = Math.floor((total % 3600) / 60)
+  if (hours > 0) return hours + " hr" + (minutes > 0 ? " " + minutes + " min" : "")
+  return minutes > 0 ? minutes + " min" : total + " sec"
+}
+
+// YouTube's played percentage of an episode as a few words ("" when none).
+function episodeProgressText(percent) {
+  var p = Number(percent)
+  if (percent === null || percent === undefined || !isFinite(p) || p <= 0) return ""
+  return p >= FINISHED_PERCENT ? "Played" : Math.round(p) + "% played"
+}
+
+// How much of an episode (or an episode page's header) was played: Played,
+// else YouTube's own "2 hr 16 min left", else the percentage. A progress
+// text that is only the episode's length (YouTube's for one nobody
+// started; the worker drops it too) says nothing played.
+function episodePlayedText(item) {
+  if (!item) return ""
+  var percent = item.progress !== undefined ? item.progress : item.progressPercentage
+  var p = Number(percent)
+  if (percent !== null && percent !== undefined && isFinite(p) && p >= FINISHED_PERCENT) return "Played"
+  var text = item.progressText ? String(item.progressText) : ""
+  if (text !== "" && (text === String(item.duration || "") || text === episodeLength(item.durationSec))) text = ""
+  return text || episodeProgressText(percent)
+}
+
+// An episode row's subtitle: its date and length, its podcast, how much
+// of it was played.
+function episodeSubtitleOf(item) {
+  return joinParts([rankText(item), item.date ? String(item.date) : "", episodeLength(item.durationSec), item.artistText,
+                    episodePlayedText(item)])
+}
+
+var _s8ItemSubtitle = itemSubtitle
+itemSubtitle = function(item) {
+  if (isEpisode(item)) return episodeSubtitleOf(item)
+  if (item && item.type === "podcast" && !item.subtitle) return joinParts([rankText(item), item.authorText || ""])
+  if (item && item.type === "channel") return item.subtitle ? String(item.subtitle) : "Channel"
+  return _s8ItemSubtitle(item)
+}
+
+// The podcast page an episode belongs to, as an item to open (null when
+// unknown): its podcast, else a linked credit that is one.
+function podcastItemOf(track) {
+  if (!isEpisode(track)) return null
+  var credits = [track.podcast].concat(linkedArtists(track))
+  for (var i = 0; i < credits.length; i++) {
+    var c = credits[i]
+    if (c && c.id && String(c.id).indexOf("MPSP") === 0)
+      return { type: "podcast", browseId: String(c.id), title: String(c.name || ""), thumb: null }
+  }
+  return null
+}
+
+// An episode's own page, as an item to open.
+function episodeItemOf(track) {
+  if (!isEpisode(track)) return null
+  return { type: "episode", videoId: track.videoId, browseId: "MPED" + track.videoId, title: track.title || "",
+           thumb: track.thumb || null, thumbLarge: track.thumbLarge || null }
+}
+
+// A credit ({ name, id }, an artist link) as the page it opens: a podcast
+// (MPSP...) or an artist.
+function creditItem(credit) {
+  if (!credit || !credit.id) return null
+  var id = String(credit.id)
+  if (id.indexOf("MPSP") === 0) return { type: "podcast", browseId: id, title: String(credit.name || ""), thumb: null }
+  return { type: "artist", channelId: id, name: credit.name, thumb: null }
+}
+
+var _s8MenuKind = menuKind
+menuKind = function(item) {
+  if (item && item.type === "podcast") return _podcastBrowseId(item) ? "podcast" : ""
+  if (item && item.type === "channel") return item.channelId ? "channel" : ""
+  return _s8MenuKind(item)
+}
+
+var _s8ShareUrl = shareUrl
+shareUrl = function(item) {
+  if (item && item.type === "podcast" && _podcastBrowseId(item)) return MUSIC_URL + "playlist?list=" + _podcastBrowseId(item).slice(4)
+  return _s8ShareUrl(item)
+}
+
+// ---- pages ------------------------------------------------------------------------------
+
+function _pageHeader(page, kind) {
+  return page && page.type === "page" && page.kind === kind && page.header && typeof page.header === "object" ? page.header : null
+}
+
+function podcastSubtitle(page) {
+  return page && page.subtitle ? String(page.subtitle) : "Podcast"
+}
+
+// An episode page's header subtitle: date, length, played.
+function episodeSubtitle(page) {
+  var header = _pageHeader(page, "episode") || {}
+  return joinParts([header.date || "", header.duration || episodeLength(header.durationSec), episodePlayedText(header)])
+}
+
+// A chapter (the worker's { type: "chapter", title, seconds, time, videoId })
+// as an action row: Enter seeks or plays from there (chapterAction).
+function chapterRow(chapter) {
+  var seconds = Math.max(0, Math.floor(Number(chapter.seconds) || 0))
+  return { type: "action", id: CHAPTER_PREFIX + seconds, title: String(chapter.title || ""), icon: "󰐊",
+           hint: chapter.time ? String(chapter.time) : formatDuration(seconds),
+           chapter: { seconds: seconds, videoId: String(chapter.videoId || ""), title: String(chapter.title || "") } }
+}
+
+// PAGE_KINDS.episode.adapt: the chapters as action rows.
+function episodePage(result) {
+  if (!result || result.type !== "page" || !Array.isArray(result.sections)) return result
+  var out = {}
+  for (var key in result) out[key] = result[key]
+  out.sections = result.sections.map(function(section) {
+    if (!section || section.key !== "chapters") return section
+    var copy = {}
+    for (var k in section) copy[k] = section[k]
+    copy.items = (section.items || []).filter(function(c) { return c && c.type === "chapter" }).map(chapterRow)
+    return copy
+  })
+  return out
+}
+
+// The episode an episode page plays (its header's), with YouTube's progress.
+function episodeOfPage(page) {
+  var header = _pageHeader(page, "episode")
+  var track = header && header.episode && header.episode.videoId ? header.episode : null
+  if (!track) return null
+  var out = {}
+  for (var key in track) out[key] = track[key]
+  if (out.progress === undefined || out.progress === null) out.progress = header.progressPercentage
+  if (out.resumeSec === undefined || out.resumeSec === null) out.resumeSec = header.resumeSec
+  if (!out.progressText && header.progressText) out.progressText = header.progressText
+  return out
+}
+
+// What a chapter row does: seek in the episode playing, else play the
+// episode from that second.
+function chapterAction(chapter, currentVideoId) {
+  var seconds = Math.max(0, Math.floor(Number(chapter && chapter.seconds) || 0))
+  var videoId = chapter ? String(chapter.videoId || "") : ""
+  return { action: videoId !== "" && videoId === currentVideoId ? "seek" : "play", seconds: seconds, videoId: videoId }
+}
+
+// The header byline of a podcast (its author's channel) or an episode
+// (its podcast), as parts { text, item? }.
+function podcastByline(page) {
+  var credit = null
+  var item = null
+  var podcast = _pageHeader(page, "podcast")
+  var episode = _pageHeader(page, "episode")
+  if (podcast && podcast.author && podcast.author.name) {
+    credit = podcast.author
+    var id = String(credit.id || "")
+    item = id.indexOf("UC") === 0 ? { type: "channel", channelId: id, name: credit.name, thumb: null } : null
+  } else if (episode && episode.show && episode.show.name) {
+    credit = episode.show
+    item = creditItem(credit)
+  }
+  return credit ? [item ? { text: String(credit.name), item: item } : { text: String(credit.name) }] : []
+}
+
+function podcastDescription(page) {
+  var header = _pageHeader(page, "podcast") || _pageHeader(page, "episode")
+  return header && typeof header.description === "string" ? header.description.trim() : ""
+}
+
+// The About row on a podcast or episode page (opts.about: the header cut
+// the description short).
+function podcastShowsAbout(page, opts) {
+  return !!opts && opts.about === true && podcastDescription(page) !== ""
+}
+
+// A sectioned page's rows; on a podcast or episode page the About row (and,
+// open, the description in paragraphs) leads (opts: { about, aboutOpen }).
+function podcastRows(page, opts) {
+  var o = opts || {}
+  var rows = []
+  if (podcastShowsAbout(page, o)) {
+    rows.push({ item: { type: "action", id: COLLECTION_ABOUT_ID, title: o.aboutOpen ? "Hide the description" : "About",
+                        icon: "󰋽" } })
+    if (o.aboutOpen) {
+      var paragraphs = descriptionParagraphs(podcastDescription(page))
+      for (var p = 0; p < paragraphs.length; p++) rows.push({ item: { type: "text", title: paragraphs[p], paragraph: true } })
+    }
+  }
+  return rows.concat(pageRows(page))
+}
+
+// Episodes for Later counts episodes, not songs.
+var _s8CollectionMeta = collectionMeta
+collectionMeta = function(page, shown) {
+  if (!isCollection(page) || page.kind !== "episodesForLater") return _s8CollectionMeta(page, shown)
+  var n = Number(page.trackCount) || 0
+  return n === 1 ? "1 episode" : groupedCount(n) + " episodes"
+}
+
+// ---- resume: local positions --------------------------------------------------------------
+// positions.json: { version: 1, positions: { videoId: { pos, dur, at, done } } }.
+
+function parsePositions(text) {
+  var data = null
+  try {
+    data = JSON.parse(String(text || ""))
+  } catch (e) {
+    data = null
+  }
+  var out = {}
+  var list = data && data.version === 1 && data.positions && typeof data.positions === "object" ? data.positions : {}
+  for (var id in list) {
+    var entry = list[id]
+    if (!entry || typeof entry !== "object" || !(Number(entry.at) > 0)) continue
+    out[id] = { pos: Math.max(0, Number(entry.pos) || 0), dur: Math.max(0, Number(entry.dur) || 0), at: Number(entry.at),
+                done: entry.done === true }
+  }
+  return _boundPositions(out, POSITIONS_MAX)
+}
+
+function positionsText(positions) {
+  return JSON.stringify({ version: 1, positions: positions || {} })
+}
+
+// At most `max` entries, the most recent kept.
+function _boundPositions(map, max) {
+  var ids = Object.keys(map || {})
+  var limit = max > 0 ? max : POSITIONS_MAX
+  if (ids.length <= limit) return map
+  ids.sort(function(a, b) { return map[b].at - map[a].at })
+  var out = {}
+  for (var i = 0; i < limit; i++) out[ids[i]] = map[ids[i]]
+  return out
+}
+
+// A copy of `positions` with videoId's place: `pos` seconds into `dur`
+// (0 when unknown) at time `now`. Near its end it counts as played (done);
+// a place in its first seconds is no place (the entry goes).
+function withPosition(positions, videoId, pos, dur, now, max) {
+  var out = {}
+  for (var id in positions || {}) out[id] = positions[id]
+  if (!videoId) return out
+  var seconds = Math.max(0, Number(pos) || 0)
+  var length = Math.max(0, Number(dur) || 0)
+  var done = length > 0 && (seconds >= length - POSITION_END_SEC || seconds / length * 100 >= FINISHED_PERCENT)
+  if (!done && seconds < POSITION_MIN_SEC) delete out[videoId]
+  else out[videoId] = { pos: done ? 0 : Math.floor(seconds), dur: Math.floor(length), at: Number(now) || 0, done: done }
+  return _boundPositions(out, max)
+}
+
+// Played to its end (mpv's end-file eof).
+function withFinished(positions, videoId, dur, now, max) {
+  var out = {}
+  for (var id in positions || {}) out[id] = positions[id]
+  if (videoId) out[videoId] = { pos: 0, dur: Math.max(0, Math.floor(Number(dur) || 0)), at: Number(now) || 0, done: true }
+  return _boundPositions(out, max)
+}
+
+function positionOf(positions, videoId) {
+  var entry = positions && videoId ? positions[videoId] : null
+  return entry && typeof entry === "object" ? entry : null
+}
+
+// Where an episode starts: { seconds } from the place kept here, else from
+// YouTube's: its time left (resumeSec, the length minus "2 hr 16 min
+// left"; the percentage alone says 10% for a barely started one), else
+// { percent } of its progress; null for the start (also once it was played
+// to its end here, or YouTube counts it played).
+function episodeResume(track, positions) {
+  if (!isEpisode(track)) return null
+  var local = positionOf(positions, track.videoId)
+  if (local) return local.done || !(local.pos >= POSITION_MIN_SEC) ? null : { seconds: Math.floor(local.pos) }
+  var percent = Number(track.progress)
+  var known = track.progress !== null && track.progress !== undefined && isFinite(percent)
+  if (known && percent >= FINISHED_PERCENT) return null
+  var left = Number(track.resumeSec)
+  if (track.resumeSec !== null && track.resumeSec !== undefined && isFinite(left))
+    return left >= POSITION_MIN_SEC ? { seconds: Math.floor(left) } : null
+  return known && percent > 0 ? { percent: Math.floor(percent) } : null
+}
+
+// mpv's per-file start option for { seconds } or { percent }; "" for none.
+function startOption(start) {
+  if (!start || typeof start !== "object") return ""
+  if (start.percent !== undefined && start.percent !== null) {
+    var p = Math.floor(Number(start.percent))
+    return isFinite(p) && p > 0 && p < 100 ? "start=" + p + "%" : ""
+  }
+  var s = Math.floor(Number(start.seconds))
+  return isFinite(s) && s > 0 ? "start=" + s : ""
+}
+
+// A loadfile command (Model.loadfile's shape) that starts at `start`.
+function withStartOption(command, start) {
+  var at = startOption(start)
+  if (!at || !Array.isArray(command) || command[0] !== "loadfile") return command
+  var out = command.slice()
+  while (out.length < 5) out.push(out.length === 3 ? -1 : "")
+  out[4] = (out[4] ? out[4] + "," : "") + at
+  return out
+}
+
+// ---- library: the Podcasts chip ------------------------------------------------------------
+
+LIBRARY_CHIPS.push({ key: "podcasts", title: "Podcasts", method: "libraryPodcasts" })
+
+function _countText(n, one, many) {
+  return n === 1 ? "1 " + one : groupedCount(n) + " " + many
+}
+
+// The Podcasts chip: Episodes for Later (with its count, from the list's
+// own tile), New episodes and Channels, then the saved podcasts.
+function podcastLibraryRows(data) {
+  var list = data || {}
+  var header = list.header || {}
+  var later = header.episodesForLater || null
+  var count = later && typeof later.count === "number" ? later.count : null
+  var rows = [
+    { item: { type: "savedEpisodes", title: "Episodes for Later", thumb: null, count: count,
+              subtitle: count !== null ? _countText(count, "episode", "episodes") : "Episodes you saved" } },
+    { item: { type: "newEpisodes", title: "New episodes", thumb: null, subtitle: "From the podcasts you saved" } },
+    { item: { type: "libraryChannels", title: "Channels", thumb: null, subtitle: "Podcast channels in your library" } }
+  ]
+  var items = _validItems(list.items)
+  var label = orderTitle(list.orders, list.current)
+  if (items.length) rows.push({ header: true, title: label ? "Podcasts, " + label : "Podcasts" })
+  for (var i = 0; i < items.length; i++) rows.push({ item: items[i] })
+  if (list.message) rows.push({ item: { type: "message", title: String(list.message) } })
+  else if (!items.length && list.at > 0 && list.loading !== true) rows.push({ item: { type: "message", title: "No saved podcasts yet" } })
+  if (list.capped) rows.push({ item: { type: "message", title: "Showing the first " + items.length } })
+  else if (list.cursor || list.hasMore) rows.push({ item: { type: "loadMore", title: "Load more" } })
+  return rows
+}
+
+var _s8LibraryRows = libraryRows
+libraryRows = function(chip, data, playlists) {
+  return chip === "podcasts" ? podcastLibraryRows(data) : _s8LibraryRows(chip, data, playlists)
+}
+
+// ---- saving ---------------------------------------------------------------------------------
+
+SUBSCRIBE_TYPES.push("channel")
+
+function podcastIdOf(item) {
+  var id = _podcastBrowseId(item)
+  return id ? id.slice(4) : ""
+}
+
+// S on a podcast saves it (savePodcast); on an episode, Episodes for Later.
+var _s8SaveAction = saveAction
+saveAction = function(item, ctx) {
+  if (item && item.type === "podcast" && podcastIdOf(item)) return "savePodcast"
+  if (isEpisode(item)) return "saveEpisode"
+  return _s8SaveAction(item, ctx)
+}
+
+function savePodcastParams(item, save) {
+  var id = podcastIdOf(item)
+  return id ? { podcastId: id, save: save === true } : null
+}
+
+// The setVideoId of an episode in Episodes for Later (the savedEpisodes
+// collection held), "" when it is not there.
+function savedEpisodeSetId(collection, videoId) {
+  var tracks = collection && collection.tracks ? collection.tracks : []
+  for (var i = 0; i < tracks.length; i++) if (tracks[i] && tracks[i].videoId === videoId && tracks[i].setVideoId) return String(tracks[i].setVideoId)
+  return ""
+}
+
+// Whether a podcast is in the library: an edit made here, else its page's
+// header (fallback), else the Podcasts chip's list (sources.podcasts;
+// complete: all of it is read).
+function podcastSavedState(podcastId, sources) {
+  var s = sources || {}
+  if (!podcastId) return null
+  var known = stateOf(s.edits, podcastId)
+  if (known !== null) return known
+  if (typeof s.fallback === "boolean") return s.fallback
+  if (_listHas(s.podcasts, [String(podcastId)], ["podcastId"])) return true
+  return s.complete === true ? false : null
+}
+
+// Whether an episode is in Episodes for Later: an edit made here, else its
+// page's header (fallback), else the savedEpisodes collection held.
+function episodeSavedState(videoId, sources) {
+  var s = sources || {}
+  if (!videoId) return null
+  var known = stateOf(s.edits, videoId)
+  if (known !== null) return known
+  if (typeof s.fallback === "boolean") return s.fallback
+  if (_listHas(s.saved, [String(videoId)], ["videoId"])) return true
+  return s.complete === true ? false : null
+}
+
+// ---- menus ----------------------------------------------------------------------------------
+
+// Episodes have no radio (the menu, R and Service.startRadio all go by
+// radioParams), and go to their podcast rather than an artist.
+var _s8RadioParams = radioParams
+radioParams = function(item) { return isEpisode(item) ? null : _s8RadioParams(item) }
+var _s8RadioApplies = menuAction("radio").applies
+menuAction("radio").applies = function(item, ctx) { return !isEpisode(item) && _s8RadioApplies(item, ctx) }
+var _s8GoArtistApplies = menuAction("goArtist").applies
+menuAction("goArtist").applies = function(item, ctx) { return !isEpisode(item) && _s8GoArtistApplies(item, ctx) }
+// The page menu's Shuffle is the header button's twin: none on these pages.
+var _s8ShuffleApplies = menuAction("shuffle").applies
+menuAction("shuffle").applies = function(item, ctx) {
+  return !(!!ctx && ctx.page === true && isPodcastKind(ctx.pageKind)) && _s8ShuffleApplies(item, ctx)
+}
+
+// o on an episode goes to its podcast (Panel.goAlbum); x on Episodes for
+// Later takes the episode out of it.
+_keyEntry("album").title = "go to album (an episode's podcast)"
+_keyEntry("remove").title = "remove (queue, own playlist, Liked Music, Episodes for Later, recent search)"
+
+_insertAfter(MENU_ACTIONS, "goAlbum", [
+  { id: "goPodcast", title: "Go to podcast", icon: PODCAST_ICON, key: "album",
+    applies: function(item, ctx) { return !!podcastItemOf(item) && ctx.pageKind !== "podcast" },
+    run: function(env) { env.panel.push(podcastItemOf(env.item)) } },
+  { id: "goEpisode", title: "Go to episode", icon: "󰋽",
+    applies: function(item, ctx) { return isEpisode(item) && !(ctx.pageKind === "episode" && ctx.page === true) },
+    run: function(env) { env.panel.push(episodeItemOf(env.item)) } }
+])
+
+_insertAfter(MENU_ACTIONS, "subscribe", [
+  { id: "savePodcast", title: function(item, ctx) { return ctx.podcastSaved === true ? "Remove from library" : "Save to library" },
+    icon: "󰃅", key: "save",
+    applies: function(item, ctx) {
+      return ctx.signedIn === true && menuKind(item) === "podcast" && _headerOffers(ctx, "canSavePodcastPage")
+    },
+    run: function(env) {
+      if (!_pageToggle(env)) env.service.savePodcast(env.item, env.ctx.podcastSaved !== true, editCallbackOf(env.owner))
+    } },
+  { id: "saveEpisode",
+    title: function(item, ctx) { return ctx.episodeSaved === true ? "Remove from Episodes for Later" : "Save to Episodes for Later" },
+    icon: "󰃅", key: "save",
+    // On Episodes for Later's own rows, Remove (x) is the entry, as Liked
+    // Music's rows have no Like.
+    applies: function(item, ctx) {
+      return ctx.signedIn === true && isEpisode(item) && _headerOffers(ctx, "canSaveEpisodePage")
+        && !(ctx.removable === true && ctx.pageKind === "savedEpisodes")
+    },
+    run: function(env) {
+      if (!_pageToggle(env)) env.service.saveEpisode(env.item, env.ctx.episodeSaved !== true, editCallbackOf(env.owner))
+    } }
+])
+
+if (typeof module !== "undefined") {
+  Object.assign(module.exports, {
+    POSITIONS_MAX: POSITIONS_MAX,
+    FINISHED_PERCENT: FINISHED_PERCENT,
+    CHANNEL_EPISODES_PAGE: CHANNEL_EPISODES_PAGE,
+    CHAPTER_PREFIX: CHAPTER_PREFIX,
+    PODCAST_KINDS: PODCAST_KINDS,
+    isPodcastKind: isPodcastKind,
+    isEpisode: isEpisode,
+    episodeLength: episodeLength,
+    episodeProgressText: episodeProgressText,
+    episodePlayedText: episodePlayedText,
+    radioParams: radioParams,
+    itemSubtitle: itemSubtitle,
+    menuKind: menuKind,
+    shareUrl: shareUrl,
+    collectionMeta: collectionMeta,
+    libraryRows: libraryRows,
+    saveAction: saveAction,
+    podcastItemOf: podcastItemOf,
+    episodeItemOf: episodeItemOf,
+    creditItem: creditItem,
+    podcastSubtitle: podcastSubtitle,
+    episodeSubtitle: episodeSubtitle,
+    chapterRow: chapterRow,
+    episodePage: episodePage,
+    episodeOfPage: episodeOfPage,
+    chapterAction: chapterAction,
+    podcastByline: podcastByline,
+    podcastDescription: podcastDescription,
+    podcastShowsAbout: podcastShowsAbout,
+    podcastRows: podcastRows,
+    parsePositions: parsePositions,
+    positionsText: positionsText,
+    withPosition: withPosition,
+    withFinished: withFinished,
+    positionOf: positionOf,
+    episodeResume: episodeResume,
+    startOption: startOption,
+    withStartOption: withStartOption,
+    podcastLibraryRows: podcastLibraryRows,
+    podcastIdOf: podcastIdOf,
+    savePodcastParams: savePodcastParams,
+    savedEpisodeSetId: savedEpisodeSetId,
+    podcastSavedState: podcastSavedState,
+    episodeSavedState: episodeSavedState
+  })
+}
+
+// ==== profiles (S9) ==========================================================================
+// Profiles (user channels) as pages of their own. A profile's page (the
+// worker's `user`) has its rows as YouTube serves them (Videos, Playlists,
+// and so on), each ending in See all when the web has one (the channel with
+// params, a browse page), and Subscribe / Subscribed: S4's subscribe takes
+// any channel, and S and the page menu (M) are the button's twins, shown
+// at once and put back when YouTube says no. Your channel (Library's
+// account menu, M) is `myChannel`: the same page for the channel your
+// account menu links, led by your mix and without Subscribe; when the menu
+// links none, the page says so and the entry goes. The Artists chip has a
+// Profiles row: the profiles in your library (`libraryProfiles`). Profile
+// rows (Search, Home, Recent activity, Subscriptions, a playlist's author)
+// open the profile's page, with round covers and a menu (Open, Subscribe,
+// Copy link).
+
+var USER_CHANNEL_PAGE = "MUSIC_PAGE_TYPE_USER_CHANNEL"
+// The kinds that show a profile's page; its header is { channelId,
+// subscribeId, subscribed, subscribers, own }.
+var PROFILE_KINDS = ["user", "myChannel"]
+var PROFILE_ICON = "󰀄"
+// Rows with a round cover: people and channels.
+var ROUND_TYPES = ["artist", "profile", "channel"]
+
+function isProfileKind(kind) {
+  return PROFILE_KINDS.indexOf(kind) >= 0
+}
+
+function roundCover(item) {
+  return !!item && typeof item === "object" && ROUND_TYPES.indexOf(item.type) >= 0
+}
+
+PAGE_KINDS.user = {
+  method: "user", title: "Profile", round: true,
+  claims: function(item) { return item.type === "profile" && !!item.channelId },
+  params: function(t) { return t.channelId ? { channelId: t.channelId } : null },
+  id: function(t) { return t.channelId }
+}
+// Not kept on disk by the worker: the page is titled with your name.
+PAGE_KINDS.myChannel = {
+  method: "myChannel", title: "Your channel", round: true,
+  params: function() { return {} },
+  id: function() { return "myChannel" }
+}
+PAGE_KINDS.libraryProfiles = {
+  method: "libraryProfiles", title: "Profiles", round: false,
+  params: function() { return {} },
+  id: function() { return "profiles" }
+}
+
+// A user channel's own page (no params) is the profile; with params it is
+// one of its lists (a See all, Recaps), which S5's route keeps a browse page.
+ROUTES.push({ pageType: USER_CHANNEL_PAGE, prefix: "UC", when: function(ep) { return !ep.params },
+  target: function(ep, id) { return { type: "profile", channelId: id, name: ep.title || "" } } })
+
+// A profile row: its handle and what YouTube says under it ("164
+// subscribers"), else "Profile".
+var _s9ItemSubtitle = itemSubtitle
+itemSubtitle = function(item) {
+  if (!item || item.type !== "profile") return _s9ItemSubtitle(item)
+  var handle = item.handle ? String(item.handle) : ""
+  var served = item.subtitle ? String(item.subtitle) : ""
+  return joinParts([rankText(item), handle, served !== handle ? served : ""]) || "Profile"
+}
+
+var _s9MenuKind = menuKind
+menuKind = function(item) {
+  if (item && item.type === "profile") return item.channelId ? "profile" : ""
+  return _s9MenuKind(item)
+}
+
+// ---- subscribing --------------------------------------------------------------------------
+
+SUBSCRIBE_TYPES.push("profile")
+
+// The header button's text for a subscribed state (true: Subscribed).
+function subscribeLabel(subscribed) {
+  return subscribed === true ? "Subscribed" : "Subscribe"
+}
+
+// What pressing it does, for its tooltip.
+function subscribeActionTitle(subscribed) {
+  return subscribed === true ? "Unsubscribe" : "Subscribe"
+}
+
+// ---- pages --------------------------------------------------------------------------------
+
+function profileHeader(page) {
+  return page && page.type === "page" && page.kind === "user" && page.header && page.header.channelId ? page.header : null
+}
+
+// A profile's page as the item its menu and Subscribe act on (null until
+// it has loaded).
+function profileOfPage(page) {
+  var header = profileHeader(page)
+  if (!header) return null
+  return { type: "profile", channelId: String(header.channelId), name: String(page.title || ""),
+           thumb: page.thumb || null, thumbLarge: page.thumbLarge || null }
+}
+
+// Subscribe is on every profile's page but your own.
+function canSubscribeProfile(page) {
+  var header = profileHeader(page)
+  return !!header && header.own !== true
+}
+
+// ---- your channel -----------------------------------------------------------------------
+
+function myChannelItem() {
+  return { type: "myChannel", title: "Your channel", thumb: null }
+}
+
+// The worker found no channel in your account menu (myChannel's NOT_FOUND).
+function noChannel(reply) {
+  return !!reply && reply.ok === false && !!reply.error && reply.error.noChannel === true
+}
+
+// Among Library's account entries, before Switch account as on the web: S14
+// puts its taste builder ahead of it, S16 its entries and S15 Record plays
+// after it, Sign out stays last (ctx.noChannel: the worker said there is
+// none).
+_insertAfter(MENU_ACTIONS, "refresh", [
+  { id: "myChannel", title: "Your channel", icon: PROFILE_ICON,
+    applies: function(item, ctx) {
+      return ctx.page === true && ctx.pageKind === "library" && ctx.signedIn === true && ctx.noChannel !== true
+    },
+    run: function(env) { env.panel.push(myChannelItem()) } }
+])
+
+// A profile row's menu opens it, as an artist row's does.
+var _s9OpenApplies = menuAction("open").applies
+menuAction("open").applies = function(item, ctx) {
+  return (menuKind(item) === "profile" && !ctx.page) || _s9OpenApplies(item, ctx)
+}
+
+// ---- library: the Profiles row ------------------------------------------------------------
+
+var PROFILES_ENTRY = { type: "libraryProfiles", title: "Profiles", subtitle: "Profiles you subscribe to", thumb: null }
+
+// The Artists chip: Subscriptions, then Profiles, then the artists.
+var _s9LibraryRows = libraryRows
+libraryRows = function(chip, data, playlists) {
+  var rows = _s9LibraryRows(chip, data, playlists)
+  if (chip !== "artists") return rows
+  var at = 0
+  for (var i = 0; i < rows.length; i++) if (rows[i].item && rows[i].item.type === "librarySubscriptions") at = i + 1
+  var entry = {}
+  for (var key in PROFILES_ENTRY) entry[key] = PROFILES_ENTRY[key]
+  rows.splice(at, 0, { item: entry })
+  return rows
+}
+
+// ---- lists of your subscriptions ----------------------------------------------------------
+
+// The pages that list only channels you subscribe to: Subscriptions (S4),
+// Channels (S8) and Profiles. Any subscribe edit drops them from the Store
+// (and its sweep does after their TTL) while a view may still show one, so
+// that view counts its rows as subscribed (CollectionView.rowSubscribed: the
+// fallback of Store.subscribedState, under any edit made here).
+var SUBSCRIPTION_LIST_KINDS = ["librarySubscriptions", "libraryChannels", "libraryProfiles"]
+
+function listsSubscriptions(kind) {
+  return SUBSCRIPTION_LIST_KINDS.indexOf(kind) >= 0
+}
+
+if (typeof module !== "undefined") {
+  Object.assign(module.exports, {
+    USER_CHANNEL_PAGE: USER_CHANNEL_PAGE,
+    PROFILE_KINDS: PROFILE_KINDS,
+    SUBSCRIPTION_LIST_KINDS: SUBSCRIPTION_LIST_KINDS,
+    listsSubscriptions: listsSubscriptions,
+    isProfileKind: isProfileKind,
+    roundCover: roundCover,
+    itemSubtitle: itemSubtitle,
+    menuKind: menuKind,
+    libraryRows: libraryRows,
+    subscribeLabel: subscribeLabel,
+    subscribeActionTitle: subscribeActionTitle,
+    profileHeader: profileHeader,
+    profileOfPage: profileOfPage,
+    canSubscribeProfile: canSubscribeProfile,
+    myChannelItem: myChannelItem,
+    noChannel: noChannel
   })
 }
 
@@ -5445,7 +6227,7 @@ _insertAfter(MENU_ACTIONS, "remove", [
     run: function(env) { env.service.setRecordHistory(env.ctx.recordHistory !== true) } })
 })()
 
-_keyEntry("remove").title = "remove (queue, own playlist, Liked Music, recent search; History: press twice)"
+_keyEntry("remove").title = "remove (queue, own playlist, Liked Music, Episodes for Later, recent search; History: press twice)"
 
 if (typeof module !== "undefined") {
   Object.assign(module.exports, {

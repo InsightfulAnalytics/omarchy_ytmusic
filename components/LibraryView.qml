@@ -6,10 +6,12 @@ import "../YtmModel.js" as Model
 // Your account and "new playlist", then the library's chips (S2):
 // Playlists (Liked Music, History, Recent activity, your and saved
 // playlists), Songs (Shuffle all, then the songs), Albums and Artists
-// (Subscriptions, then the artists). h / l switch chips (kept in
-// prefs.libraryChip); O cycles the chip's sort order (prefs.libraryOrders),
-// named in its first heading. A chip's list loads only once it is shown,
-// about 50 at a time: Load more, or the cursor nearing the end.
+// (Subscriptions and, S9, Profiles, then the artists), Podcasts (S8:
+// Episodes for Later with its count, New episodes and Channels, then the
+// saved podcasts). h / l switch chips (kept in prefs.libraryChip); O
+// cycles the chip's sort order (prefs.libraryOrders), named in its first
+// heading. A chip's list loads only once it is shown, about 50 at a time:
+// Load more, or the cursor nearing the end.
 //
 // New playlist (S13): a privacy chip (a click, or Alt+Left / Alt+Right in
 // the fields) and an optional description under the name; a pasted
@@ -121,13 +123,14 @@ Item {
                              owner: root, index: index })
   }
 
-  // M: the account row's menu (S14: Add artists you like; S16: Switch
-  // account, Audio quality, Content location; S15: Record plays in history;
-  // Sign out; a later slice adds Your channel).
+  // M: the account row's menu (S14: Add artists you like; S9: Your channel;
+  // S16: Switch account, Audio quality, Content location; S15: Record plays
+  // in history; Sign out).
   function pageMenu() {
     return { item: null, ctx: { page: true, pageKind: "library", recordHistory: root.recordHistory,
                                 quality: service ? service.quality : "", location: service ? service.location : "",  // S16
-                                canUseOwnAccount: !!service && service.canUseOwnAccount },  // S16
+                                canUseOwnAccount: !!service && service.canUseOwnAccount,  // S16
+                                noChannel: !!root.store && root.store.myChannelMissing },  // S9: hides Your channel
              owner: root, index: -1,
              title: root.signedIn ? (root.account && root.account.name ? root.account.name : "Signed in") : "Not signed in",
              subtitle: root.signedIn ? Model.accountCaption(root.account) : "" }
@@ -428,7 +431,7 @@ Item {
       text: !root.store ? "" : root.listLoading && root.itemCount === 0 ? "Loading your library…"
         : root.listError !== "" ? root.listError
         : !root.isPlaylists && !!root.list && !root.listLoading && root.itemCount === 0 && !root.list.message
-          && root.list.at > 0 ? "Nothing here yet" : ""
+          && root.list.at > 0 && root.chip !== "podcasts" ? "Nothing here yet" : ""  // S8: its entry rows show
       color: root.listError !== "" ? Color.urgent : Qt.darker(root.foreground, 1.5)
       font.family: root.fontFamily
       font.pixelSize: Style.font.bodySmall
