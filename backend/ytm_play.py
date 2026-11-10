@@ -17,15 +17,17 @@ Area module (see AREA_MODULES in ytm.py).
 """
 
 import ytm_artist as artist
+import ytm_collections as collections
 import ytm_library as library
 import ytm_normalize as norm
 import ytm_now as now
 import ytm_raw as raw
-from ytm_proto import WorkerError, choice, opt_int, req_str
+from ytm_proto import WorkerError, choice, opt_bool, opt_int, opt_str, req_str
 
 MAX_TRACKS = 5000
 MIX_TRACKS = 50
-KINDS = ("album", "playlist", "liked", "mix", "artist")
+# G1: librarySongs plays the library in its order from a song (MLCT).
+KINDS = ("album", "playlist", "liked", "mix", "artist", "librarySongs")
 # Exactly one of these names what a radio starts from.
 RADIO_SOURCES = ("videoId", "playlistId", "mixId", "browseId", "channelId")
 ALBUM_PLAYLIST = "OLAK5uy_"
@@ -47,20 +49,37 @@ def _cut(reply, limit):
     return reply
 
 
-def _album(worker, browse_id):
-    page = norm.collection("album", worker.yt.get_album(browse_id), browse_id)
+def _album(worker, browse_id, limit=MAX_TRACKS):
+    # G1: an album over 200 songs plays every song (collections.album_read),
+    # else its audio playlist as the web does: the read album_read made when
+    # it covers the limit or the whole playlist, else a read up to the limit.
+    data, whole, read = collections.album_read(worker, worker.yt.get_album(browse_id))
+    if not whole:
+        playlist_id = _strip_vl(data["audioPlaylistId"])
+        if read is not None:
+            reply = _playlist_reply(read, playlist_id, "playlist", limit, norm.to_int(data.get("trackCount")) or 0)
+            if reply["complete"] or len(reply["items"]) >= limit:
+                return reply
+        return _playlist(worker, playlist_id, limit=limit)
+    page = norm.collection("album", data, browse_id)
     return _reply(page["playlistId"], page["tracks"], page["trackCount"], True)
 
 
 def _playlist(worker, playlist_id, kind="playlist", limit=MAX_TRACKS):
     """A playlist's first ``limit`` tracks (the limit, not None, so a huge
     playlist is not read to its end only to be cut)."""
-    data = worker.yt.get_playlist(playlist_id, limit=limit)
+    return _playlist_reply(worker.yt.get_playlist(playlist_id, limit=limit), playlist_id, kind, limit, limit)
+
+
+def _playlist_reply(data, playlist_id, kind, limit, asked):
+    """tracksFor's reply from get_playlist's ``data``, read with limit ``asked``."""
     page = norm.collection(kind, data, playlist_id)
     read = len(data.get("tracks") or [])
     items = page["tracks"][:limit]
-    # Fewer than the limit means ytmusicapi ran out of pages: that is all of it.
-    complete = read < limit or (page["trackCount"] is not None and len(items) >= page["trackCount"])
+    # Fewer than asked means ytmusicapi ran out of pages: that is all of it
+    # (unless the limit cut it).
+    complete = (read < asked and len(items) == len(page["tracks"])) \
+        or (page["trackCount"] is not None and len(items) >= page["trackCount"])
     return _reply(page["playlistId"], items, page["trackCount"], complete)
 
 
@@ -82,6 +101,20 @@ def _artist(worker, channel_id, limit):
     return _reply(None, items, len(items), True)
 
 
+def _place(params, video_key, index_key):
+    return req_str(params, video_key), opt_int(params, index_key, None, low=0, high=1_000_000)
+
+
+def _library_songs(worker, params, limit):
+    """G1: ``{videoId, index?, params?, backVideoId?, backIndex?}``: the
+    library in its order from that song (ytm_library.ordered_tracks)."""
+    video_id, index = _place(params, "videoId", "index")
+    back = _place(params, "backVideoId", "backIndex") if params.get("backVideoId") is not None else None
+    if back is not None and back[1] is None:
+        raise WorkerError("BAD_REQUEST", "'backIndex' goes with 'backVideoId'")
+    return library.ordered_tracks(worker, video_id, index, opt_str(params, "params", high=512), limit, back)
+
+
 def route(kind, collection_id):
     """``(reader, id)`` for a tracksFor request.
 
@@ -90,7 +123,12 @@ def route(kind, collection_id):
     MPRE id is its audio playlist, an MLCT... id (librarySongs'
     header.shuffleId) is the library's server shuffle (its first 50 songs in
     two requests, always complete), and any other playlist id is a playlist.
+    G1: kind librarySongs (also MLCT) is the library in its order.
     """
+    # G1: a library song played in the list's order (before the shuffle check:
+    # both are MLCT).
+    if kind == "librarySongs":
+        return "librarySongs", _strip_vl(collection_id)
     if kind == "liked" or collection_id in ("LM", "VLLM"):
         return "liked", "LM"
     if kind == "artist":
@@ -108,7 +146,14 @@ def route(kind, collection_id):
 
 def m_tracks_for(worker, params):
     """``{kind, id, limit?}``: at most ``limit`` tracks (MAX_TRACKS by default
-    and at most). ``complete`` is false when the collection has more."""
+    and at most). ``complete`` is false when the collection has more.
+
+    G1: ``{kind: "librarySongs", id: "MLCT", videoId, index?, params?,
+    backVideoId?, backIndex?}`` is the library in its order from that song
+    (``index`` its place in the list, counting from 1; ``params`` the songs
+    page's header.playParams; ``back`` a song about 40 places earlier, for
+    the list's last songs); ``{kind: "playlist", id: "MLCT", more: true}``
+    the next songs of the last Shuffle all."""
     kind = choice(params, "kind", KINDS)
     if kind is None:
         raise WorkerError("BAD_REQUEST", "missing 'kind'")
@@ -119,13 +164,18 @@ def m_tracks_for(worker, params):
         worker.require_auth()
         return _playlist(worker, "LM", "liked", limit)
     if reader == "album":
-        return _cut(_album(worker, target), limit)
+        return _cut(_album(worker, target, limit), limit)
     if reader == "artist":
         return _cut(_artist(worker, target, limit), limit)
     if reader == "mix":
         return _cut(_mix(worker, target), limit)
     if reader == "libraryShuffle":
+        # G1: `more` reads on through the last Shuffle all.
+        if opt_bool(params, "more"):
+            return library.shuffle_more(worker, target, limit)
         return library.shuffle_tracks(worker, target, limit)
+    if reader == "librarySongs":
+        return _library_songs(worker, params, limit)
     return _playlist(worker, target, limit=limit)
 
 

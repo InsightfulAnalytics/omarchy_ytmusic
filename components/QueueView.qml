@@ -287,7 +287,8 @@ Item {
       onMoveRequested: function(delta) { root.service.move(index, index + delta) }
     }
 
-    // S12: where autoplay would have added songs, why it did not.
+    // S12: where autoplay would have added songs, why it did not. G1: or
+    // what follows while the list that plays goes on.
     footer: Item {
       readonly property string text: note.text
       width: list.width
@@ -299,7 +300,8 @@ Item {
         anchors.bottom: parent.bottom
         width: parent.width
         textFormat: Text.PlainText
-        text: root.service && root.service.autoplay ? root.service.autoplayNote : ""
+        text: !root.service ? "" : root.service.listRestNote !== "" ? root.service.listRestNote  // G1
+          : root.service.autoplay ? root.service.autoplayNote : ""
         color: Qt.darker(root.foreground, 1.6)
         font.family: root.fontFamily
         font.pixelSize: Style.font.caption

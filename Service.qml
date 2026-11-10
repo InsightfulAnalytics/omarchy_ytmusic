@@ -374,7 +374,7 @@ Item {
     // A trim passes through states with no current song (S12): no new song.
     if (_trimShift) return
     if (autoplayWanted) autoplayTimer.restart()
-    else autoplayTimer.stop()
+    else if (!continueWanted) autoplayTimer.stop()  // G1: the list going on uses it too
   }
 
   function setAutoplay(on) {
@@ -393,6 +393,7 @@ Item {
   // context; if every pick of those is a duplicate, the song's own radio
   // once; then "Autoplay found nothing new".
   function refillAutoplay() {
+    if (continueList()) return  // G1: the rest of the list that plays comes first
     var seed = currentTrack
     if (!autoplayWanted || !seed || !seed.videoId) return
     var key = seed.videoId + "|" + playlistCount
@@ -409,7 +410,7 @@ Item {
     // S12: each song with few left tries a top-up; played ones are trimmed
     // (a trim's own shift of the index is no new song).
     if (_trimShift) return
-    if (autoplayWanted) autoplayTimer.restart()
+    if (autoplayWanted || continueWanted) autoplayTimer.restart()  // G1: or the list goes on
     trimTimer.restart()
   }
   onPlaylistChanged: {
@@ -449,6 +450,7 @@ Item {
     var plan = Model.resumeCommands(session)
     if (plan.tracks.length === 0) return false
     _replaceToken++
+    _resumeList()  // G1: and the rest of the list it played
     if (typeof session.volume === "number") volume = session.volume
     remember(plan.tracks)
     // The snapshot keeps the queue as it was (shuffled or not), so turning
@@ -528,14 +530,18 @@ Item {
     var random = shuffle
     var list = tracks || []
     var autoIds = autoFrom >= 0 ? _idsOf(list.slice(autoFrom)) : null  // S12
-    if (shuffleAll && list.length > Model.QUEUE_CAP) list = Model.shuffled(list.filter(Model.playable), Date.now())
+    var shuffledWhole = shuffleAll && list.length > Model.QUEUE_CAP  // G1
+    if (shuffledWhole) list = Model.shuffled(list.filter(Model.playable), Date.now())
     var cut = Model.capWindow(list, start || 0, Model.QUEUE_CAP)
     var plan = Model.playCollectionCommands(cut.tracks, cut.start, random, Date.now(), !shuffleAll)
     if (plan.tracks.length === 0) return false
-    noticeCut(plan.tracks.length, cut, partial)
+    // G1: what is left of a longer list plays on (no cap notice then).
+    var rest = Model.listRest(list, start || 0, partial, shuffledWhole)
+    if (!rest) noticeCut(plan.tracks.length, cut, partial)
     plan.commands[1 + plan.index] = Model.withStartOption(plan.commands[1 + plan.index],
                                                           _episodeStart(plan.tracks[plan.index], episodeStart))  // S8
     _newQueue(context || null)  // S12
+    _setListRest(rest, list.length)  // G1
     remember(plan.tracks)
     withStream(plan.tracks[plan.index], function() {
       root._sendQueue(plan.commands, autoIds)  // S12
@@ -560,8 +566,15 @@ Item {
     if (plan.tracks.length === 0) return false
     remember(plan.tracks)
     mpv.commands(plan.commands)
-    if (!noticeCut(plan.tracks.length, cut, partial) && title)
+    // G1: a longer list goes on at the end of the queue, unless one already does.
+    var rest = _listRest ? null : Model.listRest(tracks || [], 0, partial, false)
+    if (rest) {
+      _setListRest(rest, (tracks || []).length)
+      if (title) notify("Added to queue", Model.joinParts([title, songCount(partial && partial.total > 0 ? partial.total
+                                                                             : (tracks || []).length)]))
+    } else if (!noticeCut(plan.tracks.length, cut, partial) && title) {
       notify("Added to queue", Model.joinParts([title, songCount(plan.tracks.length)]))
+    }
     return true
   }
 
@@ -591,7 +604,7 @@ Item {
   // The cap notice when not all of a list went in (Model.capNotice); true
   // when it was shown.
   function noticeCut(kept, cut, partial) {
-    var notice = Model.capNotice(kept, cut, partial)
+    var notice = Model.capNotice(kept, cut, Model.cutPartial(partial))  // G1: Shuffle all has no size
     if (notice) notify(notice.title, notice.body)
     return !!notice
   }
@@ -670,7 +683,7 @@ Item {
         return
       }
       root.playTracks(result.tracks, mode, { playlistId: result.playlistId, title: title, radio: false }, title,
-                      result.complete ? null : { total: result.total })
+                      Model.itemPartial(item, result))  // G1: { total, more }: how the list goes on
     }, mode === "shuffle" ? 0 : Model.QUEUE_CAP)
     return true
   }
@@ -1027,6 +1040,7 @@ Item {
 
   // A new queue: what it plays from, no tuner, no note, nothing seen.
   function _newQueue(context) {
+    _listRest = null  // G1: the old queue's rest
     playContext = context
     _seen = []
     tuner = null
@@ -1400,6 +1414,169 @@ Item {
     id: trimGuard
     interval: 1500
     onTriggered: root._trimSettle()
+  }
+
+  // ---- no ceilings (G1) ------------------------------------------------------------------
+  // A list longer than the queue takes plays on to its end, as on the web:
+  // what is left of it (Model.listRest: the songs in hand past the queued
+  // window, and where more of the list comes from) is queued QUEUE_CAP at a
+  // time once Model.AUTOPLAY_LEFT or fewer songs are left, as the user's
+  // entries (a tuner chip leaves them), before autoplay's sources and
+  // whether or not autoplay is on; not while repeating one song, and not
+  // past Model.LIST_MAX entries (repeat all keeps every played one). It
+  // belongs to the queue it came with: a new queue (_newQueue), clearing
+  // what is next, Stop and a queue emptied any other way drop it; a song
+  // played on its own (playNow) and a Play still loading leave it. When mpv
+  // quits (idle or paused too long) it waits with the saved session, and
+  // resume() brings it back with that queue; anything else that starts mpv
+  // drops it. It lives in memory only and holds no token: after a hot
+  // reload the list ends where the queue does, and autoplay goes on.
+  property var _listRest: null
+  // The rest whose next songs are being read (null: none).
+  property var _reading: null
+  // The rest of the queue mpv quit with, for resume().
+  property var _parkedRest: null
+  // The rest of a queue that went empty, dropped if it stays empty (listEmptied).
+  property var _emptiedRest: null
+  readonly property bool continueWanted: _listRest !== null && hasMedia && repeatMode !== "one"
+    && playlistCount < Model.LIST_MAX && Model.topUpNeeded(playlistCount, playlistPos, Model.AUTOPLAY_LEFT)
+  // The queue's last line while the list goes on (QueueView).
+  readonly property string listRestNote: Model.restNote(_listRest)
+
+  onContinueWantedChanged: {
+    if (_trimShift) return
+    if (continueWanted) autoplayTimer.restart()
+  }
+
+  Connections {
+    target: mpv
+    function onUpChanged() {
+      if (mpv.up) {
+        root._parkedRest = null
+        return
+      }
+      listEmptied.stop()
+      root._emptiedRest = null
+      root._parkedRest = root._listRest
+      root._listRest = null
+    }
+  }
+
+  // Stop over MPRIS or every song removed: an emptied queue has nothing to
+  // go on from. playCollection's own stop is followed by its songs at once.
+  Connections {
+    target: root
+    function onPlaylistCountChanged() {
+      if (root.playlistCount !== 0 || !root._listRest) return
+      root._emptiedRest = root._listRest
+      listEmptied.restart()
+    }
+  }
+
+  Timer {
+    id: listEmptied
+    interval: 1500
+    onTriggered: {
+      if (root.playlistCount === 0 && mpv.up && root._listRest === root._emptiedRest) root._listRest = null
+      root._emptiedRest = null
+    }
+  }
+
+  // resume(): the rest of the queue it brings back.
+  function _resumeList() {
+    _listRest = _parkedRest
+    _parkedRest = null
+  }
+
+  // The rest of the list just queued (null: none) for this queue; `count`:
+  // the songs of it in hand. A list that cannot play to its end says so now.
+  function _setListRest(rest, count) {
+    if (!rest) {
+      _listRest = null
+      return
+    }
+    var notice = Model.restCapNotice(rest, count)
+    if (notice) notify(notice.title, notice.body)
+    _listRest = Model.withRest(rest, { noticed: !!notice })
+  }
+
+  // Called by refillAutoplay: true when the list goes on (its next songs
+  // were queued, or are on their way), so autoplay waits.
+  function continueList() {
+    var rest = _listRest
+    if (!rest) return false
+    if (_reading === rest) return true
+    if (!continueWanted || rest.failedAt === _listKey()) return false
+    return _stepList(rest)
+  }
+
+  function _listKey() {
+    return (currentTrack ? currentTrack.videoId : "") + "|" + playlistCount
+  }
+
+  // Queues the rest's next songs, or reads more of the list first; false
+  // when the list is over.
+  function _stepList(rest) {
+    var taken = Model.restTake(rest, Model.QUEUE_CAP)
+    if (taken.tracks.length > 0) {
+      _listRest = taken.rest
+      _appendList(taken.tracks)
+      return true
+    }
+    var ask = Model.restRequest(rest, Model.QUEUE_CAP)
+    if (!ask) {
+      _listRest = null
+      _listEnded(rest)
+      return false
+    }
+    _reading = rest
+    var done = function(read) {
+      if (root._reading === rest) root._reading = null
+      root.releaseWorkerIfIdle()
+      if (root._listRest !== rest) return
+      if (!read.ok) {
+        // Autoplay this time; the next song asks again.
+        console.warn("ytmusic: the rest of the list: " + read.error.message)
+        root._listRest = Model.withRest(rest, { failedAt: root._listKey() })
+        root.refillAutoplay()
+        return
+      }
+      var next = Model.restRead(rest, read, Model.queuedIds(root.queue, root._seen))
+      if (Model.restStalled(next)) {
+        // Nothing new, but the list goes on: as a failed read.
+        root._listRest = Model.withRest(next, { failedAt: root._listKey() })
+        root.refillAutoplay()
+        return
+      }
+      root._listRest = Model.withRest(next, { failedAt: null })
+      if (!root._stepList(root._listRest)) root.refillAutoplay()
+    }
+    if (ask.item) {
+      itemTracks(ask.item, done, 0)
+    } else {
+      backend.request(ask.method, ask.params, function(reply) {
+        if (!reply.ok) done(reply)
+        else done({ ok: true, tracks: reply.result.items || [], complete: reply.result.complete === true,
+                    total: reply.result.total })
+      }, 120000)
+    }
+    return true
+  }
+
+  // The list's next songs at the end of the queue (before autoplay's
+  // upcoming picks), shuffled while shuffle is on.
+  function _appendList(tracks) {
+    var list = shuffle ? Model.shuffled(tracks, Date.now()) : tracks
+    var plan = Model.queueAtCommands(list, _queueAt())
+    if (plan.tracks.length === 0) return false
+    remember(plan.tracks)
+    mpv.commands(plan.commands)
+    return true
+  }
+
+  function _listEnded(rest) {
+    var notice = rest.noticed ? null : Model.restCapNotice(rest)
+    if (notice) notify(notice.title, notice.body)
   }
 
   // ---- playback (S17) ------------------------------------------------------------------
@@ -3078,6 +3255,7 @@ Item {
     if (!mpv.up) return false
     savePosition()  // S8: answered before the stop
     mpv.command(["stop"])
+    _listRest = null  // G1: and the rest of the list
     return true
   }
 
@@ -3110,6 +3288,7 @@ Item {
   function clearUpcoming() {
     if (!mpv.up) return false
     mpv.command(["playlist-clear"])
+    _listRest = null  // G1: and the rest of the list
     return true
   }
 
@@ -3304,6 +3483,8 @@ Item {
         autoEntries: queue.filter(function(entry) { return entry.origin === "auto" }).length,
         seen: _seen.length,
         autoplayNote: autoplayNote,
+        // G1: the rest of the list that plays (songs in hand, where more comes from).
+        listRest: Model.restStatus(_listRest),
         // S17
         speed: speed,
         speedKind: speedKind,

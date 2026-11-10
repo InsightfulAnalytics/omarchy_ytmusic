@@ -20,6 +20,10 @@ token (the token is the browse request it reloads), never by its title, so
 YouTube saves a re-sort of these pages on the account (ytm_pages.saves_order),
 so an ordered first page also drops the cached browsePage copies of it.
 
+G1: a song plays on through the library in the list's order
+(ordered_tracks), and Shuffle all goes on through the server shuffle
+(shuffle_more), both read by tracksFor.
+
 Area module (see AREA_MODULES in ytm.py). Like ytm_pages.py it uses
 ytmusicapi internals, pinned to 1.12.2. Nothing here is recorded: these
 pages are private, so the tests use hand-built responses.
@@ -74,7 +78,8 @@ BROWSE_IDS = {
 SHUFFLE_ID = "MLCT"
 SHUFFLE_PARAMS = "wAEB8gECKAE%3D"
 # Each request takes 1 to 2 s (a whole library is shuffled), so the first
-# 50 songs (two requests) are read and autoplay carries on from there.
+# 50 songs (two requests) are read; G1: the shell reads on from there
+# (shuffle_more), as the web's queue does.
 SHUFFLE_TRACKS = 50
 SHUFFLE_MAX_HTTP = 2
 _PANEL = ["contents", "singleColumnMusicWatchNextResultsRenderer", "tabbedRenderer", "watchNextTabbedResultsRenderer",
@@ -300,13 +305,15 @@ def _songs(contents):
 
 def _shuffle_header(container):
     """``{shuffleId}`` from the songs page's leading row (a watch playlist, not
-    a song), else ``{}``."""
+    a song), else ``{}``. G1: and ``playParams``, the params a song row plays
+    the library in its order with (library_play_params)."""
     contents = container.get("contents") or []
+    header = library_play_params(contents)
     data = contents[0].get(MRLIR) if contents and isinstance(contents[0], dict) else None
     if not isinstance(data, dict) or nav(data, ["playlistItemData", "videoId"], True):
-        return {}
+        return header
     playlist_id = nav(data, ["navigationEndpoint", "watchPlaylistEndpoint", "playlistId"], True)
-    return {"shuffleId": playlist_id} if playlist_id else {}
+    return dict(header, shuffleId=playlist_id) if playlist_id else header
 
 
 # ---- methods -----------------------------------------------------------------------------
@@ -367,6 +374,11 @@ def m_library_landing(worker, params):
 # ---- Shuffle all (tracksFor) ------------------------------------------------------------------
 
 
+def _shuffle_body(playlist_id):
+    return {"playlistId": playlist_id, "params": SHUFFLE_PARAMS, "enablePersistentPlaylistPanel": True,
+            "isAudioOnly": True, "tunerSettingValue": "AUTOMIX_SETTING_NORMAL"}
+
+
 def is_shuffle(playlist_id):
     return isinstance(playlist_id, str) and playlist_id.startswith(SHUFFLE_ID)
 
@@ -376,32 +388,260 @@ def shuffle_tracks(worker, playlist_id, limit=SHUFFLE_TRACKS):
     (and SHUFFLE_TRACKS) songs, in YouTube's shuffled order."""
     worker.require_auth()
     limit = max(1, min(limit, SHUFFLE_TRACKS))
-    yt = worker.yt
-    body = {"playlistId": playlist_id, "params": SHUFFLE_PARAMS, "enablePersistentPlaylistPanel": True,
-            "isAudioOnly": True, "tunerSettingValue": "AUTOMIX_SETTING_NORMAL"}
+    items, seen = [], set()
+    # G1: read by _new_shuffle; where the shuffle goes on (its next page, and
+    # what was read past the limit) stays for the shell's next `more` read.
+    token, lost = _new_shuffle(worker.yt, playlist_id, limit, items, seen)
+    _remember_shuffle(worker, playlist_id, token, items[limit:], seen, lost)
+    # A shuffle has no end: like a mix, what came back is the whole of it.
+    return {"playlistId": playlist_id, "items": items[:limit], "complete": True, "total": None}
+
+
+# ---- no ceilings (G1) --------------------------------------------------------------------------------
+# A song row of the library plays the watch playlist SHUFFLE_ID ("MLCT") from
+# its index without the shuffle params: the song, then the rest of the
+# library in the list's order (what the web plays on a click). YouTube
+# places the song by ``index`` (its place in the list, counting from 1:
+# the Shuffle all row is 0) and builds the queue around that place, so the
+# shell asks for the songs after any of them with its place:
+# tracksFor {kind: "librarySongs", id: "MLCT", videoId, index, params}
+# (ordered_tracks; params: the songs page's header.playParams).
+#
+# Shuffle all goes on through the server shuffle's own next page, which
+# stays in this worker (one slot per worker and client, never in a reply,
+# a log or the disk cache): tracksFor {kind: "playlist", id: "MLCT", more:
+# true} reads the next songs of the last Shuffle all, or starts a new
+# shuffle when this worker holds none (it restarted, or the account
+# changed).
+#
+# Now and then YouTube answers a continuation with no song (seen live once
+# in 24 shuffle reads). That is never taken for the end of either queue:
+# Shuffle all goes on in a new shuffle, without the songs it gave, and the
+# ordered queue answers `complete: false`, so the shell asks again from its
+# last song.
+
+ORDERED_TRACKS = 500
+# The first response holds about 25 songs past the one asked for, each
+# continuation 24: about 100 songs a call.
+ORDERED_MAX_HTTP = 4
+# Near the list's end the queue is asked from a song this many places
+# earlier (the shell names it).
+ORDERED_BACK = 40
+_ROW_PLAY = ["overlay", "musicItemThumbnailOverlayRenderer", "content", "musicPlayButtonRenderer",
+             "playNavigationEndpoint", "watchEndpoint"]
+_PPVR = "playlistPanelVideoRenderer"
+_PPVWR = "playlistPanelVideoWrapperRenderer"
+
+
+def library_play_params(contents):
+    """``{playParams}``: the params of the first song row's play endpoint
+    (watch MLCT from that song), or ``{}``. Only the first response's rows
+    carry them (the same on each), and their ``index`` counts within that
+    response only, so the shell numbers songs by their place in the list."""
+    for content in contents or []:
+        data = content.get(MRLIR) if isinstance(content, dict) else None
+        endpoint = nav(data, _ROW_PLAY, True) if isinstance(data, dict) else None
+        if isinstance(endpoint, dict) and endpoint.get("playlistId") == SHUFFLE_ID and endpoint.get("videoId"):
+            params = endpoint.get("params")
+            return {"playParams": params} if isinstance(params, str) and params else {}
+    return {}
+
+
+def _next_token(panel):
+    return nav(panel, ["continuations", 0, "nextContinuationData", "continuation"], True) \
+        if isinstance(panel, dict) else None
+
+
+def _panel_songs(panel):
+    """``[(track, index)]`` of a playlist panel: each playable entry (its
+    counterpart kept) with its watchEndpoint index (None when it has none)."""
+    out = []
+    for content in panel.get("contents") or []:
+        if not isinstance(content, dict):
+            continue
+        primary = nav(content, [_PPVWR, "primaryRenderer"], True) if _PPVWR in content else content
+        index = nav(primary, [_PPVR, "navigationEndpoint", "watchEndpoint", "index"], True) \
+            if isinstance(primary, dict) else None
+        try:
+            parsed = parse_watch_tracks([content])
+        except (KeyError, TypeError, ValueError, IndexError, AttributeError) as exc:
+            norm.log(f"skipped malformed library song: {type(exc).__name__}")
+            continue
+        if parsed:
+            out.append((parsed[0], index if isinstance(index, int) and not isinstance(index, bool) else None))
+    return out
+
+
+def _ordered_panel(yt, body, video_id, look, budget):
+    """``(entries, token, http, lost)`` of the MLCT queue ``body`` asks for,
+    from the song ``video_id`` on; ``entries`` is None when it is not in the
+    first response nor in the next ``look`` continuations (within
+    ``budget`` requests). ``lost``: a response came with no song before the
+    song was found, so whether it is there is not known."""
     panel = nav(yt._send_request("next", body), _PANEL, True)
     if not isinstance(panel, dict):
-        raise WorkerError("UPSTREAM", "YouTube Music sent no shuffle of your library")
-    tracks = parse_watch_tracks(panel.get("contents") or [])
-    http = 1
-    while len(tracks) < limit and http < SHUFFLE_MAX_HTTP:
-        token = nav(panel, ["continuations", 0, "nextContinuationData", "continuation"], True)
-        if not token:
+        raise WorkerError("UPSTREAM", "YouTube Music sent no queue for your library")
+    entries, token, http, at = _panel_songs(panel), _next_token(panel), 1, None
+    while entries:
+        at = next((i for i, (track, _) in enumerate(entries) if track.get("videoId") == video_id), None)
+        if at is not None or not token or look <= 0 or http >= budget:
             break
+        look -= 1
+        panel = nav(yt._send_request("next", body, get_continuation_string(token)),
+                    ["continuationContents", "playlistPanelContinuation"], True)
+        http += 1
+        entries, token = _panel_songs(panel) if isinstance(panel, dict) else [], _next_token(panel)
+    if not entries:
+        return None, None, http, True
+    if at is None:
+        return None, None, http, False
+    return entries[at:], token, http, False
+
+
+def ordered_tracks(worker, video_id, index=None, params=None, limit=ORDERED_TRACKS, back=None):
+    """tracksFor's reply for a library song played in the list's order: that
+    song and the ones after it (the ones before it in YouTube's first page
+    are left out), at most ``limit`` in about ORDERED_MAX_HTTP requests.
+    Each song has its ``libraryIndex`` (its place, counted as ``index`` is),
+    so the shell asks for the next ones from the last. ``complete`` is false
+    while YouTube has more (past the list's end, YouTube's queue goes on
+    with other songs of your library, as on the web, and while a response
+    came with no song); no songs and complete when the song cannot be found
+    near ``index``.
+
+    YouTube places a song only at its own place (``index`` with that
+    ``videoId``) and none within about 30 of the list's end (it answers the
+    list's start instead). ``back`` (``(videoId, index)`` of a song some 40
+    places earlier, ORDERED_BACK) is then asked instead, and its queue read
+    on to the song."""
+    worker.require_auth()
+    limit = max(1, min(limit, ORDERED_TRACKS))
+    yt = worker.yt
+    body = {"videoId": video_id, "playlistId": SHUFFLE_ID, "enablePersistentPlaylistPanel": True,
+            "isAudioOnly": True, "tunerSettingValue": "AUTOMIX_SETTING_NORMAL"}
+    if params:
+        body["params"] = params
+    if index is not None:
+        body["index"] = index
+    entries, token, http, lost = _ordered_panel(yt, body, video_id, 0, ORDERED_MAX_HTTP)
+    if entries is None and not lost and back:
+        body = dict(body, videoId=back[0], index=back[1])
+        entries, token, http, lost = _ordered_panel(yt, body, video_id, 3, ORDERED_MAX_HTTP + 1)
+    if entries is None:
+        # Not where ``index`` says (it left the library, or the list is in
+        # another order): nothing after it can be told. Unless YouTube sent
+        # no song: then the shell asks again from the same song.
+        return {"playlistId": SHUFFLE_ID, "items": [], "complete": not lost, "total": None}
+    while len(entries) < limit and token and http < ORDERED_MAX_HTTP:
+        response = yt._send_request("next", body, get_continuation_string(token))
+        http += 1
+        panel = nav(response, ["continuationContents", "playlistPanelContinuation"], True)
+        page = _panel_songs(panel) if isinstance(panel, dict) else []
+        token = _next_token(panel)
+        if not page:
+            # Not the end: the shell asks again from the last song.
+            lost = True
+            break
+        entries.extend(page)
+    items, seen = [], set()
+    for track, position in entries[:limit]:
+        try:
+            value = norm.track(track)
+        except (KeyError, TypeError, ValueError, IndexError, AttributeError) as exc:
+            norm.log(f"skipped malformed library song: {type(exc).__name__}")
+            continue
+        if value["videoId"] in seen:
+            continue
+        seen.add(value["videoId"])
+        value["libraryIndex"] = position + 1 if position is not None else None
+        items.append(value)
+    complete = not token and not lost and len(entries) <= limit
+    return {"playlistId": SHUFFLE_ID, "items": items, "complete": complete, "total": None}
+
+
+def _shuffle_memo(worker, playlist_id):
+    """The worker's Shuffle all slot for ``playlist_id`` under its current
+    client, else None."""
+    memo = getattr(worker, "library_shuffle", None)
+    if not memo or memo["generation"] != worker.generation or memo["id"] != playlist_id:
+        return None
+    return memo
+
+
+def _remember_shuffle(worker, playlist_id, token, pending, seen, lost=False):
+    """``lost``: the shuffle's next page came with no song, so the next
+    ``more`` starts a new shuffle (``token`` is None then)."""
+    worker.library_shuffle = {"generation": worker.generation, "id": playlist_id, "token": token,
+                              "pending": list(pending), "seen": set(seen), "lost": lost}
+
+
+def _take_new(items, seen, page):
+    """Adds the songs of ``page`` (parsed watch tracks) not in ``seen`` to
+    ``items`` and ``seen``."""
+    for track in norm.normalize_list(page, norm.track, "library shuffle track"):
+        if track["videoId"] not in seen:
+            seen.add(track["videoId"])
+            items.append(track)
+
+
+def _shuffle_pages(yt, body, token, limit, items, seen, http=0):
+    """Reads the server shuffle on from its continuation ``token`` into
+    ``items`` (as _take_new) while they are fewer than ``limit``, in at most
+    SHUFFLE_MAX_HTTP requests (``http`` of them made already). ``(token,
+    lost)``: where it goes on (None at its end), and true when a page came
+    with no song, which is not its end."""
+    while len(items) < limit and token and http < SHUFFLE_MAX_HTTP:
         response = yt._send_request("next", body, get_continuation_string(token))
         http += 1
         panel = nav(response, ["continuationContents", "playlistPanelContinuation"], True)
         page = parse_watch_tracks(panel.get("contents") or []) if isinstance(panel, dict) else []
         if not page:
-            break
-        tracks.extend(page)
-    items, seen = [], set()
-    for track in norm.normalize_list(tracks, norm.track, "library shuffle track"):
-        if track["videoId"] not in seen:
-            seen.add(track["videoId"])
-            items.append(track)
-    # A shuffle has no end: like a mix, what came back is the whole of it.
-    return {"playlistId": playlist_id, "items": items[:limit], "complete": True, "total": None}
+            return None, True
+        token = _next_token(panel)
+        _take_new(items, seen, page)
+    return token, False
+
+
+def _new_shuffle(yt, playlist_id, limit, items, seen):
+    """A new server shuffle of ``playlist_id``, its first page and on, read
+    into ``items`` as _shuffle_pages reads (and answered as it is)."""
+    body = _shuffle_body(playlist_id)
+    panel = nav(yt._send_request("next", body), _PANEL, True)
+    if not isinstance(panel, dict):
+        raise WorkerError("UPSTREAM", "YouTube Music sent no shuffle of your library")
+    page = parse_watch_tracks(panel.get("contents") or [])
+    if not page:
+        return None, True
+    _take_new(items, seen, page)
+    return _shuffle_pages(yt, body, _next_token(panel), limit, items, seen, 1)
+
+
+def shuffle_more(worker, playlist_id, limit=SHUFFLE_TRACKS):
+    """The next songs of the last Shuffle all (tracksFor ``more``): what was
+    read past its limit, then its next pages, at most ``limit`` (and
+    SHUFFLE_TRACKS) in SHUFFLE_MAX_HTTP requests, none it gave already.
+    ``complete`` once the shuffle has no more (the whole library came). A
+    worker that holds no shuffle of ``playlist_id`` starts a new one, which
+    goes on (not complete): the common case, since the shell lets the
+    worker go between songs while the panel is closed. The shell drops the
+    songs it already queued. A page with no song is not the end: a new
+    shuffle goes on from there (SHUFFLE_MAX_HTTP more requests), without the
+    songs this one gave. A read that fails keeps the slot as it was."""
+    worker.require_auth()
+    memo = _shuffle_memo(worker, playlist_id)
+    if memo is None:
+        return dict(shuffle_tracks(worker, playlist_id, limit), complete=False)
+    limit = max(1, min(limit, SHUFFLE_TRACKS))
+    body = _shuffle_body(playlist_id)
+    seen = set(memo["seen"])
+    items = list(memo["pending"])
+    token, lost = _shuffle_pages(worker.yt, body, memo["token"], limit, items, seen)
+    lost = lost or memo["lost"]
+    if lost and len(items) < limit:
+        token, lost = _new_shuffle(worker.yt, playlist_id, limit, items, seen)
+    _remember_shuffle(worker, playlist_id, token, items[limit:], seen, lost)
+    return {"playlistId": playlist_id, "items": items[:limit],
+            "complete": not token and not lost and len(items) <= limit, "total": None}
 
 
 # ---- registry (merged by ytm.py) ------------------------------------------------------------

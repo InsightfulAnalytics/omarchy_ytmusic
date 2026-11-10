@@ -13,7 +13,9 @@
 - ``liked({limit?})``: Liked Music, read the same way (signed in).
 - ``album({browseId})``: the songs with their numbers, the header (artists,
   description, likeStatus, audio playlist) and the Other versions and
-  recommendations shelves, under their served titles.
+  recommendations shelves, under their served titles. G1: past the 200
+  rows YouTube serves of an album page, the songs come from its audio
+  playlist (album_rest).
 - Album, playlist and Liked Music headers carry ``pin`` (S14): the header
   menu's Listen again toggle, ``{pinned, listenAgainTokens: {pin, unpin}}``
   (raw.header_pin), or None.
@@ -219,9 +221,16 @@ def m_album(worker, params):
     saved = actions.library_toggle(cap.first("browse"))
     if saved is not None:
         data = dict(data, likeStatus=actions.like_status(saved))
-    page = norm.collection("album", data, browse_id, titles=album_titles(cap.first("browse")))
+    titles = album_titles(cap.first("browse"))
+    pin = raw.header_pin(cap.first("browse"))
+    # G1: an album over ALBUM_PAGE_ROWS songs gets the rest from its audio playlist.
+    data, whole = album_rest(worker, data)
+    page = norm.collection("album", data, browse_id, titles=titles)
+    if not whole:
+        # The page says how many it shows; Play reads the audio playlist (tracksFor).
+        page["truncated"], page["capped"], page["unavailable"] = True, True, None
     # S14: Pin to / Unpin from Listen again (the page menu's).
-    page["header"]["pin"] = raw.header_pin(cap.first("browse"))
+    page["header"]["pin"] = pin
     return page
 
 
@@ -229,6 +238,52 @@ def m_history(worker, params):
     worker.require_auth()
     limit = opt_int(params, "limit", HISTORY_TRACKS, high=HISTORY_TRACKS)
     return {"items": norm.normalize_list(worker.yt.get_history()[:limit], norm.track, "history item")}
+
+
+# ---- albums over 200 songs (G1) ---------------------------------------------------------------
+# YouTube serves an album page's first ALBUM_PAGE_ROWS rows and nothing more
+# (no continuation: "Load (Remastered Deluxe Box Set)" counts 233 songs and
+# serves 200). Its audio playlist (OLAK5uy_...) holds every song, row for
+# row in the same order (some rows as another video of the same song), so
+# the songs past the page come from there; the web's Play plays that
+# playlist too. Albums of up to ALBUM_PAGE_ROWS songs cost nothing more.
+
+ALBUM_PAGE_ROWS = 200
+
+
+def _same_title(a, b):
+    return isinstance(a, str) and isinstance(b, str) and a.strip().casefold() == b.strip().casefold()
+
+
+def album_rest(worker, data):
+    """``(data, whole)``: get_album's ``data`` with the songs its page left
+    out, read from the audio playlist and numbered on from the page's last
+    row (as album rows: no setVideoId, the album's own cover), and whether
+    that is every song. ``whole`` is false when the playlist does not line
+    up with the page (the last row's title differs), and ``data`` is then
+    as it was."""
+    data, whole, _ = album_read(worker, data)
+    return data, whole
+
+
+def album_read(worker, data):
+    """album_rest's ``(data, whole)`` and the audio playlist it read
+    (get_playlist with ``limit`` the album's trackCount) when that does not
+    line up, else None: tracksFor plays it then without reading it again."""
+    rows = data.get("tracks") or []
+    count = norm.to_int(data.get("trackCount")) or 0
+    playlist_id = data.get("audioPlaylistId")
+    if len(rows) < ALBUM_PAGE_ROWS or count <= len(rows) or not playlist_id:
+        return data, True, None
+    read = worker.yt.get_playlist(_strip_vl(playlist_id), limit=count)
+    songs = read.get("tracks") or []
+    if len(songs) <= len(rows) or not _same_title((songs[len(rows) - 1] or {}).get("title"), rows[-1].get("title")):
+        return data, False, read
+    extra = []
+    for n, song in enumerate(songs[len(rows):], start=len(rows) + 1):
+        if isinstance(song, dict):
+            extra.append(dict(song, trackNumber=song.get("trackNumber") or n, setVideoId=None, thumbnails=None))
+    return dict(data, tracks=rows + extra), True, None
 
 
 def record_playlist(yt, params):
@@ -239,8 +294,9 @@ METHODS = {"playlist": m_playlist, "liked": m_liked, "album": m_album, "history"
 # The cache key holds limit and related, so a whole read and a first read
 # are separate entries (edits drop both: INVALIDATES match on playlistId).
 CACHEABLE = {"playlist", "liked", "album", "history"}
-# A whole read is long; album and history are one request each.
-LANES = {"playlist": "pages", "liked": "pages"}
+# A whole read is long, and so is an album over 200 songs (G1: it reads its
+# audio playlist too, two or three more requests); history is one request.
+LANES = {"playlist": "pages", "liked": "pages", "album": "pages"}
 INVALIDATES = {}
 RECORDERS = {
     "album": lambda yt, p: yt.get_album(p["browseId"]),

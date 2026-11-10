@@ -51,7 +51,9 @@ test("a filtered list ends in Load more while it has a cursor; uploads are a lis
   const rows = Model.flattenSearch({ items: [song("a"), song("b")], cursor: "c.T", hasMore: true }, "songs")
   assert.deepEqual(rows.map(label), ["# Songs", "track", "track", "loadMore"])
   assert.deepEqual(Model.flattenSearch({ items: [song("a")], cursor: null, hasMore: false }, "songs").map(label), ["# Songs", "track"])
-  assert.deepEqual(Model.flattenSearch({ items: [song("a")], cursor: "c.T", capped: true }, "songs").map(label), ["# Songs", "track"])
+  // G1: a capped list says so instead of ending silently.
+  assert.deepEqual(Model.flattenSearch({ items: [song("a")], cursor: null, capped: true }, "songs").map(label),
+    ["# Songs", "track", "message"])
   const uploads = Model.flattenSearch({ items: [{ type: "browse", browseId: "FEmusic_library_privately_owned_release_detailb_x",
                                                   upload: "album", title: "Demo" }, song("u1")], cursor: null }, "", { scope: "uploads" })
   assert.deepEqual(uploads.map(label), ["# Uploads", "browse", "track"])

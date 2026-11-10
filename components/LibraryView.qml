@@ -83,9 +83,10 @@ Item {
     return true
   }
 
-  // Enter plays a song (the loaded songs from there), Shuffle all plays
-  // YouTube's shuffle of the whole library, Load more loads the next page;
-  // anything else opens as a page.
+  // Enter plays a song (the loaded songs from there; G1: then the rest of
+  // the library in its order, as the queue gets there), Shuffle all plays
+  // YouTube's shuffle of the whole library (and goes on through it), Load
+  // more loads the next page; anything else opens as a page.
   function activate(index) {
     var row = resultList.rowAt(index)
     if (!row || !service) return
@@ -99,7 +100,8 @@ Item {
       return
     } else if (row.trackIndex !== undefined) {
       service.playCollection(Model.libraryTracks(list), row.trackIndex, false,
-                             { playlistId: null, title: Model.LIBRARY_SONGS_TITLE, radio: false })
+                             { playlistId: null, title: Model.LIBRARY_SONGS_TITLE, radio: false },
+                             Model.librarySongsPartial(chip, list))  // G1
     } else {
       root.openRequested(item)
     }

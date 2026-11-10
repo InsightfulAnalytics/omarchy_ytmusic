@@ -473,7 +473,8 @@ Item {
     else if (row.suggestion === true) service.playItem(item, "now")  // S13: a suggestion plays alone
     else if (row.trackIndex !== undefined)  // S12: the page is what plays ("Playing from", autoplay)
       service.playCollection(isPage ? Model.sectionTracks(page, row.sectionIndex) : tracks, row.trackIndex, false,
-                             { playlistId: page ? page.playlistId || null : null, title: title, radio: false })
+                             { playlistId: page ? page.playlistId || null : null, title: title, radio: false },
+                             isPage ? undefined : Model.collectionPartial(page, pageItem()))  // G1: the rest is read later
     else root.openRequested(item)
   }
 

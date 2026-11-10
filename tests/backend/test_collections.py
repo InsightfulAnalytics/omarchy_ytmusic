@@ -466,7 +466,8 @@ def test_registry():
     assert {"playlist", "liked", "album", "history"} <= set(collections.METHODS)
     assert {name: ytm.METHODS[name] for name in collections.METHODS} == collections.METHODS
     assert ytm.LANES["playlist"] == "pages" and ytm.LANES["liked"] == "pages"
-    assert "album" not in ytm.LANES and "history" not in ytm.LANES
+    # G1: an album over 200 songs reads its audio playlist too.
+    assert ytm.LANES["album"] == "pages" and "history" not in ytm.LANES
     assert {"playlist", "liked", "album", "history"} <= ytm.CACHEABLE
     assert ytm.RECORDERS["album"] is collections.RECORDERS["album"]
     assert ytm.RECORDERS["playlist"] is collections.record_playlist

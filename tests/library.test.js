@@ -126,7 +126,9 @@ test("appending pages: repeats dropped, capped at the maximum", () => {
   assert.deepEqual(list.items.map(a => a.browseId), ["A", "B", "C", "D"])
   assert.equal(list.capped, true)
   assert.equal(list.cursor, null)
-  assert.deepEqual(Model.libraryRows("albums", list, []).map(label).slice(-1), ["message:Showing the first 4"])
+  // G1: the cap says how to reach the rest (the list has orders).
+  assert.deepEqual(Model.libraryRows("albums", list, []).map(label).slice(-1),
+    ["message:Showing the first 4; change the order (O) for the rest"])
 })
 
 test("playlists replies flatten too, and their subtitle falls back to the served one", () => {
