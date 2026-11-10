@@ -737,6 +737,38 @@ Item {
     }
   }
 
+  // ---- home (S5) ----------------------------------------------------------------------
+  // A Home shelf's Play all: the list YouTube generates for the shelf (the
+  // worker's shelfQueue, from its play endpoint) replaces the queue. When
+  // that fails, the shelf's own songs play instead.
+  function playShelf(shelf) {
+    if (!shelf) return false
+    var title = shelf.title ? String(shelf.title) : ""
+    var own = Model.shelfTracks([shelf], 0)
+    var fallback = function(message) {
+      if (own.length > 0 && root.playCollection(own, 0, false, Model.shelfContext(shelf))) return
+      root.failAction("Couldn't play " + (title || "this shelf"), message)
+    }
+    var params = Model.shelfQueueParams(shelf)
+    if (!params) {
+      fallback("Nothing to play here")
+      return own.length > 0
+    }
+    // The latest thing started wins over this one while it loads.
+    var token = ++_replaceToken
+    backend.request("shelfQueue", params, function(reply) {
+      if (token !== root._replaceToken) return
+      var items = reply.ok ? (reply.result.items || []) : []
+      if (items.length === 0) {
+        fallback(reply.ok ? "No songs came back" : reply.error.message)
+        return
+      }
+      if (!root.playCollection(items, 0, false, { playlistId: reply.result.playlistId || null, title: title, radio: false }))
+        fallback("No songs came back")
+    }, 30000)
+    return true
+  }
+
   // ---- account actions ------------------------------------------------------------
 
   function signInCommand() {
