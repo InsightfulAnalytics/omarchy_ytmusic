@@ -15,14 +15,15 @@ const ORDERS = [
 ]
 
 test("chips: Playlists first, h / l cycle with wrap, unknown chips fall back", () => {
-  // S8 adds Podcasts after Artists.
-  assert.deepEqual(Model.LIBRARY_CHIPS.map(c => c.key), ["playlists", "songs", "albums", "artists", "podcasts"])
+  // S8 adds Podcasts after Artists, S10 Uploads after Podcasts.
+  assert.deepEqual(Model.LIBRARY_CHIPS.map(c => c.key), ["playlists", "songs", "albums", "artists", "podcasts", "uploads"])
   assert.equal(Model.libraryChip("albums"), "albums")
-  assert.equal(Model.libraryChip("uploads"), "playlists", "a chip a later slice adds is not there yet")
+  assert.equal(Model.libraryChip("downloads"), "playlists", "a chip the plugin does not have")
   assert.equal(Model.libraryChip(undefined), "playlists")
   assert.equal(Model.nextLibraryChip("playlists", 1), "songs")
-  assert.equal(Model.nextLibraryChip("podcasts", 1), "playlists")
-  assert.equal(Model.nextLibraryChip("playlists", -1), "podcasts")
+  assert.equal(Model.nextLibraryChip("podcasts", 1), "uploads")
+  assert.equal(Model.nextLibraryChip("uploads", 1), "playlists")
+  assert.equal(Model.nextLibraryChip("playlists", -1), "uploads")
   assert.equal(Model.nextLibraryChip("songs", -1), "playlists")
   assert.equal(Model.libraryChipSpec("songs").method, "librarySongs")
   for (const chip of Model.LIBRARY_CHIPS) assert.equal(Model.normalizePref("libraryChip", chip.key), chip.key)

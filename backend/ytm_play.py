@@ -21,6 +21,7 @@ import ytm_library as library
 import ytm_normalize as norm
 import ytm_now as now
 import ytm_raw as raw
+import ytm_uploads as uploads
 from ytm_proto import WorkerError, choice, opt_int, req_str
 
 MAX_TRACKS = 5000
@@ -90,9 +91,15 @@ def route(kind, collection_id):
     MPRE id is its audio playlist, an MLCT... id (librarySongs'
     header.shuffleId) is the library's server shuffle (its first 50 songs in
     two requests, always complete), and any other playlist id is a playlist.
+    S10: an uploaded album or artist (FEmusic_library_privately_owned_...)
+    reads its upload page.
     """
     if kind == "liked" or collection_id in ("LM", "VLLM"):
         return "liked", "LM"
+    if norm.is_upload_album(collection_id):
+        return "uploadAlbum", collection_id
+    if norm.is_upload_artist(collection_id):
+        return "uploadArtist", collection_id
     if kind == "artist":
         return "artist", collection_id
     if kind == "album" and collection_id.startswith("MPRE"):
@@ -126,6 +133,10 @@ def m_tracks_for(worker, params):
         return _cut(_mix(worker, target), limit)
     if reader == "libraryShuffle":
         return library.shuffle_tracks(worker, target, limit)
+    if reader == "uploadAlbum":  # S10
+        return uploads.album_tracks(worker, target, limit)
+    if reader == "uploadArtist":  # S10
+        return uploads.artist_tracks(worker, target, limit)
     return _playlist(worker, target, limit=limit)
 
 

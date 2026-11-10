@@ -8,7 +8,8 @@ import "../YtmModel.js" as Model
 // playlists), Songs (Shuffle all, then the songs), Albums and Artists
 // (Subscriptions and, S9, Profiles, then the artists), Podcasts (S8:
 // Episodes for Later with its count, New episodes and Channels, then the
-// saved podcasts). h / l switch chips (kept in prefs.libraryChip); O
+// saved podcasts), Uploads (S10: Upload a file, Albums and Artists, then
+// your uploaded songs). h / l switch chips (kept in prefs.libraryChip); O
 // cycles the chip's sort order (prefs.libraryOrders), named in its first
 // heading. A chip's list loads only once it is shown, about 50 at a time:
 // Load more, or the cursor nearing the end.
@@ -16,6 +17,11 @@ import "../YtmModel.js" as Model
 // New playlist (S13): a privacy chip (a click, or Alt+Left / Alt+Right in
 // the fields) and an optional description under the name; a pasted
 // playlist invite link joins that playlist instead.
+//
+// Upload a file (S10): Enter on the row opens a path field under the chips;
+// Enter there uploads the file (Service.uploadFile), Esc or Down leaves it.
+// The path stays in the field until the upload went, so a refused one can
+// be fixed. Hidden for a brand account (it cannot upload).
 Item {
   id: root
 
@@ -30,6 +36,7 @@ Item {
   readonly property var account: service ? service.activeAccount : null
   readonly property string chip: Model.libraryChip(service && service.prefs ? service.prefs.libraryChip : "")
   readonly property bool isPlaylists: chip === "playlists"
+  readonly property bool isUploads: chip === "uploads"  // S10
   // The chip's list: libraryList's shape (Playlists: its orders and order).
   readonly property var list: !store ? null
     : isPlaylists ? { orders: store.playlistOrders,
@@ -44,9 +51,15 @@ Item {
   // start a new order empty).
   readonly property bool reordering: isPlaylists && !!store && store.libraryLoading && store.playlistsRequested !== null
     && !Model.sameOrder(store.playlistsRequested, store.playlistOrder)
-  readonly property var rows: store ? Model.libraryRows(chip, list, store.playlists) : []
+  // S10: the Uploads chip's rows know the upload row's state.
+  readonly property var rows: !store ? []
+    : isUploads ? Model.uploadLibraryRows(list, { canUpload: canUpload, uploading: service ? service.uploading : [] })
+    : Model.libraryRows(chip, list, store.playlists)
   readonly property alias results: resultList
-  readonly property bool inputFocused: nameField.activeFocus || descriptionField.activeFocus
+  readonly property bool inputFocused: nameField.activeFocus || descriptionField.activeFocus || uploadField.activeFocus
+  // S10: Upload a file's path field is open; a brand account cannot upload.
+  property bool uploadOpen: false
+  readonly property bool canUpload: signedIn && !(service && service.identityBrand)
   // S13: the new playlist's privacy, and whether the name field holds an invite link.
   property string newPrivacy: "PRIVATE"
   readonly property bool joining: !!Model.parseInviteUrl(nameField.text)
@@ -95,11 +108,12 @@ Item {
     } else if (item.type === "action") {
       if (item.id === Model.LIBRARY_SHUFFLE && Model.libraryShuffleItem(list))
         service.playItem(Model.libraryShuffleItem(list), "now")
+      else if (item.id === Model.UPLOAD_FILE_ID) openUpload()  // S10
     } else if (item.type === "message") {
       return
     } else if (row.trackIndex !== undefined) {
       service.playCollection(Model.libraryTracks(list), row.trackIndex, false,
-                             { playlistId: null, title: Model.LIBRARY_SONGS_TITLE, radio: false })
+                             { playlistId: null, title: isUploads ? "Uploaded songs" : Model.LIBRARY_SONGS_TITLE, radio: false })
     } else {
       root.openRequested(item)
     }
@@ -172,6 +186,37 @@ Item {
     newPrivacy = Model.nextOption(Model.PRIVACY_OPTIONS, newPrivacy, dx)
   }
 
+  // ---- uploads (S10) ------------------------------------------------------------------
+
+  function openUpload() {
+    if (!canUpload) return
+    uploadOpen = true
+    if (uploadField.text === "") uploadField.text = "~/"
+    uploadField.forceActiveFocus()
+  }
+
+  // Esc or Down: the field closes (Esc) or stays (Down) and the keys go back
+  // to the list. The field may be hidden already (it keeps the keys then).
+  function leaveUpload(close) {
+    var focused = uploadField.activeFocus
+    if (close) uploadOpen = false
+    if (focused) root.leftField()
+  }
+
+  // Enter in the field: sent (the field closes; the path goes once the
+  // worker took the file), or refused at once with a notice (it stays).
+  // The reply may come after the panel unloaded this view (an upload takes
+  // minutes): then there is no field left to clear.
+  function submitUpload() {
+    if (!service) return
+    var path = uploadField.text.trim()
+    var sent = service.uploadFile(path, function(reply) {
+      if (!root || !uploadField) return
+      if (reply.ok && uploadField.text.trim() === path) uploadField.text = ""
+    })
+    if (sent) leaveUpload(true)
+  }
+
   // Keys both fields share: Enter creates (or joins), Alt+Left / Alt+Right
   // cycle the privacy, Esc and Down give the keys back to the list.
   function fieldKey(event) {
@@ -209,7 +254,14 @@ Item {
     target: root.service
     function onAccountEpochChanged() { Qt.callLater(root.refreshShown) }
   }
-  onChipChanged: Qt.callLater(refreshShown)
+  // S10: leaving Uploads, or losing the right to upload (Sign out, a brand
+  // account), closes the path field and gives its keys back to the list.
+  // This handler runs before isUploads follows the chip, so it reads chip.
+  onChipChanged: {
+    if (chip !== "uploads") leaveUpload(true)
+    Qt.callLater(refreshShown)
+  }
+  onCanUploadChanged: if (!canUpload) leaveUpload(true)
   onStoreChanged: Qt.callLater(refreshShown)
   Component.onDestruction: if (root.store && root.store.libraryShown === root.chip) root.store.libraryShown = ""
 
@@ -420,9 +472,53 @@ Item {
       }
     }
 
+    // S10: Upload a file's path field.
+    Row {
+      id: uploadRow
+      anchors.top: chipRow.bottom
+      anchors.topMargin: visible ? Style.space(8) : 0
+      width: parent.width
+      height: visible ? implicitHeight : 0
+      spacing: Style.space(6)
+      visible: root.isUploads && root.uploadOpen && root.canUpload
+
+      TextField {
+        id: uploadField
+        width: parent.width - uploadButton.width - parent.spacing
+        placeholderText: "Music file path, e.g. ~/Music/song.mp3"
+        foreground: root.foreground
+        font.family: root.fontFamily
+
+        Keys.onPressed: function(event) {
+          if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
+            root.submitUpload()
+          } else if (event.key === Qt.Key_Escape || event.key === Qt.Key_Down) {
+            root.leaveUpload(event.key === Qt.Key_Escape)
+            if (event.key === Qt.Key_Down) resultList.moveCursor(1)
+          } else {
+            return
+          }
+          event.accepted = true
+        }
+      }
+
+      Button {
+        id: uploadButton
+        anchors.verticalCenter: parent.verticalCenter
+        iconText: Model.UPLOAD_ICON
+        text: "Upload"
+        tooltipText: "Upload this file to YouTube Music (Enter); Esc closes the field"
+        enabled: uploadField.text.trim() !== "" && uploadField.text.trim() !== "~/"
+        opacity: enabled ? 1 : 0.4
+        foreground: root.foreground
+        fontSize: Style.font.caption
+        onClicked: root.submitUpload()
+      }
+    }
+
     Text {
       id: statusText
-      anchors.top: chipRow.bottom
+      anchors.top: uploadRow.visible ? uploadRow.bottom : chipRow.bottom
       anchors.topMargin: Style.space(8)
       width: parent.width
       visible: text !== ""
@@ -431,7 +527,7 @@ Item {
       text: !root.store ? "" : root.listLoading && root.itemCount === 0 ? "Loading your library…"
         : root.listError !== "" ? root.listError
         : !root.isPlaylists && !!root.list && !root.listLoading && root.itemCount === 0 && !root.list.message
-          && root.list.at > 0 && root.chip !== "podcasts" ? "Nothing here yet" : ""  // S8: its entry rows show
+          && root.list.at > 0 && root.chip !== "podcasts" && !root.isUploads ? "Nothing here yet" : ""  // S8, S10: entry rows show
       color: root.listError !== "" ? Color.urgent : Qt.darker(root.foreground, 1.5)
       font.family: root.fontFamily
       font.pixelSize: Style.font.bodySmall
@@ -439,7 +535,7 @@ Item {
 
     ResultList {
       id: resultList
-      anchors.top: statusText.visible ? statusText.bottom : chipRow.bottom
+      anchors.top: statusText.visible ? statusText.bottom : uploadRow.visible ? uploadRow.bottom : chipRow.bottom
       anchors.topMargin: Style.space(8)
       anchors.bottom: parent.bottom
       width: parent.width

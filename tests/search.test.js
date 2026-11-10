@@ -52,10 +52,14 @@ test("a filtered list ends in Load more while it has a cursor; uploads are a lis
   assert.deepEqual(rows.map(label), ["# Songs", "track", "track", "loadMore"])
   assert.deepEqual(Model.flattenSearch({ items: [song("a")], cursor: null, hasMore: false }, "songs").map(label), ["# Songs", "track"])
   assert.deepEqual(Model.flattenSearch({ items: [song("a")], cursor: "c.T", capped: true }, "songs").map(label), ["# Songs", "track"])
-  const uploads = Model.flattenSearch({ items: [{ type: "browse", browseId: "FEmusic_library_privately_owned_release_detailb_x",
-                                                  upload: "album", title: "Demo" }, song("u1")], cursor: null }, "", { scope: "uploads" })
-  assert.deepEqual(uploads.map(label), ["# Uploads", "browse", "track"])
-  assert.equal(Model.pageRef(uploads[1].item).method, "browsePage", "an uploaded album opens as its browse page")
+  const uploads = Model.flattenSearch({ items: [{ type: "album", browseId: "FEmusic_library_privately_owned_release_detailb_x",
+                                                  upload: true, entityId: "b_x", title: "Demo", artists: [], artistText: "Me" },
+                                                song("u1")], cursor: null }, "", { scope: "uploads" })
+  assert.deepEqual(uploads.map(label), ["# Uploads", "album", "track"])
+  // S10: an uploaded album opens as its upload album page, with the uploads menu (Delete upload).
+  assert.deepEqual([Model.pageRef(uploads[1].item).method, Model.pageRef(uploads[1].item).params],
+                   ["uploadAlbum", { browseId: "FEmusic_library_privately_owned_release_detailb_x" }])
+  assert.ok(Model.menuActions(uploads[1].item, { signedIn: true, pageKind: "search" }).some(a => a.id === "deleteUpload"))
   // appendPage grows a filtered result (under appendSearchPage, Store.searchMore).
   const more = Model.appendPage({ items: [song("a")], cursor: "c.1", spelling: null }, { items: [song("b")], cursor: null }, 500)
   assert.deepEqual(more.items.map(t => t.videoId), ["a", "b"])

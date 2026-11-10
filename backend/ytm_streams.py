@@ -9,6 +9,12 @@ one fails. Like mpv, this streams without the account unless
 YTM_STREAM_WITH_ACCOUNT=1 or the request asks for it (``account: true``,
 e.g. for uploads); each mode has its own yt-dlp instance.
 
+Uploaded songs (S10) play only as the account, and yt-dlp reaches them only
+with its JS challenge solver (yt-dlp-ejs). The worker's environment has
+plain yt-dlp, so an upload's lookup may fail here; the shell then lets mpv's
+yt-dlp load it with the account's cookies (a per-file
+``ytdl-raw-options-append``) and stops asking for uploads this session.
+
 With the worker setting ``normalize`` at "youtube" (S17), a lookup also
 answers the song's loudness (see the loudness section below). The setting
 ``quality`` (S16) picks the yt-dlp format (see the quality section).

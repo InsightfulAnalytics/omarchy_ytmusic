@@ -154,10 +154,10 @@ def require_own_identity(worker, what):
                                          "YouTube Music; switch back first (Library, M, Switch account)")
 
 
-# Hook for S10 (backend/ytm_uploads.py, not built yet): uploadSong calls this
-# before anything else. upload_song sends as the session's login (its
-# x-goog-authuser header, which switchAccount sets for another login) but
-# never as a brand account.
+# S10 (backend/ytm_uploads.py): uploadSong calls this before anything
+# else. upload_song sends as the session's login (its x-goog-authuser
+# header, which switchAccount sets for another login) but never as a brand
+# account.
 def require_upload_identity(worker):
     require_own_identity(worker, "Uploading songs")
 

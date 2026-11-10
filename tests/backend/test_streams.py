@@ -382,3 +382,32 @@ def test_warm_up_loads_the_instance_for_the_quality_set():
     assert worker.handle({"id": 5, "method": "warmStreams"})["ok"]
     worker.wait_for_warm()
     assert resolver.warmed == [None, "low", None], "high (and none set) warms the default instance"
+
+
+# ---- uploads (S10) ------------------------------------------------------------------------------
+# An uploaded song plays only as the account. The shell asks resolve with
+# account true for tracks of kind "upload"; the worker answers from the
+# yt-dlp instance that reads the session's cookies (F1's account mode),
+# at the audio quality set, while other songs keep the anonymous one.
+
+
+def test_upload_items_resolve_with_the_account_instance(config_dir, monkeypatch):
+    monkeypatch.delenv("YTM_STREAM_WITH_ACCOUNT", raising=False)
+    config_dir.mkdir(parents=True)
+    (config_dir / "cookies.txt").write_text("# Netscape HTTP Cookie File\n")
+    make = factory(info={"url": "https://x/a?expire=5", "format_id": "141", "acodec": "mp4a.40.2"})
+    worker = ytm.Worker(object(), "none", resolver=streams.Resolver(factory=make))
+    song = worker.handle({"id": 1, "method": "resolve", "params": {"videoId": "pubsong0001"}})
+    upload = worker.handle({"id": 2, "method": "resolve", "params": {"videoId": "upsong00001", "account": True}})
+    assert song["ok"] and upload["ok"]
+    assert song["result"]["account"] is False and upload["result"]["account"] is True
+    anonymous, account = make.made
+    assert "cookiefile" not in anonymous.opts and account.opts["cookiefile"] == str(config_dir / "cookies.txt")
+    assert account.calls == [(streams.WATCH_URL + "upsong00001", False)]
+    assert anonymous.calls == [(streams.WATCH_URL + "pubsong0001", False)]
+    # At another quality an upload still streams as the account.
+    assert worker.handle({"id": 3, "method": "configure", "params": {"quality": "low"}})["ok"]
+    low = worker.handle({"id": 4, "method": "resolve", "params": {"videoId": "upsong00002", "account": True}})
+    assert low["result"]["account"] is True
+    assert make.made[-1].opts["cookiefile"] == str(config_dir / "cookies.txt")
+    assert make.made[-1].opts["format"] == streams.QUALITY_FORMATS["low"]

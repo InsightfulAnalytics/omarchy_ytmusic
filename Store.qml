@@ -1278,6 +1278,39 @@ Item {
     myChannelMissing = false
   }
 
+  // ---- uploads (S10) ------------------------------------------------------------------
+  // The Uploads chip's songs are libraryLists.uploads (uploadSongs). A
+  // delete takes its song (an album: its songs) off that list at once and
+  // puts them back when the worker says no; an upload or a delete that went
+  // (or may have) drops every uploads page held and has the chip's list read
+  // again, at once when it is shown. reset() clears them with the lists.
+
+  // { entityId, removed } for putBackUpload, or null when the list holds none.
+  function takeUpload(item) {
+    var entry = libraryLists.uploads
+    var entityId = Model.uploadEntityId(item)
+    if (!entry || entityId === "") return null
+    var albumId = item.type === "album" ? String(item.browseId || "") : ""
+    var cut = Model.withoutUpload(entry, entityId, albumId)
+    if (!cut.removed.length) return null
+    _patchList("uploads", { items: cut.list.items })
+    return { entityId: entityId, removed: cut.removed }
+  }
+
+  function putBackUpload(taken) {
+    var entry = libraryLists.uploads
+    if (!taken || !entry) return
+    var back = Model.withUploads(entry, taken.removed)
+    if (back !== entry) _patchList("uploads", { items: back.items })
+  }
+
+  function forgetUploads() {
+    for (var i = 0; i < Model.UPLOAD_KINDS.length; i++) forgetCollection(Model.UPLOAD_KINDS[i])
+    if (!libraryLists.uploads) return
+    if (libraryShown === "uploads") loadLibraryList("uploads", true)
+    else staleLibraryList("uploads")
+  }
+
   // ---- now (S11) ----------------------------------------------------------------------
   // The song playing's nowContext (Service reads one per track while a panel
   // is open; S12 reuses it for autoplay) and lyrics, both keyed by videoId:

@@ -223,18 +223,24 @@ def parse_rows(contents, rtype=None, category=None):
 
 
 def upload_page(item):
-    """An uploaded album or artist as a browse item, until S10 gives uploads
-    pages of their own (``upload`` says which it is)."""
+    """An uploaded album or artist as the uploads views list it (S10): an
+    album with ``upload`` and the ``entityId`` that deletes it, or an artist
+    with ``upload``, both keeping the uploads ids, so the shell opens their
+    upload pages and gives them the uploads menus. The row names an album's
+    artist (no id) and its year."""
     browse_id = item.get("browseId")
     if not browse_id:
         raise ValueError("upload without browseId")
-    thumb, thumb_large = norm.thumbs(item.get("thumbnails"))
-    kind = item.get("resultType")
-    parts = (item.get("artist"), item.get("releaseDate")) if kind == "album" else ()
-    subtitle = " \u2022 ".join(str(part) for part in parts if part) or None
-    return {"type": "browse", "browseId": browse_id, "params": None, "upload": kind,
-            "title": item.get("title") or item.get("artist") or "", "subtitle": subtitle,
-            "thumb": thumb, "thumbLarge": thumb_large}
+    name = item.get("title") or item.get("artist") or ""
+    if item.get("resultType") == "artist":
+        value = norm.upload_artist({"browseId": browse_id, "artist": name, "thumbnails": item.get("thumbnails")})
+        if not norm.is_upload_artist(value["channelId"]):
+            raise ValueError("upload artist without an uploads id")
+        return value
+    if not norm.is_upload_album(browse_id):
+        raise ValueError("upload album without an uploads id")
+    return norm.upload_album({"browseId": browse_id, "title": name, "artists": [item.get("artist")],
+                              "year": item.get("releaseDate"), "thumbnails": item.get("thumbnails")})
 
 
 def _normalize(parsed, rtype=None):
@@ -244,6 +250,9 @@ def _normalize(parsed, rtype=None):
             try:
                 if item.get("resultType") in ("album", "artist") and item.get("browseId"):
                     out.append(upload_page(item))
+                elif item.get("videoId"):
+                    # S10: an uploaded song streams with the account (kind upload).
+                    out.extend(norm.normalize_list([item], norm.upload_track, "upload"))
                 else:
                     out.extend(norm.normalize_list([item], norm.search_item, "upload"))
             except (KeyError, TypeError, ValueError, AttributeError) as exc:

@@ -61,6 +61,7 @@ import ytm_podcasts as podcasts  # noqa: E402
 import ytm_raw as raw  # noqa: E402
 import ytm_search as search  # noqa: E402
 import ytm_streams as streams  # noqa: E402
+import ytm_uploads as uploads  # noqa: E402 - S10
 import ytm_users as users  # noqa: E402 - S9
 from ytm_proto import (  # noqa: E402, F401 - re-exported for tests and tools
     Fixed,
@@ -351,7 +352,7 @@ class _Core:
 # Area modules, in a fixed order. A slice that rewrites a core method moves it
 # out of the core tables into its module.
 AREA_MODULES = (pages, play, now, artist, library, collections, actions, home, explore, search, podcasts, users, edit,
-                feedback, history, identities)
+                feedback, history, identities, uploads)
 
 
 def merge_registries(sources):
@@ -900,6 +901,17 @@ def cmd_join(args):
     return 0 if reply["ok"] else 1
 
 
+def cmd_upload(args):
+    """S10: upload a song file to your library. YouTube lists it once it has
+    processed it, often minutes later."""
+    path = os.path.abspath(os.path.expanduser(args.file))
+    reply = Worker().handle({"id": 1, "method": "uploadSong", "params": {"path": path}})
+    print_json(reply["result"] if reply["ok"] else {"error": reply["error"]})
+    if reply["ok"]:
+        print("Uploaded; YouTube is still processing it.", file=sys.stderr)
+    return 0 if reply["ok"] else 1
+
+
 def cmd_selftest(args):
     checks = []
 
@@ -1007,6 +1019,8 @@ def main(argv=None):
     p.add_argument("--keyring", default="GNOMEKEYRING", help="keyring holding the browser's cookie key")
     p = sub.add_parser("join", help="join a collaborative playlist from its invite link")  # S13
     p.add_argument("url")
+    p = sub.add_parser("upload", help="upload a song file (mp3, m4a, wma, flac, ogg) to your library")  # S10
+    p.add_argument("file")
     sub.add_parser("logout", help="delete the saved session")
     sub.add_parser("whoami", help="show the signed-in account")
     p = sub.add_parser("selftest", help="check the installation")
@@ -1041,6 +1055,8 @@ def main(argv=None):
         return cmd_auth(args)
     if args.cmd == "join":
         return cmd_join(args)
+    if args.cmd == "upload":
+        return cmd_upload(args)
     if args.cmd == "logout":
         removed = auth.logout()
         caches.DiskCache().clear()

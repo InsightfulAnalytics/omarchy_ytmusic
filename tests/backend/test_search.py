@@ -368,9 +368,11 @@ def test_uploads_scope_lists_songs_and_upload_pages():
     result = call(w, "search", query="demo", scope="uploads")["result"]
     assert client.requests[0][1] == {"query": "demo", "params": get_search_params(None, "uploads", False)}
     page, track = result["items"]
-    assert (page["type"], page["upload"], page["browseId"], page["title"]) == (
-        "browse", "album", "FEmusic_library_privately_owned_release_detailb_x", "Demo tape")
-    assert (track["type"], track["videoId"]) == ("track", "up1")
+    # S10: an uploaded album as the uploads views list it (its menu, Delete, its upload page).
+    assert (page["type"], page["upload"], page["browseId"], page["title"], page["artistText"], page["year"]) == (
+        "album", True, "FEmusic_library_privately_owned_release_detailb_x", "Demo tape", "Me", "2020")
+    assert page["entityId"] == "b_x"
+    assert (track["type"], track["videoId"], track["kind"]) == ("track", "up1", "upload")
 
 
 # ---- spelling ------------------------------------------------------------------------------------

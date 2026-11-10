@@ -6,6 +6,7 @@
 #   ytm call METHOD '{"param": "value"}'
 #   ytm auth [--from-browser chromium[:PROFILE] | --paste | --clipboard]
 #   ytm join INVITE-URL
+#   ytm upload FILE                (mp3, m4a, wma, flac or ogg; YouTube processes it after)
 #   ytm logout | whoami | selftest [--online] | serve [--idle SECONDS]
 set -euo pipefail
 

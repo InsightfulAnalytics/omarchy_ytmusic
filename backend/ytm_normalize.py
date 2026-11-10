@@ -103,6 +103,11 @@ def like_status(value):
 
 
 def track_kind(item):
+    # S10: an uploaded song is one wherever it is listed (a playlist, Liked
+    # Music, History, a watch list), by its video type or else by its
+    # uploads album or artist ids. It has no entityId there (no Delete).
+    if item.get("videoType") == UPLOAD_VIDEO_TYPE or _has_upload_refs(item):
+        return "upload"
     if item.get("resultType") == "video" or item.get("videoType") in VIDEO_TYPES:
         return "video"
     return "song"
@@ -667,3 +672,68 @@ def page(kind, page_id, title, subtitle=None, thumbnails=None, sections=None, cu
         "order": order,
         "message": message,
     }
+
+
+# ---- uploads (S10) ----------------------------------------------------------------
+# Your uploaded songs, albums and artists keep their uploads ids
+# (FEmusic_library_privately_owned_...): a song's album and artists, an
+# album's browseId and an artist's channelId open the upload album and
+# upload artist pages (ytm_uploads), never the public ones.
+
+UPLOAD_ALBUM_PREFIX = "FEmusic_library_privately_owned_release_detail"
+UPLOAD_ARTIST_PREFIX = "FEmusic_library_privately_owned_artist_detail"
+UPLOAD_VIDEO_TYPE = "MUSIC_VIDEO_TYPE_PRIVATELY_OWNED_TRACK"
+
+
+def is_upload_album(browse_id):
+    return isinstance(browse_id, str) and browse_id.startswith(UPLOAD_ALBUM_PREFIX) and len(browse_id) > len(UPLOAD_ALBUM_PREFIX)
+
+
+def is_upload_artist(browse_id):
+    return isinstance(browse_id, str) and browse_id.startswith(UPLOAD_ARTIST_PREFIX) and len(browse_id) > len(UPLOAD_ARTIST_PREFIX)
+
+
+def _has_upload_refs(item):
+    """Whether a song's album or one of its artists has an uploads id."""
+    album_ref = item.get("album")
+    if isinstance(album_ref, dict) and is_upload_album(album_ref.get("id")):
+        return True
+    return any(isinstance(a, dict) and is_upload_artist(a.get("id")) for a in item.get("artists") or [])
+
+
+def upload_entity(browse_id):
+    """What deletes an uploaded album: its browseId without the prefix (the
+    web's Delete album sends that; ytmusicapi strips it the same way)."""
+    if not is_upload_album(browse_id):
+        return None
+    return browse_id[len(UPLOAD_ALBUM_PREFIX):]
+
+
+def upload_track(item, album=None, album_thumbs=None):
+    """An uploaded song: a track of kind ``upload`` with the ``entityId`` that
+    deletes it (None when the row offers no Delete). It streams with the
+    account (the shell asks resolve with ``account: true``)."""
+    value = track(item, album=album, album_thumbs=album_thumbs)
+    entity = item.get("entityId")
+    value["kind"] = "upload"
+    value["entityId"] = entity if isinstance(entity, str) and entity else None
+    return value
+
+
+def upload_album(item):
+    """An album of your uploads: norm.album plus ``upload`` and its ``entityId``."""
+    value = album(item)
+    value["upload"] = True
+    value["entityId"] = upload_entity(value["browseId"])
+    return value
+
+
+def upload_artist(item):
+    """An artist of your uploads, with how many of your songs are theirs
+    (``songs``). No shuffle or radio mix: those ids play nothing elsewhere."""
+    value = artist(item)
+    count = to_int(item.get("songs") or item.get("subscribers"))
+    value["upload"] = True
+    value["songs"] = count
+    value["subtitle"] = None if count is None else ("1 song" if count == 1 else f"{count} songs")
+    return value

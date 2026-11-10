@@ -164,10 +164,19 @@ Item {
     return Model.streamFresh(stream, nowSec()) ? stream : null
   }
 
-  function resolveStream(videoId, callback) {
+  // `track` (optional): the song, when it is not queued yet (its meta says
+  // whether it is an upload).
+  function resolveStream(videoId, callback, track) {
     if (!videoId) return
     if (streamFor(videoId)) {
       if (callback) callback(true)
+      return
+    }
+    // S10: an uploaded song streams with the account; once the worker could
+    // not, mpv's yt-dlp (the loadfile's cookies option) plays them.
+    var upload = Model.isUploadTrack(track || meta[videoId])
+    if (upload && _accountStreamsFailed) {
+      if (callback) callback(false)
       return
     }
     if (_resolving[videoId]) {
@@ -177,13 +186,14 @@ Item {
     _resolving[videoId] = callback ? [callback] : []
     resolvingCount++
     var epoch = _qualityEpoch  // S16
-    backend.request("resolve", { videoId: videoId }, function(reply) {
+    backend.request("resolve", upload ? { videoId: videoId, account: true } : { videoId: videoId }, function(reply) {
       var waiting = root._resolving[videoId] || []
       delete root._resolving[videoId]
       root.resolvingCount = Math.max(0, root.resolvingCount - 1)
       if (reply.ok && epoch !== root._qualityEpoch) return root._resolveAgain(videoId, waiting)  // S16: old quality
       if (reply.ok) root.addStream(videoId, reply.result)
       else console.warn("ytmusic: no stream for " + videoId + ": " + reply.error.message)
+      if (!reply.ok && upload && !reply.error.retryable && !reply.error.unknown) root._accountStreamsFailed = true  // S10
       for (var i = 0; i < waiting.length; i++) waiting[i](reply.ok)
       root.releaseWorkerIfIdle()
     }, 20000)
@@ -213,7 +223,7 @@ Item {
       var next = root._speculateNext
       root._speculateNext = null
       if (next) root.speculate(next)
-    })
+    }, track)
   }
 
   // Background pre-resolving shouldn't keep the worker (~80 MiB with yt-dlp
@@ -251,7 +261,7 @@ Item {
     var token = ++_playToken
     _pendingPlay = { token: token, title: track.title || "", run: start }
     pendingFallback.restart()
-    resolveStream(track.videoId, function() { root.runPendingPlay(token) })
+    resolveStream(track.videoId, function() { root.runPendingPlay(token) }, track)
   }
 
   function runPendingPlay(token) {
@@ -816,11 +826,16 @@ Item {
   // S7: a library or uploads search ends with the session (expired, invalid
   // or signed out), not only on an account change; signed out, nothing in
   // the panel could take the scope back.
-  onSignedInChanged: if (!signedIn) storeItem.leaveScope()
+  onSignedInChanged: {
+    if (!signedIn) storeItem.leaveScope()
+    Qt.callLater(root._syncMpvCookies)  // S10
+  }
 
   function applyAuthChange() {
     storeItem.reset()
     expiryNotified = false
+    _accountStreamsFailed = false  // S10: the new session may stream uploads
+    Qt.callLater(root._syncMpvCookies)  // S10: and its cookies go to mpv's copy
     if (backend.workerState === "stopped") backend.auth = account ? "unknown" : "none"
     else backend.request("reloadAuth", ({}))
   }
@@ -2804,6 +2819,86 @@ Item {
     return true
   }
 
+  // ---- uploads (S10) -------------------------------------------------------------------
+  // Upload a file (the Uploads chip's path field, IPC upload): one request
+  // with the whole file on the worker's upload lane, never sent again (10
+  // min before the shell gives up on the reply); YouTube lists the song
+  // once it has processed it, minutes later. Delete upload (the menu, after
+  // a second press): the row leaves the Uploads chip at once and comes back
+  // when the worker says no. Either drops every uploads page held.
+  // `uploading`: the file names on their way. `_accountStreamsFailed`: the
+  // worker could not resolve an upload with the account (its yt-dlp lacks
+  // what uploads need), so later uploads go straight to mpv's yt-dlp.
+  // `mpvCookiesPath`: what an upload's loadfile hands mpv's yt-dlp while
+  // signed in: bin/ytm-mpv's copy of the session's cookies.txt in mpv's
+  // runtime directory, never the session file (yt-dlp writes its cookie
+  // jar back into the file it is given, and would bring a signed-out
+  // session's file back). The copy is made again whenever the sign-in
+  // changes and goes on sign-out; signed out, loadfiles carry no cookies.
+  readonly property string mpvCookiesPath: Quickshell.env("XDG_RUNTIME_DIR") + "/omarchy-ytmusic/cookies-mpv.txt"
+  property var uploading: []
+  property bool _accountStreamsFailed: false
+
+  function _syncMpvCookies() {
+    Model.setUploadCookies(signedIn ? mpvCookiesPath : "")
+    Quickshell.execDetached([rootDir + "/bin/ytm-mpv", "cookies"])
+  }
+
+  // false when nothing was sent (signed out, a path that cannot be a music
+  // file: the notice says why).
+  function uploadFile(path, callback) {
+    var text = String(path || "").trim()
+    if (!signedIn) {
+      notify("Sign in to upload", "")
+      return false
+    }
+    var problem = Model.uploadPathProblem(text)
+    if (problem !== "") {
+      failAction("Cannot upload that file", problem)
+      return false
+    }
+    var name = Model.uploadFileName(text)
+    uploading = uploading.concat([name])
+    notify("Uploading", name)
+    backend.request("uploadSong", { path: text }, function(reply) {
+      var left = root.uploading.slice()
+      var at = left.indexOf(name)
+      if (at >= 0) left.splice(at, 1)
+      root.uploading = left
+      if (reply.ok) {
+        storeItem.forgetUploads()
+        root.notify(Model.UPLOAD_PROCESSING, reply.result && reply.result.name ? reply.result.name : name)
+      } else if (root.unsure(reply)) {
+        storeItem.forgetUploads()
+        root.notify("Not sure the upload went through", "Look in Uploads in a few minutes before you try again")
+      } else {
+        root.failAction("Upload failed", reply.error.message)
+      }
+      if (callback) callback(reply)
+    }, Model.UPLOAD_TIMEOUT_MS, noRetry)
+    return true
+  }
+
+  function deleteUpload(item, callback) {
+    var entityId = Model.uploadEntityId(item)
+    if (!signedIn || entityId === "") return false
+    var taken = storeItem.takeUpload(item)
+    backend.request("deleteUpload", { entityId: entityId }, function(reply) {
+      if (reply.ok) {
+        storeItem.forgetUploads()
+        root.notify("Deleted from your uploads", Model.itemTitle(item))
+      } else if (root.unsure(reply)) {
+        storeItem.forgetUploads()
+        root.notify("Not sure the change applied; refreshed", Model.itemTitle(item))
+      } else {
+        storeItem.putBackUpload(taken)
+        root.failAction("Could not delete the upload", reply.error.message)
+      }
+      if (callback) callback(reply)
+    }, 30000, noRetry)
+    return true
+  }
+
   // ---- podcasts (S8) -----------------------------------------------------------------
   // Where each played episode was left (Model.withPosition), kept in
   // ~/.cache/omarchy-ytmusic/positions.json (at most Model.POSITIONS_MAX):
@@ -3525,6 +3620,7 @@ Item {
   Component.onCompleted: {
     Quickshell.execDetached(["sh", "-c", "mkdir -p \"$1\" && chmod 700 \"$1\"", "sh", root.cacheDir])
     checkTools()
+    _syncMpvCookies()  // S10: mpv's yt-dlp plays uploads as the account
   }
 
   // Waits a few seconds into a song with few left (S12: 3 or fewer), so
@@ -3612,6 +3708,11 @@ Item {
     function signOut(): string { return root.signOut() ? "ok" : "unhandled" }
     function join(url: string): string {  // S13: a playlist invite link
       return !Model.parseInviteUrl(url) ? "invalid" : root.joinPlaylist(url) ? "ok" : "unhandled"
+    }
+    // S10: a music file (its full path, or one from ~/) to your uploads.
+    function upload(path: string): string {
+      var problem = Model.uploadPathProblem(path)
+      return problem !== "" ? problem : root.uploadFile(path) ? "ok" : "unhandled"
     }
   }
 }

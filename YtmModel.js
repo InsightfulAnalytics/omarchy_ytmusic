@@ -4225,9 +4225,9 @@ SEARCH_SCOPES.forEach(function(scope) {
     run: function(env) { env.owner.setScope(scope.key) } })
 })
 
-// An uploaded album or artist (the uploads scope) opens as its browse page
-// until S10 gives uploads pages of their own (the item's `upload` says which).
-// Its items are `type: "browse"`, so PAGE_KINDS.browse already reads them.
+// An uploaded album or artist (the uploads scope) is an album or artist
+// item with the uploads ids and `upload`, as the uploads views list them:
+// S10's PAGE_KINDS uploadAlbum and uploadArtist open it, with their menus.
 
 if (typeof module !== "undefined") {
   Object.assign(module.exports, {
@@ -6635,5 +6635,342 @@ if (typeof module !== "undefined") {
     switchedNotice: switchedNotice,
     signInFirstNotice: signInFirstNotice,
     anotherLoginNotice: anotherLoginNotice
+  })
+}
+
+// ==== uploads (S10) ===========================================================================
+// Your uploads. The Library's Uploads chip starts with Upload a file (an
+// inline path field: Enter uploads, Esc leaves), then Albums and Artists
+// (the albums and artists of your uploads, each a page of its own), then
+// your uploaded songs a cursor page at a time in the chip's order (O). An
+// uploaded album or artist opens its upload page (also from a song's album
+// and artist links and from Search's uploads scope), never a public one.
+//
+// Uploaded songs are tracks of kind "upload", wherever they are listed (the
+// worker tells them by YouTube's video type). The shell resolves them with
+// the account (resolve's account: true), and their loadfile carries mpv's
+// per-file option ytdl-raw-options-append=cookies=<a copy of the session's
+// cookies.txt> while signed in, so mpv's own yt-dlp (its fallback once a
+// resolved stream fails or expires) plays them as the account too; the
+// option ends with the file. The row menu's Delete upload (a song, or an
+// album, on its row or its page's M) needs a second press within 4 s; a
+// song needs the entityId only the uploads views give. Uploaded items have
+// no Save, Subscribe, Start radio, View credits or Copy link, as on the web.
+
+var UPLOAD_ALBUM_PREFIX = "FEmusic_library_privately_owned_release_detail"
+var UPLOAD_ARTIST_PREFIX = "FEmusic_library_privately_owned_artist_detail"
+var UPLOAD_SONGS_ID = "FEmusic_library_privately_owned_tracks"
+var UPLOAD_ALBUMS_ID = "FEmusic_library_privately_owned_releases"
+var UPLOAD_ARTISTS_ID = "FEmusic_library_privately_owned_artists"
+// The Uploads chip's first row, and its icon (Search's uploads scope has it too).
+var UPLOAD_FILE_ID = "uploads:file"
+var UPLOAD_ICON = "󰕒"
+var DELETE_UPLOAD_ICON = "󰩺"
+var UPLOAD_EXTENSIONS = ["mp3", "m4a", "wma", "flac", "ogg"]
+// uploadSong sends the whole file in one request: 10 min before the shell
+// gives up on the reply (it is never sent again).
+var UPLOAD_TIMEOUT_MS = 10 * 60 * 1000
+var UPLOAD_PROCESSING = "Uploaded; YouTube is still processing it"
+var DELETE_UPLOAD_CONFIRM = "Really delete this upload? Choose again"
+// Page kinds that show uploads (Store.forgetUploads drops them after an edit).
+var UPLOAD_KINDS = ["uploadSongs", "uploadAlbums", "uploadArtists", "uploadAlbum", "uploadArtist"]
+
+function _hasPrefix(id, prefix) {
+  var text = String(id || "")
+  return text.length > prefix.length && text.indexOf(prefix) === 0
+}
+
+function isUploadAlbumId(id) {
+  return _hasPrefix(id, UPLOAD_ALBUM_PREFIX)
+}
+
+function isUploadArtistId(id) {
+  return _hasPrefix(id, UPLOAD_ARTIST_PREFIX)
+}
+
+function isUploadKind(kind) {
+  return UPLOAD_KINDS.indexOf(kind) >= 0
+}
+
+function isUploadTrack(item) {
+  return !!item && typeof item === "object" && item.type === "track" && item.kind === "upload" && !!item.videoId
+}
+
+// An uploaded song, album or artist.
+function isUploadItem(item) {
+  if (!item || typeof item !== "object") return false
+  if (isUploadTrack(item)) return true
+  if (item.type === "album") return isUploadAlbumId(item.browseId)
+  if (item.type === "artist") return isUploadArtistId(item.channelId)
+  return false
+}
+
+// What deletes an upload: a song's entityId, an album's (its browseId
+// without the prefix, as the web sends); "" for anything else.
+function uploadEntityId(item) {
+  if (isUploadTrack(item)) return item.entityId ? String(item.entityId) : ""
+  if (item && item.type === "album" && isUploadAlbumId(item.browseId))
+    return item.entityId ? String(item.entityId) : String(item.browseId).slice(UPLOAD_ALBUM_PREFIX.length)
+  return ""
+}
+
+function canDeleteUpload(item) {
+  return uploadEntityId(item) !== ""
+}
+
+// ---- playing: the account's cookies for mpv's yt-dlp ---------------------------------------
+
+// A copy of the session's cookies.txt for mpv's yt-dlp (Service sets it
+// while signed in, "" otherwise; "" adds nothing). Never the session file
+// itself: yt-dlp writes its cookie jar back into the file --cookies names
+// when it exits, and would bring a signed-out session's file back.
+var _uploadCookies = ""
+
+function setUploadCookies(path) {
+  _uploadCookies = typeof path === "string" ? path : ""
+}
+
+// The per-file option that makes mpv's yt-dlp read the account's cookies
+// for an uploaded song ("" for anything else). -append takes its value
+// as is; the %n% form carries a path with commas.
+function uploadCookiesOption(track) {
+  if (!isUploadTrack(track) || _uploadCookies === "") return ""
+  var value = "cookies=" + _uploadCookies
+  return "ytdl-raw-options-append=%" + utf8Length(value) + "%" + value
+}
+
+var _s10LoadfileOptions = loadfileOptions
+loadfileOptions = function(track, start) {
+  var options = _s10LoadfileOptions(track, start)
+  var cookies = uploadCookiesOption(track)
+  return cookies ? (options ? options + "," : "") + cookies : options
+}
+
+// ---- pages and routes -------------------------------------------------------------------------
+
+// Your uploaded songs as a page (the songs list's browse id routes here).
+PAGE_KINDS.uploadSongs = {
+  method: "uploadSongs", title: "Uploaded songs", round: false,
+  params: function() { return {} },
+  id: function() { return "uploadSongs" }
+}
+PAGE_KINDS.uploadAlbums = {
+  method: "uploadAlbums", title: "Uploaded albums", round: false,
+  params: function() { return {} },
+  id: function() { return "uploadAlbums" }
+}
+PAGE_KINDS.uploadArtists = {
+  method: "uploadArtists", title: "Uploaded artists", round: false,
+  params: function() { return {} },
+  id: function() { return "uploadArtists" }
+}
+// An album of your uploads: an album row (also Search's uploads scope) or a
+// song's album link.
+PAGE_KINDS.uploadAlbum = {
+  method: "uploadAlbum", title: "Album", round: false,
+  claims: function(item) { return item.type === "album" && isUploadAlbumId(item.browseId) },
+  params: function(t) { return isUploadAlbumId(t.browseId) ? { browseId: String(t.browseId) } : null },
+  id: function(t) { return t.browseId }
+}
+// An artist of your uploads: their uploaded songs.
+PAGE_KINDS.uploadArtist = {
+  method: "uploadArtist", title: "Artist", round: true,
+  claims: function(item) { return item.type === "artist" && isUploadArtistId(item.channelId) },
+  params: function(t) { return isUploadArtistId(t.channelId) ? { browseId: String(t.channelId) } : null },
+  id: function(t) { return t.channelId }
+}
+
+ROUTES.push({ prefix: UPLOAD_ALBUM_PREFIX,
+  target: function(ep, id) { return { type: "album", browseId: id, title: ep.title || "", thumb: null } } })
+ROUTES.push({ prefix: UPLOAD_ARTIST_PREFIX,
+  target: function(ep, id) { return { type: "artist", channelId: id, name: ep.title || "", thumb: null } } })
+ROUTES.push({ browseId: UPLOAD_SONGS_ID, target: function() { return { type: "uploadSongs", title: "Uploaded songs", thumb: null } } })
+ROUTES.push({ browseId: UPLOAD_ALBUMS_ID, target: function() { return { type: "uploadAlbums", title: "Uploaded albums", thumb: null } } })
+ROUTES.push({ browseId: UPLOAD_ARTISTS_ID, target: function() { return { type: "uploadArtists", title: "Uploaded artists", thumb: null } } })
+
+// A song's album link opens its upload album page.
+var _s10AlbumOf = albumOf
+albumOf = function(item) {
+  var album = item && item.type === "track" ? item.album : null
+  if (album && isUploadAlbumId(album.id))
+    return { type: "album", browseId: String(album.id), title: album.name || "", thumb: item.thumb || null, thumbLarge: item.thumbLarge || null }
+  return _s10AlbumOf(item)
+}
+
+// ---- menus ------------------------------------------------------------------------------------
+
+// No Save, Subscribe or Start radio for uploads (their ids play and save
+// nothing elsewhere), nor View credits (YouTube has none for them) or Copy
+// link (a private upload's link opens for no one else): the web's upload
+// menus offer none of them.
+var _s10CanSave = canSave
+canSave = function(item, ctx) { return !isUploadItem(item) && _s10CanSave(item, ctx) }
+var _s10CanSubscribe = canSubscribe
+canSubscribe = function(item) { return !isUploadItem(item) && _s10CanSubscribe(item) }
+var _s10RadioParams = radioParams
+radioParams = function(item) { return isUploadItem(item) ? null : _s10RadioParams(item) }
+var _s10RadioApplies = menuAction("radio").applies
+menuAction("radio").applies = function(item, ctx) { return !isUploadItem(item) && _s10RadioApplies(item, ctx) }
+var _s10CreditsApplies = menuAction("credits").applies
+menuAction("credits").applies = function(item, ctx) { return !isUploadItem(item) && _s10CreditsApplies(item, ctx) }
+var _s10ShareApplies = menuAction("share").applies
+menuAction("share").applies = function(item, ctx) { return !isUploadItem(item) && _s10ShareApplies(item, ctx) }
+// Go to album is not offered on the album's own page.
+var _s10GoAlbumApplies = menuAction("goAlbum").applies
+menuAction("goAlbum").applies = function(item, ctx) { return ctx.pageKind !== "uploadAlbum" && _s10GoAlbumApplies(item, ctx) }
+
+// Delete upload: the row's song or album, or the album page's own (M).
+// After it went, a page that showed it reads again (or closes, when it was
+// the page's own album); the Uploads chip's row went at once (Service).
+function deleteUploadRun(env) {
+  var owner = env.owner
+  var requested = owner && owner.ref ? owner.ref : null
+  env.service.deleteUpload(env.item, function(reply) {
+    if (!reply.ok || !owner || !requested || typeof owner.shows !== "function" || !owner.shows(requested)) return
+    if (env.ctx.page === true && typeof owner.closeRequested === "function") owner.closeRequested()
+    else if (isUploadKind(requested.kind) && typeof owner.load === "function") owner.load(true)
+  })
+}
+
+MENU_ACTIONS.push({ id: "deleteUpload", title: "Delete upload", icon: DELETE_UPLOAD_ICON, confirm: DELETE_UPLOAD_CONFIRM,
+  applies: function(item, ctx) { return ctx.signedIn === true && canDeleteUpload(item) },
+  run: function(env) { deleteUploadRun(env) } })
+
+// ---- the Uploads chip ---------------------------------------------------------------------------
+
+LIBRARY_CHIPS.push({ key: "uploads", title: "Uploads", method: "uploadSongs" })
+
+// The file name of a path the field holds.
+function uploadFileName(path) {
+  var parts = String(path || "").trim().split("/")
+  return parts[parts.length - 1] || ""
+}
+
+// What is wrong with a path typed in the field ("" when it may upload):
+// a full path (or one from ~) to a file YouTube Music takes. The worker
+// checks the file itself.
+function uploadPathProblem(path) {
+  var text = String(path || "").trim()
+  if (text === "") return "Type the path of a music file"
+  if (text.charAt(0) !== "/" && text.indexOf("~/") !== 0) return "Give the file's full path (it may start with ~/)"
+  var name = uploadFileName(text)
+  var dot = name.lastIndexOf(".")
+  var ext = dot > 0 ? name.slice(dot + 1).toLowerCase() : ""
+  if (UPLOAD_EXTENSIONS.indexOf(ext) < 0)
+    return "YouTube Music takes " + UPLOAD_EXTENSIONS.slice(0, -1).join(", ") + " or " + UPLOAD_EXTENSIONS[UPLOAD_EXTENSIONS.length - 1] + " files"
+  return ""
+}
+
+// The Uploads chip: Upload a file (opts.canUpload false hides it: a brand
+// account cannot upload; opts.uploading names what is on its way), Albums
+// and Artists, then the songs, ending in a message or Load more.
+function uploadLibraryRows(data, opts) {
+  var list = data || {}
+  var o = opts || {}
+  var rows = []
+  var uploading = o.uploading && typeof o.uploading.length === "number" ? o.uploading : []
+  if (o.canUpload !== false)
+    rows.push({ item: { type: "action", id: UPLOAD_FILE_ID, title: "Upload a file", icon: UPLOAD_ICON,
+                        hint: uploading.length === 1 ? "uploading " + uploading[0]
+                          : uploading.length > 1 ? "uploading " + uploading.length + " files" : "" } })
+  rows.push({ item: { type: "uploadAlbums", title: "Albums", subtitle: "Albums of your uploaded songs", thumb: null } },
+            { item: { type: "uploadArtists", title: "Artists", subtitle: "Artists of your uploaded songs", thumb: null } })
+  var items = _validItems(list.items)
+  var label = orderTitle(list.orders, list.current)
+  if (items.length) rows.push({ header: true, title: label ? "Songs, " + label : "Songs" })
+  var trackIndex = 0
+  for (var i = 0; i < items.length; i++) {
+    var row = { item: items[i] }
+    if (items[i].type === "track") row.trackIndex = trackIndex++
+    rows.push(row)
+  }
+  if (list.message) rows.push({ item: { type: "message", title: String(list.message) } })
+  else if (!items.length && list.at > 0 && list.loading !== true) rows.push({ item: { type: "message", title: "No uploaded songs yet" } })
+  if (list.capped) rows.push({ item: { type: "message", title: "Showing the first " + items.length } })
+  else if (list.cursor || list.hasMore) rows.push({ item: { type: "loadMore", title: "Load more" } })
+  return rows
+}
+
+var _s10LibraryRows = libraryRows
+libraryRows = function(chip, data, playlists) {
+  return chip === "uploads" ? uploadLibraryRows(data, {}) : _s10LibraryRows(chip, data, playlists)
+}
+
+// A list (the Uploads chip's songs) without the song or album deleted:
+// { list, removed: [{ index, item }] } (removed is empty when nothing
+// matched). A deleted album takes its songs with it.
+function withoutUpload(list, entityId, albumId) {
+  var items = list && list.items && typeof list.items.length === "number" ? list.items : []
+  var kept = []
+  var removed = []
+  for (var i = 0; i < items.length; i++) {
+    var item = items[i]
+    var gone = (entityId && uploadEntityId(item) === entityId)
+      || (albumId && isUploadTrack(item) && item.album && item.album.id === albumId)
+    if (gone) removed.push({ index: i, item: item })
+    else kept.push(item)
+  }
+  if (!removed.length) return { list: list, removed: removed }
+  var out = {}
+  for (var key in list) out[key] = list[key]
+  out.items = kept
+  return { list: out, removed: removed }
+}
+
+// `list` with `removed` (withoutUpload's) back in their places, skipping
+// any it holds again.
+function withUploads(list, removed) {
+  var items = list && list.items && typeof list.items.length === "number" ? list.items.slice() : []
+  var have = {}
+  for (var i = 0; i < items.length; i++) have[itemKey(items[i])] = true
+  var back = (removed || []).slice().sort(function(a, b) { return a.index - b.index })
+  var added = false
+  for (var j = 0; j < back.length; j++) {
+    if (have[itemKey(back[j].item)]) continue
+    items.splice(Math.min(back[j].index, items.length), 0, back[j].item)
+    added = true
+  }
+  if (!added) return list
+  var out = {}
+  for (var key in list) out[key] = list[key]
+  out.items = items
+  return out
+}
+
+if (typeof module !== "undefined") {
+  Object.assign(module.exports, {
+    UPLOAD_ALBUM_PREFIX: UPLOAD_ALBUM_PREFIX,
+    UPLOAD_ARTIST_PREFIX: UPLOAD_ARTIST_PREFIX,
+    UPLOAD_SONGS_ID: UPLOAD_SONGS_ID,
+    UPLOAD_ALBUMS_ID: UPLOAD_ALBUMS_ID,
+    UPLOAD_ARTISTS_ID: UPLOAD_ARTISTS_ID,
+    UPLOAD_FILE_ID: UPLOAD_FILE_ID,
+    UPLOAD_ICON: UPLOAD_ICON,
+    UPLOAD_EXTENSIONS: UPLOAD_EXTENSIONS,
+    UPLOAD_TIMEOUT_MS: UPLOAD_TIMEOUT_MS,
+    UPLOAD_PROCESSING: UPLOAD_PROCESSING,
+    DELETE_UPLOAD_CONFIRM: DELETE_UPLOAD_CONFIRM,
+    UPLOAD_KINDS: UPLOAD_KINDS,
+    isUploadAlbumId: isUploadAlbumId,
+    isUploadArtistId: isUploadArtistId,
+    isUploadKind: isUploadKind,
+    isUploadTrack: isUploadTrack,
+    isUploadItem: isUploadItem,
+    uploadEntityId: uploadEntityId,
+    canDeleteUpload: canDeleteUpload,
+    setUploadCookies: setUploadCookies,
+    uploadCookiesOption: uploadCookiesOption,
+    loadfileOptions: loadfileOptions,
+    albumOf: albumOf,
+    canSave: canSave,
+    canSubscribe: canSubscribe,
+    radioParams: radioParams,
+    deleteUploadRun: deleteUploadRun,
+    uploadFileName: uploadFileName,
+    uploadPathProblem: uploadPathProblem,
+    uploadLibraryRows: uploadLibraryRows,
+    libraryRows: libraryRows,
+    withoutUpload: withoutUpload,
+    withUploads: withUploads
   })
 }
