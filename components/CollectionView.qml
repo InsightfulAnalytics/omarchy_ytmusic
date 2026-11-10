@@ -16,6 +16,10 @@ import "../YtmModel.js" as Model
 // (an About row shows the rest); a list with more songs than shown ends in
 // Load all, which reloads it whole (limit "all") with the cursor kept; f
 // opens a filter over the songs; the page's shelves follow the songs.
+//
+// Explore (S6): Charts (its first row, O and the M menu choose the country,
+// and the page then shows that one in its place), Moods & genres and a
+// mood's playlists are sectioned pages too.
 Item {
   id: root
 
@@ -107,6 +111,11 @@ Item {
   signal leftField()
   // A row's menu, or the page's (M): Panel opens it.
   signal itemMenuRequested(var request)
+  // S6: a chooser for Panel to open ({ title, subtitle, choices, onChoice }),
+  // and this page shown another way (Charts in another country), which
+  // takes the stack entry's place.
+  signal chooserRequested(var request)
+  signal replaceRequested(var item)
 
   ConfirmGate {
     id: gate
@@ -221,6 +230,7 @@ Item {
 
   // O: the next of the page's sort orders (nothing when it has none).
   function cycleOrder() {
+    if (ref && ref.kind === "charts") return chooseCountry()  // S6: O picks the chart country
     if (orders.length < 2) return false
     var at = -1
     for (var i = 0; i < orders.length; i++) if (orders[i].index === currentOrder) at = i
@@ -300,6 +310,8 @@ Item {
     if (item.target) root.openRequested(item.target)
     // Collections (S3): the About row shows or hides the description.
     else if (item.id === Model.COLLECTION_ABOUT_ID) toggleAbout()
+    // Explore (S6): Charts' Country row opens the country chooser.
+    else if (item.id === Model.CHARTS_COUNTRY_ID) chooseCountry()
     // About (S1): a description link row copies its URL.
     else if (item.url && service) service.copyLink({ type: "link", url: item.url })
   }
@@ -363,6 +375,7 @@ Item {
              ctx: { page: true, pageKind: ref ? ref.kind : "", owned: editable, hasTracks: tracks.length > 0,
                     about: hasAbout, canLoadAll: canLoadAll && !loading, loadAllTitle: Model.loadAllTitle(page),
                     canFind: Model.canFind(page), aboutOpen: aboutOpen,
+                    countryLabel: ref && ref.kind === "charts" ? Model.chartsCountryOf(page).label : "",  // S6
                     // The About row is there to show or hide.
                     description: Model.showsAbout(page, { find: findText, about: descriptionText.truncated }) } }
   }
@@ -448,6 +461,27 @@ Item {
     if (!item) return false
     root.openRequested(item)
     return true
+  }
+
+  // ---- explore (S6) -----------------------------------------------------------------
+
+  // Charts' country chooser (O, the Country row, the page menu): the
+  // countries the page serves, the one shown ticked.
+  function chooseCountry() {
+    if (!ref || ref.kind !== "charts" || !page) return false
+    var choices = Model.countryChoices(page)
+    if (choices.length === 0) return false
+    root.chooserRequested({ title: "Charts country", subtitle: Model.chartsCountryTitle(page), choices: choices,
+                            onChoice: function(choice) { root.setCountry(choice.value) } })
+    return true
+  }
+
+  // The pick is remembered (prefs.chartsCountry, where later Charts pages
+  // open) and this page shows it in its place.
+  function setCountry(code) {
+    var country = Model.chartsCountry(code)
+    if (service) service.setPref("chartsCountry", country)
+    if (target && target.country !== country) root.replaceRequested(Model.chartsItem(country, target.title))
   }
 
   Row {

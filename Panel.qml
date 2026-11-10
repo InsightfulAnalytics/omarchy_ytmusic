@@ -8,26 +8,27 @@ import "YtmModel.js" as Model
 // The YouTube Music dropdown. BarWidget.qml loads this and injects the bar,
 // the anchor button, the widget itself (bar identity) and the service.
 //
-// Tabs: Now (playing, then the queue, lyrics or related), Search, Library and
-// Home, with a page stack on top for albums, playlists, Liked Music, History,
-// artists, credits and See all pages, the item menu (row menu, chooser, key
-// help) and the playlist picker.
-// Keys (Model.KEYS; ? lists them): 1-4 switch tab: Now, Search, Library, Home
-// · / search · j / k / ↑ / ↓ move · g first row · G last row (loads more), or
-// a long list's Load all row · Enter play or open · h / l / ← / → seek 10 s
-// on Now, or the page's chips · Esc leave the field → close the picker or
-// menu → clear the filter → back → close · Space play/pause · n play next (a
-// song, album or playlist) · a add to queue · R start radio from the row, the
-// artist page or the current song · s shuffle · r repeat · L like · p add to
-// playlist · A go to artist (of the row, the album page or the current song)
-// · o go to album · J / K move a queued song down / up · x remove (queue, own
-// playlist, Liked Music, recent search) · m / . the row's menu (or
-// right-click) · M the page's menu (Library: account) · O next sort order on
-// a page that has one · f find in a page's songs (album, playlist, Liked
-// Music, History) · ? these keys · y cycle the pane under the song: Queue,
-// Lyrics, Related · t cycle the queue tuner chip: All, Discover, Popular and
-// the rest · [ / ] playback speed down / up (0.5x to 2x, kept apart for
-// episodes).
+// Tabs: Now (playing, then the queue, lyrics or related), Search, Library,
+// Home and Explore (S6), with a page stack on top for albums, playlists,
+// Liked Music, History, artists, credits, Charts, moods and See all pages,
+// the item menu (row menu, chooser, key help) and the playlist picker. When
+// the tab labels do not fit the panel's width, the tabs show their icons.
+// Keys (Model.KEYS; ? lists them): 1-5 switch tab: Now, Search, Library,
+// Home, Explore · / search · j / k / ↑ / ↓ move · g first row · G last row
+// (loads more), or a long list's Load all row · Enter play or open · h / l /
+// ← / → seek 10 s on Now, or the page's chips · Esc leave the field → close
+// the picker or menu → clear the filter → back → close · Space play/pause · n
+// play next (a song, album or playlist) · a add to queue · R start radio from
+// the row, the artist page or the current song · s shuffle · r repeat · L
+// like · p add to playlist · A go to artist (of the row, the album page or
+// the current song) · o go to album · J / K move a queued song down / up · x
+// remove (queue, own playlist, Liked Music, recent search) · m / . the row's
+// menu (or right-click) · M the page's menu (Library: account) · O next sort
+// order on a page that has one (Charts: the country) · f find in a page's
+// songs (album, playlist, Liked Music, History) · ? these keys · y cycle the
+// pane under the song: Queue, Lyrics, Related · t cycle the queue tuner chip:
+// All, Discover, Popular and the rest · [ / ] playback speed down / up (0.5x
+// to 2x, kept apart for episodes).
 // Text keys go through Model.keyId to runKey(); Ctrl and Alt chords are
 // ignored. Views offer optional hooks, checked with typeof: horizontal(dx),
 // cycleOrder(), find(), playNext(i) / addToQueue(i), menu(i), pageMenu(),
@@ -65,11 +66,13 @@ Panel {
   readonly property string nowPane: service && service.prefs ? Model.nowPane(service.prefs.nowPane) : "queue"
   readonly property bool queueShown: tab === "now" && !page && nowPane === "queue"
 
+  // `icon`: what a tab shows when the labels do not fit (S6).
   readonly property var tabs: [
-    { key: "now", title: "Now" },
-    { key: "search", title: "Search" },
-    { key: "library", title: "Library" },
-    { key: "home", title: "Home" }
+    { key: "now", title: "Now", icon: "󰝚" },
+    { key: "search", title: "Search", icon: "󰍉" },
+    { key: "library", title: "Library", icon: "󰌱" },
+    { key: "home", title: "Home", icon: "󰋜" },
+    { key: "explore", title: "Explore", icon: "󰆌" }
   ]
 
   function setTab(key) {
@@ -88,6 +91,7 @@ Panel {
 
   function push(item) {
     if (!item) return
+    item = Model.withChartsCountry(item, service ? service.prefs.chartsCountry : "")  // S6: Charts in the chosen country
     picker.close()
     itemMenu.close()
     var next = stack.slice()
@@ -127,6 +131,7 @@ Panel {
     if (tab === "search") return searchView
     if (tab === "library") return libraryView
     if (tab === "home") return homeView
+    if (tab === "explore") return exploreView
     return null
   }
 
@@ -387,6 +392,30 @@ Panel {
     keyCatcher.forceActiveFocus()
   }
 
+  // ---- explore (S6) -------------------------------------------------------------------
+  // A page shown another way takes its own place on the stack (Charts in
+  // another country, CollectionView's replaceRequested): Back still leads to
+  // what was under it.
+  function replaceTop(item) {
+    if (!item || stack.length === 0) return
+    picker.close()
+    itemMenu.close()
+    var next = stack.slice(0, -1)
+    next.push({ item: Model.withChartsCountry(item, service ? service.prefs.chartsCountry : ""), view: null })
+    stack = next
+    keyCatcher.forceActiveFocus()
+  }
+
+  // A view's chooser, { title, subtitle, choices, onChoice } (CollectionView's
+  // chooserRequested: Charts' country).
+  function openChooser(request) {
+    if (!request) return false
+    picker.close()
+    if (!itemMenu.openChooser(request.title, request.subtitle || "", request.choices, request.onChoice)) return false
+    keyCatcher.forceActiveFocus()
+    return true
+  }
+
   // ---- playback (S17) -----------------------------------------------------------------
   // [ and ] step the speed (any tab); the Now page menu's Playback speed and
   // Loudness, and the speed badge on Now, open their choosers.
@@ -567,6 +596,41 @@ Panel {
         id: header
         width: parent.width
         height: tabRow.implicitHeight
+        // S6: five labels may not fit at a large font size; then the tabs
+        // show their icons (each tooltip still names its tab).
+        readonly property bool compactTabs: tabProbe.labelsWidth > width
+
+        // The labels' natural width, the Back button's room included so
+        // opening a page never switches between labels and icons.
+        Item {
+          id: tabProbe
+          visible: false
+          readonly property real labelsWidth: {
+            var w = backProbe.implicitWidth
+            for (var i = 0; i < probeTabs.count; i++) {
+              var tab = probeTabs.itemAt(i)
+              if (tab) w += tabRow.spacing + tab.implicitWidth
+            }
+            return w
+          }
+
+          Button {
+            id: backProbe
+            iconText: "󰁍"
+            foreground: root.foreground
+          }
+
+          Repeater {
+            id: probeTabs
+            model: root.tabs
+
+            Button {
+              required property var modelData
+              text: modelData.title
+              foreground: root.foreground
+            }
+          }
+        }
 
         Row {
           id: tabRow
@@ -586,7 +650,8 @@ Panel {
             Button {
               required property var modelData
               required property int index
-              text: modelData.title
+              text: header.compactTabs ? "" : modelData.title
+              iconText: header.compactTabs ? modelData.icon : ""
               tooltipText: modelData.title + " (" + (index + 1) + ")"
               selected: root.tab === modelData.key && !root.page
               foreground: root.foreground
@@ -776,6 +841,16 @@ Panel {
           onItemMenuRequested: function(request) { root.openItemMenu(request) }
         }
 
+        ExploreView {
+          id: exploreView
+          anchors.fill: parent
+          visible: root.tab === "explore" && !root.page
+          service: root.service
+          bar: root.bar
+          onOpenRequested: function(item) { root.push(item) }
+          onItemMenuRequested: function(request) { root.openItemMenu(request) }
+        }
+
         Loader {
           id: collectionLoader
           anchors.fill: parent
@@ -788,6 +863,8 @@ Panel {
             onItemMenuRequested: function(request) { root.openItemMenu(request) }
             onCloseRequested: root.back()
             onLeftField: keyCatcher.forceActiveFocus()
+            onChooserRequested: function(request) { root.openChooser(request) }  // S6
+            onReplaceRequested: function(item) { root.replaceTop(item) }  // S6
           }
         }
 

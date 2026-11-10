@@ -1,0 +1,3529 @@
+{
+ "contents": {
+  "singleColumnBrowseResultsRenderer": {
+   "tabs": [
+    {
+     "tabRenderer": {
+      "content": {
+       "sectionListRenderer": {
+        "contents": [
+         {
+          "musicShelfRenderer": {
+           "shelfDivider": {
+            "musicShelfDividerRenderer": {
+             "hidden": true
+            }
+           },
+           "subheaders": [
+            {
+             "musicSideAlignedItemRenderer": {
+              "startItems": [
+               {
+                "musicSortFilterButtonRenderer": {
+                 "title": {
+                  "runs": [
+                   {
+                    "text": "Global"
+                   }
+                  ]
+                 },
+                 "icon": {
+                  "iconType": "CHEVRON_DOWN"
+                 },
+                 "menu": {
+                  "musicMultiSelectMenuRenderer": {
+                   "title": {
+                    "musicMenuTitleRenderer": {
+                     "primaryText": {
+                      "runs": [
+                       {
+                        "text": "Select a country"
+                       }
+                      ]
+                     }
+                    }
+                   },
+                   "options": [
+                    {
+                     "musicMultiSelectMenuItemRenderer": {
+                      "title": {
+                       "runs": [
+                        {
+                         "text": "Australia"
+                        }
+                       ]
+                      },
+                      "formItemEntityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3QVUgkQEoAQ%3D%3D",
+                      "selectedIcon": {
+                       "iconType": "CHECK"
+                      },
+                      "accessibility": {
+                       "accessibilityData": {
+                        "label": "Australia"
+                       }
+                      }
+                     }
+                    },
+                    {
+                     "musicMultiSelectMenuItemRenderer": {
+                      "title": {
+                       "runs": [
+                        {
+                         "text": "Global"
+                        }
+                       ]
+                      },
+                      "formItemEntityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3WlogkQEoAQ%3D%3D",
+                      "selectedIcon": {
+                       "iconType": "CHECK"
+                      },
+                      "accessibility": {
+                       "accessibilityData": {
+                        "label": "Global"
+                       }
+                      }
+                     }
+                    },
+                    {
+                     "musicMenuItemDividerRenderer": {
+                      "hack": true
+                     }
+                    },
+                    {
+                     "musicMultiSelectMenuItemRenderer": {
+                      "title": {
+                       "runs": [
+                        {
+                         "text": "Argentina"
+                        }
+                       ]
+                      },
+                      "formItemEntityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3QVIgkQEoAQ%3D%3D",
+                      "selectedIcon": {
+                       "iconType": "CHECK"
+                      },
+                      "accessibility": {
+                       "accessibilityData": {
+                        "label": "Argentina"
+                       }
+                      }
+                     }
+                    },
+                    {
+                     "musicMultiSelectMenuItemRenderer": {
+                      "title": {
+                       "runs": [
+                        {
+                         "text": "Australia"
+                        }
+                       ]
+                      },
+                      "formItemEntityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3QVUgkQEoAQ%3D%3D",
+                      "selectedIcon": {
+                       "iconType": "CHECK"
+                      },
+                      "accessibility": {
+                       "accessibilityData": {
+                        "label": "Australia"
+                       }
+                      }
+                     }
+                    },
+                    {
+                     "musicMultiSelectMenuItemRenderer": {
+                      "title": {
+                       "runs": [
+                        {
+                         "text": "Austria"
+                        }
+                       ]
+                      },
+                      "formItemEntityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3QVQgkQEoAQ%3D%3D",
+                      "selectedIcon": {
+                       "iconType": "CHECK"
+                      },
+                      "accessibility": {
+                       "accessibilityData": {
+                        "label": "Austria"
+                       }
+                      }
+                     }
+                    },
+                    {
+                     "musicMultiSelectMenuItemRenderer": {
+                      "title": {
+                       "runs": [
+                        {
+                         "text": "Belgium"
+                        }
+                       ]
+                      },
+                      "formItemEntityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3QkUgkQEoAQ%3D%3D",
+                      "selectedIcon": {
+                       "iconType": "CHECK"
+                      },
+                      "accessibility": {
+                       "accessibilityData": {
+                        "label": "Belgium"
+                       }
+                      }
+                     }
+                    },
+                    {
+                     "musicMultiSelectMenuItemRenderer": {
+                      "title": {
+                       "runs": [
+                        {
+                         "text": "Bolivia"
+                        }
+                       ]
+                      },
+                      "formItemEntityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3Qk8gkQEoAQ%3D%3D",
+                      "selectedIcon": {
+                       "iconType": "CHECK"
+                      },
+                      "accessibility": {
+                       "accessibilityData": {
+                        "label": "Bolivia"
+                       }
+                      }
+                     }
+                    },
+                    {
+                     "musicMultiSelectMenuItemRenderer": {
+                      "title": {
+                       "runs": [
+                        {
+                         "text": "Brazil"
+                        }
+                       ]
+                      },
+                      "formItemEntityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3QlIgkQEoAQ%3D%3D",
+                      "selectedIcon": {
+                       "iconType": "CHECK"
+                      },
+                      "accessibility": {
+                       "accessibilityData": {
+                        "label": "Brazil"
+                       }
+                      }
+                     }
+                    },
+                    {
+                     "musicMultiSelectMenuItemRenderer": {
+                      "title": {
+                       "runs": [
+                        {
+                         "text": "Canada"
+                        }
+                       ]
+                      },
+                      "formItemEntityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3Q0EgkQEoAQ%3D%3D",
+                      "selectedIcon": {
+                       "iconType": "CHECK"
+                      },
+                      "accessibility": {
+                       "accessibilityData": {
+                        "label": "Canada"
+                       }
+                      }
+                     }
+                    },
+                    {
+                     "musicMultiSelectMenuItemRenderer": {
+                      "title": {
+                       "runs": [
+                        {
+                         "text": "Chile"
+                        }
+                       ]
+                      },
+                      "formItemEntityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3Q0wgkQEoAQ%3D%3D",
+                      "selectedIcon": {
+                       "iconType": "CHECK"
+                      },
+                      "accessibility": {
+                       "accessibilityData": {
+                        "label": "Chile"
+                       }
+                      }
+                     }
+                    },
+                    {
+                     "musicMultiSelectMenuItemRenderer": {
+                      "title": {
+                       "runs": [
+                        {
+                         "text": "Colombia"
+                        }
+                       ]
+                      },
+                      "formItemEntityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3Q08gkQEoAQ%3D%3D",
+                      "selectedIcon": {
+                       "iconType": "CHECK"
+                      },
+                      "accessibility": {
+                       "accessibilityData": {
+                        "label": "Colombia"
+                       }
+                      }
+                     }
+                    },
+                    {
+                     "musicMultiSelectMenuItemRenderer": {
+                      "title": {
+                       "runs": [
+                        {
+                         "text": "Costa Rica"
+                        }
+                       ]
+                      },
+                      "formItemEntityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3Q1IgkQEoAQ%3D%3D",
+                      "selectedIcon": {
+                       "iconType": "CHECK"
+                      },
+                      "accessibility": {
+                       "accessibilityData": {
+                        "label": "Costa Rica"
+                       }
+                      }
+                     }
+                    },
+                    {
+                     "musicMultiSelectMenuItemRenderer": {
+                      "title": {
+                       "runs": [
+                        {
+                         "text": "Czechia"
+                        }
+                       ]
+                      },
+                      "formItemEntityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3Q1ogkQEoAQ%3D%3D",
+                      "selectedIcon": {
+                       "iconType": "CHECK"
+                      },
+                      "accessibility": {
+                       "accessibilityData": {
+                        "label": "Czechia"
+                       }
+                      }
+                     }
+                    },
+                    {
+                     "musicMultiSelectMenuItemRenderer": {
+                      "title": {
+                       "runs": [
+                        {
+                         "text": "Denmark"
+                        }
+                       ]
+                      },
+                      "formItemEntityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3REsgkQEoAQ%3D%3D",
+                      "selectedIcon": {
+                       "iconType": "CHECK"
+                      },
+                      "accessibility": {
+                       "accessibilityData": {
+                        "label": "Denmark"
+                       }
+                      }
+                     }
+                    },
+                    {
+                     "musicMultiSelectMenuItemRenderer": {
+                      "title": {
+                       "runs": [
+                        {
+                         "text": "Dominican Republic"
+                        }
+                       ]
+                      },
+                      "formItemEntityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3RE8gkQEoAQ%3D%3D",
+                      "selectedIcon": {
+                       "iconType": "CHECK"
+                      },
+                      "accessibility": {
+                       "accessibilityData": {
+                        "label": "Dominican Republic"
+                       }
+                      }
+                     }
+                    },
+                    {
+                     "musicMultiSelectMenuItemRenderer": {
+                      "title": {
+                       "runs": [
+                        {
+                         "text": "Ecuador"
+                        }
+                       ]
+                      },
+                      "formItemEntityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3RUMgkQEoAQ%3D%3D",
+                      "selectedIcon": {
+                       "iconType": "CHECK"
+                      },
+                      "accessibility": {
+                       "accessibilityData": {
+                        "label": "Ecuador"
+                       }
+                      }
+                     }
+                    },
+                    {
+                     "musicMultiSelectMenuItemRenderer": {
+                      "title": {
+                       "runs": [
+                        {
+                         "text": "Egypt"
+                        }
+                       ]
+                      },
+                      "formItemEntityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3RUcgkQEoAQ%3D%3D",
+                      "selectedIcon": {
+                       "iconType": "CHECK"
+                      },
+                      "accessibility": {
+                       "accessibilityData": {
+                        "label": "Egypt"
+                       }
+                      }
+                     }
+                    },
+                    {
+                     "musicMultiSelectMenuItemRenderer": {
+                      "title": {
+                       "runs": [
+                        {
+                         "text": "El Salvador"
+                        }
+                       ]
+                      },
+                      "formItemEntityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3U1YgkQEoAQ%3D%3D",
+                      "selectedIcon": {
+                       "iconType": "CHECK"
+                      },
+                      "accessibility": {
+                       "accessibilityData": {
+                        "label": "El Salvador"
+                       }
+                      }
+                     }
+                    },
+                    {
+                     "musicMultiSelectMenuItemRenderer": {
+                      "title": {
+                       "runs": [
+                        {
+                         "text": "Estonia"
+                        }
+                       ]
+                      },
+                      "formItemEntityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3RUUgkQEoAQ%3D%3D",
+                      "selectedIcon": {
+                       "iconType": "CHECK"
+                      },
+                      "accessibility": {
+                       "accessibilityData": {
+                        "label": "Estonia"
+                       }
+                      }
+                     }
+                    },
+                    {
+                     "musicMultiSelectMenuItemRenderer": {
+                      "title": {
+                       "runs": [
+                        {
+                         "text": "Finland"
+                        }
+                       ]
+                      },
+                      "formItemEntityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3RkkgkQEoAQ%3D%3D",
+                      "selectedIcon": {
+                       "iconType": "CHECK"
+                      },
+                      "accessibility": {
+                       "accessibilityData": {
+                        "label": "Finland"
+                       }
+                      }
+                     }
+                    },
+                    {
+                     "musicMultiSelectMenuItemRenderer": {
+                      "title": {
+                       "runs": [
+                        {
+                         "text": "France"
+                        }
+                       ]
+                      },
+                      "formItemEntityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3RlIgkQEoAQ%3D%3D",
+                      "selectedIcon": {
+                       "iconType": "CHECK"
+                      },
+                      "accessibility": {
+                       "accessibilityData": {
+                        "label": "France"
+                       }
+                      }
+                     }
+                    },
+                    {
+                     "musicMultiSelectMenuItemRenderer": {
+                      "title": {
+                       "runs": [
+                        {
+                         "text": "Germany"
+                        }
+                       ]
+                      },
+                      "formItemEntityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3REUgkQEoAQ%3D%3D",
+                      "selectedIcon": {
+                       "iconType": "CHECK"
+                      },
+                      "accessibility": {
+                       "accessibilityData": {
+                        "label": "Germany"
+                       }
+                      }
+                     }
+                    },
+                    {
+                     "musicMultiSelectMenuItemRenderer": {
+                      "title": {
+                       "runs": [
+                        {
+                         "text": "Guatemala"
+                        }
+                       ]
+                      },
+                      "formItemEntityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3R1QgkQEoAQ%3D%3D",
+                      "selectedIcon": {
+                       "iconType": "CHECK"
+                      },
+                      "accessibility": {
+                       "accessibilityData": {
+                        "label": "Guatemala"
+                       }
+                      }
+                     }
+                    },
+                    {
+                     "musicMultiSelectMenuItemRenderer": {
+                      "title": {
+                       "runs": [
+                        {
+                         "text": "Honduras"
+                        }
+                       ]
+                      },
+                      "formItemEntityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3SE4gkQEoAQ%3D%3D",
+                      "selectedIcon": {
+                       "iconType": "CHECK"
+                      },
+                      "accessibility": {
+                       "accessibilityData": {
+                        "label": "Honduras"
+                       }
+                      }
+                     }
+                    },
+                    {
+                     "musicMultiSelectMenuItemRenderer": {
+                      "title": {
+                       "runs": [
+                        {
+                         "text": "Hong Kong"
+                        }
+                       ]
+                      },
+                      "formItemEntityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3SEsgkQEoAQ%3D%3D",
+                      "selectedIcon": {
+                       "iconType": "CHECK"
+                      },
+                      "accessibility": {
+                       "accessibilityData": {
+                        "label": "Hong Kong"
+                       }
+                      }
+                     }
+                    },
+                    {
+                     "musicMultiSelectMenuItemRenderer": {
+                      "title": {
+                       "runs": [
+                        {
+                         "text": "Hungary"
+                        }
+                       ]
+                      },
+                      "formItemEntityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3SFUgkQEoAQ%3D%3D",
+                      "selectedIcon": {
+                       "iconType": "CHECK"
+                      },
+                      "accessibility": {
+                       "accessibilityData": {
+                        "label": "Hungary"
+                       }
+                      }
+                     }
+                    },
+                    {
+                     "musicMultiSelectMenuItemRenderer": {
+                      "title": {
+                       "runs": [
+                        {
+                         "text": "Iceland"
+                        }
+                       ]
+                      },
+                      "formItemEntityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3SVMgkQEoAQ%3D%3D",
+                      "selectedIcon": {
+                       "iconType": "CHECK"
+                      },
+                      "accessibility": {
+                       "accessibilityData": {
+                        "label": "Iceland"
+                       }
+                      }
+                     }
+                    },
+                    {
+                     "musicMultiSelectMenuItemRenderer": {
+                      "title": {
+                       "runs": [
+                        {
+                         "text": "India"
+                        }
+                       ]
+                      },
+                      "formItemEntityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3SU4gkQEoAQ%3D%3D",
+                      "selectedIcon": {
+                       "iconType": "CHECK"
+                      },
+                      "accessibility": {
+                       "accessibilityData": {
+                        "label": "India"
+                       }
+                      }
+                     }
+                    },
+                    {
+                     "musicMultiSelectMenuItemRenderer": {
+                      "title": {
+                       "runs": [
+                        {
+                         "text": "Indonesia"
+                        }
+                       ]
+                      },
+                      "formItemEntityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3SUQgkQEoAQ%3D%3D",
+                      "selectedIcon": {
+                       "iconType": "CHECK"
+                      },
+                      "accessibility": {
+                       "accessibilityData": {
+                        "label": "Indonesia"
+                       }
+                      }
+                     }
+                    },
+                    {
+                     "musicMultiSelectMenuItemRenderer": {
+                      "title": {
+                       "runs": [
+                        {
+                         "text": "Ireland"
+                        }
+                       ]
+                      },
+                      "formItemEntityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3SUUgkQEoAQ%3D%3D",
+                      "selectedIcon": {
+                       "iconType": "CHECK"
+                      },
+                      "accessibility": {
+                       "accessibilityData": {
+                        "label": "Ireland"
+                       }
+                      }
+                     }
+                    },
+                    {
+                     "musicMultiSelectMenuItemRenderer": {
+                      "title": {
+                       "runs": [
+                        {
+                         "text": "Israel"
+                        }
+                       ]
+                      },
+                      "formItemEntityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3SUwgkQEoAQ%3D%3D",
+                      "selectedIcon": {
+                       "iconType": "CHECK"
+                      },
+                      "accessibility": {
+                       "accessibilityData": {
+                        "label": "Israel"
+                       }
+                      }
+                     }
+                    },
+                    {
+                     "musicMultiSelectMenuItemRenderer": {
+                      "title": {
+                       "runs": [
+                        {
+                         "text": "Italy"
+                        }
+                       ]
+                      },
+                      "formItemEntityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3SVQgkQEoAQ%3D%3D",
+                      "selectedIcon": {
+                       "iconType": "CHECK"
+                      },
+                      "accessibility": {
+                       "accessibilityData": {
+                        "label": "Italy"
+                       }
+                      }
+                     }
+                    },
+                    {
+                     "musicMultiSelectMenuItemRenderer": {
+                      "title": {
+                       "runs": [
+                        {
+                         "text": "Japan"
+                        }
+                       ]
+                      },
+                      "formItemEntityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3SlAgkQEoAQ%3D%3D",
+                      "selectedIcon": {
+                       "iconType": "CHECK"
+                      },
+                      "accessibility": {
+                       "accessibilityData": {
+                        "label": "Japan"
+                       }
+                      }
+                     }
+                    },
+                    {
+                     "musicMultiSelectMenuItemRenderer": {
+                      "title": {
+                       "runs": [
+                        {
+                         "text": "Kenya"
+                        }
+                       ]
+                      },
+                      "formItemEntityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3S0UgkQEoAQ%3D%3D",
+                      "selectedIcon": {
+                       "iconType": "CHECK"
+                      },
+                      "accessibility": {
+                       "accessibilityData": {
+                        "label": "Kenya"
+                       }
+                      }
+                     }
+                    },
+                    {
+                     "musicMultiSelectMenuItemRenderer": {
+                      "title": {
+                       "runs": [
+                        {
+                         "text": "Luxembourg"
+                        }
+                       ]
+                      },
+                      "formItemEntityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3TFUgkQEoAQ%3D%3D",
+                      "selectedIcon": {
+                       "iconType": "CHECK"
+                      },
+                      "accessibility": {
+                       "accessibilityData": {
+                        "label": "Luxembourg"
+                       }
+                      }
+                     }
+                    },
+                    {
+                     "musicMultiSelectMenuItemRenderer": {
+                      "title": {
+                       "runs": [
+                        {
+                         "text": "Malaysia"
+                        }
+                       ]
+                      },
+                      "formItemEntityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3TVkgkQEoAQ%3D%3D",
+                      "selectedIcon": {
+                       "iconType": "CHECK"
+                      },
+                      "accessibility": {
+                       "accessibilityData": {
+                        "label": "Malaysia"
+                       }
+                      }
+                     }
+                    },
+                    {
+                     "musicMultiSelectMenuItemRenderer": {
+                      "title": {
+                       "runs": [
+                        {
+                         "text": "Mexico"
+                        }
+                       ]
+                      },
+                      "formItemEntityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3TVggkQEoAQ%3D%3D",
+                      "selectedIcon": {
+                       "iconType": "CHECK"
+                      },
+                      "accessibility": {
+                       "accessibilityData": {
+                        "label": "Mexico"
+                       }
+                      }
+                     }
+                    },
+                    {
+                     "musicMultiSelectMenuItemRenderer": {
+                      "title": {
+                       "runs": [
+                        {
+                         "text": "Netherlands"
+                        }
+                       ]
+                      },
+                      "formItemEntityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3TkwgkQEoAQ%3D%3D",
+                      "selectedIcon": {
+                       "iconType": "CHECK"
+                      },
+                      "accessibility": {
+                       "accessibilityData": {
+                        "label": "Netherlands"
+                       }
+                      }
+                     }
+                    },
+                    {
+                     "musicMultiSelectMenuItemRenderer": {
+                      "title": {
+                       "runs": [
+                        {
+                         "text": "New Zealand"
+                        }
+                       ]
+                      },
+                      "formItemEntityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3TlogkQEoAQ%3D%3D",
+                      "selectedIcon": {
+                       "iconType": "CHECK"
+                      },
+                      "accessibility": {
+                       "accessibilityData": {
+                        "label": "New Zealand"
+                       }
+                      }
+                     }
+                    },
+                    {
+                     "musicMultiSelectMenuItemRenderer": {
+                      "title": {
+                       "runs": [
+                        {
+                         "text": "Nicaragua"
+                        }
+                       ]
+                      },
+                      "formItemEntityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3TkkgkQEoAQ%3D%3D",
+                      "selectedIcon": {
+                       "iconType": "CHECK"
+                      },
+                      "accessibility": {
+                       "accessibilityData": {
+                        "label": "Nicaragua"
+                       }
+                      }
+                     }
+                    },
+                    {
+                     "musicMultiSelectMenuItemRenderer": {
+                      "title": {
+                       "runs": [
+                        {
+                         "text": "Nigeria"
+                        }
+                       ]
+                      },
+                      "formItemEntityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3TkcgkQEoAQ%3D%3D",
+                      "selectedIcon": {
+                       "iconType": "CHECK"
+                      },
+                      "accessibility": {
+                       "accessibilityData": {
+                        "label": "Nigeria"
+                       }
+                      }
+                     }
+                    },
+                    {
+                     "musicMultiSelectMenuItemRenderer": {
+                      "title": {
+                       "runs": [
+                        {
+                         "text": "Norway"
+                        }
+                       ]
+                      },
+                      "formItemEntityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3Tk8gkQEoAQ%3D%3D",
+                      "selectedIcon": {
+                       "iconType": "CHECK"
+                      },
+                      "accessibility": {
+                       "accessibilityData": {
+                        "label": "Norway"
+                       }
+                      }
+                     }
+                    },
+                    {
+                     "musicMultiSelectMenuItemRenderer": {
+                      "title": {
+                       "runs": [
+                        {
+                         "text": "Panama"
+                        }
+                       ]
+                      },
+                      "formItemEntityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3UEEgkQEoAQ%3D%3D",
+                      "selectedIcon": {
+                       "iconType": "CHECK"
+                      },
+                      "accessibility": {
+                       "accessibilityData": {
+                        "label": "Panama"
+                       }
+                      }
+                     }
+                    },
+                    {
+                     "musicMultiSelectMenuItemRenderer": {
+                      "title": {
+                       "runs": [
+                        {
+                         "text": "Paraguay"
+                        }
+                       ]
+                      },
+                      "formItemEntityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3UFkgkQEoAQ%3D%3D",
+                      "selectedIcon": {
+                       "iconType": "CHECK"
+                      },
+                      "accessibility": {
+                       "accessibilityData": {
+                        "label": "Paraguay"
+                       }
+                      }
+                     }
+                    },
+                    {
+                     "musicMultiSelectMenuItemRenderer": {
+                      "title": {
+                       "runs": [
+                        {
+                         "text": "Peru"
+                        }
+                       ]
+                      },
+                      "formItemEntityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3UEUgkQEoAQ%3D%3D",
+                      "selectedIcon": {
+                       "iconType": "CHECK"
+                      },
+                      "accessibility": {
+                       "accessibilityData": {
+                        "label": "Peru"
+                       }
+                      }
+                     }
+                    },
+                    {
+                     "musicMultiSelectMenuItemRenderer": {
+                      "title": {
+                       "runs": [
+                        {
+                         "text": "Philippines"
+                        }
+                       ]
+                      },
+                      "formItemEntityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3UEggkQEoAQ%3D%3D",
+                      "selectedIcon": {
+                       "iconType": "CHECK"
+                      },
+                      "accessibility": {
+                       "accessibilityData": {
+                        "label": "Philippines"
+                       }
+                      }
+                     }
+                    },
+                    {
+                     "musicMultiSelectMenuItemRenderer": {
+                      "title": {
+                       "runs": [
+                        {
+                         "text": "Poland"
+                        }
+                       ]
+                      },
+                      "formItemEntityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3UEwgkQEoAQ%3D%3D",
+                      "selectedIcon": {
+                       "iconType": "CHECK"
+                      },
+                      "accessibility": {
+                       "accessibilityData": {
+                        "label": "Poland"
+                       }
+                      }
+                     }
+                    },
+                    {
+                     "musicMultiSelectMenuItemRenderer": {
+                      "title": {
+                       "runs": [
+                        {
+                         "text": "Portugal"
+                        }
+                       ]
+                      },
+                      "formItemEntityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3UFQgkQEoAQ%3D%3D",
+                      "selectedIcon": {
+                       "iconType": "CHECK"
+                      },
+                      "accessibility": {
+                       "accessibilityData": {
+                        "label": "Portugal"
+                       }
+                      }
+                     }
+                    },
+                    {
+                     "musicMultiSelectMenuItemRenderer": {
+                      "title": {
+                       "runs": [
+                        {
+                         "text": "Romania"
+                        }
+                       ]
+                      },
+                      "formItemEntityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3Uk8gkQEoAQ%3D%3D",
+                      "selectedIcon": {
+                       "iconType": "CHECK"
+                      },
+                      "accessibility": {
+                       "accessibilityData": {
+                        "label": "Romania"
+                       }
+                      }
+                     }
+                    },
+                    {
+                     "musicMultiSelectMenuItemRenderer": {
+                      "title": {
+                       "runs": [
+                        {
+                         "text": "Russia"
+                        }
+                       ]
+                      },
+                      "formItemEntityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3UlUgkQEoAQ%3D%3D",
+                      "selectedIcon": {
+                       "iconType": "CHECK"
+                      },
+                      "accessibility": {
+                       "accessibilityData": {
+                        "label": "Russia"
+                       }
+                      }
+                     }
+                    },
+                    {
+                     "musicMultiSelectMenuItemRenderer": {
+                      "title": {
+                       "runs": [
+                        {
+                         "text": "Saudi Arabia"
+                        }
+                       ]
+                      },
+                      "formItemEntityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3U0EgkQEoAQ%3D%3D",
+                      "selectedIcon": {
+                       "iconType": "CHECK"
+                      },
+                      "accessibility": {
+                       "accessibilityData": {
+                        "label": "Saudi Arabia"
+                       }
+                      }
+                     }
+                    },
+                    {
+                     "musicMultiSelectMenuItemRenderer": {
+                      "title": {
+                       "runs": [
+                        {
+                         "text": "Serbia"
+                        }
+                       ]
+                      },
+                      "formItemEntityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3UlMgkQEoAQ%3D%3D",
+                      "selectedIcon": {
+                       "iconType": "CHECK"
+                      },
+                      "accessibility": {
+                       "accessibilityData": {
+                        "label": "Serbia"
+                       }
+                      }
+                     }
+                    },
+                    {
+                     "musicMultiSelectMenuItemRenderer": {
+                      "title": {
+                       "runs": [
+                        {
+                         "text": "Singapore"
+                        }
+                       ]
+                      },
+                      "formItemEntityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3U0cgkQEoAQ%3D%3D",
+                      "selectedIcon": {
+                       "iconType": "CHECK"
+                      },
+                      "accessibility": {
+                       "accessibilityData": {
+                        "label": "Singapore"
+                       }
+                      }
+                     }
+                    },
+                    {
+                     "musicMultiSelectMenuItemRenderer": {
+                      "title": {
+                       "runs": [
+                        {
+                         "text": "South Africa"
+                        }
+                       ]
+                      },
+                      "formItemEntityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3WkEgkQEoAQ%3D%3D",
+                      "selectedIcon": {
+                       "iconType": "CHECK"
+                      },
+                      "accessibility": {
+                       "accessibilityData": {
+                        "label": "South Africa"
+                       }
+                      }
+                     }
+                    },
+                    {
+                     "musicMultiSelectMenuItemRenderer": {
+                      "title": {
+                       "runs": [
+                        {
+                         "text": "South Korea"
+                        }
+                       ]
+                      },
+                      "formItemEntityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3S1IgkQEoAQ%3D%3D",
+                      "selectedIcon": {
+                       "iconType": "CHECK"
+                      },
+                      "accessibility": {
+                       "accessibilityData": {
+                        "label": "South Korea"
+                       }
+                      }
+                     }
+                    },
+                    {
+                     "musicMultiSelectMenuItemRenderer": {
+                      "title": {
+                       "runs": [
+                        {
+                         "text": "Spain"
+                        }
+                       ]
+                      },
+                      "formItemEntityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3RVMgkQEoAQ%3D%3D",
+                      "selectedIcon": {
+                       "iconType": "CHECK"
+                      },
+                      "accessibility": {
+                       "accessibilityData": {
+                        "label": "Spain"
+                       }
+                      }
+                     }
+                    },
+                    {
+                     "musicMultiSelectMenuItemRenderer": {
+                      "title": {
+                       "runs": [
+                        {
+                         "text": "Sweden"
+                        }
+                       ]
+                      },
+                      "formItemEntityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3U0UgkQEoAQ%3D%3D",
+                      "selectedIcon": {
+                       "iconType": "CHECK"
+                      },
+                      "accessibility": {
+                       "accessibilityData": {
+                        "label": "Sweden"
+                       }
+                      }
+                     }
+                    },
+                    {
+                     "musicMultiSelectMenuItemRenderer": {
+                      "title": {
+                       "runs": [
+                        {
+                         "text": "Switzerland"
+                        }
+                       ]
+                      },
+                      "formItemEntityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3Q0ggkQEoAQ%3D%3D",
+                      "selectedIcon": {
+                       "iconType": "CHECK"
+                      },
+                      "accessibility": {
+                       "accessibilityData": {
+                        "label": "Switzerland"
+                       }
+                      }
+                     }
+                    },
+                    {
+                     "musicMultiSelectMenuItemRenderer": {
+                      "title": {
+                       "runs": [
+                        {
+                         "text": "Taiwan"
+                        }
+                       ]
+                      },
+                      "formItemEntityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3VFcgkQEoAQ%3D%3D",
+                      "selectedIcon": {
+                       "iconType": "CHECK"
+                      },
+                      "accessibility": {
+                       "accessibilityData": {
+                        "label": "Taiwan"
+                       }
+                      }
+                     }
+                    },
+                    {
+                     "musicMultiSelectMenuItemRenderer": {
+                      "title": {
+                       "runs": [
+                        {
+                         "text": "Tanzania"
+                        }
+                       ]
+                      },
+                      "formItemEntityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3VFogkQEoAQ%3D%3D",
+                      "selectedIcon": {
+                       "iconType": "CHECK"
+                      },
+                      "accessibility": {
+                       "accessibilityData": {
+                        "label": "Tanzania"
+                       }
+                      }
+                     }
+                    },
+                    {
+                     "musicMultiSelectMenuItemRenderer": {
+                      "title": {
+                       "runs": [
+                        {
+                         "text": "Thailand"
+                        }
+                       ]
+                      },
+                      "formItemEntityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3VEggkQEoAQ%3D%3D",
+                      "selectedIcon": {
+                       "iconType": "CHECK"
+                      },
+                      "accessibility": {
+                       "accessibilityData": {
+                        "label": "Thailand"
+                       }
+                      }
+                     }
+                    },
+                    {
+                     "musicMultiSelectMenuItemRenderer": {
+                      "title": {
+                       "runs": [
+                        {
+                         "text": "Turkey"
+                        }
+                       ]
+                      },
+                      "formItemEntityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3VFIgkQEoAQ%3D%3D",
+                      "selectedIcon": {
+                       "iconType": "CHECK"
+                      },
+                      "accessibility": {
+                       "accessibilityData": {
+                        "label": "Turkey"
+                       }
+                      }
+                     }
+                    },
+                    {
+                     "musicMultiSelectMenuItemRenderer": {
+                      "title": {
+                       "runs": [
+                        {
+                         "text": "Uganda"
+                        }
+                       ]
+                      },
+                      "formItemEntityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3VUcgkQEoAQ%3D%3D",
+                      "selectedIcon": {
+                       "iconType": "CHECK"
+                      },
+                      "accessibility": {
+                       "accessibilityData": {
+                        "label": "Uganda"
+                       }
+                      }
+                     }
+                    },
+                    {
+                     "musicMultiSelectMenuItemRenderer": {
+                      "title": {
+                       "runs": [
+                        {
+                         "text": "Ukraine"
+                        }
+                       ]
+                      },
+                      "formItemEntityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3VUEgkQEoAQ%3D%3D",
+                      "selectedIcon": {
+                       "iconType": "CHECK"
+                      },
+                      "accessibility": {
+                       "accessibilityData": {
+                        "label": "Ukraine"
+                       }
+                      }
+                     }
+                    },
+                    {
+                     "musicMultiSelectMenuItemRenderer": {
+                      "title": {
+                       "runs": [
+                        {
+                         "text": "United Arab Emirates"
+                        }
+                       ]
+                      },
+                      "formItemEntityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3QUUgkQEoAQ%3D%3D",
+                      "selectedIcon": {
+                       "iconType": "CHECK"
+                      },
+                      "accessibility": {
+                       "accessibilityData": {
+                        "label": "United Arab Emirates"
+                       }
+                      }
+                     }
+                    },
+                    {
+                     "musicMultiSelectMenuItemRenderer": {
+                      "title": {
+                       "runs": [
+                        {
+                         "text": "United Kingdom"
+                        }
+                       ]
+                      },
+                      "formItemEntityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3R0IgkQEoAQ%3D%3D",
+                      "selectedIcon": {
+                       "iconType": "CHECK"
+                      },
+                      "accessibility": {
+                       "accessibilityData": {
+                        "label": "United Kingdom"
+                       }
+                      }
+                     }
+                    },
+                    {
+                     "musicMultiSelectMenuItemRenderer": {
+                      "title": {
+                       "runs": [
+                        {
+                         "text": "United States"
+                        }
+                       ]
+                      },
+                      "formItemEntityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3VVMgkQEoAQ%3D%3D",
+                      "selectedIcon": {
+                       "iconType": "CHECK"
+                      },
+                      "accessibility": {
+                       "accessibilityData": {
+                        "label": "United States"
+                       }
+                      }
+                     }
+                    },
+                    {
+                     "musicMultiSelectMenuItemRenderer": {
+                      "title": {
+                       "runs": [
+                        {
+                         "text": "Uruguay"
+                        }
+                       ]
+                      },
+                      "formItemEntityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3VVkgkQEoAQ%3D%3D",
+                      "selectedIcon": {
+                       "iconType": "CHECK"
+                      },
+                      "accessibility": {
+                       "accessibilityData": {
+                        "label": "Uruguay"
+                       }
+                      }
+                     }
+                    },
+                    {
+                     "musicMultiSelectMenuItemRenderer": {
+                      "title": {
+                       "runs": [
+                        {
+                         "text": "Vietnam"
+                        }
+                       ]
+                      },
+                      "formItemEntityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3Vk4gkQEoAQ%3D%3D",
+                      "selectedIcon": {
+                       "iconType": "CHECK"
+                      },
+                      "accessibility": {
+                       "accessibilityData": {
+                        "label": "Vietnam"
+                       }
+                      }
+                     }
+                    },
+                    {
+                     "musicMultiSelectMenuItemRenderer": {
+                      "title": {
+                       "runs": [
+                        {
+                         "text": "Zimbabwe"
+                        }
+                       ]
+                      },
+                      "formItemEntityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3WlcgkQEoAQ%3D%3D",
+                      "selectedIcon": {
+                       "iconType": "CHECK"
+                      },
+                      "accessibility": {
+                       "accessibilityData": {
+                        "label": "Zimbabwe"
+                       }
+                      }
+                     }
+                    }
+                   ],
+                   "formEntityKey": "EiVleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3IJABKAE%3D"
+                  }
+                 },
+                 "accessibility": {
+                  "accessibilityData": {
+                   "label": "Select a country - Global selected, dropdown"
+                  }
+                 }
+                }
+               }
+              ]
+             }
+            }
+           ]
+          }
+         },
+         {
+          "musicCarouselShelfRenderer": {
+           "header": {
+            "musicCarouselShelfBasicHeaderRenderer": {
+             "title": {
+              "runs": [
+               {
+                "text": "Video charts"
+               }
+              ]
+             },
+             "accessibilityData": {
+              "accessibilityData": {
+               "label": "Video charts"
+              }
+             },
+             "headerStyle": "MUSIC_CAROUSEL_SHELF_BASIC_HEADER_STYLE_DISPLAY_TWO"
+            }
+           },
+           "contents": [
+            {
+             "musicTwoRowItemRenderer": {
+              "thumbnailRenderer": {
+               "musicThumbnailRenderer": {
+                "thumbnail": {
+                 "thumbnails": [
+                  {
+                   "url": "https://yt3.googleusercontent.com/g8Z-4Oewrodhsw8pguCt2cb8i5huAmAX7-4jzXbaFjkauPAzM2Sh94sL8NkXfjwq7aay9qxc8H4=s192",
+                   "width": 192,
+                   "height": 192
+                  },
+                  {
+                   "url": "https://yt3.googleusercontent.com/g8Z-4Oewrodhsw8pguCt2cb8i5huAmAX7-4jzXbaFjkauPAzM2Sh94sL8NkXfjwq7aay9qxc8H4=s576",
+                   "width": 576,
+                   "height": 576
+                  }
+                 ]
+                },
+                "thumbnailCrop": "MUSIC_THUMBNAIL_CROP_UNSPECIFIED",
+                "thumbnailScale": "MUSIC_THUMBNAIL_SCALE_ASPECT_FILL"
+               }
+              },
+              "aspectRatio": "MUSIC_TWO_ROW_ITEM_THUMBNAIL_ASPECT_RATIO_SQUARE",
+              "title": {
+               "runs": [
+                {
+                 "text": "Daily Top Music Videos - Global",
+                 "navigationEndpoint": {
+                  "browseEndpoint": {
+                   "browseId": "VLPL4fGSI1pDJn6t3TXLGiiJdD-sZbrG3tG0",
+                   "browseEndpointContextSupportedConfigs": {
+                    "browseEndpointContextMusicConfig": {
+                     "pageType": "MUSIC_PAGE_TYPE_PLAYLIST"
+                    }
+                   }
+                  }
+                 }
+                }
+               ]
+              },
+              "subtitle": {
+               "runs": [
+                {
+                 "text": "Chart"
+                },
+                {
+                 "text": " • "
+                },
+                {
+                 "text": "YouTube Charts",
+                 "navigationEndpoint": {
+                  "browseEndpoint": {
+                   "browseId": "FEmusic_charts",
+                   "browseEndpointContextSupportedConfigs": {
+                    "browseEndpointContextMusicConfig": {
+                     "pageType": "MUSIC_PAGE_TYPE_USER_CHANNEL"
+                    }
+                   }
+                  }
+                 }
+                }
+               ]
+              },
+              "navigationEndpoint": {
+               "browseEndpoint": {
+                "browseId": "VLPL4fGSI1pDJn6t3TXLGiiJdD-sZbrG3tG0",
+                "browseEndpointContextSupportedConfigs": {
+                 "browseEndpointContextMusicConfig": {
+                  "pageType": "MUSIC_PAGE_TYPE_PLAYLIST"
+                 }
+                }
+               }
+              },
+              "thumbnailOverlay": {
+               "musicItemThumbnailOverlayRenderer": {
+                "background": {
+                 "verticalGradient": {
+                  "gradientLayerColors": [
+                   "2147483648",
+                   "0",
+                   "0"
+                  ]
+                 }
+                },
+                "content": {
+                 "musicPlayButtonRenderer": {
+                  "playNavigationEndpoint": {
+                   "watchPlaylistEndpoint": {
+                    "playlistId": "PL4fGSI1pDJn6t3TXLGiiJdD-sZbrG3tG0",
+                    "params": "wAEB"
+                   }
+                  },
+                  "playIcon": {
+                   "iconType": "PLAY_ARROW"
+                  },
+                  "pauseIcon": {
+                   "iconType": "PAUSE"
+                  },
+                  "iconColor": 4294967295,
+                  "backgroundColor": 2566914048,
+                  "activeBackgroundColor": 4278190080,
+                  "loadingIndicatorColor": 14745645,
+                  "playingIcon": {
+                   "iconType": "VOLUME_UP"
+                  },
+                  "iconLoadingColor": 1308622847,
+                  "activeScaleFactor": 1.2,
+                  "buttonSize": "MUSIC_PLAY_BUTTON_SIZE_MEDIUM",
+                  "rippleTarget": "MUSIC_PLAY_BUTTON_RIPPLE_TARGET_SELF",
+                  "accessibilityPlayData": {
+                   "accessibilityData": {
+                    "label": "Play Daily Top Music Videos - Global"
+                   }
+                  },
+                  "accessibilityPauseData": {
+                   "accessibilityData": {
+                    "label": "Pause Daily Top Music Videos - Global"
+                   }
+                  }
+                 }
+                },
+                "contentPosition": "MUSIC_ITEM_THUMBNAIL_OVERLAY_CONTENT_POSITION_BOTTOM_RIGHT",
+                "displayStyle": "MUSIC_ITEM_THUMBNAIL_OVERLAY_DISPLAY_STYLE_HOVER"
+               }
+              }
+             }
+            },
+            {
+             "musicTwoRowItemRenderer": {
+              "thumbnailRenderer": {
+               "musicThumbnailRenderer": {
+                "thumbnail": {
+                 "thumbnails": [
+                  {
+                   "url": "https://yt3.googleusercontent.com/V5PYeJs4gEAG0_wYkLubyT6iLL8UY3RU_qq00Q2QQryhkVN3IWg3cTkWUEv1czoMmNS-j7pkKXWU=s192",
+                   "width": 192,
+                   "height": 192
+                  },
+                  {
+                   "url": "https://yt3.googleusercontent.com/V5PYeJs4gEAG0_wYkLubyT6iLL8UY3RU_qq00Q2QQryhkVN3IWg3cTkWUEv1czoMmNS-j7pkKXWU=s576",
+                   "width": 576,
+                   "height": 576
+                  }
+                 ]
+                },
+                "thumbnailCrop": "MUSIC_THUMBNAIL_CROP_UNSPECIFIED",
+                "thumbnailScale": "MUSIC_THUMBNAIL_SCALE_ASPECT_FILL"
+               }
+              },
+              "aspectRatio": "MUSIC_TWO_ROW_ITEM_THUMBNAIL_ASPECT_RATIO_SQUARE",
+              "title": {
+               "runs": [
+                {
+                 "text": "Top 100 Music Videos Global",
+                 "navigationEndpoint": {
+                  "browseEndpoint": {
+                   "browseId": "VLPL4fGSI1pDJn5kI81J1fYWK5eZRl1zJ5kM",
+                   "browseEndpointContextSupportedConfigs": {
+                    "browseEndpointContextMusicConfig": {
+                     "pageType": "MUSIC_PAGE_TYPE_PLAYLIST"
+                    }
+                   }
+                  }
+                 }
+                }
+               ]
+              },
+              "subtitle": {
+               "runs": [
+                {
+                 "text": "Chart"
+                },
+                {
+                 "text": " • "
+                },
+                {
+                 "text": "YouTube Charts",
+                 "navigationEndpoint": {
+                  "browseEndpoint": {
+                   "browseId": "FEmusic_charts",
+                   "browseEndpointContextSupportedConfigs": {
+                    "browseEndpointContextMusicConfig": {
+                     "pageType": "MUSIC_PAGE_TYPE_USER_CHANNEL"
+                    }
+                   }
+                  }
+                 }
+                }
+               ]
+              },
+              "navigationEndpoint": {
+               "browseEndpoint": {
+                "browseId": "VLPL4fGSI1pDJn5kI81J1fYWK5eZRl1zJ5kM",
+                "browseEndpointContextSupportedConfigs": {
+                 "browseEndpointContextMusicConfig": {
+                  "pageType": "MUSIC_PAGE_TYPE_PLAYLIST"
+                 }
+                }
+               }
+              },
+              "thumbnailOverlay": {
+               "musicItemThumbnailOverlayRenderer": {
+                "background": {
+                 "verticalGradient": {
+                  "gradientLayerColors": [
+                   "2147483648",
+                   "0",
+                   "0"
+                  ]
+                 }
+                },
+                "content": {
+                 "musicPlayButtonRenderer": {
+                  "playNavigationEndpoint": {
+                   "watchPlaylistEndpoint": {
+                    "playlistId": "PL4fGSI1pDJn5kI81J1fYWK5eZRl1zJ5kM",
+                    "params": "wAEB"
+                   }
+                  },
+                  "playIcon": {
+                   "iconType": "PLAY_ARROW"
+                  },
+                  "pauseIcon": {
+                   "iconType": "PAUSE"
+                  },
+                  "iconColor": 4294967295,
+                  "backgroundColor": 2566914048,
+                  "activeBackgroundColor": 4278190080,
+                  "loadingIndicatorColor": 14745645,
+                  "playingIcon": {
+                   "iconType": "VOLUME_UP"
+                  },
+                  "iconLoadingColor": 1308622847,
+                  "activeScaleFactor": 1.2,
+                  "buttonSize": "MUSIC_PLAY_BUTTON_SIZE_MEDIUM",
+                  "rippleTarget": "MUSIC_PLAY_BUTTON_RIPPLE_TARGET_SELF",
+                  "accessibilityPlayData": {
+                   "accessibilityData": {
+                    "label": "Play Top 100 Music Videos Global"
+                   }
+                  },
+                  "accessibilityPauseData": {
+                   "accessibilityData": {
+                    "label": "Pause Top 100 Music Videos Global"
+                   }
+                  }
+                 }
+                },
+                "contentPosition": "MUSIC_ITEM_THUMBNAIL_OVERLAY_CONTENT_POSITION_BOTTOM_RIGHT",
+                "displayStyle": "MUSIC_ITEM_THUMBNAIL_OVERLAY_DISPLAY_STYLE_HOVER"
+               }
+              }
+             }
+            }
+           ],
+           "itemSize": "COLLECTION_STYLE_ITEM_SIZE_MEDIUM"
+          }
+         },
+         {
+          "musicCarouselShelfRenderer": {
+           "header": {
+            "musicCarouselShelfBasicHeaderRenderer": {
+             "title": {
+              "runs": [
+               {
+                "text": "Top artists"
+               }
+              ]
+             },
+             "accessibilityData": {
+              "accessibilityData": {
+               "label": "Top artists"
+              }
+             },
+             "headerStyle": "MUSIC_CAROUSEL_SHELF_BASIC_HEADER_STYLE_DISPLAY_TWO"
+            }
+           },
+           "contents": [
+            {
+             "musicResponsiveListItemRenderer": {
+              "thumbnail": {
+               "musicThumbnailRenderer": {
+                "thumbnail": {
+                 "thumbnails": [
+                  {
+                   "url": "https://lh3.googleusercontent.com/_wPXKRCH5rAX8AK1kJZ1bNhSpNyyEgBRNmREdPmLbvTy3sX_ldiKMRYFc5uChygV_KRx_SDrH1KgUifk=w60-h60-p-l90-rj",
+                   "width": 60,
+                   "height": 60
+                  },
+                  {
+                   "url": "https://lh3.googleusercontent.com/_wPXKRCH5rAX8AK1kJZ1bNhSpNyyEgBRNmREdPmLbvTy3sX_ldiKMRYFc5uChygV_KRx_SDrH1KgUifk=w120-h120-p-l90-rj",
+                   "width": 120,
+                   "height": 120
+                  }
+                 ]
+                },
+                "thumbnailCrop": "MUSIC_THUMBNAIL_CROP_CIRCLE",
+                "thumbnailScale": "MUSIC_THUMBNAIL_SCALE_ASPECT_FILL"
+               }
+              },
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Alka Yagnik"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "2.32M subscribers"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               }
+              ],
+              "flexColumnDisplayStyle": "MUSIC_RESPONSIVE_LIST_ITEM_FLEX_COLUMN_DISPLAY_STYLE_TWO_LINE_STACK",
+              "navigationEndpoint": {
+               "browseEndpoint": {
+                "browseId": "UCptBkLZ6XRxoyn8SkUMc_Iw",
+                "browseEndpointContextSupportedConfigs": {
+                 "browseEndpointContextMusicConfig": {
+                  "pageType": "MUSIC_PAGE_TYPE_ARTIST"
+                 }
+                }
+               }
+              },
+              "itemHeight": "MUSIC_RESPONSIVE_LIST_ITEM_HEIGHT_MEDIUM_COMPACT",
+              "customIndexColumn": {
+               "musicCustomIndexColumnRenderer": {
+                "text": {
+                 "runs": [
+                  {
+                   "text": "1"
+                  }
+                 ]
+                },
+                "icon": {
+                 "iconType": "ARROW_CHART_NEUTRAL"
+                },
+                "iconColorStyle": "CUSTOM_INDEX_COLUMN_ICON_COLOR_STYLE_GREY",
+                "accessibilityData": {
+                 "accessibilityData": {
+                  "label": "Rank stayed at 1"
+                 }
+                }
+               }
+              }
+             }
+            },
+            {
+             "musicResponsiveListItemRenderer": {
+              "thumbnail": {
+               "musicThumbnailRenderer": {
+                "thumbnail": {
+                 "thumbnails": [
+                  {
+                   "url": "https://lh3.googleusercontent.com/W_yOqnKSDYyeVOY_AsXhuAtb6rW3vCL3GtJ9DA1GxWOrJfyeSOqzvTv_TkFHijdkVPXWutASBlRFPg=w60-h60-p-l90-rj",
+                   "width": 60,
+                   "height": 60
+                  },
+                  {
+                   "url": "https://lh3.googleusercontent.com/W_yOqnKSDYyeVOY_AsXhuAtb6rW3vCL3GtJ9DA1GxWOrJfyeSOqzvTv_TkFHijdkVPXWutASBlRFPg=w120-h120-p-l90-rj",
+                   "width": 120,
+                   "height": 120
+                  }
+                 ]
+                },
+                "thumbnailCrop": "MUSIC_THUMBNAIL_CROP_CIRCLE",
+                "thumbnailScale": "MUSIC_THUMBNAIL_SCALE_ASPECT_FILL"
+               }
+              },
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Arijit Singh"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "6.58M subscribers"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               }
+              ],
+              "flexColumnDisplayStyle": "MUSIC_RESPONSIVE_LIST_ITEM_FLEX_COLUMN_DISPLAY_STYLE_TWO_LINE_STACK",
+              "navigationEndpoint": {
+               "browseEndpoint": {
+                "browseId": "UCDxKh1gFWeYsqePvgVzmPoQ",
+                "browseEndpointContextSupportedConfigs": {
+                 "browseEndpointContextMusicConfig": {
+                  "pageType": "MUSIC_PAGE_TYPE_ARTIST"
+                 }
+                }
+               }
+              },
+              "itemHeight": "MUSIC_RESPONSIVE_LIST_ITEM_HEIGHT_MEDIUM_COMPACT",
+              "customIndexColumn": {
+               "musicCustomIndexColumnRenderer": {
+                "text": {
+                 "runs": [
+                  {
+                   "text": "2"
+                  }
+                 ]
+                },
+                "icon": {
+                 "iconType": "ARROW_DROP_UP"
+                },
+                "iconColorStyle": "CUSTOM_INDEX_COLUMN_ICON_COLOR_STYLE_GREEN",
+                "accessibilityData": {
+                 "accessibilityData": {
+                  "label": "Rank increased to 2"
+                 }
+                }
+               }
+              }
+             }
+            },
+            {
+             "musicResponsiveListItemRenderer": {
+              "thumbnail": {
+               "musicThumbnailRenderer": {
+                "thumbnail": {
+                 "thumbnails": [
+                  {
+                   "url": "https://yt3.googleusercontent.com/coesV4OVEVkua3_wJG-2BVvTc95yHF9sS1W6mOAtl4-vvTjQb250Hy_nVlfvudmEugb7_k05vhY9aJm4=w60-h60-l90-rj",
+                   "width": 60,
+                   "height": 60
+                  },
+                  {
+                   "url": "https://yt3.googleusercontent.com/coesV4OVEVkua3_wJG-2BVvTc95yHF9sS1W6mOAtl4-vvTjQb250Hy_nVlfvudmEugb7_k05vhY9aJm4=w120-h120-l90-rj",
+                   "width": 120,
+                   "height": 120
+                  }
+                 ]
+                },
+                "thumbnailCrop": "MUSIC_THUMBNAIL_CROP_CIRCLE",
+                "thumbnailScale": "MUSIC_THUMBNAIL_SCALE_ASPECT_FILL"
+               }
+              },
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Udit Narayan"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "3.96M subscribers"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               }
+              ],
+              "flexColumnDisplayStyle": "MUSIC_RESPONSIVE_LIST_ITEM_FLEX_COLUMN_DISPLAY_STYLE_TWO_LINE_STACK",
+              "navigationEndpoint": {
+               "browseEndpoint": {
+                "browseId": "UC13ToEQgfmTe8_GW19LYtCg",
+                "browseEndpointContextSupportedConfigs": {
+                 "browseEndpointContextMusicConfig": {
+                  "pageType": "MUSIC_PAGE_TYPE_ARTIST"
+                 }
+                }
+               }
+              },
+              "itemHeight": "MUSIC_RESPONSIVE_LIST_ITEM_HEIGHT_MEDIUM_COMPACT",
+              "customIndexColumn": {
+               "musicCustomIndexColumnRenderer": {
+                "text": {
+                 "runs": [
+                  {
+                   "text": "3"
+                  }
+                 ]
+                },
+                "icon": {
+                 "iconType": "ARROW_DROP_DOWN"
+                },
+                "iconColorStyle": "CUSTOM_INDEX_COLUMN_ICON_COLOR_STYLE_RED",
+                "accessibilityData": {
+                 "accessibilityData": {
+                  "label": "Rank decreased to 3"
+                 }
+                }
+               }
+              }
+             }
+            },
+            {
+             "musicResponsiveListItemRenderer": {
+              "thumbnail": {
+               "musicThumbnailRenderer": {
+                "thumbnail": {
+                 "thumbnails": [
+                  {
+                   "url": "https://yt3.googleusercontent.com/PgINZNe0qVxgMSXKG5vF82bNN4WCC12zgWsz9I7OLs4CLF9Cn0Vxq7Xc1ToupnzXrCv0nKfe3VM=w60-h60-l90-rj",
+                   "width": 60,
+                   "height": 60
+                  },
+                  {
+                   "url": "https://yt3.googleusercontent.com/PgINZNe0qVxgMSXKG5vF82bNN4WCC12zgWsz9I7OLs4CLF9Cn0Vxq7Xc1ToupnzXrCv0nKfe3VM=w120-h120-l90-rj",
+                   "width": 120,
+                   "height": 120
+                  }
+                 ]
+                },
+                "thumbnailCrop": "MUSIC_THUMBNAIL_CROP_CIRCLE",
+                "thumbnailScale": "MUSIC_THUMBNAIL_SCALE_ASPECT_FILL"
+               }
+              },
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Shreya Ghoshal"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "2.82M subscribers"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               }
+              ],
+              "flexColumnDisplayStyle": "MUSIC_RESPONSIVE_LIST_ITEM_FLEX_COLUMN_DISPLAY_STYLE_TWO_LINE_STACK",
+              "navigationEndpoint": {
+               "browseEndpoint": {
+                "browseId": "UCrC-7fsdTCYeaRBpwA6j-Eg",
+                "browseEndpointContextSupportedConfigs": {
+                 "browseEndpointContextMusicConfig": {
+                  "pageType": "MUSIC_PAGE_TYPE_ARTIST"
+                 }
+                }
+               }
+              },
+              "itemHeight": "MUSIC_RESPONSIVE_LIST_ITEM_HEIGHT_MEDIUM_COMPACT",
+              "customIndexColumn": {
+               "musicCustomIndexColumnRenderer": {
+                "text": {
+                 "runs": [
+                  {
+                   "text": "4"
+                  }
+                 ]
+                },
+                "icon": {
+                 "iconType": "ARROW_CHART_NEUTRAL"
+                },
+                "iconColorStyle": "CUSTOM_INDEX_COLUMN_ICON_COLOR_STYLE_GREY",
+                "accessibilityData": {
+                 "accessibilityData": {
+                  "label": "Rank stayed at 4"
+                 }
+                }
+               }
+              }
+             }
+            },
+            {
+             "musicResponsiveListItemRenderer": {
+              "thumbnail": {
+               "musicThumbnailRenderer": {
+                "thumbnail": {
+                 "thumbnails": [
+                  {
+                   "url": "https://lh3.googleusercontent.com/cPvYaP4ByG-i7fUE-dKrjMgaNL8v3hC93ErP6meKnltvRuzxo-DINLQkTtvjfC6hVnzRMlnJEb9n3uM=w60-h60-p-l90-rj",
+                   "width": 60,
+                   "height": 60
+                  },
+                  {
+                   "url": "https://lh3.googleusercontent.com/cPvYaP4ByG-i7fUE-dKrjMgaNL8v3hC93ErP6meKnltvRuzxo-DINLQkTtvjfC6hVnzRMlnJEb9n3uM=w120-h120-p-l90-rj",
+                   "width": 120,
+                   "height": 120
+                  }
+                 ]
+                },
+                "thumbnailCrop": "MUSIC_THUMBNAIL_CROP_CIRCLE",
+                "thumbnailScale": "MUSIC_THUMBNAIL_SCALE_ASPECT_FILL"
+               }
+              },
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Kumar Sanu"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "3.11M subscribers"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               }
+              ],
+              "flexColumnDisplayStyle": "MUSIC_RESPONSIVE_LIST_ITEM_FLEX_COLUMN_DISPLAY_STYLE_TWO_LINE_STACK",
+              "navigationEndpoint": {
+               "browseEndpoint": {
+                "browseId": "UCQd9dydn5gaib_uuVVkYZTQ",
+                "browseEndpointContextSupportedConfigs": {
+                 "browseEndpointContextMusicConfig": {
+                  "pageType": "MUSIC_PAGE_TYPE_ARTIST"
+                 }
+                }
+               }
+              },
+              "itemHeight": "MUSIC_RESPONSIVE_LIST_ITEM_HEIGHT_MEDIUM_COMPACT",
+              "customIndexColumn": {
+               "musicCustomIndexColumnRenderer": {
+                "text": {
+                 "runs": [
+                  {
+                   "text": "5"
+                  }
+                 ]
+                },
+                "icon": {
+                 "iconType": "ARROW_CHART_NEUTRAL"
+                },
+                "iconColorStyle": "CUSTOM_INDEX_COLUMN_ICON_COLOR_STYLE_GREY",
+                "accessibilityData": {
+                 "accessibilityData": {
+                  "label": "Rank stayed at 5"
+                 }
+                }
+               }
+              }
+             }
+            },
+            {
+             "musicResponsiveListItemRenderer": {
+              "thumbnail": {
+               "musicThumbnailRenderer": {
+                "thumbnail": {
+                 "thumbnails": [
+                  {
+                   "url": "https://yt3.googleusercontent.com/ploU_4iWpDoJlX3FOlwwd_yQcex0I8A0_665lePXAEBbNp1zn5g42eNwg5Q7lvYc2mG2--UNIYcIhww=w60-h60-p-l90-rj",
+                   "width": 60,
+                   "height": 60
+                  },
+                  {
+                   "url": "https://yt3.googleusercontent.com/ploU_4iWpDoJlX3FOlwwd_yQcex0I8A0_665lePXAEBbNp1zn5g42eNwg5Q7lvYc2mG2--UNIYcIhww=w120-h120-p-l90-rj",
+                   "width": 120,
+                   "height": 120
+                  }
+                 ]
+                },
+                "thumbnailCrop": "MUSIC_THUMBNAIL_CROP_CIRCLE",
+                "thumbnailScale": "MUSIC_THUMBNAIL_SCALE_ASPECT_FILL"
+               }
+              },
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Bad Bunny"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "53.4M subscribers"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               }
+              ],
+              "flexColumnDisplayStyle": "MUSIC_RESPONSIVE_LIST_ITEM_FLEX_COLUMN_DISPLAY_STYLE_TWO_LINE_STACK",
+              "navigationEndpoint": {
+               "browseEndpoint": {
+                "browseId": "UCiY3z8HAGD6BlSNKVn2kSvQ",
+                "browseEndpointContextSupportedConfigs": {
+                 "browseEndpointContextMusicConfig": {
+                  "pageType": "MUSIC_PAGE_TYPE_ARTIST"
+                 }
+                }
+               }
+              },
+              "itemHeight": "MUSIC_RESPONSIVE_LIST_ITEM_HEIGHT_MEDIUM_COMPACT",
+              "customIndexColumn": {
+               "musicCustomIndexColumnRenderer": {
+                "text": {
+                 "runs": [
+                  {
+                   "text": "6"
+                  }
+                 ]
+                },
+                "icon": {
+                 "iconType": "ARROW_CHART_NEUTRAL"
+                },
+                "iconColorStyle": "CUSTOM_INDEX_COLUMN_ICON_COLOR_STYLE_GREY",
+                "accessibilityData": {
+                 "accessibilityData": {
+                  "label": "Rank stayed at 6"
+                 }
+                }
+               }
+              }
+             }
+            },
+            {
+             "musicResponsiveListItemRenderer": {
+              "thumbnail": {
+               "musicThumbnailRenderer": {
+                "thumbnail": {
+                 "thumbnails": [
+                  {
+                   "url": "https://yt3.googleusercontent.com/iWH_XSIO8yZvIqz8vxkwC9BjzGM4giAhR69Z6LZ0t8Rp79ASNFVwpwHZWOyyo94B_jsXl8HtFueMgMA=w60-h60-p-l90-rj",
+                   "width": 60,
+                   "height": 60
+                  },
+                  {
+                   "url": "https://yt3.googleusercontent.com/iWH_XSIO8yZvIqz8vxkwC9BjzGM4giAhR69Z6LZ0t8Rp79ASNFVwpwHZWOyyo94B_jsXl8HtFueMgMA=w120-h120-p-l90-rj",
+                   "width": 120,
+                   "height": 120
+                  }
+                 ]
+                },
+                "thumbnailCrop": "MUSIC_THUMBNAIL_CROP_CIRCLE",
+                "thumbnailScale": "MUSIC_THUMBNAIL_SCALE_ASPECT_FILL"
+               }
+              },
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Sonu Nigam"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "3.89M subscribers"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               }
+              ],
+              "flexColumnDisplayStyle": "MUSIC_RESPONSIVE_LIST_ITEM_FLEX_COLUMN_DISPLAY_STYLE_TWO_LINE_STACK",
+              "navigationEndpoint": {
+               "browseEndpoint": {
+                "browseId": "UCsC4u-BJAd4OX1hJXtwXSOQ",
+                "browseEndpointContextSupportedConfigs": {
+                 "browseEndpointContextMusicConfig": {
+                  "pageType": "MUSIC_PAGE_TYPE_ARTIST"
+                 }
+                }
+               }
+              },
+              "itemHeight": "MUSIC_RESPONSIVE_LIST_ITEM_HEIGHT_MEDIUM_COMPACT",
+              "customIndexColumn": {
+               "musicCustomIndexColumnRenderer": {
+                "text": {
+                 "runs": [
+                  {
+                   "text": "7"
+                  }
+                 ]
+                },
+                "icon": {
+                 "iconType": "ARROW_DROP_UP"
+                },
+                "iconColorStyle": "CUSTOM_INDEX_COLUMN_ICON_COLOR_STYLE_GREEN",
+                "accessibilityData": {
+                 "accessibilityData": {
+                  "label": "Rank increased to 7"
+                 }
+                }
+               }
+              }
+             }
+            },
+            {
+             "musicResponsiveListItemRenderer": {
+              "thumbnail": {
+               "musicThumbnailRenderer": {
+                "thumbnail": {
+                 "thumbnails": [
+                  {
+                   "url": "https://lh3.googleusercontent.com/feZmeXdUHGejlI2qfS6ZDzS5AJJ2dtkG4SrWJ7AgeWuAOvobr_XC4m8REZ01uHpgX0qrpyY4557vKNA=w60-h60-p-l90-rj",
+                   "width": 60,
+                   "height": 60
+                  },
+                  {
+                   "url": "https://lh3.googleusercontent.com/feZmeXdUHGejlI2qfS6ZDzS5AJJ2dtkG4SrWJ7AgeWuAOvobr_XC4m8REZ01uHpgX0qrpyY4557vKNA=w120-h120-p-l90-rj",
+                   "width": 120,
+                   "height": 120
+                  }
+                 ]
+                },
+                "thumbnailCrop": "MUSIC_THUMBNAIL_CROP_CIRCLE",
+                "thumbnailScale": "MUSIC_THUMBNAIL_SCALE_ASPECT_FILL"
+               }
+              },
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Shilpi Raj"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "1.4M subscribers"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               }
+              ],
+              "flexColumnDisplayStyle": "MUSIC_RESPONSIVE_LIST_ITEM_FLEX_COLUMN_DISPLAY_STYLE_TWO_LINE_STACK",
+              "navigationEndpoint": {
+               "browseEndpoint": {
+                "browseId": "UCYMthbEErlf2Jq10A9tcEbA",
+                "browseEndpointContextSupportedConfigs": {
+                 "browseEndpointContextMusicConfig": {
+                  "pageType": "MUSIC_PAGE_TYPE_ARTIST"
+                 }
+                }
+               }
+              },
+              "itemHeight": "MUSIC_RESPONSIVE_LIST_ITEM_HEIGHT_MEDIUM_COMPACT",
+              "customIndexColumn": {
+               "musicCustomIndexColumnRenderer": {
+                "text": {
+                 "runs": [
+                  {
+                   "text": "8"
+                  }
+                 ]
+                },
+                "icon": {
+                 "iconType": "ARROW_DROP_UP"
+                },
+                "iconColorStyle": "CUSTOM_INDEX_COLUMN_ICON_COLOR_STYLE_GREEN",
+                "accessibilityData": {
+                 "accessibilityData": {
+                  "label": "Rank increased to 8"
+                 }
+                }
+               }
+              }
+             }
+            },
+            {
+             "musicResponsiveListItemRenderer": {
+              "thumbnail": {
+               "musicThumbnailRenderer": {
+                "thumbnail": {
+                 "thumbnails": [
+                  {
+                   "url": "https://yt3.googleusercontent.com/dkYRAOQcSpLuL43zdgMfsHuegzZEUogHxxx4Pm3Pf_L6QuEMS9oIZIbWzB0z9gQEcSjD2qI69sgeEBhG=w60-h60-p-l90-rj",
+                   "width": 60,
+                   "height": 60
+                  },
+                  {
+                   "url": "https://yt3.googleusercontent.com/dkYRAOQcSpLuL43zdgMfsHuegzZEUogHxxx4Pm3Pf_L6QuEMS9oIZIbWzB0z9gQEcSjD2qI69sgeEBhG=w120-h120-p-l90-rj",
+                   "width": 120,
+                   "height": 120
+                  }
+                 ]
+                },
+                "thumbnailCrop": "MUSIC_THUMBNAIL_CROP_CIRCLE",
+                "thumbnailScale": "MUSIC_THUMBNAIL_SCALE_ASPECT_FILL"
+               }
+              },
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Fuerza Regida"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "7.23M subscribers"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               }
+              ],
+              "flexColumnDisplayStyle": "MUSIC_RESPONSIVE_LIST_ITEM_FLEX_COLUMN_DISPLAY_STYLE_TWO_LINE_STACK",
+              "navigationEndpoint": {
+               "browseEndpoint": {
+                "browseId": "UC0kxNxFQCK6d2spPz5Sme7Q",
+                "browseEndpointContextSupportedConfigs": {
+                 "browseEndpointContextMusicConfig": {
+                  "pageType": "MUSIC_PAGE_TYPE_ARTIST"
+                 }
+                }
+               }
+              },
+              "itemHeight": "MUSIC_RESPONSIVE_LIST_ITEM_HEIGHT_MEDIUM_COMPACT",
+              "customIndexColumn": {
+               "musicCustomIndexColumnRenderer": {
+                "text": {
+                 "runs": [
+                  {
+                   "text": "9"
+                  }
+                 ]
+                },
+                "icon": {
+                 "iconType": "ARROW_DROP_UP"
+                },
+                "iconColorStyle": "CUSTOM_INDEX_COLUMN_ICON_COLOR_STYLE_GREEN",
+                "accessibilityData": {
+                 "accessibilityData": {
+                  "label": "Rank increased to 9"
+                 }
+                }
+               }
+              }
+             }
+            },
+            {
+             "musicResponsiveListItemRenderer": {
+              "thumbnail": {
+               "musicThumbnailRenderer": {
+                "thumbnail": {
+                 "thumbnails": [
+                  {
+                   "url": "https://yt3.googleusercontent.com/sjGMYJQ1J3FZEIBsMYUztMjjYOM4-NJ24CjmIHqxTWCxAM1YgjL-d_17u7_PRhTouOwwAjbu-2x5S6I=w60-h60-p-l90-rj",
+                   "width": 60,
+                   "height": 60
+                  },
+                  {
+                   "url": "https://yt3.googleusercontent.com/sjGMYJQ1J3FZEIBsMYUztMjjYOM4-NJ24CjmIHqxTWCxAM1YgjL-d_17u7_PRhTouOwwAjbu-2x5S6I=w120-h120-p-l90-rj",
+                   "width": 120,
+                   "height": 120
+                  }
+                 ]
+                },
+                "thumbnailCrop": "MUSIC_THUMBNAIL_CROP_CIRCLE",
+                "thumbnailScale": "MUSIC_THUMBNAIL_SCALE_ASPECT_FILL"
+               }
+              },
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Pritam"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "1.47M subscribers"
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               }
+              ],
+              "flexColumnDisplayStyle": "MUSIC_RESPONSIVE_LIST_ITEM_FLEX_COLUMN_DISPLAY_STYLE_TWO_LINE_STACK",
+              "navigationEndpoint": {
+               "browseEndpoint": {
+                "browseId": "UCCTN01plFzn4npREHKT2_9Q",
+                "browseEndpointContextSupportedConfigs": {
+                 "browseEndpointContextMusicConfig": {
+                  "pageType": "MUSIC_PAGE_TYPE_ARTIST"
+                 }
+                }
+               }
+              },
+              "itemHeight": "MUSIC_RESPONSIVE_LIST_ITEM_HEIGHT_MEDIUM_COMPACT",
+              "customIndexColumn": {
+               "musicCustomIndexColumnRenderer": {
+                "text": {
+                 "runs": [
+                  {
+                   "text": "10"
+                  }
+                 ]
+                },
+                "icon": {
+                 "iconType": "ARROW_DROP_UP"
+                },
+                "iconColorStyle": "CUSTOM_INDEX_COLUMN_ICON_COLOR_STYLE_GREEN",
+                "accessibilityData": {
+                 "accessibilityData": {
+                  "label": "Rank increased to 10"
+                 }
+                }
+               }
+              }
+             }
+            }
+           ],
+           "itemSize": "COLLECTION_STYLE_ITEM_SIZE_MEDIUM",
+           "numItemsPerColumn": "4"
+          }
+         }
+        ]
+       }
+      }
+     }
+    }
+   ]
+  }
+ },
+ "header": {
+  "musicHeaderRenderer": {
+   "title": {
+    "runs": [
+     {
+      "text": "Charts"
+     }
+    ]
+   }
+  }
+ },
+ "frameworkUpdates": {
+  "entityBatchUpdate": {
+   "mutations": [
+    {
+     "entityKey": "EiVleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3IJABKAE%3D",
+     "type": "ENTITY_MUTATION_TYPE_REPLACE",
+     "payload": {
+      "musicForm": {
+       "id": "EiVleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3IJABKAE%3D",
+       "booleanChoiceEntityKeys": [
+        "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3UlMgkQEoAQ%3D%3D",
+        "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3TFUgkQEoAQ%3D%3D",
+        "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3UFkgkQEoAQ%3D%3D",
+        "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3VEggkQEoAQ%3D%3D",
+        "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3SEsgkQEoAQ%3D%3D",
+        "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3UEggkQEoAQ%3D%3D",
+        "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3Tk8gkQEoAQ%3D%3D",
+        "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3QkUgkQEoAQ%3D%3D",
+        "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3SFUgkQEoAQ%3D%3D",
+        "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3SlAgkQEoAQ%3D%3D",
+        "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3REUgkQEoAQ%3D%3D",
+        "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3UlUgkQEoAQ%3D%3D",
+        "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3Q0wgkQEoAQ%3D%3D",
+        "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3SUUgkQEoAQ%3D%3D",
+        "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3VVMgkQEoAQ%3D%3D",
+        "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3WlogkQEoAQ%3D%3D",
+        "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3VFIgkQEoAQ%3D%3D",
+        "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3Qk8gkQEoAQ%3D%3D",
+        "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3Q1IgkQEoAQ%3D%3D",
+        "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3RUMgkQEoAQ%3D%3D",
+        "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3RVMgkQEoAQ%3D%3D",
+        "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3Vk4gkQEoAQ%3D%3D",
+        "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3WkEgkQEoAQ%3D%3D",
+        "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3RE8gkQEoAQ%3D%3D",
+        "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3Uk8gkQEoAQ%3D%3D",
+        "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3QVUgkQEoAQ%3D%3D",
+        "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3RkkgkQEoAQ%3D%3D",
+        "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3SU4gkQEoAQ%3D%3D",
+        "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3UEUgkQEoAQ%3D%3D",
+        "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3U0EgkQEoAQ%3D%3D",
+        "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3QVIgkQEoAQ%3D%3D",
+        "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3TkcgkQEoAQ%3D%3D",
+        "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3VFcgkQEoAQ%3D%3D",
+        "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3UEwgkQEoAQ%3D%3D",
+        "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3TlogkQEoAQ%3D%3D",
+        "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3VUEgkQEoAQ%3D%3D",
+        "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3UFQgkQEoAQ%3D%3D",
+        "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3SUwgkQEoAQ%3D%3D",
+        "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3QUUgkQEoAQ%3D%3D",
+        "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3RlIgkQEoAQ%3D%3D",
+        "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3Q08gkQEoAQ%3D%3D",
+        "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3SVQgkQEoAQ%3D%3D",
+        "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3R0IgkQEoAQ%3D%3D",
+        "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3S0UgkQEoAQ%3D%3D",
+        "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3RUUgkQEoAQ%3D%3D",
+        "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3QlIgkQEoAQ%3D%3D",
+        "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3Q0ggkQEoAQ%3D%3D",
+        "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3VVkgkQEoAQ%3D%3D",
+        "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3R1QgkQEoAQ%3D%3D",
+        "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3TkwgkQEoAQ%3D%3D",
+        "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3S1IgkQEoAQ%3D%3D",
+        "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3REsgkQEoAQ%3D%3D",
+        "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3Q0EgkQEoAQ%3D%3D",
+        "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3TkkgkQEoAQ%3D%3D",
+        "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3TVggkQEoAQ%3D%3D",
+        "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3U1YgkQEoAQ%3D%3D",
+        "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3VFogkQEoAQ%3D%3D",
+        "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3SUQgkQEoAQ%3D%3D",
+        "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3RUcgkQEoAQ%3D%3D",
+        "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3SVMgkQEoAQ%3D%3D",
+        "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3Q1ogkQEoAQ%3D%3D",
+        "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3U0UgkQEoAQ%3D%3D",
+        "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3U0cgkQEoAQ%3D%3D",
+        "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3TVkgkQEoAQ%3D%3D",
+        "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3VUcgkQEoAQ%3D%3D",
+        "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3WlcgkQEoAQ%3D%3D",
+        "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3UEEgkQEoAQ%3D%3D",
+        "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3QVQgkQEoAQ%3D%3D",
+        "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3SE4gkQEoAQ%3D%3D"
+       ]
+      }
+     }
+    },
+    {
+     "entityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3QVUgkQEoAQ%3D%3D",
+     "type": "ENTITY_MUTATION_TYPE_REPLACE",
+     "payload": {
+      "musicFormBooleanChoice": {
+       "id": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3QVUgkQEoAQ%3D%3D",
+       "parentFormEntityKey": "EiVleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3IJABKAE%3D",
+       "selected": false,
+       "countryCode": "AU"
+      }
+     }
+    },
+    {
+     "entityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3WlogkQEoAQ%3D%3D",
+     "type": "ENTITY_MUTATION_TYPE_REPLACE",
+     "payload": {
+      "musicFormBooleanChoice": {
+       "id": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3WlogkQEoAQ%3D%3D",
+       "parentFormEntityKey": "EiVleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3IJABKAE%3D",
+       "selected": true,
+       "countryCode": "ZZ"
+      }
+     }
+    },
+    {
+     "entityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3QVIgkQEoAQ%3D%3D",
+     "type": "ENTITY_MUTATION_TYPE_REPLACE",
+     "payload": {
+      "musicFormBooleanChoice": {
+       "id": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3QVIgkQEoAQ%3D%3D",
+       "parentFormEntityKey": "EiVleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3IJABKAE%3D",
+       "selected": false,
+       "countryCode": "AR"
+      }
+     }
+    },
+    {
+     "entityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3QVQgkQEoAQ%3D%3D",
+     "type": "ENTITY_MUTATION_TYPE_REPLACE",
+     "payload": {
+      "musicFormBooleanChoice": {
+       "id": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3QVQgkQEoAQ%3D%3D",
+       "parentFormEntityKey": "EiVleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3IJABKAE%3D",
+       "selected": false,
+       "countryCode": "AT"
+      }
+     }
+    },
+    {
+     "entityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3QkUgkQEoAQ%3D%3D",
+     "type": "ENTITY_MUTATION_TYPE_REPLACE",
+     "payload": {
+      "musicFormBooleanChoice": {
+       "id": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3QkUgkQEoAQ%3D%3D",
+       "parentFormEntityKey": "EiVleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3IJABKAE%3D",
+       "selected": false,
+       "countryCode": "BE"
+      }
+     }
+    },
+    {
+     "entityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3Qk8gkQEoAQ%3D%3D",
+     "type": "ENTITY_MUTATION_TYPE_REPLACE",
+     "payload": {
+      "musicFormBooleanChoice": {
+       "id": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3Qk8gkQEoAQ%3D%3D",
+       "parentFormEntityKey": "EiVleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3IJABKAE%3D",
+       "selected": false,
+       "countryCode": "BO"
+      }
+     }
+    },
+    {
+     "entityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3QlIgkQEoAQ%3D%3D",
+     "type": "ENTITY_MUTATION_TYPE_REPLACE",
+     "payload": {
+      "musicFormBooleanChoice": {
+       "id": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3QlIgkQEoAQ%3D%3D",
+       "parentFormEntityKey": "EiVleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3IJABKAE%3D",
+       "selected": false,
+       "countryCode": "BR"
+      }
+     }
+    },
+    {
+     "entityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3Q0EgkQEoAQ%3D%3D",
+     "type": "ENTITY_MUTATION_TYPE_REPLACE",
+     "payload": {
+      "musicFormBooleanChoice": {
+       "id": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3Q0EgkQEoAQ%3D%3D",
+       "parentFormEntityKey": "EiVleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3IJABKAE%3D",
+       "selected": false,
+       "countryCode": "CA"
+      }
+     }
+    },
+    {
+     "entityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3Q0wgkQEoAQ%3D%3D",
+     "type": "ENTITY_MUTATION_TYPE_REPLACE",
+     "payload": {
+      "musicFormBooleanChoice": {
+       "id": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3Q0wgkQEoAQ%3D%3D",
+       "parentFormEntityKey": "EiVleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3IJABKAE%3D",
+       "selected": false,
+       "countryCode": "CL"
+      }
+     }
+    },
+    {
+     "entityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3Q08gkQEoAQ%3D%3D",
+     "type": "ENTITY_MUTATION_TYPE_REPLACE",
+     "payload": {
+      "musicFormBooleanChoice": {
+       "id": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3Q08gkQEoAQ%3D%3D",
+       "parentFormEntityKey": "EiVleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3IJABKAE%3D",
+       "selected": false,
+       "countryCode": "CO"
+      }
+     }
+    },
+    {
+     "entityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3Q1IgkQEoAQ%3D%3D",
+     "type": "ENTITY_MUTATION_TYPE_REPLACE",
+     "payload": {
+      "musicFormBooleanChoice": {
+       "id": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3Q1IgkQEoAQ%3D%3D",
+       "parentFormEntityKey": "EiVleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3IJABKAE%3D",
+       "selected": false,
+       "countryCode": "CR"
+      }
+     }
+    },
+    {
+     "entityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3Q1ogkQEoAQ%3D%3D",
+     "type": "ENTITY_MUTATION_TYPE_REPLACE",
+     "payload": {
+      "musicFormBooleanChoice": {
+       "id": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3Q1ogkQEoAQ%3D%3D",
+       "parentFormEntityKey": "EiVleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3IJABKAE%3D",
+       "selected": false,
+       "countryCode": "CZ"
+      }
+     }
+    },
+    {
+     "entityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3REsgkQEoAQ%3D%3D",
+     "type": "ENTITY_MUTATION_TYPE_REPLACE",
+     "payload": {
+      "musicFormBooleanChoice": {
+       "id": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3REsgkQEoAQ%3D%3D",
+       "parentFormEntityKey": "EiVleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3IJABKAE%3D",
+       "selected": false,
+       "countryCode": "DK"
+      }
+     }
+    },
+    {
+     "entityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3RE8gkQEoAQ%3D%3D",
+     "type": "ENTITY_MUTATION_TYPE_REPLACE",
+     "payload": {
+      "musicFormBooleanChoice": {
+       "id": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3RE8gkQEoAQ%3D%3D",
+       "parentFormEntityKey": "EiVleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3IJABKAE%3D",
+       "selected": false,
+       "countryCode": "DO"
+      }
+     }
+    },
+    {
+     "entityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3RUMgkQEoAQ%3D%3D",
+     "type": "ENTITY_MUTATION_TYPE_REPLACE",
+     "payload": {
+      "musicFormBooleanChoice": {
+       "id": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3RUMgkQEoAQ%3D%3D",
+       "parentFormEntityKey": "EiVleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3IJABKAE%3D",
+       "selected": false,
+       "countryCode": "EC"
+      }
+     }
+    },
+    {
+     "entityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3RUcgkQEoAQ%3D%3D",
+     "type": "ENTITY_MUTATION_TYPE_REPLACE",
+     "payload": {
+      "musicFormBooleanChoice": {
+       "id": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3RUcgkQEoAQ%3D%3D",
+       "parentFormEntityKey": "EiVleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3IJABKAE%3D",
+       "selected": false,
+       "countryCode": "EG"
+      }
+     }
+    },
+    {
+     "entityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3U1YgkQEoAQ%3D%3D",
+     "type": "ENTITY_MUTATION_TYPE_REPLACE",
+     "payload": {
+      "musicFormBooleanChoice": {
+       "id": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3U1YgkQEoAQ%3D%3D",
+       "parentFormEntityKey": "EiVleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3IJABKAE%3D",
+       "selected": false,
+       "countryCode": "SV"
+      }
+     }
+    },
+    {
+     "entityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3RUUgkQEoAQ%3D%3D",
+     "type": "ENTITY_MUTATION_TYPE_REPLACE",
+     "payload": {
+      "musicFormBooleanChoice": {
+       "id": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3RUUgkQEoAQ%3D%3D",
+       "parentFormEntityKey": "EiVleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3IJABKAE%3D",
+       "selected": false,
+       "countryCode": "EE"
+      }
+     }
+    },
+    {
+     "entityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3RkkgkQEoAQ%3D%3D",
+     "type": "ENTITY_MUTATION_TYPE_REPLACE",
+     "payload": {
+      "musicFormBooleanChoice": {
+       "id": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3RkkgkQEoAQ%3D%3D",
+       "parentFormEntityKey": "EiVleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3IJABKAE%3D",
+       "selected": false,
+       "countryCode": "FI"
+      }
+     }
+    },
+    {
+     "entityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3RlIgkQEoAQ%3D%3D",
+     "type": "ENTITY_MUTATION_TYPE_REPLACE",
+     "payload": {
+      "musicFormBooleanChoice": {
+       "id": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3RlIgkQEoAQ%3D%3D",
+       "parentFormEntityKey": "EiVleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3IJABKAE%3D",
+       "selected": false,
+       "countryCode": "FR"
+      }
+     }
+    },
+    {
+     "entityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3REUgkQEoAQ%3D%3D",
+     "type": "ENTITY_MUTATION_TYPE_REPLACE",
+     "payload": {
+      "musicFormBooleanChoice": {
+       "id": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3REUgkQEoAQ%3D%3D",
+       "parentFormEntityKey": "EiVleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3IJABKAE%3D",
+       "selected": false,
+       "countryCode": "DE"
+      }
+     }
+    },
+    {
+     "entityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3R1QgkQEoAQ%3D%3D",
+     "type": "ENTITY_MUTATION_TYPE_REPLACE",
+     "payload": {
+      "musicFormBooleanChoice": {
+       "id": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3R1QgkQEoAQ%3D%3D",
+       "parentFormEntityKey": "EiVleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3IJABKAE%3D",
+       "selected": false,
+       "countryCode": "GT"
+      }
+     }
+    },
+    {
+     "entityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3SE4gkQEoAQ%3D%3D",
+     "type": "ENTITY_MUTATION_TYPE_REPLACE",
+     "payload": {
+      "musicFormBooleanChoice": {
+       "id": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3SE4gkQEoAQ%3D%3D",
+       "parentFormEntityKey": "EiVleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3IJABKAE%3D",
+       "selected": false,
+       "countryCode": "HN"
+      }
+     }
+    },
+    {
+     "entityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3SEsgkQEoAQ%3D%3D",
+     "type": "ENTITY_MUTATION_TYPE_REPLACE",
+     "payload": {
+      "musicFormBooleanChoice": {
+       "id": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3SEsgkQEoAQ%3D%3D",
+       "parentFormEntityKey": "EiVleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3IJABKAE%3D",
+       "selected": false,
+       "countryCode": "HK"
+      }
+     }
+    },
+    {
+     "entityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3SFUgkQEoAQ%3D%3D",
+     "type": "ENTITY_MUTATION_TYPE_REPLACE",
+     "payload": {
+      "musicFormBooleanChoice": {
+       "id": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3SFUgkQEoAQ%3D%3D",
+       "parentFormEntityKey": "EiVleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3IJABKAE%3D",
+       "selected": false,
+       "countryCode": "HU"
+      }
+     }
+    },
+    {
+     "entityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3SVMgkQEoAQ%3D%3D",
+     "type": "ENTITY_MUTATION_TYPE_REPLACE",
+     "payload": {
+      "musicFormBooleanChoice": {
+       "id": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3SVMgkQEoAQ%3D%3D",
+       "parentFormEntityKey": "EiVleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3IJABKAE%3D",
+       "selected": false,
+       "countryCode": "IS"
+      }
+     }
+    },
+    {
+     "entityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3SU4gkQEoAQ%3D%3D",
+     "type": "ENTITY_MUTATION_TYPE_REPLACE",
+     "payload": {
+      "musicFormBooleanChoice": {
+       "id": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3SU4gkQEoAQ%3D%3D",
+       "parentFormEntityKey": "EiVleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3IJABKAE%3D",
+       "selected": false,
+       "countryCode": "IN"
+      }
+     }
+    },
+    {
+     "entityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3SUQgkQEoAQ%3D%3D",
+     "type": "ENTITY_MUTATION_TYPE_REPLACE",
+     "payload": {
+      "musicFormBooleanChoice": {
+       "id": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3SUQgkQEoAQ%3D%3D",
+       "parentFormEntityKey": "EiVleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3IJABKAE%3D",
+       "selected": false,
+       "countryCode": "ID"
+      }
+     }
+    },
+    {
+     "entityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3SUUgkQEoAQ%3D%3D",
+     "type": "ENTITY_MUTATION_TYPE_REPLACE",
+     "payload": {
+      "musicFormBooleanChoice": {
+       "id": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3SUUgkQEoAQ%3D%3D",
+       "parentFormEntityKey": "EiVleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3IJABKAE%3D",
+       "selected": false,
+       "countryCode": "IE"
+      }
+     }
+    },
+    {
+     "entityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3SUwgkQEoAQ%3D%3D",
+     "type": "ENTITY_MUTATION_TYPE_REPLACE",
+     "payload": {
+      "musicFormBooleanChoice": {
+       "id": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3SUwgkQEoAQ%3D%3D",
+       "parentFormEntityKey": "EiVleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3IJABKAE%3D",
+       "selected": false,
+       "countryCode": "IL"
+      }
+     }
+    },
+    {
+     "entityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3SVQgkQEoAQ%3D%3D",
+     "type": "ENTITY_MUTATION_TYPE_REPLACE",
+     "payload": {
+      "musicFormBooleanChoice": {
+       "id": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3SVQgkQEoAQ%3D%3D",
+       "parentFormEntityKey": "EiVleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3IJABKAE%3D",
+       "selected": false,
+       "countryCode": "IT"
+      }
+     }
+    },
+    {
+     "entityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3SlAgkQEoAQ%3D%3D",
+     "type": "ENTITY_MUTATION_TYPE_REPLACE",
+     "payload": {
+      "musicFormBooleanChoice": {
+       "id": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3SlAgkQEoAQ%3D%3D",
+       "parentFormEntityKey": "EiVleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3IJABKAE%3D",
+       "selected": false,
+       "countryCode": "JP"
+      }
+     }
+    },
+    {
+     "entityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3S0UgkQEoAQ%3D%3D",
+     "type": "ENTITY_MUTATION_TYPE_REPLACE",
+     "payload": {
+      "musicFormBooleanChoice": {
+       "id": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3S0UgkQEoAQ%3D%3D",
+       "parentFormEntityKey": "EiVleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3IJABKAE%3D",
+       "selected": false,
+       "countryCode": "KE"
+      }
+     }
+    },
+    {
+     "entityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3TFUgkQEoAQ%3D%3D",
+     "type": "ENTITY_MUTATION_TYPE_REPLACE",
+     "payload": {
+      "musicFormBooleanChoice": {
+       "id": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3TFUgkQEoAQ%3D%3D",
+       "parentFormEntityKey": "EiVleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3IJABKAE%3D",
+       "selected": false,
+       "countryCode": "LU"
+      }
+     }
+    },
+    {
+     "entityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3TVkgkQEoAQ%3D%3D",
+     "type": "ENTITY_MUTATION_TYPE_REPLACE",
+     "payload": {
+      "musicFormBooleanChoice": {
+       "id": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3TVkgkQEoAQ%3D%3D",
+       "parentFormEntityKey": "EiVleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3IJABKAE%3D",
+       "selected": false,
+       "countryCode": "MY"
+      }
+     }
+    },
+    {
+     "entityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3TVggkQEoAQ%3D%3D",
+     "type": "ENTITY_MUTATION_TYPE_REPLACE",
+     "payload": {
+      "musicFormBooleanChoice": {
+       "id": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3TVggkQEoAQ%3D%3D",
+       "parentFormEntityKey": "EiVleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3IJABKAE%3D",
+       "selected": false,
+       "countryCode": "MX"
+      }
+     }
+    },
+    {
+     "entityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3TkwgkQEoAQ%3D%3D",
+     "type": "ENTITY_MUTATION_TYPE_REPLACE",
+     "payload": {
+      "musicFormBooleanChoice": {
+       "id": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3TkwgkQEoAQ%3D%3D",
+       "parentFormEntityKey": "EiVleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3IJABKAE%3D",
+       "selected": false,
+       "countryCode": "NL"
+      }
+     }
+    },
+    {
+     "entityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3TlogkQEoAQ%3D%3D",
+     "type": "ENTITY_MUTATION_TYPE_REPLACE",
+     "payload": {
+      "musicFormBooleanChoice": {
+       "id": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3TlogkQEoAQ%3D%3D",
+       "parentFormEntityKey": "EiVleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3IJABKAE%3D",
+       "selected": false,
+       "countryCode": "NZ"
+      }
+     }
+    },
+    {
+     "entityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3TkkgkQEoAQ%3D%3D",
+     "type": "ENTITY_MUTATION_TYPE_REPLACE",
+     "payload": {
+      "musicFormBooleanChoice": {
+       "id": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3TkkgkQEoAQ%3D%3D",
+       "parentFormEntityKey": "EiVleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3IJABKAE%3D",
+       "selected": false,
+       "countryCode": "NI"
+      }
+     }
+    },
+    {
+     "entityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3TkcgkQEoAQ%3D%3D",
+     "type": "ENTITY_MUTATION_TYPE_REPLACE",
+     "payload": {
+      "musicFormBooleanChoice": {
+       "id": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3TkcgkQEoAQ%3D%3D",
+       "parentFormEntityKey": "EiVleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3IJABKAE%3D",
+       "selected": false,
+       "countryCode": "NG"
+      }
+     }
+    },
+    {
+     "entityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3Tk8gkQEoAQ%3D%3D",
+     "type": "ENTITY_MUTATION_TYPE_REPLACE",
+     "payload": {
+      "musicFormBooleanChoice": {
+       "id": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3Tk8gkQEoAQ%3D%3D",
+       "parentFormEntityKey": "EiVleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3IJABKAE%3D",
+       "selected": false,
+       "countryCode": "NO"
+      }
+     }
+    },
+    {
+     "entityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3UEEgkQEoAQ%3D%3D",
+     "type": "ENTITY_MUTATION_TYPE_REPLACE",
+     "payload": {
+      "musicFormBooleanChoice": {
+       "id": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3UEEgkQEoAQ%3D%3D",
+       "parentFormEntityKey": "EiVleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3IJABKAE%3D",
+       "selected": false,
+       "countryCode": "PA"
+      }
+     }
+    },
+    {
+     "entityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3UFkgkQEoAQ%3D%3D",
+     "type": "ENTITY_MUTATION_TYPE_REPLACE",
+     "payload": {
+      "musicFormBooleanChoice": {
+       "id": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3UFkgkQEoAQ%3D%3D",
+       "parentFormEntityKey": "EiVleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3IJABKAE%3D",
+       "selected": false,
+       "countryCode": "PY"
+      }
+     }
+    },
+    {
+     "entityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3UEUgkQEoAQ%3D%3D",
+     "type": "ENTITY_MUTATION_TYPE_REPLACE",
+     "payload": {
+      "musicFormBooleanChoice": {
+       "id": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3UEUgkQEoAQ%3D%3D",
+       "parentFormEntityKey": "EiVleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3IJABKAE%3D",
+       "selected": false,
+       "countryCode": "PE"
+      }
+     }
+    },
+    {
+     "entityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3UEggkQEoAQ%3D%3D",
+     "type": "ENTITY_MUTATION_TYPE_REPLACE",
+     "payload": {
+      "musicFormBooleanChoice": {
+       "id": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3UEggkQEoAQ%3D%3D",
+       "parentFormEntityKey": "EiVleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3IJABKAE%3D",
+       "selected": false,
+       "countryCode": "PH"
+      }
+     }
+    },
+    {
+     "entityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3UEwgkQEoAQ%3D%3D",
+     "type": "ENTITY_MUTATION_TYPE_REPLACE",
+     "payload": {
+      "musicFormBooleanChoice": {
+       "id": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3UEwgkQEoAQ%3D%3D",
+       "parentFormEntityKey": "EiVleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3IJABKAE%3D",
+       "selected": false,
+       "countryCode": "PL"
+      }
+     }
+    },
+    {
+     "entityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3UFQgkQEoAQ%3D%3D",
+     "type": "ENTITY_MUTATION_TYPE_REPLACE",
+     "payload": {
+      "musicFormBooleanChoice": {
+       "id": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3UFQgkQEoAQ%3D%3D",
+       "parentFormEntityKey": "EiVleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3IJABKAE%3D",
+       "selected": false,
+       "countryCode": "PT"
+      }
+     }
+    },
+    {
+     "entityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3Uk8gkQEoAQ%3D%3D",
+     "type": "ENTITY_MUTATION_TYPE_REPLACE",
+     "payload": {
+      "musicFormBooleanChoice": {
+       "id": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3Uk8gkQEoAQ%3D%3D",
+       "parentFormEntityKey": "EiVleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3IJABKAE%3D",
+       "selected": false,
+       "countryCode": "RO"
+      }
+     }
+    },
+    {
+     "entityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3UlUgkQEoAQ%3D%3D",
+     "type": "ENTITY_MUTATION_TYPE_REPLACE",
+     "payload": {
+      "musicFormBooleanChoice": {
+       "id": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3UlUgkQEoAQ%3D%3D",
+       "parentFormEntityKey": "EiVleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3IJABKAE%3D",
+       "selected": false,
+       "countryCode": "RU"
+      }
+     }
+    },
+    {
+     "entityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3U0EgkQEoAQ%3D%3D",
+     "type": "ENTITY_MUTATION_TYPE_REPLACE",
+     "payload": {
+      "musicFormBooleanChoice": {
+       "id": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3U0EgkQEoAQ%3D%3D",
+       "parentFormEntityKey": "EiVleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3IJABKAE%3D",
+       "selected": false,
+       "countryCode": "SA"
+      }
+     }
+    },
+    {
+     "entityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3UlMgkQEoAQ%3D%3D",
+     "type": "ENTITY_MUTATION_TYPE_REPLACE",
+     "payload": {
+      "musicFormBooleanChoice": {
+       "id": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3UlMgkQEoAQ%3D%3D",
+       "parentFormEntityKey": "EiVleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3IJABKAE%3D",
+       "selected": false,
+       "countryCode": "RS"
+      }
+     }
+    },
+    {
+     "entityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3U0cgkQEoAQ%3D%3D",
+     "type": "ENTITY_MUTATION_TYPE_REPLACE",
+     "payload": {
+      "musicFormBooleanChoice": {
+       "id": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3U0cgkQEoAQ%3D%3D",
+       "parentFormEntityKey": "EiVleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3IJABKAE%3D",
+       "selected": false,
+       "countryCode": "SG"
+      }
+     }
+    },
+    {
+     "entityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3WkEgkQEoAQ%3D%3D",
+     "type": "ENTITY_MUTATION_TYPE_REPLACE",
+     "payload": {
+      "musicFormBooleanChoice": {
+       "id": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3WkEgkQEoAQ%3D%3D",
+       "parentFormEntityKey": "EiVleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3IJABKAE%3D",
+       "selected": false,
+       "countryCode": "ZA"
+      }
+     }
+    },
+    {
+     "entityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3S1IgkQEoAQ%3D%3D",
+     "type": "ENTITY_MUTATION_TYPE_REPLACE",
+     "payload": {
+      "musicFormBooleanChoice": {
+       "id": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3S1IgkQEoAQ%3D%3D",
+       "parentFormEntityKey": "EiVleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3IJABKAE%3D",
+       "selected": false,
+       "countryCode": "KR"
+      }
+     }
+    },
+    {
+     "entityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3RVMgkQEoAQ%3D%3D",
+     "type": "ENTITY_MUTATION_TYPE_REPLACE",
+     "payload": {
+      "musicFormBooleanChoice": {
+       "id": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3RVMgkQEoAQ%3D%3D",
+       "parentFormEntityKey": "EiVleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3IJABKAE%3D",
+       "selected": false,
+       "countryCode": "ES"
+      }
+     }
+    },
+    {
+     "entityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3U0UgkQEoAQ%3D%3D",
+     "type": "ENTITY_MUTATION_TYPE_REPLACE",
+     "payload": {
+      "musicFormBooleanChoice": {
+       "id": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3U0UgkQEoAQ%3D%3D",
+       "parentFormEntityKey": "EiVleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3IJABKAE%3D",
+       "selected": false,
+       "countryCode": "SE"
+      }
+     }
+    },
+    {
+     "entityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3Q0ggkQEoAQ%3D%3D",
+     "type": "ENTITY_MUTATION_TYPE_REPLACE",
+     "payload": {
+      "musicFormBooleanChoice": {
+       "id": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3Q0ggkQEoAQ%3D%3D",
+       "parentFormEntityKey": "EiVleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3IJABKAE%3D",
+       "selected": false,
+       "countryCode": "CH"
+      }
+     }
+    },
+    {
+     "entityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3VFcgkQEoAQ%3D%3D",
+     "type": "ENTITY_MUTATION_TYPE_REPLACE",
+     "payload": {
+      "musicFormBooleanChoice": {
+       "id": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3VFcgkQEoAQ%3D%3D",
+       "parentFormEntityKey": "EiVleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3IJABKAE%3D",
+       "selected": false,
+       "countryCode": "TW"
+      }
+     }
+    },
+    {
+     "entityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3VFogkQEoAQ%3D%3D",
+     "type": "ENTITY_MUTATION_TYPE_REPLACE",
+     "payload": {
+      "musicFormBooleanChoice": {
+       "id": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3VFogkQEoAQ%3D%3D",
+       "parentFormEntityKey": "EiVleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3IJABKAE%3D",
+       "selected": false,
+       "countryCode": "TZ"
+      }
+     }
+    },
+    {
+     "entityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3VEggkQEoAQ%3D%3D",
+     "type": "ENTITY_MUTATION_TYPE_REPLACE",
+     "payload": {
+      "musicFormBooleanChoice": {
+       "id": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3VEggkQEoAQ%3D%3D",
+       "parentFormEntityKey": "EiVleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3IJABKAE%3D",
+       "selected": false,
+       "countryCode": "TH"
+      }
+     }
+    },
+    {
+     "entityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3VFIgkQEoAQ%3D%3D",
+     "type": "ENTITY_MUTATION_TYPE_REPLACE",
+     "payload": {
+      "musicFormBooleanChoice": {
+       "id": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3VFIgkQEoAQ%3D%3D",
+       "parentFormEntityKey": "EiVleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3IJABKAE%3D",
+       "selected": false,
+       "countryCode": "TR"
+      }
+     }
+    },
+    {
+     "entityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3VUcgkQEoAQ%3D%3D",
+     "type": "ENTITY_MUTATION_TYPE_REPLACE",
+     "payload": {
+      "musicFormBooleanChoice": {
+       "id": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3VUcgkQEoAQ%3D%3D",
+       "parentFormEntityKey": "EiVleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3IJABKAE%3D",
+       "selected": false,
+       "countryCode": "UG"
+      }
+     }
+    },
+    {
+     "entityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3VUEgkQEoAQ%3D%3D",
+     "type": "ENTITY_MUTATION_TYPE_REPLACE",
+     "payload": {
+      "musicFormBooleanChoice": {
+       "id": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3VUEgkQEoAQ%3D%3D",
+       "parentFormEntityKey": "EiVleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3IJABKAE%3D",
+       "selected": false,
+       "countryCode": "UA"
+      }
+     }
+    },
+    {
+     "entityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3QUUgkQEoAQ%3D%3D",
+     "type": "ENTITY_MUTATION_TYPE_REPLACE",
+     "payload": {
+      "musicFormBooleanChoice": {
+       "id": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3QUUgkQEoAQ%3D%3D",
+       "parentFormEntityKey": "EiVleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3IJABKAE%3D",
+       "selected": false,
+       "countryCode": "AE"
+      }
+     }
+    },
+    {
+     "entityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3R0IgkQEoAQ%3D%3D",
+     "type": "ENTITY_MUTATION_TYPE_REPLACE",
+     "payload": {
+      "musicFormBooleanChoice": {
+       "id": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3R0IgkQEoAQ%3D%3D",
+       "parentFormEntityKey": "EiVleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3IJABKAE%3D",
+       "selected": false,
+       "countryCode": "GB"
+      }
+     }
+    },
+    {
+     "entityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3VVMgkQEoAQ%3D%3D",
+     "type": "ENTITY_MUTATION_TYPE_REPLACE",
+     "payload": {
+      "musicFormBooleanChoice": {
+       "id": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3VVMgkQEoAQ%3D%3D",
+       "parentFormEntityKey": "EiVleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3IJABKAE%3D",
+       "selected": false,
+       "countryCode": "US"
+      }
+     }
+    },
+    {
+     "entityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3VVkgkQEoAQ%3D%3D",
+     "type": "ENTITY_MUTATION_TYPE_REPLACE",
+     "payload": {
+      "musicFormBooleanChoice": {
+       "id": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3VVkgkQEoAQ%3D%3D",
+       "parentFormEntityKey": "EiVleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3IJABKAE%3D",
+       "selected": false,
+       "countryCode": "UY"
+      }
+     }
+    },
+    {
+     "entityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3Vk4gkQEoAQ%3D%3D",
+     "type": "ENTITY_MUTATION_TYPE_REPLACE",
+     "payload": {
+      "musicFormBooleanChoice": {
+       "id": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3Vk4gkQEoAQ%3D%3D",
+       "parentFormEntityKey": "EiVleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3IJABKAE%3D",
+       "selected": false,
+       "countryCode": "VN"
+      }
+     }
+    },
+    {
+     "entityKey": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3WlcgkQEoAQ%3D%3D",
+     "type": "ENTITY_MUTATION_TYPE_REPLACE",
+     "payload": {
+      "musicFormBooleanChoice": {
+       "id": "EidleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3WlcgkQEoAQ%3D%3D",
+       "parentFormEntityKey": "EiVleHBsb3JlX2NoYXJ0c19jb3VudHJ5X21lbnVfMzE2NzY2NTY3IJABKAE%3D",
+       "selected": false,
+       "countryCode": "ZW"
+      }
+     }
+    }
+   ],
+   "timestamp": {
+    "seconds": "1794289308",
+    "nanos": 152994858
+   }
+  }
+ }
+}

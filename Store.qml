@@ -407,9 +407,52 @@ Item {
     _collections = next
   }
 
+  // ---- explore (S6) -----------------------------------------------------------------
+  // The Explore tab's page (the worker's `explore`), asked when the tab is
+  // shown and kept Model.EXPLORE_TTL_MS (30 min): a disk copy first, then the
+  // fresh one (force: only the fresh one). `explore` is replaced on every
+  // change, so bindings on its fields follow. Its Charts, Moods & genres and
+  // mood pages are ordinary pages (collections above).
+  property var explore: ({ page: null, loading: false, error: "", at: 0 })
+  // Counted up by reset(): a reply asked for before a sign-in change is dropped.
+  property int _exploreSeq: 0
+
+  function _setExplore(fields) {
+    var next = ({})
+    for (var k in explore) next[k] = explore[k]
+    for (var f in fields) next[f] = fields[f]
+    explore = next
+  }
+
+  function loadExplore(force) {
+    if (!worker || explore.loading) return
+    if (!force && explore.at > 0 && Date.now() - explore.at < Model.EXPLORE_TTL_MS) return
+    var seq = _exploreSeq
+    _setExplore({ loading: true, error: "" })
+    var handle = function(reply) {
+      if (seq !== root._exploreSeq) return
+      if (!reply.ok) {
+        // A page already shown stays; only an empty tab says why.
+        root._setExplore({ loading: false, error: root.explore.page ? "" : reply.error.message })
+        return
+      }
+      root._setExplore({ page: reply.result, loading: false, error: "", at: Date.now() })
+      root.requestThumbs(Model.collectThumbs(reply.result))
+    }
+    if (force) worker.request("explore", { cache: "refresh" }, handle, 30000)
+    else _cachedThenFresh("explore", {}, handle)
+  }
+
+  // How long the sweep keeps ref's page unseen: unseenMs, or its kind's
+  // longer ttlMs (Moods & genres, a day: small, and slow to change), which
+  // would otherwise last only while the page is reopened every 10 min.
+  function _unseenFor(ref) {
+    return Math.max(unseenMs, _ttl(ref))
+  }
+
   // ---- sweep (F2) -------------------------------------------------------------------
   // Every minute while anything is cached: drop collections past their TTL
-  // or unseen for 10 min, searches past theirs, library lists (S2) unseen
+  // or unseen for 10 min (S6: or their longer TTL), searches past theirs, library lists (S2) unseen
   // for 10 min, and the now contexts and lyrics (S11) of songs other than
   // the one playing. A slice with its own keyed cache adds it here and to
   // sweepWanted.
@@ -422,7 +465,7 @@ Item {
     var droppedCollections = false
     for (var key in _collections) {
       var entry = _collections[key]
-      var expired = t - entry.at >= _ttl(entry.ref) || t - entry.seen >= unseenMs
+      var expired = t - entry.at >= _ttl(entry.ref) || t - entry.seen >= _unseenFor(entry.ref)  // S6
       if (expired && !_appending[key]) droppedCollections = true
       else collections[key] = entry
     }
@@ -881,6 +924,9 @@ Item {
     shelves = []
     homeAt = 0
     homeError = ""
+    // S6: Explore is the account's too (Top songs, the region).
+    _exploreSeq++
+    explore = ({ page: null, loading: false, error: "", at: 0 })
     likes = ({})
     _nowContexts = ({})
     // A failure may have come from the old session. Pending loads clear

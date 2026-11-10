@@ -125,7 +125,8 @@ Item {
       var track = tracks[i]
       if (track && track.videoId) {
         // S3: no feedback tokens in the queue (status, session.json, mpv).
-        next[track.videoId] = Model.withoutTokens(track)
+        // S6: nor a chart song's rank and trend (Explore's rows only).
+        next[track.videoId] = Model.withoutRank(Model.withoutTokens(track))
         changed = true
       }
     }

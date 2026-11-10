@@ -129,7 +129,7 @@ Column {
         width: parent.width
         textFormat: Text.PlainText
         text: root.service && root.service.canResume ? "Pick up where you left off:"
-          : "Search (2) or open Home (4) to pick something."
+          : "Search (2), Home (4) or Explore (5) to pick something."
         visible: !root.track
         color: Qt.darker(root.foreground, 1.3)
         font.family: root.fontFamily
