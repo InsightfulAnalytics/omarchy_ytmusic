@@ -51,6 +51,10 @@ Root causes of the non-obvious problems hit while building this fork, so they ar
   YouTube's JavaScript challenge cannot be solved even with deno installed. The failed load marks
   the solver unavailable for the life of the YoutubeDL instance, and every lookup after that falls
   back to the clients that need no JavaScript ("No supported JavaScript runtime could be found").
+- **`uv python find --script` returns a stale environment.** It finds the environment by the
+  script's path, so after the dependency block changes bin/ytm still ran the old one (the
+  `yt-dlp[default]` change never reached an existing install). bin/ytm stamps the environment with
+  a hash of the block and runs `uv sync --script` when it differs.
 - **"Sign in to confirm you're not a bot" is about the connection, not yt-dlp.** After a burst of
   lookups (429 Too Many Requests) YouTube refuses signed-out stream lookups from the address for a
   while; an up-to-date yt-dlp with the solver gets the same answer. More lookups prolong it: the

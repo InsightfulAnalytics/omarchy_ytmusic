@@ -20,10 +20,18 @@ export PYTHONUNBUFFERED=1
 
 # Run the script's own uv environment directly when it exists: `uv run`
 # stays alive as the worker's parent (~24 MiB for its whole life). `uv
-# python find --script` only points into environments-v2 when an environment
-# for the script's current dependencies exists; otherwise let `uv run` build it.
+# python find --script` finds the environment by the script's path even
+# after its dependencies changed, so the environment keeps a stamp of the
+# dependency block it was synced for, and a different block syncs it first
+# (uv's output to stderr: stdout is the worker's protocol). Without uv's
+# environment, or when the sync fails, `uv run` builds it.
 python=$(uv python find --script "$SCRIPT" 2>/dev/null || true)
 if [[ $python == */environments-v2/* && -x $python ]]; then
-  exec "$python" "$SCRIPT" "$@"
+  env_dir=${python%/bin/python*}
+  deps=$(sed -n '/^# \/\/\/ script$/,/^# \/\/\/$/p' "$SCRIPT" | sha256sum | cut -c1-16)
+  if [[ $(cat "$env_dir/.ytm-deps" 2>/dev/null) == "$deps" ]] \
+    || { uv sync --quiet --script "$SCRIPT" >&2 && printf '%s\n' "$deps" > "$env_dir/.ytm-deps"; }; then
+    exec "$python" "$SCRIPT" "$@"
+  fi
 fi
 exec uv run --quiet --script "$SCRIPT" "$@"
