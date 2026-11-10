@@ -51,7 +51,9 @@ test("a filtered list ends in Load more while it has a cursor; uploads are a lis
   const rows = Model.flattenSearch({ items: [song("a"), song("b")], cursor: "c.T", hasMore: true }, "songs")
   assert.deepEqual(rows.map(label), ["# Songs", "track", "track", "loadMore"])
   assert.deepEqual(Model.flattenSearch({ items: [song("a")], cursor: null, hasMore: false }, "songs").map(label), ["# Songs", "track"])
-  assert.deepEqual(Model.flattenSearch({ items: [song("a")], cursor: "c.T", capped: true }, "songs").map(label), ["# Songs", "track"])
+  // G1: a capped list says so instead of ending silently.
+  assert.deepEqual(Model.flattenSearch({ items: [song("a")], cursor: null, capped: true }, "songs").map(label),
+    ["# Songs", "track", "message"])
   const uploads = Model.flattenSearch({ items: [{ type: "album", browseId: "FEmusic_library_privately_owned_release_detailb_x",
                                                   upload: true, entityId: "b_x", title: "Demo", artists: [], artistText: "Me" },
                                                 song("u1")], cursor: null }, "", { scope: "uploads" })
@@ -60,6 +62,10 @@ test("a filtered list ends in Load more while it has a cursor; uploads are a lis
   assert.deepEqual([Model.pageRef(uploads[1].item).method, Model.pageRef(uploads[1].item).params],
                    ["uploadAlbum", { browseId: "FEmusic_library_privately_owned_release_detailb_x" }])
   assert.ok(Model.menuActions(uploads[1].item, { signedIn: true, pageKind: "search" }).some(a => a.id === "deleteUpload"))
+  // G1 with S10: an uploads search that reached the Store's cap says so too.
+  const cappedUploads = Model.flattenSearch({ items: [song("u1")], cursor: null, capped: true }, "", { scope: "uploads" })
+  assert.deepEqual(cappedUploads.map(label), ["# Uploads", "track", "message"])
+  assert.equal(cappedUploads[2].item.title, "Showing the first 1")
   // appendPage grows a filtered result (under appendSearchPage, Store.searchMore).
   const more = Model.appendPage({ items: [song("a")], cursor: "c.1", spelling: null }, { items: [song("b")], cursor: null }, 500)
   assert.deepEqual(more.items.map(t => t.videoId), ["a", "b"])

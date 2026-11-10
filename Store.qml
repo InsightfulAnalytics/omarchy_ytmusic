@@ -27,7 +27,9 @@ Item {
   property bool exact: false
   property bool searchingMore: false
   property string searchMoreError: ""
-  readonly property int maxSearchItems: 500
+  // G1: a filtered list loads to its end (radiohead's songs: about 530); at
+  // 2000 it says so (Model.capMessage).
+  readonly property int maxSearchItems: 2000
   property var result: null
   property bool searching: false
   property string searchError: ""
@@ -231,7 +233,7 @@ Item {
       return
     }
     var cached = _suggestCache[q.toLowerCase()]
-    suggestions = Model.suggestionList(recent, cached ? cached.items : [], q, 5)
+    suggestions = Model.suggestionList(recent, cached ? cached.items : [], q)  // G1: every served completion
     suggestionEntities = cached ? cached.entities : []
     if (cached || _suggesting || !worker) return
     _suggesting = true
@@ -240,7 +242,7 @@ Item {
       if (reply.ok) root._cacheSuggestions(q, reply.result.items || [], reply.result.entities || [])
       if (root._suggestFor !== q) root.suggest(root._suggestFor)
       else if (reply.ok) {
-        root.suggestions = Model.suggestionList(root.recent, reply.result.items || [], q, 5)
+        root.suggestions = Model.suggestionList(root.recent, reply.result.items || [], q)
         root.suggestionEntities = reply.result.entities || []
         root.requestThumbs(Model.collectThumbs(root.suggestionEntities))
       }
@@ -329,7 +331,10 @@ Item {
   readonly property int collectionTtlMs: 5 * 60 * 1000
   readonly property int unseenMs: 10 * 60 * 1000
   readonly property int maxCollections: 8
-  readonly property int maxCollectionItems: 3000
+  // G1: long See all lists load to their end (Bach's singles: 3033); at
+  // 10,000 the page says so (Model.pageRows). Only the visible rows have
+  // delegates, and the sweep bounds what is held.
+  readonly property int maxCollectionItems: 10000
   property var _collections: ({})
   property int _chainSeq: 0
   // key -> true while a Load more for it is in flight (the sweep spares it).
@@ -899,7 +904,9 @@ Item {
   // sweep drops a list unseen for 10 min, except the one shown
   // (libraryShown, set by LibraryView) and one still loading.
   readonly property int libraryListTtlMs: 5 * 60 * 1000
-  readonly property int maxLibraryItems: 2000
+  // G1: a real library fits (3755 songs live); at 10,000 the list says so
+  // and how to reach the rest (Model.capMessage).
+  readonly property int maxLibraryItems: 10000
   property var libraryLists: ({})
   property var libraryOrders: ({})
   property string libraryShown: ""

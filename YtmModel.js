@@ -647,30 +647,37 @@ function parseRecent(text) {
   }
 }
 
-// Up to `max` completions for what's typed: at most two of your recent
-// searches that start with it, then YouTube Music's; never the typed text.
+// The completions for what's typed: at most two of your recent searches
+// that start with it, then YouTube Music's; never the typed text.
 // S7: one of your YouTube searches (fromHistory) is marked `remote`, also
 // when it repeats a recent search, so x can remove it from YouTube too.
+// G1: `max` limits YouTube's completions only (none by default: every
+// one it serves shows, the worker's limit is the only cap); a recent
+// search YouTube also lists stays one entry.
 function suggestionList(recent, remote, typed, max) {
   var key = String(typed || "").trim().toLowerCase()
-  var limit = max || 5
+  var limit = max > 0 ? max : Infinity
   var out = []
   var seen = {}
+  var served = 0
   seen[key] = true
   function add(text, fromHistory, isRemote) {
     var value = String(text || "").trim()
     var k = value.toLowerCase()
     if (isRemote && seen[k] && seen[k] !== true) seen[k].remote = true
-    if (value === "" || seen[k] || out.length >= limit) return
+    if (value === "" || seen[k]) return false
     var entry = { text: value, recent: fromHistory }
     if (isRemote) entry.remote = true
     seen[k] = entry
     out.push(entry)
+    return true
   }
   for (var i = 0; i < (recent || []).length && out.length < 2; i++) {
     if (String(recent[i]).toLowerCase().indexOf(key) === 0) add(recent[i], true, false)
   }
-  for (var j = 0; j < (remote || []).length; j++) add(remote[j].text, !!remote[j].fromHistory, !!remote[j].fromHistory)
+  for (var j = 0; j < (remote || []).length && served < limit; j++) {
+    if (add(remote[j].text, !!remote[j].fromHistory, !!remote[j].fromHistory)) served++
+  }
   return out
 }
 
@@ -1051,7 +1058,9 @@ function pageRows(page) {
     }
   }
   if (page.message) rows.push({ item: { type: "message", title: String(page.message) } })
-  if (page.cursor || page.hasMore) rows.push({ item: { type: "loadMore", title: "Load more" } })
+  // G1: a list that reached the Store's cap says so (and how to reach the rest).
+  if (page.capped === true) rows.push({ item: { type: "message", title: capMessage(pageItemCount(page), page.orders) } })
+  else if (page.cursor || page.hasMore) rows.push({ item: { type: "loadMore", title: "Load more" } })
   return rows
 }
 
@@ -2123,7 +2132,7 @@ function libraryRows(chip, data, playlists) {
     rows.push(row)
   }
   if (list.message) rows.push({ item: { type: "message", title: String(list.message) } })
-  if (list.capped) rows.push({ item: { type: "message", title: "Showing the first " + items.length } })
+  if (list.capped) rows.push({ item: { type: "message", title: capMessage(items.length, list.orders) } })  // G1
   else if (list.cursor || list.hasMore) rows.push({ item: { type: "loadMore", title: "Load more" } })
   return rows
 }
@@ -4124,7 +4133,9 @@ function searchRows(result, filter, opts) {
     var items = _listOf(result.items)
     if (items.length) rows.push({ header: true, title: filter ? searchFilterTitle(filter) : o.scope === "uploads" ? "Uploads" : "Results" })
     for (i = 0; i < items.length; i++) rows.push({ item: items[i] })
-    if ((result.cursor || result.hasMore) && result.capped !== true) rows.push({ item: { type: "loadMore", title: "Load more" } })
+    // G1: a list that reached the Store's cap says so.
+    if (result.capped === true) rows.push({ item: { type: "message", title: capMessage(items.length) } })
+    else if (result.cursor || result.hasMore) rows.push({ item: { type: "loadMore", title: "Load more" } })
     return rows
   }
   var top = _listOf(result.top)
@@ -4697,7 +4708,7 @@ function podcastLibraryRows(data) {
   for (var i = 0; i < items.length; i++) rows.push({ item: items[i] })
   if (list.message) rows.push({ item: { type: "message", title: String(list.message) } })
   else if (!items.length && list.at > 0 && list.loading !== true) rows.push({ item: { type: "message", title: "No saved podcasts yet" } })
-  if (list.capped) rows.push({ item: { type: "message", title: "Showing the first " + items.length } })
+  if (list.capped) rows.push({ item: { type: "message", title: capMessage(items.length, list.orders) } })  // G1
   else if (list.cursor || list.hasMore) rows.push({ item: { type: "loadMore", title: "Load more" } })
   return rows
 }
@@ -6887,7 +6898,7 @@ function uploadLibraryRows(data, opts) {
   }
   if (list.message) rows.push({ item: { type: "message", title: String(list.message) } })
   else if (!items.length && list.at > 0 && list.loading !== true) rows.push({ item: { type: "message", title: "No uploaded songs yet" } })
-  if (list.capped) rows.push({ item: { type: "message", title: "Showing the first " + items.length } })
+  if (list.capped) rows.push({ item: { type: "message", title: capMessage(items.length, list.orders) } })  // G1
   else if (list.cursor || list.hasMore) rows.push({ item: { type: "loadMore", title: "Load more" } })
   return rows
 }
@@ -6973,6 +6984,299 @@ if (typeof module !== "undefined") {
     libraryRows: libraryRows,
     withoutUpload: withoutUpload,
     withUploads: withUploads
+  })
+}
+
+// ==== no ceilings (G1) ======================================================================
+// Whatever the web lets you scroll to or play, the panel reaches too. Long
+// lists load to their end (the Store's caps are 10,000 items; a list that
+// reaches one says so, capMessage). A list longer than the queue takes
+// plays on to its end: Service keeps the rest of it (listRest) and queues
+// it QUEUE_CAP at a time once AUTOPLAY_LEFT or fewer songs are left, as the
+// user's entries, before autoplay and whether or not autoplay is on. A rest
+// is { tracks, more, total, capped }: `tracks` are songs in hand past the
+// queued window (in play order), `more` where the list goes on once they
+// are queued, or null:
+//   { kind: "item", item, anchor, offset }: the list read again whole
+//     (Service.itemTracks: the Store's copy, else tracksFor, at most
+//     LIST_MAX), past its song `anchor` (the offset-th of the first read)
+//   { kind: "librarySongs", id, anchor, back, params }: the library in its
+//     order from the song `anchor` ({ videoId, index }: its place, counted
+//     from 1), `back` a song LIBRARY_BACK places earlier (the worker asks
+//     from there near the list's end), `params` the songs page's playParams
+//   { kind: "libraryShuffle", id }: Shuffle all's next songs (YouTube's
+//     server shuffle, read on by the worker)
+// `total` is the list's size when known; `capped` says the list has songs
+// no read reaches (more than LIST_MAX). A rest holds no token.
+
+var LIST_MAX = 5000
+var LIBRARY_BACK = 40
+// librarySongs' header.shuffleId: the watch playlist of the library, shuffled or in order.
+var LIBRARY_LIST_ID = "MLCT"
+
+// "Showing the first 10,000", and how to reach the rest when the list can
+// be sorted another way.
+function capMessage(count, orders) {
+  var text = "Showing the first " + groupedCount(count)
+  var many = orders && typeof orders.length === "number" && orders.length > 1
+  return many ? text + "; change the order (" + keyHint("order") + ") for the rest" : text
+}
+
+// The songs of `tracks` after the window capWindow(tracks, start, cap)
+// keeps (it mirrors capWindow): [] when the whole list fits.
+function capRest(tracks, start, cap) {
+  var source = tracks || []
+  var limit = cap > 0 ? cap : QUEUE_CAP
+  var playableAt = []
+  for (var i = 0; i < source.length; i++) if (playable(source[i])) playableAt.push(i)
+  if (playableAt.length <= limit) return []
+  var wanted = Number(start) || 0
+  var k = playableAt.length - 1
+  for (var p = 0; p < playableAt.length; p++) {
+    if (playableAt[p] >= wanted) {
+      k = p
+      break
+    }
+  }
+  var from = Math.max(0, Math.min(k, playableAt.length - limit))
+  return source.slice(playableAt[from + limit - 1] + 1)
+}
+
+function _restWith(rest, fields) {
+  var out = {}
+  for (var key in rest) out[key] = rest[key]
+  for (var name in fields) out[name] = fields[name]
+  return out
+}
+
+function _isLibraryList(id) {
+  return _stripVl(id).indexOf(LIBRARY_LIST_ID) === 0
+}
+
+// What is left of a list once playCollection queued its window of `tracks`
+// from `start` (shuffled: the list was shuffled whole, so only the songs in
+// hand go on), or null when nothing is. `partial` ({ total, more }) says
+// `tracks` is only the start of the list and where the rest comes from; a
+// shuffled one never reaches the rest (capped, said even when its size is
+// unknown).
+function listRest(tracks, start, partial, shuffled) {
+  var after = capRest(tracks, start, QUEUE_CAP)
+  var more = partial && partial.more && !shuffled ? partial.more : null
+  var total = partial && Number(partial.total) > 0 ? Number(partial.total) : null
+  if (after.length === 0 && !more) return null
+  var unread = !!(partial && partial.more) && !more
+  return { tracks: after, more: more, total: total, capped: (total !== null && total > LIST_MAX) || unread, noticed: false }
+}
+
+// playItem's `partial` for what tracksFor (or the Store) gave for `item`:
+// Shuffle all goes on through the server shuffle; a list read only in part
+// goes on by reading it whole; a whole list is not partial (null).
+function itemPartial(item, result) {
+  var r = result || {}
+  if (menuKind(item) === "playlist" && _isLibraryList(item.playlistId))
+    return { total: null, more: { kind: "libraryShuffle", id: _stripVl(item.playlistId) } }
+  if (r.complete === true) return null
+  var tracks = r.tracks || []
+  var last = tracks.length ? tracks[tracks.length - 1] : null
+  return { total: r.total === undefined ? null : r.total,
+           more: last && tracksForParams(item) ? { kind: "item", item: item, anchor: last.videoId, offset: tracks.length } : null }
+}
+
+// Enter on a song of a collection page that holds only the start of its
+// list (a playlist's first 200 to 300 songs): the rest is read when the
+// queue gets there. Null for a whole list, and for Liked Music filtered
+// to a chip (G4: it plays what it shows; tracksFor would read on through
+// every liked song).
+function collectionPartial(page, item) {
+  if (!isCollection(page) || page.truncated !== true || !tracksForParams(item)) return null
+  if (page.kind === "liked" && page.filter !== null && page.filter !== undefined) return null
+  var tracks = page.tracks || []
+  var last = tracks.length ? tracks[tracks.length - 1] : null
+  return { total: page.trackCount || null,
+           more: last ? { kind: "item", item: item, anchor: last.videoId, offset: tracks.length } : null }
+}
+
+function _place(songs, at) {
+  return at >= 0 && at < songs.length ? { videoId: String(songs[at].videoId), index: at + 1 } : null
+}
+
+// Enter on a song of the Songs chip while the library has more than the
+// list holds: the library goes on in its order from the list's last song.
+function librarySongsPartial(chip, list) {
+  if (chip !== "songs" || !list || !(list.cursor || list.hasMore || list.capped)) return null
+  var songs = libraryTracks(list)
+  if (songs.length === 0) return null
+  var at = songs.length - 1
+  var header = list.header && typeof list.header === "object" ? list.header : {}
+  return { total: null, more: { kind: "librarySongs", id: header.shuffleId ? _stripVl(header.shuffleId) : LIBRARY_LIST_ID,
+                                anchor: _place(songs, at), back: _place(songs, at - LIBRARY_BACK),
+                                params: header.playParams ? String(header.playParams) : null } }
+}
+
+// The next songs to queue: at most `max` playable ones of the rest in
+// hand, and the rest after them.
+function restTake(rest, max) {
+  var limit = max > 0 ? max : QUEUE_CAP
+  var source = rest && rest.tracks ? rest.tracks : []
+  var out = []
+  var i = 0
+  for (; i < source.length && out.length < limit; i++) if (playable(source[i])) out.push(source[i])
+  return { tracks: out, rest: rest ? _restWith(rest, { tracks: source.slice(i) }) : null }
+}
+
+// What to read once the songs in hand are queued: { item } (Service reads
+// it whole) or { method, params }; null when the list is over.
+function restRequest(rest, max) {
+  var more = rest ? rest.more : null
+  if (!more || (rest.tracks || []).length > 0) return null
+  if (more.kind === "item") return more.item ? { item: more.item } : null
+  if (more.kind === "librarySongs" && more.anchor) {
+    var params = { kind: "librarySongs", id: more.id || LIBRARY_LIST_ID, videoId: more.anchor.videoId,
+                   limit: max > 0 ? max : QUEUE_CAP }
+    if (more.anchor.index > 0) params.index = more.anchor.index
+    if (more.back) {
+      params.backVideoId = more.back.videoId
+      params.backIndex = more.back.index
+    }
+    if (more.params) params.params = more.params
+    return { method: "tracksFor", params: params }
+  }
+  if (more.kind === "libraryShuffle")
+    return { method: "tracksFor", params: { kind: "playlist", id: more.id || LIBRARY_LIST_ID, more: true, limit: 50 } }
+  return null
+}
+
+// Where the song `videoId` is in `items`: the one nearest the `offset`-th
+// (a playlist may hold a song twice), else offset - 1.
+function _anchorAt(items, videoId, offset) {
+  var guess = Math.min(Math.max(0, (Number(offset) || 0) - 1), items.length - 1)
+  if (items[guess] && items[guess].videoId === videoId) return guess
+  var best = -1
+  for (var i = 0; i < items.length; i++) {
+    if (items[i] && items[i].videoId === videoId && (best < 0 || Math.abs(i - guess) < Math.abs(best - guess))) best = i
+  }
+  return best >= 0 ? best : Math.min(Number(offset) || 0, items.length) - 1
+}
+
+// The rest once `read` ({ tracks, complete, total }) came for its request.
+// `known` (videoId -> true: the queue and the songs played) keeps a
+// library read from bringing back what is queued. Only a complete read
+// ends the list; one that brings nothing new but goes on (YouTube sent an
+// empty page, or only songs already queued) keeps where it goes on, with
+// no songs in hand (restStalled).
+function restRead(rest, read, known) {
+  var more = rest ? rest.more : null
+  var items = read && read.tracks && typeof read.tracks.length === "number" ? read.tracks : []
+  var seen = known || {}
+  if (!more) return rest
+  if (more.kind === "item") {
+    var at = _anchorAt(items, more.anchor, more.offset)
+    return _restWith(rest, { tracks: items.slice(at + 1), more: null, capped: read.complete !== true,
+                             total: read.total > 0 ? read.total : rest.total })
+  }
+  var fresh = []
+  var start = 0
+  if (more.kind === "librarySongs") {
+    start = -1
+    for (var i = 0; i < items.length && start < 0; i++) if (items[i].videoId === more.anchor.videoId) start = i
+    start = start >= 0 ? start + 1 : items.length
+  }
+  for (var j = start; j < items.length; j++) {
+    var track = items[j]
+    if (!playable(track) || seen[track.videoId]) continue
+    seen[track.videoId] = true
+    fresh.push(track)
+  }
+  var next = null
+  if (read.complete !== true) {
+    next = more
+    if (more.kind === "librarySongs" && items.length > 0) {
+      var last = items[items.length - 1]
+      var back = items.length > LIBRARY_BACK ? items[items.length - 1 - LIBRARY_BACK] : null
+      next = _restWith(more, {
+        anchor: { videoId: String(last.videoId), index: last.libraryIndex > 0 ? last.libraryIndex : 0 },
+        back: back && back.libraryIndex > 0 ? { videoId: String(back.videoId), index: back.libraryIndex } : more.anchor
+      })
+    }
+  }
+  return _restWith(rest, { tracks: fresh, more: next })
+}
+
+// True when a read left the rest with no songs in hand though the list
+// goes on: Service lets autoplay have this song and asks again at the next.
+function restStalled(rest) {
+  return !!(rest && rest.more && (rest.tracks || []).length === 0)
+}
+
+// The `partial` a cap notice goes by (capNotice): Shuffle all has no size,
+// so what came of it is never "the first N" of something.
+function cutPartial(partial) {
+  return partial && partial.more && partial.more.kind === "libraryShuffle" ? null : partial
+}
+
+// The notice when a list cannot play to its end (it has more songs than
+// LIST_MAX), else null. `count`: the songs of it in hand (LIST_MAX when
+// not given, or when the rest is read whole later).
+function restCapNotice(rest, count) {
+  if (!rest || rest.capped !== true) return null
+  var total = Number(rest.total) || 0
+  var n = count > 0 && !(rest.more && rest.more.kind === "item") ? count : LIST_MAX
+  return { title: total > n ? "Only " + groupedCount(n) + " of " + groupedCount(total) + " songs play"
+                            : "Only the first " + groupedCount(n) + " songs play",
+           body: "At most " + groupedCount(LIST_MAX) + " songs of one list are read." }
+}
+
+// A copy of the rest with `fields` set (Service: the notice shown, a failed
+// read's song).
+function withRest(rest, fields) {
+  return rest ? _restWith(rest, fields) : rest
+}
+
+// The queue's last line while a list goes on ("" when none): what follows.
+function restNote(rest) {
+  if (!rest) return ""
+  var more = rest.more
+  if (more && more.kind === "libraryShuffle") return "Shuffle all goes on through your library"
+  if (more && more.kind === "librarySongs") return "Then the rest of your library, in its order"
+  var total = Number(rest.total) || 0
+  if (more) return total > 0 ? "Then the rest of its " + groupedCount(total) + " songs" : "Then the rest of the list"
+  var held = (rest.tracks || []).filter(playable).length
+  return held > 0 ? "Then " + groupedCount(held) + (held === 1 ? " more song" : " more songs") + " of the list" : ""
+}
+
+// videoId -> true for the queue's songs (and their twins) and `seen`.
+function queuedIds(queue, seen) {
+  return _knownIds(queue, seen)
+}
+
+// For status: { songs, from } or null.
+function restStatus(rest) {
+  if (!rest) return null
+  return { songs: (rest.tracks || []).length, from: rest.more ? String(rest.more.kind) : null, capped: rest.capped === true }
+}
+
+if (typeof module !== "undefined") {
+  Object.assign(module.exports, {
+    LIST_MAX: LIST_MAX,
+    LIBRARY_BACK: LIBRARY_BACK,
+    LIBRARY_LIST_ID: LIBRARY_LIST_ID,
+    LIBRARY_SONGS_TITLE: LIBRARY_SONGS_TITLE,
+    capMessage: capMessage,
+    capRest: capRest,
+    listRest: listRest,
+    itemPartial: itemPartial,
+    collectionPartial: collectionPartial,
+    librarySongsPartial: librarySongsPartial,
+    restTake: restTake,
+    restRequest: restRequest,
+    restRead: restRead,
+    restStalled: restStalled,
+    cutPartial: cutPartial,
+    restCapNotice: restCapNotice,
+    withRest: withRest,
+    restNote: restNote,
+    queuedIds: queuedIds,
+    restStatus: restStatus
   })
 }
 

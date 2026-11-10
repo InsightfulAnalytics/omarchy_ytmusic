@@ -257,7 +257,9 @@ test("appendPage stops at the item cap", () => {
   assert.equal(merged.cursor, null)
   assert.equal(merged.hasMore, false)
   assert.equal(merged.capped, true)
-  assert.equal(Model.pageRows(merged).at(-1).item.type, "track", "no Load more row once capped")
+  // G1: no Load more row once capped, and the cut is shown.
+  assert.deepEqual(Model.pageRows(merged).slice(-2).map(r => [r.item.type, r.item.title || r.item.videoId]),
+    [["track", "Song c"], ["message", "Showing the first 3"]])
 })
 
 test("rowPlace and findPlace tell repeated rows apart", () => {
