@@ -119,9 +119,11 @@ test("autoplay picks skip queued songs and prefer songs over videos", () => {
 })
 
 test("player preferences parse with defaults", () => {
-  assert.deepEqual(Model.parsePrefs(""), { autoplay: true, shuffle: false, repeat: "off" })
-  assert.deepEqual(Model.parsePrefs('{"autoplay":false,"shuffle":true,"repeat":"one"}'), { autoplay: false, shuffle: true, repeat: "one" })
-  assert.deepEqual(Model.parsePrefs('{"autoplay":"yes","repeat":"sometimes"}'), { autoplay: true, shuffle: false, repeat: "off" })
+  // The player keys; prefs v2 adds more (tests/pages.test.js).
+  const player = p => ({ autoplay: p.autoplay, shuffle: p.shuffle, repeat: p.repeat })
+  assert.deepEqual(player(Model.parsePrefs("")), { autoplay: true, shuffle: false, repeat: "off" })
+  assert.deepEqual(player(Model.parsePrefs('{"autoplay":false,"shuffle":true,"repeat":"one"}')), { autoplay: false, shuffle: true, repeat: "one" })
+  assert.deepEqual(player(Model.parsePrefs('{"autoplay":"yes","repeat":"sometimes"}')), { autoplay: true, shuffle: false, repeat: "off" })
 })
 
 test("shuffled play is a seeded permutation starting at index 0", () => {
@@ -214,19 +216,19 @@ test("flattenSearch groups results under headers", () => {
   const song = { type: "track", videoId: id11(1) }
   const album = { type: "album", browseId: "MPREb_1" }
   const rows = Model.flattenSearch({ top: [album], songs: [song], albums: [], artists: [], playlists: [], videos: [] })
-  assert.deepEqual(rows.map(r => r.header ? "# " + r.title : r.item.type), ["# Top result", "album", "# Songs", "track"])
+  // S7: each group ends in its Show all row (tests/search.test.js).
+  assert.deepEqual(rows.map(r => r.header ? "# " + r.title : r.item.type), ["# Top result", "album", "# Songs", "track", "action"])
   const filtered = Model.flattenSearch({ items: [song, song] }, "songs")
   assert.deepEqual(filtered.map(r => r.header ? "#" : "i"), ["#", "i", "i"])
   assert.deepEqual(Model.flattenSearch(null), [])
   assert.deepEqual(Model.flattenSearch({ items: [] }, "albums"), [])
 })
 
-test("artist pages and track rows carry the index a click plays from", () => {
+test("track rows carry the index a click plays from", () => {
+  // Artist pages are sectioned pages now (tests/artist.test.js).
   const songs = [track(id11(1)), track(id11(2))]
-  const rows = Model.flattenArtist({ songs, albums: [{ type: "album" }], singles: [] })
-  assert.deepEqual(rows.map(r => r.header ? r.title : r.trackIndex), ["Top songs", 0, 1, "Albums", undefined])
   assert.deepEqual(Model.trackRows(songs).map(r => r.trackIndex), [0, 1])
-  assert.deepEqual(Model.flattenArtist(null), [])
+  assert.equal(Model.flattenArtist, undefined)
 })
 
 test("firstTrack finds the first playable track row", () => {
@@ -267,16 +269,16 @@ test("library rows: liked first, then own and saved playlists", () => {
     { playlistId: "PL1", title: "Mine", owned: true },
     { playlistId: "PL2", title: "Theirs", owned: false },
   ]
-  const rows = Model.libraryRows(playlists)
+  const rows = Model.libraryRows("playlists", null, playlists)
   assert.deepEqual(rows.map(r => r.header ? "# " + r.title : r.item.title),
-    ["Liked Music", "History", "# Your playlists", "Mine", "# Saved playlists", "Theirs"])
+    ["Liked Music", "History", "Recent activity", "# Your playlists", "Mine", "# Saved playlists", "Theirs"])
   assert.equal(rows[0].item.type, "liked")
   assert.equal(rows[1].item.type, "history")
   assert.deepEqual(Model.ownedPlaylists(playlists).map(p => p.playlistId), ["PL1"])
   assert.equal(Model.itemSubtitle({ type: "liked" }), "Songs you liked")
   assert.equal(Model.itemSubtitle({ type: "history" }), "Recently played")
   assert.deepEqual(Model.collectionTarget({ type: "history" }), { kind: "history", id: "history" })
-  assert.deepEqual(Model.libraryRows([]).length, 2)
+  assert.deepEqual(Model.libraryRows("playlists", null, []).length, 3)
 })
 
 test("home rows: shelves as headers, tracks indexed within their shelf", () => {
@@ -370,16 +372,19 @@ test("suggestions: two matching recent searches, then YouTube's, never the typed
   const recent = ["daft punk get lucky", "daft punk live", "daft punk tron", "air"]
   const remote = [{ text: "daft punk" }, { text: "Daft Punk Get Lucky" }, { text: "daft punk one more time", fromHistory: true }, { text: "daft punk da funk" }]
   const list = Model.suggestionList(recent, remote, "Daft Punk", 4)
+  // S7: one of your YouTube searches is `remote`.
   assert.deepEqual(list, [
     { text: "daft punk get lucky", recent: true },
     { text: "daft punk live", recent: true },
-    { text: "daft punk one more time", recent: true },
+    { text: "daft punk one more time", recent: true, remote: true },
     { text: "daft punk da funk", recent: false }
   ])
   const rows = Model.suggestionRows(list, 1)
   assert.equal(rows[0].title, "Suggestions")
   assert.deepEqual(rows.slice(1).map(r => r.item.selected), [false, true, false, false])
-  assert.ok(rows.slice(1).every(r => r.item.type === "query" && r.item.removable === false))
+  // S7: recent and past searches can be removed (x); YouTube's completions cannot.
+  assert.deepEqual(rows.slice(1).map(r => [r.item.type, r.item.removable, r.item.remote]),
+    [["query", true, false], ["query", true, false], ["query", true, true], ["query", false, false]])
   assert.deepEqual(Model.suggestionRows([], -1), [])
 })
 

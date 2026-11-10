@@ -64,5 +64,8 @@ mp.register_event("end-file", function(event)
   local pending = retry
   retry = nil
   if not pending or event.reason ~= "error" or event.playlist_entry_id ~= pending.entry then return end
+  -- Replays the same playlist entry, so its per-file loadfile options come
+  -- again: an uploaded song's ytdl-raw-options-append=cookies=... (S10) still
+  -- reaches yt-dlp on this retry.
   mp.commandv("playlist-play-index", tostring(pending.pos))
 end)

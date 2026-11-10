@@ -8,9 +8,11 @@ export PYTHONDONTWRITEBYTECODE=1
 
 # Recorded fixtures come from live responses; they must never carry session
 # data. (Test code uses fake cookie names on purpose, so only fixtures are
-# scanned.)
+# scanned.) `bin/ytm record` is always signed out, so none of this should
+# ever appear.
 echo "== secrets check (tests/fixtures)"
-if grep -rIl -E '__Secure-|SAPISID|"cookie"|^cookie:' tests/fixtures/ 2>/dev/null; then
+if grep -rIl -E '__Secure-|SAPISID|SAPISIDHASH|"cookie"|^cookie:' tests/fixtures/ 2>/dev/null \
+  || grep -rIli 'authorization' tests/fixtures/ 2>/dev/null; then
   echo "secret-looking data found in the fixtures listed above" >&2
   exit 1
 fi

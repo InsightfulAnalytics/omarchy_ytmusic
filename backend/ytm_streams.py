@@ -6,16 +6,29 @@ mpv plays the returned URL through mpv/ytm-streams.lua while its playlist
 keeps the youtube.com URL. Stream URLs expire (YouTube puts the time in the
 URL) and are tied to this network; the Lua script falls back to yt-dlp when
 one fails. Like mpv, this streams without the account unless
-YTM_STREAM_WITH_ACCOUNT=1.
+YTM_STREAM_WITH_ACCOUNT=1 or the request asks for it (``account: true``,
+e.g. for uploads); each mode has its own yt-dlp instance.
+
+Uploaded songs (S10) play only as the account, and yt-dlp reaches them only
+with its JS challenge solver (yt-dlp-ejs). The worker's environment has
+plain yt-dlp, so an upload's lookup may fail here; the shell then lets mpv's
+yt-dlp load it with the account's cookies (a per-file
+``ytdl-raw-options-append``) and stops asking for uploads this session.
+
+With the worker setting ``normalize`` at "youtube" (S17), a lookup also
+answers the song's loudness (see the loudness section below). The setting
+``quality`` (S16) picks the yt-dlp format (see the quality section).
 """
 
 import os
 import re
 import threading
 import time
+from collections import OrderedDict
 
 import ytm_auth as auth
 import ytm_normalize as norm
+from ytm_proto import WorkerError
 
 FORMAT = "bestaudio[acodec=opus]/bestaudio/best"
 WATCH_URL = "https://www.youtube.com/watch?v="
@@ -68,49 +81,68 @@ def _error(exc):
 
 
 class Resolver:
-    """One yt-dlp instance for the worker's lifetime (imported on first use)."""
+    """Two yt-dlp instances for the worker's lifetime, each imported and built
+    on first use: an anonymous one and one with the account's cookies."""
 
     def __init__(self, factory=None):
         self._factory = factory
-        self._ydl = None
+        self._ydl = {}
         # The warm-up thread and the worker's streams lane may both get here
         # first; lookups themselves only ever run on the lane.
         self._lock = threading.Lock()
+        # S17: the songs' loudness, for the worker's lifetime.
+        self.loudness = Loudness()
 
-    def options(self):
+    def wants_account(self, account=None):
+        """Whether a lookup uses the account: asked for (or the default) and signed in."""
+        use = stream_with_account() if account is None else bool(account)
+        return use and auth.cookies_path().exists()
+
+    def options(self, account=None, fmt=FORMAT):
         opts = {
-            "format": FORMAT,
+            "format": fmt,
             "quiet": True,
             "no_warnings": True,
             "skip_download": True,
             "noplaylist": True,
             "logger": _Quiet(),
         }
-        cookies = auth.cookies_path()
-        if stream_with_account() and cookies.exists():
-            opts["cookiefile"] = str(cookies)
+        if self.wants_account(account):
+            opts["cookiefile"] = str(auth.cookies_path())
         return opts
 
-    def _client(self):
+    def _client(self, account=False, fmt=FORMAT):
+        # One instance per mode and format (S16: the audio quality), each
+        # built on first use.
+        key = (account, fmt)
         with self._lock:
-            if self._ydl is None:
+            if key not in self._ydl:
+                opts = self.options(account, fmt)
                 if self._factory is None:
                     import yt_dlp
 
-                    self._ydl = yt_dlp.YoutubeDL(self.options())
+                    self._ydl[key] = yt_dlp.YoutubeDL(opts)
                 else:
-                    self._ydl = self._factory(self.options())
-            return self._ydl
+                    self._ydl[key] = self._factory(opts)
+            return self._ydl[key]
 
-    def warm(self):
+    def warm(self, quality=None):
         try:
-            self._client()
+            self._client(self.wants_account(), format_for(quality))
         except Exception as exc:  # noqa: BLE001 - resolve() reports it properly later
             norm.log(f"could not load yt-dlp: {type(exc).__name__}: {exc}")
 
-    def resolve(self, video_id):
+    def resolve(self, video_id, account=None, loudness_from=None, quality=None):
+        """The stream URL; ``account`` None means the YTM_STREAM_WITH_ACCOUNT default.
+
+        With ``loudness_from`` (a ytmusicapi client; S17) the reply also
+        carries ``loudnessDb``: a number, or None when YouTube gave none or
+        the lookup failed (it never fails the lookup itself). ``quality``
+        (S16: low, normal, high; None is high) picks the format.
+        """
+        use_account = self.wants_account(account)
         try:
-            info = self._client().extract_info(WATCH_URL + video_id, download=False)
+            info = self._client(use_account, format_for(quality)).extract_info(WATCH_URL + video_id, download=False)
         except Exception as exc:  # noqa: BLE001 - yt-dlp raises DownloadError and friends
             raise _error(exc) from exc
         url = info.get("url")
@@ -119,11 +151,134 @@ class Resolver:
             url = requested[0].get("url") if requested else None
         if not url:
             raise StreamError("UPSTREAM", "YouTube returned no playable audio stream")
-        return {
+        result = {
             "videoId": video_id,
             "url": url,
             "expires": parse_expiry(url),
             "format": info.get("format_id"),
             "codec": info.get("acodec"),
             "abr": info.get("abr"),
+            "account": use_account,
         }
+        if loudness_from is not None:
+            result["loudnessDb"] = self.loudness.get(loudness_from, video_id)
+        return result
+
+
+# ---- loudness (S17) ------------------------------------------------------------
+# The shell's loudness levelling (prefs.normalize, sent as the worker setting
+# `normalize`): with "youtube", resolve also answers YouTube's loudness for
+# the song, playerConfig.audioConfig.loudnessDb of its player response (dB
+# above YouTube Music's loudness target; the shell turns a song down by that
+# much when it is positive, as the web player does). ytmusicapi's get_song()
+# sends that request but drops playerConfig from its reply, so the worker
+# sends the same `player` request itself, through the account client (one
+# HTTP request, counted in the reply). Values are kept per video in an LRU of
+# LOUDNESS_MEMO; a failed request answers None and is not kept.
+
+NORMALIZE_MODES = ("off", "youtube", "dynamic")
+LOUDNESS_MEMO = 500
+
+
+def validate_normalize(value):
+    if value not in NORMALIZE_MODES:
+        raise WorkerError("BAD_REQUEST", f"'normalize' must be one of {', '.join(NORMALIZE_MODES)}")
+    return value
+
+
+# configure() keys this module owns (ytm.py's core lists them).
+SETTINGS = {"normalize": validate_normalize}
+
+
+def player_body(video_id):
+    """get_song()'s request body (ytmusicapi 1.12.2 mixins/browsing.py)."""
+    from ytmusicapi.mixins._utils import get_datestamp
+
+    return {
+        "playbackContext": {"contentPlaybackContext": {"signatureTimestamp": get_datestamp() - 1}},
+        "video_id": video_id,
+    }
+
+
+def _number(value):
+    return float(value) if isinstance(value, (int, float)) and not isinstance(value, bool) else None
+
+
+def loudness_db(response):
+    """The song's loudnessDb in a player response: playerConfig.audioConfig's,
+    else its first audio format's; None when there is neither."""
+    if not isinstance(response, dict):
+        return None
+    audio = ((response.get("playerConfig") or {}).get("audioConfig") or {})
+    value = _number(audio.get("loudnessDb"))
+    if value is not None:
+        return value
+    formats = (response.get("streamingData") or {}).get("adaptiveFormats") or []
+    for fmt in formats:
+        if isinstance(fmt, dict) and str(fmt.get("mimeType") or "").startswith("audio/"):
+            value = _number(fmt.get("loudnessDb"))
+            if value is not None:
+                return value
+    return None
+
+
+class Loudness:
+    """loudnessDb per video, least recently used out first past ``size``."""
+
+    def __init__(self, size=LOUDNESS_MEMO):
+        self.size = size
+        self._memo = OrderedDict()
+        self._lock = threading.Lock()
+
+    def __len__(self):
+        return len(self._memo)
+
+    def get(self, client, video_id):
+        with self._lock:
+            if video_id in self._memo:
+                self._memo.move_to_end(video_id)
+                return self._memo[video_id]
+        try:
+            value = loudness_db(client._send_request("player", player_body(video_id)))
+        except Exception as exc:  # noqa: BLE001 - levelling is optional; the stream still plays
+            norm.log(f"no loudness for a song: {type(exc).__name__}")
+            return None
+        with self._lock:
+            self._memo[video_id] = value
+            self._memo.move_to_end(video_id)
+            while len(self._memo) > self.size:
+                self._memo.popitem(last=False)
+        return value
+
+
+# ---- quality (S16) --------------------------------------------------------------
+# The shell's audio quality (prefs.quality, sent as the worker setting
+# `quality`): the yt-dlp format the resolver asks for. High is the best opus
+# stream, as before (format 251, about 130 to 160 kbps); Normal caps the
+# average bitrate near the web's 128 kbps; Low caps it at 70 kbps, which
+# picks opus 250 (about 70 kbps; the web's Low is 48), or the smallest
+# stream when none is that low. mpv's own fallback (ytdl-format, bin/ytm-mpv
+# and the shell) uses the same strings; tests/backend/test_streams.py keeps
+# them in step with YtmModel.js and bin/ytm-mpv. The web's 256 kbps "Always high" is not
+# offered: the account gets the same opus 251 (README, development notes).
+
+QUALITIES = ("low", "normal", "high")
+QUALITY_FORMATS = {
+    "low": "bestaudio[abr<=70]/worstaudio",
+    "normal": "bestaudio[abr<=130]/bestaudio",
+    "high": FORMAT,
+}
+
+
+def validate_quality(value):
+    if value not in QUALITIES:
+        raise WorkerError("BAD_REQUEST", f"'quality' must be one of {', '.join(QUALITIES)}")
+    return value
+
+
+def format_for(quality):
+    """The yt-dlp format of a quality; FORMAT (high) for None or anything else."""
+    return QUALITY_FORMATS.get(quality, FORMAT)
+
+
+SETTINGS["quality"] = validate_quality

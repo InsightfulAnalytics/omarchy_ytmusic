@@ -1,7 +1,10 @@
 import ytm_normalize as norm
 
 TRACK_KEYS = {"type", "videoId", "title", "artists", "artistText", "album", "durationSec", "thumb",
-              "thumbLarge", "explicit", "likeStatus", "setVideoId", "available", "kind", "played"}
+              "thumbLarge", "explicit", "likeStatus", "setVideoId", "available", "kind", "played",
+              # S3: what later slices' row menus act on
+              "trackNumber", "inLibrary", "libraryTokens", "pinned", "listenAgainTokens", "historyToken",
+              "voteStatus"}
 
 
 def test_parse_duration():
@@ -66,9 +69,14 @@ def test_search_songs_fixture(load_fixture):
 
 
 def test_search_mixed_fixture_is_grouped(load_fixture):
-    groups = norm.search_grouped(load_fixture("search_mixed.json"))
-    assert set(groups) == {"top", "songs", "videos", "albums", "playlists", "artists"}
+    # S7: the top section comes only from the raw top result card (ytm_search
+    # passes it as `top`), never from ytmusicapi's "Top result" label.
+    results = load_fixture("search_mixed.json")
+    groups = norm.search_grouped(results[1:], top=results[:1])
+    assert set(groups) == {"top", "songs", "videos", "albums", "playlists", "artists", "podcasts", "episodes",
+                           "profiles", "order"}
     assert groups["top"], "a mixed search has a top result"
+    assert norm.search_grouped(results)["top"] == [], "no card, no top section"
     expected = {"songs": "track", "videos": "track", "albums": "album", "playlists": "playlist", "artists": "artist"}
     for key, kind in expected.items():
         assert all(item["type"] == kind for item in groups[key]), key
@@ -81,9 +89,8 @@ def test_search_mixed_fixture_is_grouped(load_fixture):
 
 
 def test_songs_keep_their_own_artists_without_an_artist_top_result():
-    groups = norm.search_grouped([
+    groups = norm.search_grouped([{"resultType": "song", "videoId": "a", "title": "A"}], top=[
         {"category": "Top result", "resultType": "song", "videoId": "t", "title": "T", "artists": [{"name": "X"}]},
-        {"resultType": "song", "videoId": "a", "title": "A"},
     ])
     assert groups["songs"][0]["artists"] == []
 
@@ -114,13 +121,6 @@ def test_watch_playlist_tracks_use_length_and_thumbnail(load_fixture):
     assert all(isinstance(t["durationSec"], int) and t["thumb"] for t in tracks)
 
 
-def test_artist_page_fixture(load_fixture):
-    page = norm.artist_page("UCtest", load_fixture("artist.json"))
-    assert page["name"]
-    assert page["songs"] and all(s["type"] == "track" for s in page["songs"])
-    assert page["albums"] and all(a["type"] == "album" and a["artists"] for a in page["albums"])
-
-
 def test_song_fixture(load_fixture):
     track = norm.song(load_fixture("song.json"))
     assert set(track) == TRACK_KEYS
@@ -139,11 +139,24 @@ def test_playlist_collection_keeps_set_video_ids():
             {"videoId": "b", "title": "B", "setVideoId": "S2", "duration": "2:00", "isAvailable": False},
         ],
     }
-    col = norm.collection("playlist", data, "PLx")
-    assert col["editable"] and col["owned"] and col["truncated"]
+    col = norm.collection("playlist", data, "PLx", limit=2)
+    assert col["editable"] and col["owned"] and col["truncated"] and col["unavailable"] is None
     assert col["subtitle"] == "Me • 3 songs"
     assert [t["setVideoId"] for t in col["tracks"]] == ["S1", "S2"]
     assert col["tracks"][1]["available"] is False
+
+
+def test_explicit_is_kept_for_tracks_and_albums():
+    assert norm.track({"videoId": "v", "isExplicit": True})["explicit"] is True
+    assert norm.track({"videoId": "v"})["explicit"] is False
+    assert norm.album({"browseId": "MPREb_1", "title": "A", "isExplicit": True})["explicit"] is True
+    assert norm.album({"browseId": "MPREb_1", "title": "A"})["explicit"] is False
+
+
+def test_playlist_keeps_its_served_description():
+    assert norm.playlist({"playlistId": "PL1", "description": "Playlist • YouTube Music"})["description"] == \
+        "Playlist • YouTube Music"
+    assert norm.playlist({"playlistId": "PL1"})["description"] is None
 
 
 def test_liked_collection_is_not_editable():
@@ -177,3 +190,44 @@ def test_home_items_dispatch_by_shape():
 def test_account():
     assert norm.account({"accountName": "N", "channelHandle": "@n", "accountPhotoUrl": "u"}) == \
         {"name": "N", "handle": "@n", "photo": "u"}
+
+
+# ---- protocol v2 shapes ----------------------------------------------------------------
+
+
+def test_is_mix_and_strip_mpla():
+    assert norm.is_mix("RDAMVMnbCOAPR33ME") and norm.is_mix("VLRDTMAK5uy_x") and norm.is_mix("RDAMPLOLAK5uy_x")
+    assert not norm.is_mix("RDCLAK5uy_curated") and not norm.is_mix("RDPN") and not norm.is_mix("PLabc")
+    assert not norm.is_mix(None)
+    assert norm.strip_mpla("MPLAUCr_iyUANcn9OX_yy9piYoLw") == "UCr_iyUANcn9OX_yy9piYoLw"
+    assert norm.strip_mpla("UCx") == "UCx" and norm.strip_mpla(None) is None
+    assert norm.artist({"browseId": "MPLAUCx", "artist": "Someone"})["channelId"] == "UCx"
+
+
+def test_page_section_and_more_shapes():
+    section = norm.section("Albums", [{"type": "album"}], {"browseId": "MPADUC1", "params": "p", "pageType": None},
+                           None, "carousel")
+    assert section == {"type": "section", "title": "Albums", "items": [{"type": "album"}],
+                       "more": {"browseId": "MPADUC1", "params": "p", "pageType": None}, "play": None,
+                       "layout": "carousel", "key": None}
+    page = norm.page("browse", "FEx", "New releases", sections=[section], cursor="c.T")
+    assert page["type"] == "page" and page["v"] == 2 and page["hasMore"] is True and page["round"] is False
+    assert set(page) == {"type", "v", "kind", "id", "title", "subtitle", "thumb", "thumbLarge", "round", "header",
+                         "sections", "cursor", "hasMore", "orders", "order", "message"}
+    assert norm.page("browse", "FEx", None)["hasMore"] is False
+    assert norm.more("See all", {"browseId": "VLPL1", "params": None}, 30) == {
+        "type": "more", "title": "See all", "endpoint": {"browseId": "VLPL1", "params": None, "pageType": None},
+        "count": 30}
+
+
+def test_podcast_episode_profile_channel_shapes():
+    podcast = norm.podcast({"title": "Song Exploder", "browseId": "MPSPPLx", "channel": {"id": "UCh", "name": "H"}})
+    assert podcast["type"] == "podcast" and podcast["podcastId"] == "PLx" and podcast["authorText"] == "H"
+    episode = norm.episode({"videoId": "e1", "title": "Ep", "browseId": "MPEDe1", "date": "Oct 1",
+                            "podcast": {"id": "MPSPPLx", "name": "Song Exploder"}, "duration": "1:02:03"})
+    assert episode["type"] == "track" and episode["kind"] == "episode" and episode["durationSec"] == 3723
+    assert episode["podcast"] == {"name": "Song Exploder", "id": "MPSPPLx"} and episode["artistText"] == "Song Exploder"
+    profile = norm.profile({"title": "A listener", "browseId": "UCu", "subscribers": "12"})
+    assert profile == {"type": "profile", "channelId": "UCu", "name": "A listener", "subtitle": "12",
+                       "thumb": None, "thumbLarge": None}
+    assert norm.channel({"artist": "A channel", "browseId": "UCc"})["type"] == "channel"

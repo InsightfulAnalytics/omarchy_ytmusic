@@ -103,6 +103,11 @@ def like_status(value):
 
 
 def track_kind(item):
+    # S10: an uploaded song is one wherever it is listed (a playlist, Liked
+    # Music, History, a watch list), by its video type or else by its
+    # uploads album or artist ids. It has no entityId there (no Delete).
+    if item.get("videoType") == UPLOAD_VIDEO_TYPE or _has_upload_refs(item):
+        return "upload"
     if item.get("resultType") == "video" or item.get("videoType") in VIDEO_TYPES:
         return "video"
     return "song"
@@ -116,8 +121,38 @@ def _album_ref(value):
     return None
 
 
+def _pair(value, first, second):
+    """``{first, second}`` of a token dict ytmusicapi read from a menu, or None."""
+    if not isinstance(value, dict) or not (value.get(first) or value.get(second)):
+        return None
+    return {first: value.get(first), second: value.get(second)}
+
+
+def _flag(value):
+    return value if isinstance(value, bool) else None
+
+
+def _vote_status(value):
+    """A collaborative playlist entry's votes: ``{votes, status}`` or None."""
+    if not isinstance(value, dict):
+        return None
+    status = getattr(value.get("status"), "value", value.get("status"))
+    return {"votes": to_int(value.get("netVoteValue")), "status": status if isinstance(status, str) else None}
+
+
 def track(item, album=None, album_thumbs=None):
-    """A playable song or video. ``album``/``album_thumbs`` fill gaps in album tracks."""
+    """A playable song or video. ``album``/``album_thumbs`` fill gaps in album tracks.
+
+    S3 keeps what the row menus of later slices act on: ``trackNumber`` (album
+    pages), ``inLibrary`` and ``pinned`` (Listen again) with their feedback
+    ``libraryTokens {add, remove}`` and ``listenAgainTokens {pin, unpin}``,
+    ``historyToken`` (remove from history) and a collaborative playlist's
+    ``voteStatus``. Tokens are account-bound and in fresh replies only: the
+    disk cache drops them (ytm_cache.strip_tokens), so does the recorder's
+    scrub, and the shell keeps them out of what it saves
+    (Model.withoutTokens). A slice that acts on a token reads it from a
+    fresh, non-cached reply.
+    """
     video_id = item.get("videoId")
     if not video_id:
         raise ValueError("track without videoId")
@@ -131,6 +166,7 @@ def track(item, album=None, album_thumbs=None):
     duration = item.get("duration_seconds")
     if duration is None:
         duration = parse_duration(item.get("duration") or item.get("length"))
+    number = item.get("trackNumber")
     return {
         "type": "track",
         "videoId": video_id,
@@ -147,6 +183,13 @@ def track(item, album=None, album_thumbs=None):
         "available": item.get("isAvailable", True) is not False,
         "kind": track_kind(item),
         "played": item.get("played"),
+        "trackNumber": number if isinstance(number, int) and not isinstance(number, bool) else None,
+        "inLibrary": _flag(item.get("inLibrary")),
+        "libraryTokens": _pair(item.get("feedbackTokens"), "add", "remove"),
+        "pinned": _flag(item.get("pinnedToListenAgain")),
+        "listenAgainTokens": _pair(item.get("listenAgainFeedbackTokens"), "pin", "unpin"),
+        "historyToken": item.get("feedbackToken") if isinstance(item.get("feedbackToken"), str) else None,
+        "voteStatus": _vote_status(item.get("communityVoteStatus")),
     }
 
 
@@ -173,6 +216,7 @@ def album(item, fallback_artists=None):
         "artistText": artist_text(artist_list),
         "year": str(item["year"]) if item.get("year") else None,
         "albumType": item.get("type"),
+        "explicit": bool(item.get("isExplicit")),
         "thumb": thumb,
         "thumbLarge": thumb_large,
     }
@@ -200,16 +244,37 @@ def playlist(item):
         "author": _author_name(item.get("author")),
         "count": to_int(item.get("count") if item.get("count") is not None else item.get("itemCount")),
         "owned": bool(item.get("owned")),
+        # The served subtitle ("Playlist • YouTube Music"), shown when the
+        # playlist names no author or count.
+        "description": item.get("description") if isinstance(item.get("description"), str) else None,
         "thumb": thumb,
         "thumbLarge": thumb_large,
     }
+
+
+def strip_mpla(browse_id):
+    """A library artist's browseId (``MPLAUC...``) as the artist's channel id."""
+    if isinstance(browse_id, str) and browse_id.startswith("MPLA"):
+        return browse_id[4:]
+    return browse_id
+
+
+def is_mix(playlist_id):
+    """Radio-style playlists (``RD...``) that play through the watch playlist.
+
+    ``RDCLAK`` (curated) and ``RDPN`` (New episodes) are ordinary pages.
+    """
+    pid = str(playlist_id or "")
+    if pid.startswith("VL"):
+        pid = pid[2:]
+    return pid.startswith("RD") and not pid.startswith(("RDCLAK", "RDPN"))
 
 
 def artist(item):
     # A "Top result" artist carries its name and id only in artists[0].
     listed = artists(item.get("artists"))
     first = listed[0] if listed else {"name": None, "id": None}
-    channel_id = item.get("browseId") or item.get("channelId") or first["id"]
+    channel_id = strip_mpla(item.get("browseId") or item.get("channelId") or first["id"])
     if not channel_id:
         raise ValueError("artist without channel id")
     thumb, thumb_large = thumbs(item.get("thumbnails"))
@@ -223,7 +288,72 @@ def artist(item):
     }
 
 
+def _channel_like(kind, item):
+    channel_id = strip_mpla(item.get("browseId") or item.get("channelId"))
+    if not channel_id:
+        raise ValueError(f"{kind} without channel id")
+    thumb, thumb_large = thumbs(item.get("thumbnails"))
+    return {
+        "type": kind,
+        "channelId": channel_id,
+        "name": item.get("name") or item.get("title") or item.get("artist") or "",
+        "subtitle": item.get("subscribers") or item.get("subtitle"),
+        "thumb": thumb,
+        "thumbLarge": thumb_large,
+    }
+
+
+def profile(item):
+    """A user's channel (MUSIC_PAGE_TYPE_USER_CHANNEL): playlists and videos, no discography."""
+    return _channel_like("profile", item)
+
+
+def channel(item):
+    """A podcast or library channel."""
+    return _channel_like("channel", item)
+
+
+def podcast(item):
+    browse_id = item.get("browseId") or (f"MPSP{item['podcastId']}" if item.get("podcastId") else None)
+    if not browse_id:
+        raise ValueError("podcast without browseId")
+    author = _album_ref(item.get("channel") or item.get("author"))
+    thumb, thumb_large = thumbs(item.get("thumbnails"))
+    return {
+        "type": "podcast",
+        "browseId": browse_id,
+        "podcastId": item.get("podcastId") or (browse_id[4:] if browse_id.startswith("MPSP") else None),
+        "title": item.get("title") or "",
+        "author": author,
+        "authorText": author["name"] if author else None,
+        "thumb": thumb,
+        "thumbLarge": thumb_large,
+    }
+
+
+def episode(item):
+    """A podcast episode: a track of kind ``episode`` plus its page and podcast."""
+    value = track(item)
+    podcast_ref = _album_ref(item.get("podcast") or item.get("author"))
+    if not value["artists"] and podcast_ref:
+        value["artists"] = [dict(podcast_ref)]
+        value["artistText"] = podcast_ref["name"]
+    value.update({
+        "kind": "episode",
+        "browseId": item.get("browseId"),
+        "date": item.get("date"),
+        "podcast": podcast_ref,
+    })
+    return value
+
+
 def search_item(item):
+    """One search result (ytmusicapi's shape, typed by ``resultType``), or None.
+
+    S7: podcasts, episodes (tracks of kind ``episode``), profiles (with their
+    ``handle``) and stations (a mix playlist) too; an artist keeps YouTube's
+    ``shuffleId`` and ``radioId`` mixes, which the row menu plays.
+    """
     kind = item.get("resultType")
     if kind in ("song", "video"):
         return track(item)
@@ -232,8 +362,27 @@ def search_item(item):
     if kind == "playlist":
         return playlist(item)
     if kind == "artist":
-        return artist(item)
-    return None  # podcasts, episodes, profiles: not supported
+        value = artist(item)
+        value["shuffleId"] = item.get("shuffleId") or None
+        value["radioId"] = item.get("radioId") or None
+        return value
+    if kind == "podcast":
+        value = podcast(item)
+        value["subtitle"] = "Podcast" + (f" \u2022 {value['authorText']}" if value["authorText"] else "")
+        return value
+    if kind == "episode":
+        return episode(item)
+    if kind == "profile":
+        # ytmusicapi reads the display name as ``title`` and the @handle as ``name``.
+        handle = item.get("name") if isinstance(item.get("name"), str) and item["name"].startswith("@") else None
+        value = profile({"browseId": item.get("browseId"), "name": item.get("title") or item.get("name"),
+                         "subtitle": handle, "thumbnails": item.get("thumbnails")})
+        value["handle"] = handle
+        return value
+    if kind == "station":
+        return playlist({"playlistId": item.get("playlistId"), "title": item.get("title"),
+                         "author": item.get("author"), "thumbnails": item.get("thumbnails")})
+    return None
 
 
 def home_item(item):
@@ -262,30 +411,44 @@ def normalize_list(items, fn, what="item"):
     return out
 
 
-SEARCH_GROUPS = {"song": "songs", "video": "videos", "album": "albums", "playlist": "playlists", "artist": "artists"}
+SEARCH_GROUPS = {"song": "songs", "video": "videos", "album": "albums", "playlist": "playlists",
+                 "station": "playlists", "artist": "artists", "podcast": "podcasts", "episode": "episodes",
+                 "profile": "profiles"}
+# Every group key; each is also the search filter its Show all row sets.
+SEARCH_GROUP_KEYS = ("songs", "videos", "albums", "playlists", "artists", "podcasts", "episodes", "profiles")
 
 
-def search_grouped(results):
-    """Unfiltered search: the top result plus one list per kind."""
-    groups = {"top": [], "songs": [], "videos": [], "albums": [], "playlists": [], "artists": []}
+def search_grouped(results, top=None):
+    """Unfiltered search: the top result plus one list per kind.
+
+    ``results`` are search results in served order, ``top`` the top result
+    card's (its item, then the rows it holds) or a podcast's lead shelf, both
+    in ytmusicapi's shape. The top section comes only from what the search
+    module read as the top result (S7: never from a position or the English
+    "Top result" label), so without ``top`` it is empty. ``order``
+    lists the groups in the order YouTube served their first result.
+    """
+    groups = {"top": normalize_list(top, search_item, "top result")}
+    for key in SEARCH_GROUP_KEYS:
+        groups[key] = []
+    order = []
     for raw in results or []:
-        items = normalize_list([raw], search_item, "search result")
+        key = SEARCH_GROUPS.get(raw.get("resultType")) if isinstance(raw, dict) else None
+        items = normalize_list([raw], search_item, "search result") if key else []
         if not items:
             continue
-        if raw.get("category") == "Top result":
-            groups["top"].append(items[0])
-            continue
-        key = SEARCH_GROUPS.get(raw.get("resultType"))
-        if key:
-            groups[key].append(items[0])
+        groups[key].append(items[0])
+        if key not in order:
+            order.append(key)
+    groups["order"] = order
     # When the top result is an artist, YouTube Music's card lists a few of
     # their popular songs with only title and plays; ytmusicapi returns those
     # without artists. They belong to the top-result artist.
     top_artist = next((item for item in groups["top"] if item["type"] == "artist"), None)
     if top_artist and top_artist["name"]:
         credit = [{"name": top_artist["name"], "id": top_artist["channelId"]}]
-        for song in groups["songs"]:
-            if not song["artists"]:
+        for song in groups["top"][1:] + groups["songs"]:
+            if song["type"] == "track" and not song["artists"]:
                 song["artists"] = list(credit)
                 song["artistText"] = artist_text(credit)
     return groups
@@ -304,8 +467,79 @@ def _join(*parts):
     return " • ".join(str(part) for part in parts if part)
 
 
-def collection(kind, data, collection_id=None):
-    """An album, playlist or Liked Music with its tracks."""
+def truncated(read, track_count, limit, more=None):
+    """True when a playlist or Liked Music has more songs than were read.
+
+    ``read`` is how many ytmusicapi returned for ``limit`` (None: all of
+    them). It reads whole pages of 100 and stops once it has ``limit``, so
+    300 songs for a limit of 200 may or may not be all there is. ``more``
+    says whether a continuation was left after the last page (None when
+    unknown); without it the counts decide. Never by the counts alone in the
+    other direction: Liked Music counts 416 songs and serves 377.
+    """
+    if limit is None:
+        return False
+    within = track_count is None or read < track_count
+    if more is not None:
+        return bool(more) and within
+    return read >= limit and within
+
+
+# Section titles when the served ones are not known (a recorded response).
+COLLECTION_TITLES = {"otherVersions": "Other versions", "releases": "More releases", "related": "Related playlists"}
+
+
+def _collection_header(kind, data):
+    """Every header field for every kind (None when the kind has none)."""
+    owned = bool(data.get("owned"))
+    author = _album_ref(data.get("author")) if kind in ("playlist", "liked") else None
+    collaborators = data.get("collaborators")
+    return {
+        "description": data.get("description") if isinstance(data.get("description"), str) and data["description"].strip() else None,
+        # ytmusicapi says PUBLIC for any playlist that is not yours.
+        "privacy": data.get("privacy") if owned and kind == "playlist" else None,
+        "year": str(data["year"]) if data.get("year") else None,
+        "views": to_int(data.get("views")),
+        "duration": data.get("duration") if isinstance(data.get("duration"), str) else None,
+        "durationSec": to_int(data.get("duration_seconds")) or None,
+        "author": author,
+        "collaborators": collaborators.get("text") if isinstance(collaborators, dict) else None,
+        "artists": artists(data.get("artists")) if kind == "album" else [],
+        "likeStatus": like_status(data.get("likeStatus")) if kind == "album" else None,
+        "audioPlaylistId": data.get("audioPlaylistId") if kind == "album" else None,
+        "explicit": bool(data.get("isExplicit")) if kind == "album" else False,
+        "type": data.get("type") if kind == "album" else None,
+    }
+
+
+def _collection_sections(kind, data, titles):
+    """The shelves under the songs: an album's other versions and the served
+    recommendations, a playlist's related playlists."""
+    names = dict(COLLECTION_TITLES, **{k: v for k, v in (titles or {}).items() if v})
+    shelves = []
+    if kind == "album":
+        shelves = [("otherVersions", data.get("other_versions"), album, "album"),
+                   ("releases", data.get("related_recommendations"), album, "album")]
+    elif kind == "playlist":
+        shelves = [("related", data.get("related"), playlist, "playlist")]
+    out = []
+    for key, items, fn, what in shelves:
+        values = normalize_list(items, fn, f"{key} {what}")
+        if values:
+            out.append(section(names[key], values, layout="carousel", key=key))
+    return out
+
+
+def collection(kind, data, collection_id=None, limit=None, more=None, titles=None):
+    """An album, playlist, mix or Liked Music with its tracks.
+
+    ``limit`` and ``more`` describe the read (see ``truncated``); a list read
+    whole (``limit`` None) is never truncated, and its ``unavailable`` counts
+    the songs the header counts that did not come back. ``header`` has the
+    page's details, ``sections`` the shelves under the songs (``titles``:
+    served titles by section key). ``capped`` is set by the caller when a
+    whole read stopped at its cap.
+    """
     thumb, thumb_large = thumbs(data.get("thumbnails"))
     collection_id = collection_id or data.get("id")
     title = data.get("title") or ("Liked Music" if kind == "liked" else "")
@@ -318,12 +552,16 @@ def collection(kind, data, collection_id=None):
     else:
         tracks = normalize_list(data.get("tracks"), track, f"{kind} track")
         count_text = f"{to_int(data.get('trackCount')) or len(tracks)} songs"
-        subtitle = count_text if kind == "liked" else _join(_author_name(data.get("author")), count_text)
+        if kind == "mix":
+            subtitle = _join("Mix", count_text)
+        else:
+            subtitle = count_text if kind == "liked" else _join(_author_name(data.get("author")), count_text)
         playlist_id = "LM" if kind == "liked" else collection_id
     track_count = to_int(data.get("trackCount"))
     if track_count is None:
         track_count = len(tracks)
     owned = bool(data.get("owned"))
+    cut = truncated(len(data.get("tracks") or []), to_int(data.get("trackCount")), limit, more)
     return {
         "type": "collection",
         "kind": kind,
@@ -334,30 +572,27 @@ def collection(kind, data, collection_id=None):
         "owned": owned,
         "editable": owned and kind == "playlist",
         "trackCount": track_count,
-        "truncated": track_count > len(tracks),
+        "truncated": cut,
+        "capped": False,
+        "unavailable": None if cut else max(0, track_count - len(tracks)),
         "thumb": thumb,
         "thumbLarge": thumb_large,
+        "header": _collection_header(kind, data),
         "tracks": tracks,
+        "sections": _collection_sections(kind, data, titles),
     }
 
 
-def artist_page(channel_id, data):
-    name = data.get("name") or ""
-    page_artists = [{"name": name, "id": channel_id}] if name else []
-    thumb, thumb_large = thumbs(data.get("thumbnails"))
-    songs = data.get("songs") or {}
-    return {
-        "type": "artistPage",
-        "channelId": channel_id,
-        "name": name,
-        "subtitle": data.get("monthlyListeners") or data.get("subscribers"),
-        "thumb": thumb,
-        "thumbLarge": thumb_large,
-        "songs": normalize_list(songs.get("results"), track, "artist song"),
-        "albums": normalize_list((data.get("albums") or {}).get("results"), lambda a: album(a, page_artists), "artist album"),
-        "singles": normalize_list((data.get("singles") or {}).get("results"), lambda a: album(a, page_artists), "artist single"),
-        "songsPlaylistId": songs.get("browseId"),
-    }
+def artist_radio_id(data):
+    """The artist's radio mix (RDEM...). ytmusicapi reads it from the radio
+    button's watchEndpoint only, and some artists' button (Radiohead's,
+    signed in) is a watchPlaylistEndpoint; the radio and shuffle mixes share
+    the artist's suffix (RDEM... / RDAO...)."""
+    radio_id = data.get("radioId")
+    shuffle_id = data.get("shuffleId") or ""
+    if not radio_id and shuffle_id.startswith("RDAO"):
+        radio_id = "RDEM" + shuffle_id[4:]
+    return radio_id
 
 
 def song(data):
@@ -380,3 +615,125 @@ def account(info):
         "handle": info.get("channelHandle"),
         "photo": info.get("accountPhotoUrl"),
     }
+
+
+# ---- pages (protocol v2) -------------------------------------------------------
+# A page is what a "See all" or any other destination shows: a header and
+# sections of normalized items. ``cursor`` pages on (opaque, never cached);
+# ``hasMore`` stays true on a disk-cached first page whose cursor was stripped.
+
+
+def section(title, items, more=None, play=None, layout=None, key=None):
+    """One shelf: ``more`` is its See all endpoint ``{browseId, params, pageType}``,
+    ``play`` its Play all endpoint ``{videoId, playlistId, params}``, ``key``
+    what the shelf holds when the method knows it (an artist page's
+    ``songs``, ``albums``, ...; never read from its title)."""
+    return {
+        "type": "section",
+        "title": title,
+        "items": list(items or []),
+        "more": more,
+        "play": play,
+        "layout": layout,
+        "key": key,
+    }
+
+
+def more(title, endpoint, count=None):
+    """A selectable "See all" row that opens ``endpoint`` (``{browseId, params, pageType}``)."""
+    endpoint = endpoint or {}
+    return {
+        "type": "more",
+        "title": title or "",
+        "endpoint": {"browseId": endpoint.get("browseId"), "params": endpoint.get("params"),
+                     "pageType": endpoint.get("pageType")},
+        "count": count,
+    }
+
+
+def page(kind, page_id, title, subtitle=None, thumbnails=None, sections=None, cursor=None, header=None,
+         orders=None, order=None, round=False, message=None):
+    thumb, thumb_large = thumbs(thumbnails)
+    return {
+        "type": "page",
+        "v": 2,
+        "kind": kind,
+        "id": page_id,
+        "title": title or "",
+        "subtitle": subtitle,
+        "thumb": thumb,
+        "thumbLarge": thumb_large,
+        "round": bool(round),
+        "header": header or {},
+        "sections": list(sections or []),
+        "cursor": cursor,
+        "hasMore": cursor is not None,
+        "orders": list(orders or []),
+        "order": order,
+        "message": message,
+    }
+
+
+# ---- uploads (S10) ----------------------------------------------------------------
+# Your uploaded songs, albums and artists keep their uploads ids
+# (FEmusic_library_privately_owned_...): a song's album and artists, an
+# album's browseId and an artist's channelId open the upload album and
+# upload artist pages (ytm_uploads), never the public ones.
+
+UPLOAD_ALBUM_PREFIX = "FEmusic_library_privately_owned_release_detail"
+UPLOAD_ARTIST_PREFIX = "FEmusic_library_privately_owned_artist_detail"
+UPLOAD_VIDEO_TYPE = "MUSIC_VIDEO_TYPE_PRIVATELY_OWNED_TRACK"
+
+
+def is_upload_album(browse_id):
+    return isinstance(browse_id, str) and browse_id.startswith(UPLOAD_ALBUM_PREFIX) and len(browse_id) > len(UPLOAD_ALBUM_PREFIX)
+
+
+def is_upload_artist(browse_id):
+    return isinstance(browse_id, str) and browse_id.startswith(UPLOAD_ARTIST_PREFIX) and len(browse_id) > len(UPLOAD_ARTIST_PREFIX)
+
+
+def _has_upload_refs(item):
+    """Whether a song's album or one of its artists has an uploads id."""
+    album_ref = item.get("album")
+    if isinstance(album_ref, dict) and is_upload_album(album_ref.get("id")):
+        return True
+    return any(isinstance(a, dict) and is_upload_artist(a.get("id")) for a in item.get("artists") or [])
+
+
+def upload_entity(browse_id):
+    """What deletes an uploaded album: its browseId without the prefix (the
+    web's Delete album sends that; ytmusicapi strips it the same way)."""
+    if not is_upload_album(browse_id):
+        return None
+    return browse_id[len(UPLOAD_ALBUM_PREFIX):]
+
+
+def upload_track(item, album=None, album_thumbs=None):
+    """An uploaded song: a track of kind ``upload`` with the ``entityId`` that
+    deletes it (None when the row offers no Delete). It streams with the
+    account (the shell asks resolve with ``account: true``)."""
+    value = track(item, album=album, album_thumbs=album_thumbs)
+    entity = item.get("entityId")
+    value["kind"] = "upload"
+    value["entityId"] = entity if isinstance(entity, str) and entity else None
+    return value
+
+
+def upload_album(item):
+    """An album of your uploads: norm.album plus ``upload`` and its ``entityId``."""
+    value = album(item)
+    value["upload"] = True
+    value["entityId"] = upload_entity(value["browseId"])
+    return value
+
+
+def upload_artist(item):
+    """An artist of your uploads, with how many of your songs are theirs
+    (``songs``). No shuffle or radio mix: those ids play nothing elsewhere."""
+    value = artist(item)
+    count = to_int(item.get("songs") or item.get("subscribers"))
+    value["upload"] = True
+    value["songs"] = count
+    value["subtitle"] = None if count is None else ("1 song" if count == 1 else f"{count} songs")
+    return value

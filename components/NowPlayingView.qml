@@ -1,5 +1,6 @@
 import QtQuick
 import qs.Commons
+import qs.Commons as Commons
 import qs.Ui
 import "../YtmModel.js" as Model
 
@@ -17,14 +18,22 @@ Column {
   readonly property real duration: service ? service.duration : 0
   readonly property real position: service ? service.position : 0
   readonly property bool liked: !!service && service.currentLike === "LIKE"
+  // S4: disliked here this session (YouTube reports a dislike as INDIFFERENT).
+  readonly property bool disliked: !!service && service.currentDisliked
   readonly property bool accountActions: !!service && service.signedIn && hasMedia
 
   readonly property bool albumLinked: !!track && !!track.album && !!track.album.id
+  // S17: "1.5x" while the speed is not 1x ([ and ]); "" at normal speed.
+  readonly property string speedLabel: service && hasMedia ? Model.speedLabel(service.speed) : ""
 
   signal addToPlaylistRequested()
+  // The song's menu (the button by Add to playlist).
+  signal menuRequested()
   // An artist ({ name, id }) or the track's album was clicked.
   signal artistRequested(var artist)
   signal albumRequested(var track)
+  // The speed badge was clicked (S17): the speed chooser.
+  signal speedRequested()
 
   spacing: Style.space(10)
 
@@ -122,7 +131,7 @@ Column {
         width: parent.width
         textFormat: Text.PlainText
         text: root.service && root.service.canResume ? "Pick up where you left off:"
-          : "Search (2) or open Home (4) to pick something."
+          : "Search (2), Home (4) or Explore (5) to pick something."
         visible: !root.track
         color: Qt.darker(root.foreground, 1.3)
         font.family: root.fontFamily
@@ -222,6 +231,37 @@ Column {
         font.family: root.fontFamily
         font.pixelSize: Style.font.caption
       }
+
+      // S17: the playback speed, when it is not 1x.
+      Rectangle {
+        id: speedBadge
+        anchors.centerIn: parent
+        visible: root.speedLabel !== ""
+        width: speedText.implicitWidth + Style.space(10)
+        height: parent.height
+        radius: height / 2
+        color: Qt.rgba(Commons.Color.accent.r, Commons.Color.accent.g, Commons.Color.accent.b, speedHover.hovered ? 0.3 : 0.18)
+
+        Text {
+          id: speedText
+          anchors.centerIn: parent
+          textFormat: Text.PlainText
+          text: root.speedLabel
+          color: Commons.Color.accent
+          font.family: root.fontFamily
+          font.pixelSize: Style.font.caption
+          font.bold: true
+        }
+
+        HoverHandler {
+          id: speedHover
+          cursorShape: Qt.PointingHandCursor
+        }
+
+        TapHandler {
+          onTapped: root.speedRequested()
+        }
+      }
     }
   }
 
@@ -230,21 +270,45 @@ Column {
     height: transport.height
 
     Button {
+      id: likeButton
       anchors.left: parent.left
       anchors.verticalCenter: parent.verticalCenter
       visible: root.accountActions
       iconText: root.liked ? "󰋑" : "󰋕"
-      tooltipText: root.liked ? "Remove from Liked Music (L)" : "Like (L)"
+      tooltipText: Model.withKey(root.liked ? "Remove from Liked Music" : "Like", "like")
       foreground: root.liked ? Color.accent : root.foreground
       onClicked: root.service.toggleLike(root.track)
     }
 
+    // S4: thumbs down; the song skips, so the next press acts on the next
+    // song. On a song disliked earlier it removes the dislike.
     Button {
+      anchors.left: likeButton.right
+      anchors.verticalCenter: parent.verticalCenter
+      visible: root.accountActions
+      iconText: root.disliked ? "󰔑" : "󰔒"
+      tooltipText: Model.withKey(root.disliked ? "Remove dislike" : "Dislike (skips the song)", "dislike")
+      foreground: root.disliked ? Color.accent : root.foreground
+      onClicked: root.service.toggleDislike(root.track)
+    }
+
+    Button {
+      id: menuButton
       anchors.right: parent.right
+      anchors.verticalCenter: parent.verticalCenter
+      visible: !!root.track
+      iconText: "󰇙"
+      tooltipText: Model.withKey("More", "menu")
+      foreground: root.foreground
+      onClicked: root.menuRequested()
+    }
+
+    Button {
+      anchors.right: menuButton.visible ? menuButton.left : parent.right
       anchors.verticalCenter: parent.verticalCenter
       visible: root.accountActions
       iconText: "󰐒"
-      tooltipText: "Add to playlist (p)"
+      tooltipText: Model.withKey("Add to playlist", "addToPlaylist")
       foreground: root.foreground
       onClicked: root.addToPlaylistRequested()
     }
@@ -258,7 +322,7 @@ Column {
         readonly property bool shuffleOn: !!root.service && root.service.shuffle
         anchors.verticalCenter: parent.verticalCenter
         iconText: shuffleOn ? "󰒝" : "󰒞"
-        tooltipText: shuffleOn ? "Shuffle is on (s)" : "Shuffle (s)"
+        tooltipText: Model.withKey(shuffleOn ? "Shuffle is on" : "Shuffle", "shuffle")
         foreground: shuffleOn ? Color.accent : Qt.darker(root.foreground, 1.4)
         onClicked: root.service.toggleShuffle()
       }
@@ -299,7 +363,7 @@ Column {
         readonly property string loopMode: root.service ? root.service.repeatMode : "off"
         anchors.verticalCenter: parent.verticalCenter
         iconText: loopMode === "one" ? "󰑘" : loopMode === "all" ? "󰑖" : "󰑗"
-        tooltipText: loopMode === "one" ? "Repeating this song (r)" : loopMode === "all" ? "Repeating the queue (r)" : "Repeat (r)"
+        tooltipText: Model.withKey(loopMode === "one" ? "Repeating this song" : loopMode === "all" ? "Repeating the queue" : "Repeat", "repeat")
         foreground: loopMode !== "off" ? Color.accent : Qt.darker(root.foreground, 1.4)
         onClicked: root.service.cycleRepeat()
       }

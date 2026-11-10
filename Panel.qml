@@ -3,17 +3,48 @@ import Quickshell
 import qs.Commons
 import qs.Ui
 import "components"
+import "YtmModel.js" as Model
 
 // The YouTube Music dropdown. BarWidget.qml loads this and injects the bar,
 // the anchor button, the widget itself (bar identity) and the service.
 //
-// Tabs: Now (playing + queue), Search, Library and Home, with a page stack on
-// top for albums, playlists, Liked Music, History and artists, and the
-// playlist picker.
-// Keys: 1–4 tabs · / search · j/k or ↑/↓ move · Enter play/open · n play next ·
-// a add to queue · L like · p add to playlist · J/K move in queue ·
-// x remove (queue, playlist page, Liked Music) · Space play/pause ·
-// ←/→ seek 10 s (Now) · Esc leave field → close picker → back → close.
+// Tabs: Now (playing, then the queue, lyrics or related), Search, Library,
+// Home and Explore (S6), with a page stack on top for albums, playlists,
+// Liked Music, History, artists, credits, Charts, moods and See all pages,
+// the item menu (row menu, chooser, key help), the playlist picker and (S13)
+// the playlist editor. When the tab labels do not fit the panel's width, the
+// tabs show their icons.
+// Keys (Model.KEYS; ? lists them): 1-5 switch tab: Now, Search, Library,
+// Home, Explore · / search · j / k / ↑ / ↓ move · g first row · G last row
+// (loads more), or a long list's Load all row · Enter play or open · h / l /
+// ← / → seek 10 s on Now, or the page's chips · Esc leave the field → close
+// the picker, editor or menu → clear the filter → back → close · Space
+// play/pause · n play next (a song, album or playlist) · a add to queue · R
+// start radio from the row, the artist page, Liked Music or the current song
+// · s shuffle · r repeat · L like · S save to library or subscribe (the row,
+// else the page) · D dislike the row's song (again to undo) or the one
+// playing, which skips · p add to playlist (the song, or a whole album,
+// playlist or mix row) · A go to artist (of the row, the album page's artist
+// or the playlist's author, or the current song) · o go to album (an
+// episode's podcast) · J / K move a queued song, or a song of your own
+// playlist, down / up · i add the suggestion under the cursor to your
+// playlist · x remove (queue, own playlist, Liked Music, Episodes for Later,
+// recent search; History: press twice) · m / . the row's menu (or
+// right-click) · M the page's menu (Library: account) · O next sort order on
+// a page that has one (Charts: the country) · f find in a page's songs
+// (album, playlist, Liked Music, History), a podcast's episodes or the
+// suggested artists · e edit your playlist: details, order, voting,
+// collaborators · ? these keys · y cycle the pane under the song: Queue,
+// Lyrics, Related · t cycle the queue tuner chip: All, Discover, Popular and
+// the rest · [ / ] playback speed down / up (0.5x to 2x, kept apart for
+// episodes).
+// Text keys go through Model.keyId to runKey(); Ctrl and Alt chords are
+// ignored. Views offer optional hooks, checked with typeof: horizontal(dx),
+// cycleOrder(), find(), playNext(i) / addToQueue(i), menu(i), pageMenu(),
+// menuChosen(id), placeAt(i) / indexOfPlace(place), pageRadio(),
+// pageArtist(), clearFind(), (S4) toggleSave() and editCallback(), (S8)
+// saveRow(i), and (S13) moveTrack(delta), addSuggestion() and editTarget()
+// (the playlist editor's target; Panel opens PlaylistEditor over the page).
 Panel {
   id: root
   moduleName: "damir.ytmusic"
@@ -34,20 +65,31 @@ Panel {
   readonly property bool sessionProblem: !!service && (service.authState === "expired" || service.authState === "invalid")
 
   property string tab: "now"
-  // Opened albums/playlists/artists, innermost last.
+  // Opened pages, innermost last, as wrappers { item, view }: the item that
+  // was opened (never changed) and, once another page is pushed on top, the
+  // place it was left at (CollectionView.viewState()), restored on Back.
   property var stack: []
-  readonly property var page: stack.length > 0 ? stack[stack.length - 1] : null
+  readonly property var topEntry: stack.length > 0 ? stack[stack.length - 1] : null
+  readonly property var page: topEntry ? topEntry.item : null
   property bool returnPressed: false
+  // Now (S11): the pane under the song (prefs.nowPane), and whether the
+  // queue is what the keys move in.
+  readonly property string nowPane: service && service.prefs ? Model.nowPane(service.prefs.nowPane) : "queue"
+  readonly property bool queueShown: tab === "now" && !page && nowPane === "queue"
 
+  // `icon`: what a tab shows when the labels do not fit (S6).
   readonly property var tabs: [
-    { key: "now", title: "Now" },
-    { key: "search", title: "Search" },
-    { key: "library", title: "Library" },
-    { key: "home", title: "Home" }
+    { key: "now", title: "Now", icon: "󰝚" },
+    { key: "search", title: "Search", icon: "󰍉" },
+    { key: "library", title: "Library", icon: "󰌱" },
+    { key: "home", title: "Home", icon: "󰋜" },
+    { key: "explore", title: "Explore", icon: "󰆌" }
   ]
 
   function setTab(key) {
     picker.close()
+    itemMenu.close()
+    editor.close()  // S13
     tab = key
     stack = []
     if (key === "search") Qt.callLater(focusSearch)
@@ -60,13 +102,28 @@ Panel {
   }
 
   function push(item) {
+    if (!item) return
+    item = Model.withChartsCountry(item, service ? service.prefs.chartsCountry : "")  // S6: Charts in the chosen country
     picker.close()
-    stack = stack.concat([item])
+    itemMenu.close()
+    editor.close()  // S13
+    var next = stack.slice()
+    var shown = collectionLoader.item
+    if (next.length > 0 && shown) next[next.length - 1] = { item: next[next.length - 1].item, view: shown.viewState() }
+    next.push({ item: item, view: null })
+    stack = next
     keyCatcher.forceActiveFocus()
   }
 
+  // The page underneath comes back with its saved view (CollectionView
+  // restores it from the wrapper). The overlays close first: the header's
+  // Back button stays clickable over them, and a menu's rows belong to the
+  // page that goes.
   function back() {
     if (stack.length === 0) return false
+    picker.close()
+    itemMenu.close()
+    editor.close()  // S13
     stack = stack.slice(0, -1)
     keyCatcher.forceActiveFocus()
     return true
@@ -75,16 +132,22 @@ Panel {
   // (Not "escape": QML rejects methods named after JS globals.)
   function handleEscape() {
     if (picker.open) picker.close()
-    else if (!back()) close()
+    else if (editor.open) editor.close()  // S13
+    else if (itemMenu.open) itemMenu.close()
+    else if (!clearFind() && !back()) close()
   }
 
   // The view whose list the keyboard cursor currently drives.
   function activeListOwner() {
     if (picker.open) return picker
+    if (editor.open) return editor  // S13
+    if (itemMenu.open) return itemMenu
     if (page) return collectionLoader.item
+    if (tab === "now" && nowPane === "related") return relatedView
     if (tab === "search") return searchView
     if (tab === "library") return libraryView
     if (tab === "home") return homeView
+    if (tab === "explore") return exploreView
     return null
   }
 
@@ -93,25 +156,63 @@ Panel {
     return owner ? owner.results : null
   }
 
+  // Optional hooks of the active owner (horizontal, cycleOrder, find): a
+  // view offers one by defining the function; otherwise the key does nothing.
+  function ownerHook(name, arg) {
+    var owner = activeListOwner()
+    if (!owner || typeof owner[name] !== "function") return false
+    owner[name](arg)
+    return true
+  }
+
+  // Views and overlays with a text field, each listed once. While one
+  // reports inputFocused, keys go to its field instead of the shortcuts.
+  function inputOwners() {
+    return [libraryView, picker, itemMenu, collectionLoader.item, editor]
+  }
+
+  function anyInputFocused() {
+    var owners = inputOwners()
+    for (var i = 0; i < owners.length; i++) {
+      if (owners[i] && owners[i].inputFocused === true) return true
+    }
+    return false
+  }
+
+  // g / G: the first or last row (G also lets the list load more).
+  function jumpCursor(toEnd) {
+    var list = activeList()
+    if (list) {
+      if (toEnd) list.toBottom()
+      else list.toTop()
+    } else if (tab === "now" && nowPane === "lyrics") {
+      lyricsView.jump(toEnd)
+    } else if (queueShown && service && service.queue.length > 0) {
+      queueView.cursorIndex = toEnd ? service.queue.length - 1 : 0
+      queueView.ensureVisible(queueView.cursorIndex)
+    }
+  }
+
   function moveCursor(delta) {
     var list = activeList()
     if (list) list.moveCursor(delta)
-    else if (tab === "now") queueView.moveCursor(delta)
+    else if (tab === "now" && nowPane === "lyrics") lyricsView.scroll(delta)
+    else if (queueShown) queueView.moveCursor(delta)
   }
 
   function activateCursor() {
     var owner = activeListOwner()
     var list = activeList()
     if (owner && list) owner.activate(list.cursorIndex)
-    else if (tab === "now") queueView.activateCursor()
+    else if (queueShown) queueView.activateCursor()
   }
 
   function listAction(action) {
     var owner = activeListOwner()
     var list = activeList()
     if (!owner || !list || list.cursorIndex < 0) return
-    if (action === "next") owner.playNext(list.cursorIndex)
-    else if (action === "queue") owner.addToQueue(list.cursorIndex)
+    if (action === "next") ownerHook("playNext", list.cursorIndex)
+    else if (action === "queue") ownerHook("addToQueue", list.cursorIndex)
   }
 
   // The track the keyboard is pointing at: a selected row, else what plays.
@@ -119,47 +220,452 @@ Panel {
     var list = activeList()
     var row = list ? list.rowAt(list.cursorIndex) : null
     if (row && row.item.type === "track") return row.item
-    if (!list && tab === "now" && queueView.cursorIndex >= 0 && service) {
+    if (!list && queueShown && queueView.cursorIndex >= 0 && service) {
       var entry = service.queue[queueView.cursorIndex]
       if (entry) return entry.track
     }
     return service ? service.currentTrack : null
   }
 
+  // The item the keyboard is pointing at: a selected row of any kind, else
+  // the queue entry under the cursor on Now; null when neither.
+  function cursorItem() {
+    var list = activeList()
+    var row = list ? list.rowAt(list.cursorIndex) : null
+    if (row) return row.item
+    if (!list && queueShown && queueView.cursorIndex >= 0 && service) {
+      var entry = service.queue[queueView.cursorIndex]
+      if (entry) return entry.track
+    }
+    return null
+  }
+
   // The artist / album page of a track (from Now Playing, or `A` / `o` on
   // the selected row or the current track).
+  // S8: an episode's credit is its podcast (MPSP...), which opens as one.
   function openArtist(artist) {
-    if (artist && artist.id) push({ type: "artist", channelId: artist.id, name: artist.name, thumb: null })
+    if (artist && artist.id) push(Model.creditItem(artist))
   }
 
   function openArtistOf(track) {
-    var artists = track && track.artists ? track.artists : []
-    for (var i = 0; i < artists.length; i++) {
-      if (artists[i].id) return openArtist(artists[i])
+    var artists = Model.linkedArtists(track)
+    if (artists.length > 0) openArtist(artists[0])
+  }
+
+  // Go to artist from a menu: one with a page opens, several (a duet, a
+  // feature) give a chooser.
+  function goArtist(item) {
+    var artists = Model.linkedArtists(item)
+    if (artists.length === 1) {
+      openArtist(artists[0])
+    } else if (artists.length > 1) {
+      itemMenu.openChooser("Go to artist", Model.itemTitle(item), artists.map(function(artist) {
+        return { id: artist.id, title: artist.name, icon: "󰠃", value: artist }
+      }), function(choice) { root.openArtist(choice.value) })
+      keyCatcher.forceActiveFocus()
     }
   }
 
-  function openAlbumOf(track) {
-    if (!track || !track.album || !track.album.id) return
-    push({ type: "album", browseId: track.album.id, title: track.album.name,
-           thumb: track.thumb, thumbLarge: track.thumbLarge })
+  // Go to album: its page when the album id is known, else (an album known
+  // only by its audio playlist) the worker looks the page up, cached.
+  function goAlbum(item) {
+    // S8: an episode's "album" is its podcast.
+    var podcast = Model.podcastItemOf(item)
+    if (podcast) {
+      push(podcast)
+      return
+    }
+    var album = Model.albumOf(item)
+    if (album) {
+      push(album)
+      return
+    }
+    var playlistId = Model.albumPlaylistOf(item)
+    if (playlistId === "" || !service) return
+    service.albumBrowseIdOf(playlistId, function(reply) {
+      if (!reply.ok) {
+        root.service.failAction("Couldn't open the album", reply.error.message)
+        return
+      }
+      if (!root.opened) return
+      root.push({ type: "album", browseId: reply.result.browseId,
+                  title: item.album && item.album.name ? item.album.name : Model.itemTitle(item),
+                  thumb: item.thumb || null, thumbLarge: item.thumbLarge || null })
+    })
+  }
+
+  // R: radio from the row (a song, album, playlist, artist or mix), else
+  // from the page when it has a radio of its own (S1: an artist's mix, via
+  // the view's optional pageRadio() hook), else from the song playing. It
+  // replaces the queue, as on the web.
+  function startRadio() {
+    if (!service) return
+    var item = cursorItem()
+    if (!Model.radioParams(item)) {
+      var owner = activeListOwner()
+      if (owner && typeof owner.pageRadio === "function" && owner.pageRadio()) return
+      item = service.currentTrack
+    }
+    if (item) service.startRadio(item)
+  }
+
+  // A with no song under the cursor (no row, the About row, a shelf's
+  // row): the page's own artist when it names one (S3: an album's first
+  // artist, through the view's optional pageArtist() hook); false lets A
+  // go to the artist of the song playing.
+  function pageArtist() {
+    var list = activeList()
+    if (!list) return false
+    var row = list.rowAt(list.cursorIndex)
+    if (row && row.item.type === "track") return false
+    var owner = activeListOwner()
+    return !!owner && typeof owner.pageArtist === "function" && owner.pageArtist() === true
+  }
+
+  // Esc with a page's filter on (S3): the filter goes before the page does,
+  // through the view's optional clearFind() hook (true when it cleared one).
+  function clearFind() {
+    var owner = activeListOwner()
+    return !!owner && typeof owner.clearFind === "function" && owner.clearFind() === true
+  }
+
+  // ---- library actions (S4) -----------------------------------------------------------
+  // S: save or subscribe the cursor row's album, playlist, mix, artist or
+  // song (one with library tokens); with no row, or on a row that is no
+  // item (See all, Load all, About), the page itself through the view's
+  // optional toggleSave() hook. The owner's editCallback() reloads its page
+  // when the outcome is unknown or a song's token was stale.
+  function saveCursor() {
+    if (!service) return
+    var list = activeList()
+    var row = list ? list.rowAt(list.cursorIndex) : null
+    var owner = activeListOwner()
+    // P1: a view may hand S its row with what the list lacks (the optional
+    // liveItem(i) hook: Search's typed songs, with the tokens held for them).
+    var item = row && owner && typeof owner.liveItem === "function" ? owner.liveItem(list.cursorIndex)
+      : row ? row.item : null
+    var target = Model.saveTarget(item, service.saveContext(item))
+    // G2: on Now (Queue, Lyrics, or Related with no item row) the page is
+    // the song playing, as for m and M.
+    if (target === "page" && !page && tab === "now") return saveNowSong()
+    // S8: a view may take S on its row itself (the optional saveRow(i) hook:
+    // Episodes for Later removes the episode, as x does).
+    if (target === "row" && owner && typeof owner.saveRow === "function" && owner.saveRow(list.cursorIndex)) return
+    if (target === "row") service.toggleSaveItem(item, Model.editCallbackOf(owner, item))
+    else if (target === "page") ownerHook("toggleSave")
+    else service.failAction("Nothing to save", Model.menuKind(item) === "track" ? _noSaveNotice(owner, list.cursorIndex)
+      : Model.itemTitle(item))
+  }
+
+  // Why a song row has nothing to save: the view's own reason (the optional
+  // noSaveNotice(i) hook, P1: a typed search song reads its own menu), else
+  // the list's.
+  function _noSaveNotice(owner, index) {
+    var notice = owner && typeof owner.noSaveNotice === "function" ? owner.noSaveNotice(index) : ""
+    return notice || "This list has no library control for the song; open its album"
+  }
+
+  // G2: S on Now with no item row: the queue row under the cursor (Queue
+  // pane), else the song playing, with the tokens the queue leaves out
+  // (Service.withLiveTokens); an episode goes to Episodes for Later (S8).
+  // Never silent: without a library control it says why, and reads the
+  // song's own menu when it was not read (Service.songMenuState).
+  function saveNowSong() {
+    var queued = activeList() ? null : cursorItem()
+    var track = service.withLiveTokens(queued || service.currentTrack)
+    var action = track ? Model.saveAction(track, service.saveContext(track)) : ""
+    if (action !== "") {
+      // QueueView's callback reads a song's menu again: no use to an episode's save.
+      service.toggleSaveItem(track, action === "saveSong" ? Model.editCallbackOf(queueView, track) : null)
+      return
+    }
+    // S10: an upload has no library control, so its menu is not read for one.
+    service.failAction("Nothing to save", Model.nowSaveNotice(track, { signedIn: service.signedIn,
+      menu: track && service.signedIn && !Model.isUploadTrack(track) ? service.songMenuState(track.videoId) : null }))
+  }
+
+  // D: dislike the cursor row's song, else the one playing (it skips);
+  // on a disliked song, remove the dislike.
+  function dislikeCursor() {
+    var track = cursorTrack()
+    if (service && track) service.toggleDislike(track)
+  }
+
+  // ---- the item menu ------------------------------------------------------------------
+  // A view's menu(i) emits itemMenuRequested(request) and its pageMenu()
+  // returns one: { item, ctx, owner, index, title?, subtitle? }; ctx is the
+  // view's (pageKind, owned, removable, ...) and signedIn is added here.
+  // Model.menuActions picks the entries and ItemMenu shows them; the chosen
+  // one runs with this panel and the service, on the row the menu was
+  // opened for, found again by its place (rows can change while the menu is
+  // open: a refresh, a new like, the queue moving on).
+
+  // What keeps the places of an owner's rows: QueueView itself, or a view's
+  // ResultList.
+  function rowPlaces(owner) {
+    if (owner && typeof owner.placeAt === "function") return owner
+    if (owner && owner.results && typeof owner.results.placeAt === "function") return owner.results
+    return null
+  }
+
+  function openItemMenu(request) {
+    if (!request || !service) return false
+    // P1: a menu that waited for its song's own menu (SearchView) opens only
+    // when nothing else took the panel meanwhile.
+    if (request.late === true && (!root.opened || itemMenu.open || picker.open || editor.open)) return false
+    var item = request.item || null
+    var ctx = {}
+    for (var key in request.ctx || {}) ctx[key] = request.ctx[key]
+    if (ctx.signedIn === undefined) ctx.signedIn = service.signedIn
+    service.fillMenuState(item, ctx)  // S4: saved, subscribed, in the library, liked, disliked
+    var index = request.index >= 0 ? request.index : -1
+    var places = rowPlaces(request.owner)
+    var full = { item: item, ctx: ctx, owner: request.owner || null, index: index,
+                 place: index >= 0 && places ? places.placeAt(index) : null }
+    picker.close()
+    var opened = itemMenu.openMenu(full, Model.menuActions(item, ctx),
+      request.title || Model.itemTitle(item) || "Menu",
+      request.subtitle !== undefined ? request.subtitle : Model.itemSubtitle(item))
+    // A right-click while the search field had the keys.
+    if (opened) keyCatcher.forceActiveFocus()
+    return opened
+  }
+
+  // A view's chooser, { title, subtitle, choices, onChoice }: Search's More
+  // filters (S7, SearchView's chooserRequested) and Charts' country (S6,
+  // CollectionView's chooserRequested).
+  function openChooser(request) {
+    if (!request) return false
+    picker.close()
+    var opened = itemMenu.openChooser(request.title || "", request.subtitle || "", request.choices || [], request.onChoice)
+    if (opened) keyCatcher.forceActiveFocus()
+    return opened
+  }
+
+  // The row's index now: -1 when it is gone (Remove then does nothing, and
+  // Play plays the song alone).
+  function menuRowIndex(request) {
+    var places = rowPlaces(request.owner)
+    if (request.index < 0 || !request.place || !places) return request.index
+    return places.indexOfPlace(request.place)
+  }
+
+  function runMenuAction(action, request) {
+    if (!action || typeof action.run !== "function" || !request || !service) return
+    var owner = request.owner
+    // Search remembers a query that led somewhere.
+    if (owner && typeof owner.menuChosen === "function") owner.menuChosen(action.id)
+    action.run({ item: request.item, ctx: request.ctx, index: menuRowIndex(request), owner: owner,
+                 panel: root, service: service })
+  }
+
+  // The song playing: its own menu (the cover's menu button), or the Now
+  // tab's page menu (M), which adds the queue header's Autoplay and Clear.
+  function nowMenu(pageMenu) {
+    // G2: with its library and Listen again tokens (Save, Pin).
+    var track = service ? service.withLiveTokens(service.currentTrack) : null
+    var ctx = { pageKind: pageMenu ? "now" : "nowPlaying", isCurrent: !!track }
+    if (pageMenu) {
+      ctx.page = true
+      ctx.autoplay = service.autoplay
+      ctx.queueLength = service.queue.length
+      // S12: the tuner chooser (Tune the queue).
+      ctx.tunerChips = service.tunerChips.length
+      ctx.tunerTitle = service.tunerTitle
+      // S17: Playback speed and Loudness.
+      ctx.speed = service.speedShown
+      ctx.normalize = service.normalize
+    }
+    ctx.counterpart = track ? service.counterpartOf(track) : null  // S12: song / video version
+    return { item: track, ctx: ctx, owner: queueView, index: -1,
+             title: track ? Model.itemTitle(track) : "Queue", subtitle: track ? Model.itemSubtitle(track) : "" }
+  }
+
+  // ---- up next (S12) -----------------------------------------------------------------
+  // The Now page menu's Tune the queue: every chip of the song playing in a
+  // chooser; the one picked replaces the songs autoplay added.
+  function openTuner() {
+    if (!service) return
+    var chips = service.tunerChips
+    if (chips.length === 0) return
+    itemMenu.openChooser("Tune the queue", "Replaces the songs autoplay added; yours stay",
+      Model.tunerChoices(chips, service.tuner), function(choice) { root.service.chooseTuner(choice.value) })
+    keyCatcher.forceActiveFocus()
+  }
+
+  // ---- explore (S6) -------------------------------------------------------------------
+  // A page shown another way takes its own place on the stack (Charts in
+  // another country, CollectionView's replaceRequested): Back still leads to
+  // what was under it.
+  function replaceTop(item) {
+    if (!item || stack.length === 0) return
+    picker.close()
+    itemMenu.close()
+    editor.close()  // S13
+    var next = stack.slice(0, -1)
+    next.push({ item: Model.withChartsCountry(item, service ? service.prefs.chartsCountry : ""), view: null })
+    stack = next
+    keyCatcher.forceActiveFocus()
+  }
+
+  // ---- playback (S17) -----------------------------------------------------------------
+  // [ and ] step the speed (any tab); the Now page menu's Playback speed and
+  // Loudness, and the speed badge on Now, open their choosers.
+  function speedKey(text) {
+    if (!service) return
+    if (text === "]") service.stepSpeed(1)
+    else if (text === "[") service.stepSpeed(-1)
+    else openSpeedChooser()  // Enter on the key's help row
+  }
+
+  function openSpeedChooser() {
+    if (!service) return
+    var episode = service.speedKind === "episode"
+    itemMenu.openChooser("Playback speed", episode ? "For podcast episodes; music keeps its own" : "For music; podcast episodes keep their own",
+      Model.speedChoices(service.speedShown), function(choice) { root.service.setSpeed(choice.value) })
+    keyCatcher.forceActiveFocus()
+  }
+
+  function openLoudnessChooser() {
+    if (!service) return
+    itemMenu.openChooser("Loudness", "Evens out the volume between songs",
+      Model.normalizeChoices(service.normalize), function(choice) { root.service.setNormalize(choice.value) })
+    keyCatcher.forceActiveFocus()
+  }
+
+  // m / . : the cursor row's menu; with no row, the page's.
+  function openRowMenu() {
+    var list = activeList()
+    if (list) {
+      if (list.cursorIndex >= 0 && ownerHook("menu", list.cursorIndex)) return
+      openPageMenu()
+    } else if (tab === "now" && !page) {
+      if (queueShown && queueView.cursorIndex >= 0) queueView.menu(queueView.cursorIndex)
+      else openItemMenu(nowMenu(false))
+    }
+  }
+
+  // M: the page's own menu (on Library the account; on Now the queue).
+  function openPageMenu() {
+    if (!service) return
+    if (!page && tab === "now") {
+      openItemMenu(nowMenu(true))
+      return
+    }
+    var owner = activeListOwner()
+    if (owner && typeof owner.pageMenu === "function") openItemMenu(owner.pageMenu())
+  }
+
+  // ---- keys -----------------------------------------------------------------------------
+  // What a key does (Model.KEYS ids); `text` tells the tabs and J / K apart.
+  // While the item menu is open only tabs, g / G and ? work, and under the
+  // playlist picker only tabs and g / G: other keys would act on the rows
+  // underneath, or on the picker's own playlists (R), or open something the
+  // picker hides (?, M). The help (Enter on a key's row) also passes Enter,
+  // Esc and Space, which the catcher handles itself; x is left out there, so
+  // browsing the help never removes anything.
+  function runKey(id, text) {
+    if (id === "") return
+    if (picker.open && ["tab", "search", "top", "bottom"].indexOf(id) < 0) return
+    if (editor.open && ["tab", "search", "top", "bottom"].indexOf(id) < 0) return  // S13
+    if (itemMenu.open && ["tab", "search", "top", "bottom", "help"].indexOf(id) < 0) return
+    if (id === "tab") {
+      var chosen = tabs[Number(text) - 1]
+      if (chosen) setTab(chosen.key)
+    }
+    else if (id === "search") setTab("search")
+    else if (id === "playNext") listAction("next")
+    else if (id === "addToQueue") listAction("queue")
+    else if (id === "radio") startRadio()
+    else if (id === "like") { if (service) service.toggleLike(cursorTrack()) }
+    else if (id === "save") saveCursor()
+    else if (id === "dislike") dislikeCursor()
+    else if (id === "addToPlaylist") addToPlaylistKey()
+    else if (id === "artist") { if (!pageArtist()) openArtistOf(cursorTrack()) }
+    else if (id === "album") goAlbum(cursorTrack())
+    else if (id === "shuffle") { if (service) service.toggleShuffle() }
+    else if (id === "repeat") { if (service) service.cycleRepeat() }
+    else if (id === "queueMove") moveKey(text)
+    else if (id === "addSuggestion") ownerHook("addSuggestion")
+    else if (id === "editPlaylist") openEditor()
+    else if (id === "nowPane") { if (root.tab === "now" && !root.page) queueView.cyclePane() }
+    else if (id === "tune") { if (root.queueShown) queueView.cycleTuner() }
+    else if (id === "speed") speedKey(text)
+    else if (id === "top") jumpCursor(false)
+    else if (id === "bottom") jumpCursor(true)
+    else if (id === "order") ownerHook("cycleOrder")
+    else if (id === "find") ownerHook("find")
+    else if (id === "menu") openRowMenu()
+    else if (id === "pageMenu") openPageMenu()
+    else if (id === "help") { itemMenu.openHelp(); keyCatcher.forceActiveFocus() }
+    else if (id === "open") activateCursor()
+    else if (id === "back") handleEscape()
+    else if (id === "playPause") { if (service) service.playPause() }
   }
 
   function removeCursor() {
+    // x acts on the rows of a view, never on what an overlay covers.
+    if (picker.open || itemMenu.open || editor.open) return
     if (page && collectionLoader.item) {
       collectionLoader.item.remove(collectionLoader.item.results.cursorIndex)
-    } else if (tab === "now" && !page) {
+    } else if (queueShown) {
       queueView.removeCursor()
     } else if (tab === "search" && !page) {
       searchView.remove(searchView.results.cursorIndex)
     }
   }
 
-  function openPicker(tracks) {
+  // `label` names many songs ("The queue", S13).
+  function openPicker(tracks, label) {
     var list = (tracks || []).filter(function(t) { return t && t.videoId })
     if (list.length === 0 || !service || !service.signedIn) return
-    picker.tracks = list
+    picker.openTracks(list, label || "")
     keyCatcher.forceActiveFocus()
+  }
+
+  // ---- playlist edits (S13) -------------------------------------------------------------
+  // e (and the page menu's Edit playlist, the header's Edit): the editor
+  // over your playlist's page, on the view's optional editTarget(). Save to
+  // playlist and Copy to new playlist open the picker with a whole album or
+  // playlist; the queue header's Save (and the Now page menu) with every
+  // queued song. p on an album or playlist row saves all of it. J / K move
+  // the queue's song on Now, else the page's (the view's moveTrack hook).
+  function openEditor() {
+    if (!service) return
+    var owner = activeListOwner()
+    var target = owner && typeof owner.editTarget === "function" ? owner.editTarget() : null
+    if (!target) {
+      service.failAction("Nothing to edit", "Only your own playlists can be edited")
+      return
+    }
+    picker.close()
+    itemMenu.close()
+    editor.openFor(target)
+  }
+
+  // G4: a mix too (Model.canSaveWhole), saved by its songs.
+  function openSourcePicker(item, copy) {
+    if (!service || !service.signedIn || !Model.canSaveWhole(item)) return
+    itemMenu.close()
+    editor.close()
+    picker.openSource(item, copy === true)
+    if (copy !== true) keyCatcher.forceActiveFocus()
+  }
+
+  function saveQueue() {
+    if (service) openPicker(service.queue.map(function(entry) { return entry.track }), "The queue")
+  }
+
+  function addToPlaylistKey() {
+    var item = cursorItem()
+    if (item && Model.canSaveWhole(item)) openSourcePicker(item, false)  // G4: a mix row too
+    else openPicker([cursorTrack()])
+  }
+
+  function moveKey(text) {
+    if (text !== "J" && text !== "K") return
+    if (root.queueShown) queueView.moveSelected(text === "J" ? 1 : -1)
+    else ownerHook("moveTrack", text === "J" ? 1 : -1)
   }
 
   // Tab requests (IPC "search") can arrive before this panel exists, so they
@@ -177,6 +683,8 @@ Panel {
   onOpenedChanged: {
     if (!opened) {
       picker.close()
+      itemMenu.close()
+      editor.close()  // S13
       return
     }
     queueView.cursorIndex = -1
@@ -202,13 +710,18 @@ Panel {
     PanelKeyCatcher {
       id: keyCatcher
       anchors.fill: parent
-      blocked: searchView.field.activeFocus || libraryView.inputFocused || picker.inputFocused
+      blocked: searchView.field.activeFocus || root.anyInputFocused()
 
       onCloseRequested: root.handleEscape()
-      onTabRequested: function(direction) { root.switchPanel(direction) }
+      // S13: with the editor open, Tab goes back into its fields.
+      onTabRequested: function(direction) {
+        if (editor.open) editor.tabFocus(direction)
+        else root.switchPanel(direction)
+      }
       onMoveRequested: function(dx, dy) {
         if (dy !== 0) root.moveCursor(dy)
-        else if (dx !== 0 && root.tab === "now" && !root.page && root.service) root.service.seekRelative(dx * 10)
+        else if (dx !== 0 && root.tab === "now" && !root.page) { if (root.service) root.service.seekRelative(dx * 10) }
+        else if (dx !== 0) root.ownerHook("horizontal", dx)
       }
       onReturnRequested: {
         root.returnPressed = true
@@ -223,27 +736,49 @@ Panel {
         if (root.service) root.service.playPause()
       }
       onDeleteRequested: root.removeCursor()
-      onTextKey: function(text) {
-        if (text === "1") root.setTab("now")
-        else if (text === "2" || text === "/") root.setTab("search")
-        else if (text === "3") root.setTab("library")
-        else if (text === "4") root.setTab("home")
-        else if (text === "n") root.listAction("next")
-        else if (text === "a") root.listAction("queue")
-        else if (text === "L" && root.service) root.service.toggleLike(root.cursorTrack())
-        else if (text === "p") root.openPicker([root.cursorTrack()])
-        else if (text === "A") root.openArtistOf(root.cursorTrack())
-        else if (text === "o") root.openAlbumOf(root.cursorTrack())
-        else if (text === "s" && root.service) root.service.toggleShuffle()
-        else if (text === "r" && root.service) root.service.cycleRepeat()
-        else if (text === "J" && root.tab === "now") queueView.moveSelected(1)
-        else if (text === "K" && root.tab === "now") queueView.moveSelected(-1)
+      onTextKey: function(text, modifiers) {
+        if (Model.chordAllowed(modifiers)) root.runKey(Model.keyId(text), text)
       }
 
       Item {
         id: header
         width: parent.width
         height: tabRow.implicitHeight
+        // S6: five labels may not fit at a large font size; then the tabs
+        // show their icons (each tooltip still names its tab).
+        readonly property bool compactTabs: tabProbe.labelsWidth > width
+
+        // The labels' natural width, the Back button's room included so
+        // opening a page never switches between labels and icons.
+        Item {
+          id: tabProbe
+          visible: false
+          readonly property real labelsWidth: {
+            var w = backProbe.implicitWidth
+            for (var i = 0; i < probeTabs.count; i++) {
+              var tab = probeTabs.itemAt(i)
+              if (tab) w += tabRow.spacing + tab.implicitWidth
+            }
+            return w
+          }
+
+          Button {
+            id: backProbe
+            iconText: "󰁍"
+            foreground: root.foreground
+          }
+
+          Repeater {
+            id: probeTabs
+            model: root.tabs
+
+            Button {
+              required property var modelData
+              text: modelData.title
+              foreground: root.foreground
+            }
+          }
+        }
 
         Row {
           id: tabRow
@@ -252,7 +787,7 @@ Panel {
           Button {
             visible: !!root.page
             iconText: "󰁍"
-            tooltipText: "Back (Esc)"
+            tooltipText: Model.withKey("Back", "back")
             foreground: root.foreground
             onClicked: root.back()
           }
@@ -263,7 +798,8 @@ Panel {
             Button {
               required property var modelData
               required property int index
-              text: modelData.title
+              text: header.compactTabs ? "" : modelData.title
+              iconText: header.compactTabs ? modelData.icon : ""
               tooltipText: modelData.title + " (" + (index + 1) + ")"
               selected: root.tab === modelData.key && !root.page
               foreground: root.foreground
@@ -378,7 +914,9 @@ Panel {
             bar: root.bar
             onAddToPlaylistRequested: root.openPicker([root.service.currentTrack])
             onArtistRequested: function(artist) { root.openArtist(artist) }
-            onAlbumRequested: function(track) { root.openAlbumOf(track) }
+            onAlbumRequested: function(track) { root.goAlbum(track) }
+            onMenuRequested: root.openItemMenu(root.nowMenu(false))
+            onSpeedRequested: root.openSpeedChooser()
           }
 
           PanelSeparator {
@@ -393,6 +931,30 @@ Panel {
             height: nowTab.height - nowPlaying.height - separator.height - nowTab.spacing * 2
             service: root.service
             bar: root.bar
+            pane: root.nowPane
+            onItemMenuRequested: function(request) { root.openItemMenu(request) }
+            onSaveRequested: root.saveQueue()  // S13
+
+            // The other panes (S11), under the queue header's pane chip.
+            LyricsView {
+              id: lyricsView
+              anchors.fill: parent
+              visible: queueView.pane === "lyrics"
+              service: root.service
+              bar: root.bar
+              active: root.opened && root.tab === "now" && !root.page && queueView.pane === "lyrics"
+            }
+
+            RelatedView {
+              id: relatedView
+              anchors.fill: parent
+              visible: queueView.pane === "related"
+              service: root.service
+              bar: root.bar
+              active: root.opened && root.tab === "now" && !root.page && queueView.pane === "related"
+              onOpenRequested: function(item) { root.push(item) }
+              onItemMenuRequested: function(request) { root.openItemMenu(request) }
+            }
           }
         }
 
@@ -403,6 +965,9 @@ Panel {
           service: root.service
           bar: root.bar
           onOpenRequested: function(item) { root.push(item) }
+          onItemMenuRequested: function(request) { root.openItemMenu(request) }
+          // S7: the More filters chooser.
+          onChooserRequested: function(request) { root.openChooser(request) }
           onLeftField: keyCatcher.forceActiveFocus()
         }
 
@@ -413,6 +978,7 @@ Panel {
           service: root.service
           bar: root.bar
           onOpenRequested: function(item) { root.push(item) }
+          onItemMenuRequested: function(request) { root.openItemMenu(request) }
           onLeftField: keyCatcher.forceActiveFocus()
         }
 
@@ -423,6 +989,17 @@ Panel {
           service: root.service
           bar: root.bar
           onOpenRequested: function(item) { root.push(item) }
+          onItemMenuRequested: function(request) { root.openItemMenu(request) }
+        }
+
+        ExploreView {
+          id: exploreView
+          anchors.fill: parent
+          visible: root.tab === "explore" && !root.page
+          service: root.service
+          bar: root.bar
+          onOpenRequested: function(item) { root.push(item) }
+          onItemMenuRequested: function(request) { root.openItemMenu(request) }
         }
 
         Loader {
@@ -432,10 +1009,36 @@ Panel {
           sourceComponent: CollectionView {
             service: root.service
             bar: root.bar
-            target: root.page
+            entry: root.topEntry
             onOpenRequested: function(item) { root.push(item) }
+            onItemMenuRequested: function(request) { root.openItemMenu(request) }
             onCloseRequested: root.back()
+            onLeftField: keyCatcher.forceActiveFocus()
+            onEditRequested: root.openEditor()  // S13
+            onChooserRequested: function(request) { root.openChooser(request) }  // S6
+            onReplaceRequested: function(item) { root.replaceTop(item) }  // S6
           }
+        }
+
+        // Under the picker: Add to playlist from the menu opens over it.
+        ItemMenu {
+          id: itemMenu
+          anchors.fill: parent
+          service: root.service
+          bar: root.bar
+          onClosed: keyCatcher.forceActiveFocus()
+          onChosen: function(action, request) { root.runMenuAction(action, request) }
+          onKeyChosen: function(keyId) { root.runKey(keyId, "") }
+        }
+
+        // S13: your playlist's editor (e), over the page; under the picker.
+        PlaylistEditor {
+          id: editor
+          anchors.fill: parent
+          service: root.service
+          bar: root.bar
+          onClosed: keyCatcher.forceActiveFocus()
+          onLeftField: keyCatcher.forceActiveFocus()
         }
 
         PlaylistPicker {

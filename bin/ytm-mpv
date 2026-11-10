@@ -13,7 +13,10 @@
 #   ytm-mpv stop                 stop the unit
 #   ytm-mpv status               print unit state and socket path
 #   ytm-mpv socket               print the IPC socket path
-#   ytm-mpv exec [--volume N]    run mpv in the foreground (used by the unit)
+#   ytm-mpv cookies              refresh (or, signed out, remove) mpv's copy
+#                                of the session cookies (the shell, S10)
+#   ytm-mpv exec [--volume N] [--quality low|normal|high]
+#                                run mpv in the foreground (used by the unit)
 set -euo pipefail
 
 ROOT=$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)
@@ -22,6 +25,13 @@ RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/omarchy-ytmusic"
 SOCKET="$RUNTIME_DIR/mpv.sock"
 CONFIG_DIR="${YTM_CONFIG_DIR:-$HOME/.config/omarchy-ytmusic}"
 COOKIES="$CONFIG_DIR/cookies.txt"
+# S10: what mpv's yt-dlp gets as --cookies (uploads, and the opt-in below):
+# a copy of the session's cookies.txt, never the file itself, because
+# yt-dlp writes its cookie jar back into that file when it exits. It lives
+# in the unit's runtime directory (0700), so it goes when mpv stops.
+MPV_COOKIES="$RUNTIME_DIR/cookies-mpv.txt"
+# The shell's preferences (S16: the audio quality, prefs.quality).
+PREFS="${XDG_CACHE_HOME:-$HOME/.cache}/omarchy-ytmusic/player.json"
 
 MPRIS=/etc/mpv/scripts/mpris.so
 [[ -f $MPRIS ]] || MPRIS=/usr/lib/mpv-mpris/mpris.so
@@ -30,10 +40,15 @@ cmd=${1:-}
 [[ $# -gt 0 ]] && shift
 
 volume=70
+quality=
 while (( $# > 0 )); do
   case $1 in
   --volume)
     volume=${2:-70}
+    shift 2
+    ;;
+  --quality)
+    quality=${2:-}
     shift 2
     ;;
   *)
@@ -44,6 +59,42 @@ while (( $# > 0 )); do
 done
 [[ $volume =~ ^[0-9]+$ ]] || volume=70
 
+# S16: the audio quality saved in player.json (high when unset or unreadable).
+prefs_quality() {
+  local found=
+  [[ -r $PREFS ]] && found=$(grep -o '"quality" *: *"[a-z]*"' "$PREFS" 2>/dev/null | head -n 1 || true)
+  found=${found%\"}
+  echo "${found##*\"}"
+}
+
+# yt-dlp's format for a quality, the same strings as the worker's resolver
+# (backend/ytm_streams.py QUALITY_FORMATS) and the shell (YtmModel.js). The
+# shell sets it again over IPC (ytdl-format) whenever the pref changes.
+ytdl_format() {
+  case $1 in
+  low) echo 'bestaudio[abr<=70]/worstaudio' ;;
+  normal) echo 'bestaudio[abr<=130]/bestaudio' ;;
+  *) echo 'bestaudio[acodec=opus]/bestaudio/best' ;;
+  esac
+}
+
+# The copy, made again from the session (mpv start; the shell on every
+# sign-in), or removed when there is no session (sign-out). Nothing while
+# mpv's runtime directory is not there: mpv's start makes it.
+copy_cookies() {
+  [[ -d $RUNTIME_DIR ]] || return 0
+  if [[ -f $COOKIES ]]; then
+    # A temp file of its own (0600), swapped in whole: two runs at once
+    # (mpv's start, a sign-in) never leave half a copy.
+    local tmp
+    tmp=$(mktemp "$MPV_COOKIES.XXXXXX") || return 0
+    if cp -- "$COOKIES" "$tmp" && mv -f -- "$tmp" "$MPV_COOKIES"; then return 0; fi
+    rm -f -- "$tmp"
+  else
+    rm -f -- "$MPV_COOKIES"
+  fi
+}
+
 start() {
   systemctl --user is-active --quiet "$UNIT" && return 0
   systemctl --user reset-failed "$UNIT" 2>/dev/null || true
@@ -52,14 +103,17 @@ start() {
     -p RuntimeDirectory=omarchy-ytmusic -p RuntimeDirectoryMode=0700 \
     -p MemoryMax=768M \
     -E PATH="$PATH" \
-    -- "$ROOT/bin/ytm-mpv" exec --volume "$volume"
+    -- "$ROOT/bin/ytm-mpv" exec --volume "$volume" --quality "$(prefs_quality)"
 }
 
 run_mpv() {
+  [[ -n $quality ]] || quality=$(prefs_quality)
+  copy_cookies
   local -a args=(
     --no-config
     --script="$ROOT/mpv/ytm-idle.lua"
     --script="$ROOT/mpv/ytm-streams.lua"
+    --script="$ROOT/mpv/ytm-levels.lua"
     --script-opts=ytm-idle-idle_secs=300,ytm-idle-pause_secs=1800
     --idle=yes
     --no-video
@@ -67,7 +121,7 @@ run_mpv() {
     --no-terminal
     --msg-level=all=warn
     --input-ipc-server="$SOCKET"
-    --ytdl-format='bestaudio[acodec=opus]/bestaudio/best'
+    --ytdl-format="$(ytdl_format "$quality")"
     --cache=yes
     --demuxer-max-bytes=8MiB
     --demuxer-max-back-bytes=4MiB
@@ -90,8 +144,8 @@ run_mpv() {
   # Streaming with the account's cookies is opt-in: measured on this machine it
   # offered the same formats (opus 251, ~131 kbps) but made every track start
   # ~1.5 s later. Useful only for tracks that need a signed-in viewer.
-  if [[ -f $COOKIES && ${YTM_STREAM_WITH_ACCOUNT:-0} == 1 ]]; then
-    args+=(--ytdl-raw-options-append=cookies="$COOKIES")
+  if [[ -f $MPV_COOKIES && ${YTM_STREAM_WITH_ACCOUNT:-0} == 1 ]]; then
+    args+=(--ytdl-raw-options-append=cookies="$MPV_COOKIES")
   fi
   exec mpv "${args[@]}"
 }
@@ -103,9 +157,10 @@ status)
   printf 'unit: %s\nsocket: %s\n' "$(systemctl --user is-active "$UNIT" 2>/dev/null || true)" "$SOCKET"
   ;;
 socket) echo "$SOCKET" ;;
+cookies) copy_cookies ;;
 exec) run_mpv ;;
 *)
-  echo "usage: ytm-mpv <start|stop|status|socket|exec> [--volume N]" >&2
+  echo "usage: ytm-mpv <start|stop|status|socket|cookies|exec> [--volume N] [--quality low|normal|high]" >&2
   exit 2
   ;;
 esac
