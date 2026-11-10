@@ -20,6 +20,15 @@ class WorkerError(Exception):
         return {"code": self.code, "message": self.message, "retryable": self.retryable}
 
 
+def unsent(exc):
+    """``exc`` (any exception) marked as raised by a MUTATES method before its
+    edit went out, e.g. a lookup the edit needed failed: the worker then
+    drops nothing from the cache, since YouTube was never asked to change
+    anything (S4). Returns ``exc``."""
+    exc.unsent = True
+    return exc
+
+
 def req_str(params, key):
     value = params.get(key)
     if not isinstance(value, str) or not value.strip():

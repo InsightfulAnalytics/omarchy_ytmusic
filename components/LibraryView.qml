@@ -118,6 +118,24 @@ Item {
              subtitle: root.signedIn && root.account && root.account.handle ? root.account.handle : "" }
   }
 
+  // ---- library actions (S4) ---------------------------------------------------------
+  // The callback of an edit made from a chip's rows (Model.editCallbackOf):
+  // when its outcome is unknown or a song's token was stale, the chip it
+  // was made on is read again from YouTube, if it is still the one shown
+  // (true then; Service then leaves that list alone). The view may be gone
+  // when the reply comes: nothing then.
+  function editCallback() {
+    var requested = chip
+    return function(reply) { return !!root && root.reloadAfterEdit(reply, requested) }
+  }
+
+  function reloadAfterEdit(reply, requested) {
+    if (!service || !store || !visible || !signedIn || chip !== requested) return false
+    if (!(service.unsure(reply) || Model.staleToken(reply))) return false
+    store.loadLibraryList(requested, true)
+    return true
+  }
+
   function createPlaylist() {
     var name = nameField.text.trim()
     if (name === "" || !service) return

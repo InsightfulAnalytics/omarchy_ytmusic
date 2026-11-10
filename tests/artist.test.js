@@ -130,7 +130,7 @@ test("Shuffle plays the shuffle mix and Radio the radio mix", () => {
 test("the page menu has the header buttons' twins and About", () => {
   const ctx = { page: true, pageKind: "artist", hasTracks: true, about: true, signedIn: true }
   const actions = Model.menuActions(target, ctx)
-  assert.deepEqual(actions.map(a => a.id), ["play", "shuffle", "playNext", "addToQueue", "radio", "share", "about"])
+  assert.deepEqual(actions.map(a => a.id), ["play", "shuffle", "playNext", "addToQueue", "radio", "subscribe", "share", "about"])
   assert.ok(!Model.menuActions(target, Object.assign({}, ctx, { about: false })).some(a => a.id === "about"))
   assert.ok(!Model.menuActions(target, { pageKind: "artist", about: true }).some(a => a.id === "about"), "a row menu has no About")
   const calls = []

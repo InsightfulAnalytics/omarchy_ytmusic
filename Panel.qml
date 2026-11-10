@@ -20,20 +20,22 @@ import "YtmModel.js" as Model
 // the picker or menu → clear the filter → back → close · Space play/pause · n
 // play next (a song, album or playlist) · a add to queue · R start radio from
 // the row, the artist page or the current song · s shuffle · r repeat · L
-// like · p add to playlist · A go to artist (of the row, the album page or
-// the current song) · o go to album · J / K move a queued song down / up · x
-// remove (queue, own playlist, Liked Music, recent search) · m / . the row's
-// menu (or right-click) · M the page's menu (Library: account) · O next sort
-// order on a page that has one (Charts: the country) · f find in a page's
-// songs (album, playlist, Liked Music, History) · ? these keys · y cycle the
-// pane under the song: Queue, Lyrics, Related · t cycle the queue tuner chip:
-// All, Discover, Popular and the rest · [ / ] playback speed down / up (0.5x
-// to 2x, kept apart for episodes).
+// like · S save to library or subscribe (the row, else the page) · D dislike
+// the row's song (again to undo) or the one playing, which skips · p add to
+// playlist · A go to artist (of the row, the album page or the current song)
+// · o go to album · J / K move a queued song down / up · x remove (queue, own
+// playlist, Liked Music, recent search) · m / . the row's menu (or
+// right-click) · M the page's menu (Library: account) · O next sort order on
+// a page that has one (Charts: the country) · f find in a page's songs
+// (album, playlist, Liked Music, History) · ? these keys · y cycle the pane
+// under the song: Queue, Lyrics, Related · t cycle the queue tuner chip: All,
+// Discover, Popular and the rest · [ / ] playback speed down / up (0.5x to
+// 2x, kept apart for episodes).
 // Text keys go through Model.keyId to runKey(); Ctrl and Alt chords are
 // ignored. Views offer optional hooks, checked with typeof: horizontal(dx),
 // cycleOrder(), find(), playNext(i) / addToQueue(i), menu(i), pageMenu(),
 // menuChosen(id), placeAt(i) / indexOfPlace(place), pageRadio(),
-// pageArtist() and clearFind().
+// pageArtist(), clearFind(), and (S4) toggleSave() and editCallback().
 Panel {
   id: root
   moduleName: "damir.ytmusic"
@@ -306,6 +308,31 @@ Panel {
     return !!owner && typeof owner.clearFind === "function" && owner.clearFind() === true
   }
 
+  // ---- library actions (S4) -----------------------------------------------------------
+  // S: save or subscribe the cursor row's album, playlist, mix, artist or
+  // song (one with library tokens); with no row, or on a row that is no
+  // item (See all, Load all, About), the page itself through the view's
+  // optional toggleSave() hook. The owner's editCallback() reloads its page
+  // when the outcome is unknown or a song's token was stale.
+  function saveCursor() {
+    if (!service) return
+    var list = activeList()
+    var row = list ? list.rowAt(list.cursorIndex) : null
+    var item = row ? row.item : null
+    var target = Model.saveTarget(item, service.saveContext(item))
+    if (target === "row") service.toggleSaveItem(item, Model.editCallbackOf(activeListOwner()))
+    else if (target === "page") ownerHook("toggleSave")
+    else service.failAction("Nothing to save", Model.menuKind(item) === "track"
+      ? "This list has no library control for the song; open its album" : Model.itemTitle(item))
+  }
+
+  // D: dislike the cursor row's song, else the one playing (it skips);
+  // on a disliked song, remove the dislike.
+  function dislikeCursor() {
+    var track = cursorTrack()
+    if (service && track) service.toggleDislike(track)
+  }
+
   // ---- the item menu ------------------------------------------------------------------
   // A view's menu(i) emits itemMenuRequested(request) and its pageMenu()
   // returns one: { item, ctx, owner, index, title?, subtitle? }; ctx is the
@@ -329,6 +356,7 @@ Panel {
     var ctx = {}
     for (var key in request.ctx || {}) ctx[key] = request.ctx[key]
     if (ctx.signedIn === undefined) ctx.signedIn = service.signedIn
+    service.fillMenuState(item, ctx)  // S4: saved, subscribed, in the library, liked, disliked
     var index = request.index >= 0 ? request.index : -1
     var places = rowPlaces(request.owner)
     var full = { item: item, ctx: ctx, owner: request.owner || null, index: index,
@@ -485,6 +513,8 @@ Panel {
     else if (id === "addToQueue") listAction("queue")
     else if (id === "radio") startRadio()
     else if (id === "like") { if (service) service.toggleLike(cursorTrack()) }
+    else if (id === "save") saveCursor()
+    else if (id === "dislike") dislikeCursor()
     else if (id === "addToPlaylist") openPicker([cursorTrack()])
     else if (id === "artist") { if (!pageArtist()) openArtistOf(cursorTrack()) }
     else if (id === "album") goAlbum(cursorTrack())

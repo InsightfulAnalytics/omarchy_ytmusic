@@ -103,6 +103,17 @@ Item {
   // The list's identity: the page and its order, not how much of it is
   // read, so Load all keeps the cursor and the scroll.
   readonly property string listId: entry ? (Model.pageRef(entry.item, Model.pageExtra(order, false)) || { key: "" }).key : ""
+  // Library actions (S4): Save on an album, a playlist that is not yours or
+  // a mix; Subscribe on an artist. The state shown is the Store's (an edit
+  // made here), else the page header's, else the library's lists.
+  readonly property bool signedIn: !!service && service.signedIn
+  readonly property var pageSaveItem: isCollection ? pageItem() : null
+  readonly property bool canSavePage: signedIn && !!pageSaveItem
+    && Model.canSave(pageSaveItem, { page: true, owned: page.owned === true })
+  readonly property bool pageSaved: canSavePage && !!store && store.savedState(pageSaveItem, headerSaved()) === true
+  readonly property bool canSubscribePage: signedIn && isArtist && !!Model.artistHeader(page)
+  readonly property bool pageSubscribed: canSubscribePage && !!store
+    && store.subscribedState(subscribeItem().channelId, Model.artistHeader(page).subscribed === true) === true
 
   signal openRequested(var item)
   // The page itself went away (playlist deleted).
@@ -377,7 +388,10 @@ Item {
                     canFind: Model.canFind(page), aboutOpen: aboutOpen,
                     countryLabel: ref && ref.kind === "charts" ? Model.chartsCountryOf(page).label : "",  // S6
                     // The About row is there to show or hide.
-                    description: Model.showsAbout(page, { find: findText, about: descriptionText.truncated }) } }
+                    description: Model.showsAbout(page, { find: findText, about: descriptionText.truncated }),
+                    // S4: the header's Save and Subscribe (none until the page has loaded).
+                    saved: pageSaved, subscribed: pageSubscribed,
+                    canSavePage: canSavePage, canSubscribePage: canSubscribePage } }
   }
 
   // Play, Shuffle, Queue all (mode now, shuffle, queue; next from the menu).
@@ -460,6 +474,50 @@ Item {
     var item = Model.pageArtistItem(page)
     if (!item) return false
     root.openRequested(item)
+    return true
+  }
+
+  // ---- library actions (S4) ---------------------------------------------------------
+
+  // What the header says: an album's or playlist's likeStatus (LIKE: in the
+  // library), undefined when it says nothing (your own playlist, a mix).
+  function headerSaved() {
+    var status = Model.collectionHeader(page).likeStatus
+    return status === "LIKE" ? true : status === "INDIFFERENT" ? false : undefined
+  }
+
+  // The artist page as the item Subscribe acts on, with the channel its
+  // subscribe button names (S1's header.subscribeId).
+  function subscribeItem() {
+    var header = Model.artistHeader(page) || {}
+    return { type: "artist", channelId: header.channelId || (target ? target.channelId : ""),
+             subscribeId: header.subscribeId || null, title: title }
+  }
+
+  // S with no row (Panel's toggleSave hook), the header's Save or
+  // Subscribe, and the page menu's twin. A page with neither (still
+  // loading, failed, your own playlist) says so.
+  function toggleSave() {
+    if (!service) return false
+    if (canSubscribePage) return service.subscribe(subscribeItem(), !pageSubscribed, editCallback())
+    if (canSavePage) return service.saveItem(pageSaveItem, !pageSaved, editCallback())
+    service.failAction("Nothing to save", !signedIn ? "Sign in to use your library"
+      : (loading && !page) || error !== "" ? "The page has not loaded" : title)
+    return false
+  }
+
+  // The callback of an edit made from this page (Model.editCallbackOf):
+  // when its outcome is unknown or a song's token was stale, the page is
+  // read again from YouTube, if it is still the one shown (true then).
+  // The view may be gone when the reply comes (Back): nothing then.
+  function editCallback() {
+    var requested = ref
+    return function(reply) { return !!root && root.reloadAfterEdit(reply, requested) }
+  }
+
+  function reloadAfterEdit(reply, requested) {
+    if (!service || !shows(requested) || !(service.unsure(reply) || Model.staleToken(reply))) return false
+    load(true)
     return true
   }
 
@@ -596,7 +654,7 @@ Item {
       Flow {
         width: parent.width
         spacing: Style.space(4)
-        visible: root.tracks.length > 0 || root.isArtist
+        visible: root.tracks.length > 0 || root.isArtist || root.canSavePage
 
         Button {
           visible: root.tracks.length > 0
@@ -633,6 +691,26 @@ Item {
           foreground: root.foreground
           fontSize: Style.font.caption
           onClicked: root.playAll("queue")
+        }
+
+        // S4: Save to library, and Subscribe on an artist page.
+        Button {
+          visible: root.canSavePage
+          iconText: root.pageSaved ? "󰃀" : "󰃃"
+          text: root.pageSaved ? "Saved" : "Save"
+          tooltipText: Model.withKey(root.pageSaved ? "Remove from library" : "Save to library", "save")
+          foreground: root.pageSaved ? Color.accent : root.foreground
+          fontSize: Style.font.caption
+          onClicked: root.toggleSave()
+        }
+
+        Button {
+          visible: root.canSubscribePage
+          text: root.pageSubscribed ? "Subscribed" : "Subscribe"
+          tooltipText: Model.withKey(root.pageSubscribed ? "Unsubscribe" : "Subscribe", "save")
+          foreground: root.pageSubscribed ? Color.accent : root.foreground
+          fontSize: Style.font.caption
+          onClicked: root.toggleSave()
         }
 
         Button {

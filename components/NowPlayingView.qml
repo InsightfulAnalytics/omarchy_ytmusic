@@ -18,6 +18,8 @@ Column {
   readonly property real duration: service ? service.duration : 0
   readonly property real position: service ? service.position : 0
   readonly property bool liked: !!service && service.currentLike === "LIKE"
+  // S4: disliked here this session (YouTube reports a dislike as INDIFFERENT).
+  readonly property bool disliked: !!service && service.currentDisliked
   readonly property bool accountActions: !!service && service.signedIn && hasMedia
 
   readonly property bool albumLinked: !!track && !!track.album && !!track.album.id
@@ -268,6 +270,7 @@ Column {
     height: transport.height
 
     Button {
+      id: likeButton
       anchors.left: parent.left
       anchors.verticalCenter: parent.verticalCenter
       visible: root.accountActions
@@ -275,6 +278,18 @@ Column {
       tooltipText: Model.withKey(root.liked ? "Remove from Liked Music" : "Like", "like")
       foreground: root.liked ? Color.accent : root.foreground
       onClicked: root.service.toggleLike(root.track)
+    }
+
+    // S4: thumbs down; the song skips, so the next press acts on the next
+    // song. On a song disliked earlier it removes the dislike.
+    Button {
+      anchors.left: likeButton.right
+      anchors.verticalCenter: parent.verticalCenter
+      visible: root.accountActions
+      iconText: root.disliked ? "󰔑" : "󰔒"
+      tooltipText: Model.withKey(root.disliked ? "Remove dislike" : "Dislike (skips the song)", "dislike")
+      foreground: root.disliked ? Color.accent : root.foreground
+      onClicked: root.service.toggleDislike(root.track)
     }
 
     Button {
