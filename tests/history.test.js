@@ -243,14 +243,16 @@ test("menus: Remove from history on History rows, confirmed; Record plays on Lib
   assert.deepEqual(removed, [[4, true]], "confirmed by the menu; a row that is gone does nothing")
 
   const library = { page: true, pageKind: "library", signedIn: true }
+  // S16 puts its account entries first: Record plays comes right before Sign out.
+  const record = actions => actions.find(a => a.id === "recordHistory")
   const off = Model.menuActions(null, library)
-  assert.deepEqual(ids(off), ["recordHistory", "signOut"])
-  assert.equal(off[0].title, "Record plays in history")
+  assert.deepEqual(ids(off).slice(-2), ["recordHistory", "signOut"])
+  assert.equal(record(off).title, "Record plays in history")
   const on = Model.menuActions(null, Object.assign({ recordHistory: true }, library))
-  assert.equal(on[0].title, "Stop recording plays in history")
+  assert.equal(record(on).title, "Stop recording plays in history")
   const set = []
-  on[0].run({ ctx: Object.assign({ recordHistory: true }, library), service: { setRecordHistory: v => set.push(v) } })
-  off[0].run({ ctx: library, service: { setRecordHistory: v => set.push(v) } })
+  record(on).run({ ctx: Object.assign({ recordHistory: true }, library), service: { setRecordHistory: v => set.push(v) } })
+  record(off).run({ ctx: library, service: { setRecordHistory: v => set.push(v) } })
   assert.deepEqual(set, [false, true])
   assert.ok(!ids(Model.menuActions(null, { page: true, pageKind: "library", signedIn: false })).includes("recordHistory"))
 })

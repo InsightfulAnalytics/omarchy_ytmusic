@@ -3548,9 +3548,9 @@ function streamsWithLoudness(streams) {
 }
 
 // The worker's settings from the prefs (Backend.configureParams); S16 adds
-// location and quality here.
+// quality and location (accountSettings, in its section).
 function workerSettings(prefs) {
-  return { normalize: normalizeMode(prefs && prefs.normalize) }
+  return accountSettings(prefs, { normalize: normalizeMode(prefs && prefs.normalize) })  // S16
 }
 
 // The Now page menu (M): Playback speed and Loudness, each a chooser
@@ -4367,5 +4367,376 @@ if (typeof module !== "undefined") {
     historyEntryIndex: historyEntryIndex,
     withoutHistoryEntry: withoutHistoryEntry,
     withHistoryEntry: withHistoryEntry
+  })
+}
+
+// ==== account (S16) =========================================================================
+// Library's account menu (M) gains Switch account, Audio quality and Content
+// location, before S15's Record plays and Sign out.
+// - Switch account lists the session's identities from the worker's
+//   `accounts` (your own account, its brand accounts and, when YouTube lists
+//   them, other Google logins); the worker's `switchAccount` acts as the one
+//   chosen from then on (saved by the worker without names). Identities of
+//   another Google login switch by signing in again as that login
+//   (`bin/ytm auth --authuser N`): rewriting X-Goog-AuthUser could not be
+//   checked live (one login), so AUTHUSER_SWITCH stays false. Names stay in
+//   the shell's memory: never in prefs, files or logs.
+// - Audio quality is prefs.quality: the worker's resolver format (the
+//   setting `quality`) and mpv's ytdl-format (QUALITY_FORMATS, the same
+//   strings as backend/ytm_streams.py and bin/ytm-mpv).
+// - Content location is prefs.location: one of ytmusicapi's
+//   SUPPORTED_LOCATIONS (LOCATIONS, not the chart countries) or "" for
+//   YouTube's own guess, sent as the worker's client setting `location`;
+//   choosing one Charts has (CHART_COUNTRIES) also opens Charts there next.
+// - Until the worker says which identity it acts as (and while it is
+//   stopped), identity.json tells (savedIdentity, shownIdentity). When
+//   YouTube stops answering as a brand account or login in use, the session
+//   reads as expired; Library then offers going back to your own account.
+
+var QUALITIES = ["low", "normal", "high"]
+var QUALITY_FORMATS = {
+  low: "bestaudio[abr<=70]/worstaudio",
+  normal: "bestaudio[abr<=130]/bestaudio",
+  high: "bestaudio[acodec=opus]/bestaudio/best"
+}
+var ACCOUNT_ICON = "󰀄"
+var BRAND_ICON = "󰇗"
+var SWITCH_ICON = "󰀙"
+var ADD_ACCOUNT_ICON = "󰀔"
+var QUALITY_ICON = "󰐵"
+var LOCATION_ICON = "󰍎"
+var CHOSEN_ICON = "󰄬"
+// The account list is asked again after this long (names and photos change rarely).
+var ACCOUNTS_TTL_MS = 10 * 60 * 1000
+// Another Google login: switch in place (true) or sign in again as it (false).
+var AUTHUSER_SWITCH = false
+var ANOTHER_LOGIN_ID = "account:another"
+// The countries Charts serves besides Global (ZZ), as its country menu lists
+// them (tests/backend/test_account.py keeps them in step with the recorded
+// Charts page). A location outside them leaves prefs.chartsCountry alone:
+// Charts would answer Global.
+var CHART_COUNTRIES = [
+  "AE", "AR", "AT", "AU", "BE", "BO", "BR", "CA", "CH", "CL", "CO", "CR", "CZ", "DE", "DK", "DO", "EC", "EE",
+  "EG", "ES", "FI", "FR", "GB", "GT", "HK", "HN", "HU", "ID", "IE", "IL", "IN", "IS", "IT", "JP", "KE", "KR",
+  "LU", "MX", "MY", "NG", "NI", "NL", "NO", "NZ", "PA", "PE", "PH", "PL", "PT", "PY", "RO", "RS", "RU", "SA",
+  "SE", "SG", "SV", "TH", "TR", "TW", "TZ", "UA", "UG", "US", "UY", "VN", "ZA", "ZW"
+]
+
+// ytmusicapi 1.12.2 SUPPORTED_LOCATIONS with English names, by name
+// (tests/backend/test_account.py keeps the codes in step with ytmusicapi).
+var LOCATIONS = [
+  ["DZ", "Algeria"], ["AR", "Argentina"], ["AU", "Australia"], ["AT", "Austria"], ["AZ", "Azerbaijan"],
+  ["BH", "Bahrain"], ["BD", "Bangladesh"], ["BY", "Belarus"], ["BE", "Belgium"], ["BO", "Bolivia"],
+  ["BA", "Bosnia and Herzegovina"], ["BR", "Brazil"], ["BG", "Bulgaria"], ["KH", "Cambodia"], ["CA", "Canada"],
+  ["CL", "Chile"], ["CO", "Colombia"], ["CR", "Costa Rica"], ["HR", "Croatia"], ["CY", "Cyprus"],
+  ["CZ", "Czechia"], ["DK", "Denmark"], ["DO", "Dominican Republic"], ["EC", "Ecuador"], ["EG", "Egypt"],
+  ["SV", "El Salvador"], ["EE", "Estonia"], ["FI", "Finland"], ["FR", "France"], ["GE", "Georgia"],
+  ["DE", "Germany"], ["GH", "Ghana"], ["GR", "Greece"], ["GT", "Guatemala"], ["HN", "Honduras"],
+  ["HK", "Hong Kong"], ["HU", "Hungary"], ["IS", "Iceland"], ["IN", "India"], ["ID", "Indonesia"],
+  ["IQ", "Iraq"], ["IE", "Ireland"], ["IL", "Israel"], ["IT", "Italy"], ["JM", "Jamaica"], ["JP", "Japan"],
+  ["JO", "Jordan"], ["KZ", "Kazakhstan"], ["KE", "Kenya"], ["KW", "Kuwait"], ["LA", "Laos"],
+  ["LV", "Latvia"], ["LB", "Lebanon"], ["LY", "Libya"], ["LI", "Liechtenstein"], ["LT", "Lithuania"],
+  ["LU", "Luxembourg"], ["MY", "Malaysia"], ["MT", "Malta"], ["MX", "Mexico"], ["ME", "Montenegro"],
+  ["MA", "Morocco"], ["NP", "Nepal"], ["NL", "Netherlands"], ["NZ", "New Zealand"], ["NI", "Nicaragua"],
+  ["NG", "Nigeria"], ["MK", "North Macedonia"], ["NO", "Norway"], ["OM", "Oman"], ["PK", "Pakistan"],
+  ["PA", "Panama"], ["PG", "Papua New Guinea"], ["PY", "Paraguay"], ["PE", "Peru"], ["PH", "Philippines"],
+  ["PL", "Poland"], ["PT", "Portugal"], ["PR", "Puerto Rico"], ["QA", "Qatar"], ["RO", "Romania"],
+  ["RU", "Russia"], ["SA", "Saudi Arabia"], ["SN", "Senegal"], ["RS", "Serbia"], ["SG", "Singapore"],
+  ["SK", "Slovakia"], ["SI", "Slovenia"], ["ZA", "South Africa"], ["KR", "South Korea"], ["ES", "Spain"],
+  ["LK", "Sri Lanka"], ["SE", "Sweden"], ["CH", "Switzerland"], ["TW", "Taiwan"], ["TZ", "Tanzania"],
+  ["TH", "Thailand"], ["TN", "Tunisia"], ["TR", "Türkiye"], ["UG", "Uganda"], ["UA", "Ukraine"],
+  ["AE", "United Arab Emirates"], ["GB", "United Kingdom"], ["US", "United States"], ["UY", "Uruguay"],
+  ["VE", "Venezuela"], ["VN", "Vietnam"], ["YE", "Yemen"], ["ZW", "Zimbabwe"]
+]
+
+// ---- audio quality ----------------------------------------------------------------------
+
+function qualityMode(value) {
+  return QUALITIES.indexOf(value) >= 0 ? value : "high"
+}
+
+function qualityTitle(quality) {
+  var q = qualityMode(quality)
+  return q === "low" ? "Low" : q === "normal" ? "Normal" : "High"
+}
+
+// yt-dlp's format for a quality (mpv's ytdl-format).
+function qualityFormat(quality) {
+  return QUALITY_FORMATS[qualityMode(quality)]
+}
+
+// ItemMenu chooser rows for the qualities; the one set is ticked.
+function qualityChoices(quality) {
+  var on = qualityMode(quality)
+  var about = { low: "Low (about 70 kbps, saves data)", normal: "Normal (about 128 kbps)",
+                high: "High (the best stream, about 130 to 160 kbps)" }
+  return QUALITIES.map(function(q) {
+    return { id: "quality-" + q, title: about[q], icon: q === on ? CHOSEN_ICON : QUALITY_ICON, value: q }
+  })
+}
+
+// ---- content location --------------------------------------------------------------------
+
+// "" (YouTube's own guess) or a code YouTube Music supports.
+function locationCode(value) {
+  var code = typeof value === "string" ? value.toUpperCase() : ""
+  for (var i = 0; i < LOCATIONS.length; i++) if (LOCATIONS[i][0] === code) return code
+  return ""
+}
+
+function locationTitle(code) {
+  var c = locationCode(code)
+  for (var i = 0; i < LOCATIONS.length; i++) if (LOCATIONS[i][0] === c) return LOCATIONS[i][1]
+  return "Default"
+}
+
+// ItemMenu chooser rows: Default, then every supported location by name;
+// the one set is ticked.
+function locationChoices(code) {
+  var on = locationCode(code)
+  var rows = [{ id: "location:", title: "Default (YouTube decides from your connection)",
+                icon: on === "" ? CHOSEN_ICON : LOCATION_ICON, value: "" }]
+  for (var i = 0; i < LOCATIONS.length; i++) {
+    var c = LOCATIONS[i][0]
+    rows.push({ id: "location:" + c, title: LOCATIONS[i][1], hint: c, icon: c === on ? CHOSEN_ICON : LOCATION_ICON, value: c })
+  }
+  return rows
+}
+
+// The Charts country a content location opens Charts in next: the
+// location when Charts has it, else "" (Charts stays where it was).
+function chartsCountryForLocation(code) {
+  var c = locationCode(code)
+  return c !== "" && CHART_COUNTRIES.indexOf(c) >= 0 ? c : ""
+}
+
+// The worker settings this section owns, added to `base` (workerSettings):
+// quality always, location only when one is set (none is YouTube's guess).
+function accountSettings(prefs, base) {
+  var out = base || {}
+  out.quality = qualityMode(prefs && prefs.quality)
+  var location = locationCode(prefs && prefs.location)
+  if (location !== "") out.location = location
+  return out
+}
+
+// ---- identities --------------------------------------------------------------------------
+
+// Whether the worker acts as an identity other than the session's own
+// account (identity: the worker's { key, brand, own, authUser }).
+function otherIdentity(identity) {
+  return !!identity && identity.own === false
+}
+
+// identity.json's text as { brand, own, authUser } (no id kept), checked as
+// the worker's ytm_auth.read_identity() checks it: missing, damaged or
+// odd means the session's own account.
+function savedIdentity(text) {
+  var own = { brand: false, own: true, authUser: null }
+  var saved = null
+  try { saved = text ? JSON.parse(text) : null } catch (e) { return own }
+  if (!saved || typeof saved !== "object" || Array.isArray(saved)) return own
+  var pageId = saved.pageId === undefined ? null : saved.pageId
+  var authUser = saved.authUser === undefined ? null : saved.authUser
+  if (pageId !== null && !(typeof pageId === "string" && /^[0-9]{1,40}$/.test(pageId))) return own
+  if (authUser !== null && !(typeof authUser === "number" && Math.floor(authUser) === authUser && authUser >= 0 && authUser <= 9))
+    return own
+  if (pageId === null && authUser === null) return own
+  return { brand: pageId !== null, own: false, authUser: authUser }
+}
+
+// The identity in use as the shell knows it: the worker's while it runs
+// and has said (reported); else identity.json's (saved: savedIdentity(),
+// null before it was read), which the worker reads when it starts. null
+// without a session.
+function shownIdentity(hasSession, ready, reported, saved) {
+  if (!hasSession) return null
+  if (ready && reported) return reported
+  return saved || reported || null
+}
+
+// The notice when the session reads as expired: acting as a brand account
+// or another login, YouTube may only have stopped answering as that one.
+function expiryNotice(identity) {
+  if (otherIdentity(identity))
+    return { title: "YouTube Music did not answer as the account in use",
+             body: "Go back to your own account in the Library tab, or click to sign in again." }
+  return { title: "YouTube Music sign-in expired", body: "Click to sign in again (or use the Library tab)." }
+}
+
+// What the account row shows: account.json's name for the session's own
+// account; the identity's (info: { name, handle, photo } from the worker)
+// for a brand account or another login, with a note saying which. null
+// when signed out.
+function activeAccount(account, identity, info) {
+  if (!account) return null
+  if (!otherIdentity(identity)) return account
+  var brand = identity.brand === true
+  var note = brand ? "Brand account" : "Google account " + identity.authUser
+  // Until the worker named it, the name says which kind it is.
+  if (!info) return { name: note, handle: "", photo: "", note: "" }
+  return { name: info.name || (brand ? "Brand account" : "Another Google account"), handle: info.handle || "",
+           photo: info.photo || "", note: note }
+}
+
+// The account row's second line: the handle, and which kind of identity.
+function accountCaption(shown) {
+  if (!shown) return ""
+  return [shown.handle || "", shown.note || ""].filter(function(s) { return s !== "" }).join(" · ")
+}
+
+// The identity selected in an `accounts` reply's items, or null.
+function selectedAccount(items) {
+  var list = Array.isArray(items) ? items : []
+  for (var i = 0; i < list.length; i++) if (list[i] && list[i].selected === true) return list[i]
+  return null
+}
+
+function accountsFresh(accounts, now) {
+  return !!accounts && Array.isArray(accounts.items) && now - (accounts.at || 0) < ACCOUNTS_TTL_MS
+}
+
+// switchAccount's params for an identity of `accounts`.
+function switchParams(item) {
+  var params = { pageId: item && item.brand === true && item.pageId ? String(item.pageId) : null }
+  if (item && typeof item.authUser === "number") params.authUser = item.authUser
+  return params
+}
+
+// "switch" (switchAccount), "signIn" (sign in again as its login), "current"
+// (nothing to do) or "" (no way to reach it).
+function accountChoiceKind(item) {
+  if (!item) return ""
+  if (item.selected === true) return "current"
+  if (item.otherLogin !== true) return "switch"
+  if (typeof item.authUser !== "number") return ""
+  return AUTHUSER_SWITCH ? "switch" : "signIn"
+}
+
+function authUserCommand(authUser) {
+  return "bin/ytm auth --authuser " + (typeof authUser === "number" ? authUser : "N")
+}
+
+// ItemMenu chooser rows for `accounts` items: the one in use ticked, brand
+// accounts with their own icon, another login's identities with the command
+// that signs in as it (its brand accounts: then switch, as signing in starts
+// as the login's own account); then a row that says how to add another
+// Google account. Each row's value is { kind, item }.
+function accountChoices(items) {
+  var rows = []
+  var list = Array.isArray(items) ? items : []
+  for (var i = 0; i < list.length; i++) {
+    var item = list[i]
+    var kind = accountChoiceKind(item)
+    if (kind === "") continue
+    var hint = kind === "signIn" ? authUserCommand(item.authUser) + (item.brand === true ? ", then switch" : "")
+      : (item.handle || (item.brand ? "Brand account" : ""))
+    rows.push({ id: "account:" + (item.index !== undefined ? item.index : i), title: item.name || "Unnamed account",
+                hint: hint, icon: kind === "current" ? CHOSEN_ICON : item.brand ? BRAND_ICON : ACCOUNT_ICON,
+                value: { kind: kind, item: item } })
+  }
+  rows.push({ id: ANOTHER_LOGIN_ID, title: "Another Google account", hint: authUserCommand(null), icon: ADD_ACCOUNT_ICON,
+              value: { kind: "another", item: null } })
+  return rows
+}
+
+function switchedNotice(item, info) {
+  var name = (info && info.name) || (item && item.name) || "your account"
+  var brand = item ? item.brand === true : false
+  return { title: "Switched to " + name,
+           body: brand ? "Likes, playlists, subscriptions and history now go to this brand account" : "" }
+}
+
+// Choosing another login's brand account signs in as that login, which
+// starts as its own account: the brand is one more switch away.
+function signInFirstNotice(item) {
+  var name = (item && item.name) || "that brand account"
+  var login = item && typeof item.authUser === "number" ? item.authUser : "N"
+  return { title: "Signing in as Google account " + login + " first",
+           body: "You start as its own account; then choose " + name + " under Switch account" }
+}
+
+function anotherLoginNotice() {
+  return { title: "Another Google account",
+           body: "Sign in to it in Chromium, then run " + authUserCommand(null) + " (N: its place in Chromium's account list, from 0)" }
+}
+
+// ---- menu entries ------------------------------------------------------------------------
+
+// Library (M), before Record plays in history and Sign out. Audio quality
+// and Content location apply signed out too. ctx.quality and ctx.location
+// come from LibraryView.pageMenu.
+;(function() {
+  var at = MENU_ACTIONS.length
+  for (var i = MENU_ACTIONS.length - 1; i >= 0; i--) {
+    if (MENU_ACTIONS[i].id === "recordHistory" || MENU_ACTIONS[i].id === "signOut" || MENU_ACTIONS[i].id === "signIn") at = i
+  }
+  var library = function(ctx) { return ctx.page === true && ctx.pageKind === "library" }
+  MENU_ACTIONS.splice(at, 0, {
+    id: "switchAccount", title: "Switch account", icon: SWITCH_ICON,
+    applies: function(item, ctx) { return library(ctx) && ctx.signedIn === true },
+    run: function(env) { env.service.openAccountChooser(env.panel) }
+  }, {
+    id: "audioQuality", title: function(item, ctx) { return "Audio quality (" + qualityTitle(ctx.quality) + ")" },
+    icon: QUALITY_ICON,
+    applies: function(item, ctx) { return library(ctx) },
+    run: function(env) {
+      env.panel.openChooser({ title: "Audio quality", subtitle: "From the next song on",
+        choices: qualityChoices(env.ctx.quality), onChoice: function(choice) { env.service.setQuality(choice.value) } })
+    }
+  }, {
+    id: "contentLocation", title: function(item, ctx) { return "Content location (" + locationTitle(ctx.location) + ")" },
+    icon: LOCATION_ICON,
+    applies: function(item, ctx) { return library(ctx) },
+    run: function(env) {
+      env.panel.openChooser({ title: "Content location", subtitle: "For Home, Explore and search; Charts too, where it has the country",
+        choices: locationChoices(env.ctx.location), onChoice: function(choice) { env.service.setLocation(choice.value) } })
+    }
+  }, {
+    // The session reads as expired while acting as a brand account or another
+    // login: going back checks the session itself (ctx.canUseOwnAccount from
+    // LibraryView.pageMenu).
+    id: "useOwnAccount", title: "Use your own account", icon: ACCOUNT_ICON,
+    applies: function(item, ctx) { return library(ctx) && ctx.signedIn !== true && ctx.canUseOwnAccount === true },
+    run: function(env) { env.service.useOwnAccount() }
+  })
+})()
+
+if (typeof module !== "undefined") {
+  Object.assign(module.exports, {
+    QUALITIES: QUALITIES,
+    QUALITY_FORMATS: QUALITY_FORMATS,
+    LOCATIONS: LOCATIONS,
+    ACCOUNTS_TTL_MS: ACCOUNTS_TTL_MS,
+    AUTHUSER_SWITCH: AUTHUSER_SWITCH,
+    ANOTHER_LOGIN_ID: ANOTHER_LOGIN_ID,
+    CHART_COUNTRIES: CHART_COUNTRIES,
+    CHOSEN_ICON: CHOSEN_ICON,
+    BRAND_ICON: BRAND_ICON,
+    ACCOUNT_ICON: ACCOUNT_ICON,
+    qualityMode: qualityMode,
+    qualityTitle: qualityTitle,
+    qualityFormat: qualityFormat,
+    qualityChoices: qualityChoices,
+    locationCode: locationCode,
+    locationTitle: locationTitle,
+    locationChoices: locationChoices,
+    chartsCountryForLocation: chartsCountryForLocation,
+    accountSettings: accountSettings,
+    otherIdentity: otherIdentity,
+    savedIdentity: savedIdentity,
+    shownIdentity: shownIdentity,
+    expiryNotice: expiryNotice,
+    activeAccount: activeAccount,
+    accountCaption: accountCaption,
+    selectedAccount: selectedAccount,
+    accountsFresh: accountsFresh,
+    switchParams: switchParams,
+    accountChoiceKind: accountChoiceKind,
+    authUserCommand: authUserCommand,
+    accountChoices: accountChoices,
+    switchedNotice: switchedNotice,
+    signInFirstNotice: signInFirstNotice,
+    anotherLoginNotice: anotherLoginNotice
   })
 }

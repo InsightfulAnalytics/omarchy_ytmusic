@@ -41,6 +41,7 @@ import subprocess  # noqa: E402
 import threading  # noqa: E402
 import time  # noqa: E402
 
+import ytm_account as identities  # noqa: E402
 import ytm_actions as actions  # noqa: E402
 import ytm_artist as artist  # noqa: E402
 import ytm_auth as auth  # noqa: E402
@@ -132,7 +133,11 @@ def m_ping(worker, params):
 
 
 def m_hello(worker, params):
-    return {"auth": worker.auth, "account": auth.whoami()}
+    reply = {"auth": worker.auth, "account": auth.whoami()}
+    identity = identities.identity_summary(worker)  # S16: which identity the worker acts as
+    if identity is not None:
+        reply["identity"] = identity
+    return reply
 
 
 def m_reload_auth(worker, params):
@@ -233,11 +238,15 @@ def m_resolve(worker, params):
     account = params.get("account")
     if account is not None and not isinstance(account, bool):
         raise WorkerError("BAD_REQUEST", "'account' must be true or false")
+    # S16: the audio quality (the request's own, else the setting); high is
+    # the resolver's default format.
+    quality = streams.validate_quality(params["quality"]) if "quality" in params else worker.settings.get("quality")
+    extra = {"quality": quality} if quality not in (None, "high") else {}
     worker.wait_for_warm()
     # S17: the song's loudness too, while the shell levels by YouTube's.
     loudness = {"loudness_from": worker.yt} if worker.settings.get("normalize") == "youtube" else {}
     try:
-        return worker.resolver().resolve(video_id, account=account, **loudness)
+        return worker.resolver().resolve(video_id, account=account, **loudness, **extra)
     except streams.StreamError as exc:
         raise WorkerError(exc.code, exc.message, exc.retryable) from exc
 
@@ -382,7 +391,7 @@ class _Core:
 
 # Area modules, in a fixed order. A slice that rewrites a core method moves it
 # out of the core tables into its module.
-AREA_MODULES = (pages, play, now, artist, library, collections, actions, home, explore, history)
+AREA_MODULES = (pages, play, now, artist, library, collections, actions, home, explore, history, identities)
 
 
 def merge_registries(sources):
@@ -479,6 +488,9 @@ class Worker:
         self.settings = {}
         # The CLIENT_SETTINGS part of it that self.yt was built with.
         self.built_with = {}
+        # S16: the identity self.yt acts as (ytm_auth.read_identity() when it
+        # was built; None: the session's own account, or signed out).
+        self.identity = None
         # Set by serve(): writes an unsolicited event line (thread-safe).
         self.emit = None
         if client is None:
@@ -501,7 +513,10 @@ class Worker:
         warm = getattr(self.resolver(), "warm", None)
         if warm is None or (self._warm_thread and self._warm_thread.is_alive()):
             return
-        self._warm_thread = threading.Thread(target=warm, daemon=True)
+        # S16: the instance for the audio quality set (high: the default one).
+        quality = self.settings.get("quality")
+        args = (quality,) if quality not in (None, "high") else ()
+        self._warm_thread = threading.Thread(target=warm, args=args, daemon=True)
         self._warm_thread.start()
 
     def wait_for_warm(self):
@@ -566,10 +581,19 @@ class Worker:
                 self.invalidate(method, match)
 
     def load(self):
-        # A module that adds CLIENT_SETTINGS passes self.client_settings() here.
-        yt, state = auth.load_client()
+        # S16: the client settings (location) and the saved identity (a brand
+        # account, another login), passed only when there are any.
+        settings = self.client_settings()
+        identity = auth.read_identity()
+        kwargs = {}
+        if settings:
+            kwargs["settings"] = settings
+        if identity:
+            kwargs["identity"] = identity
+        yt, state = auth.load_client(**kwargs)
         raw.install(yt)
         self.yt, self.auth = yt, state
+        self.identity = identity if state == "ok" else None
         self.built_with = self.client_settings()
         self.verified = False
         self.generation += 1
@@ -577,7 +601,9 @@ class Worker:
     def client_settings(self, settings=None):
         """The CLIENT_SETTINGS part of ``settings`` (default: the stored ones)."""
         settings = self.settings if settings is None else settings
-        return {key: settings[key] for key in sorted(CLIENT_SETTINGS) if key in settings}
+        # S16: an empty value is the default, the same as leaving the key out
+        # (location "" is YouTube's own guess).
+        return {key: settings[key] for key in sorted(CLIENT_SETTINGS) if settings.get(key) not in (None, "")}
 
     def remembered_client_settings(self):
         """The client settings recorded with the disk cache, still valid ones only."""
@@ -636,6 +662,11 @@ class Worker:
 
     def require_auth(self):
         self.verify_session()
+        if self.auth == "expired" and self.identity:
+            # S16: the check ran as a brand account or another login; YouTube may
+            # only have stopped answering as that one (ytm_account.require_session).
+            raise WorkerError("AUTH_EXPIRED", "YouTube Music did not answer as the account in use; go back to "
+                                              "your own account (Library), or sign in again")
         if self.auth == "expired":
             raise WorkerError("AUTH_EXPIRED", "YouTube Music no longer accepts the saved session; sign in again")
         if self.auth != "ok":
@@ -792,8 +823,12 @@ def serve(idle_secs, worker=None, stdin_fd=None, out=None):
             state["busy"] += 1
         jobs.put(request)
 
-    emit({"event": "ready", "protocol": PROTOCOL, "version": VERSION,
-          "ytmusicapi": ytmusicapi_version(), "auth": worker.auth, "mutates": sorted(MUTATES)})
+    ready = {"event": "ready", "protocol": PROTOCOL, "version": VERSION,
+             "ytmusicapi": ytmusicapi_version(), "auth": worker.auth, "mutates": sorted(MUTATES)}
+    identity = identities.identity_summary(worker)  # S16
+    if identity is not None:
+        ready["identity"] = identity
+    emit(ready)
     fd = sys.stdin.fileno() if stdin_fd is None else stdin_fd
     buffer = b""
     while True:
@@ -1015,6 +1050,8 @@ def main(argv=None):
             print_json(reply)
         else:
             print_json(reply["result"] if reply["ok"] else {"error": reply["error"]})
+        if request["method"] == "switchAccount" and reply["ok"] and reply["result"].get("changed"):
+            notify_shell()  # S16: a running shell's worker acts as the new identity too
         return 0 if reply["ok"] else 1
     if args.cmd == "auth":
         return cmd_auth(args)

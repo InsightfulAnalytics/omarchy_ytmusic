@@ -362,7 +362,8 @@ Item {
     var removable = row.item.type === "track" && (editable || isLiked)
     root.itemMenuRequested({ item: row.item, owner: root, index: index,
       ctx: { pageKind: ref ? ref.kind : "", owned: editable, removable: removable,
-             removeTitle: isLiked ? "Remove from Liked Music" : "Remove from playlist" } })
+             removeTitle: isLiked ? "Remove from Liked Music" : "Remove from playlist",
+             canRemoveHistory: !(service && service.identityBrand) } })  // S16: not as a brand account
   }
 
   // The page as an item for its own menu: the opened item, completed from
@@ -534,6 +535,10 @@ Item {
     if (!isHistory || !row || row.item.type !== "track" || !service) return false
     var track = row.item
     var token = Model.historyTokenOf(track)
+    if (service.identityBrand) {  // S16: YouTube Music does not remove a brand account's entries
+      service.failAction("Not removed from history", "YouTube Music removes history entries only for your own account, not a brand account")
+      return false
+    }
     if (!signedIn || token === "") {
       service.failAction("Not removed from history", !signedIn ? "Sign in to use your library"
         : loading || refreshing ? "History is still loading; try again in a moment" : "Open History again, then remove it")
@@ -860,7 +865,7 @@ Item {
     owner: root
     // Not refKey: Load all reloads the same list (S3).
     listKey: root.listId
-    removable: root.editable || root.isLiked || (root.isHistory && root.signedIn)
+    removable: root.editable || root.isLiked || (root.isHistory && root.signedIn && !(root.service && root.service.identityBrand))  // S16
     removeTooltip: root.isHistory ? "Remove from history (press twice)"  // S15
       : root.isLiked ? "Remove from Liked Music" : "Remove from playlist"
     numbered: !!root.ref && root.ref.kind === "album"

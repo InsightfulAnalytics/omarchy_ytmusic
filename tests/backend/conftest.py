@@ -27,6 +27,13 @@ def config_dir(tmp_path, monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def private_config_dir(tmp_path, monkeypatch):
+    # S16: and never read the real session or identity (~/.config/omarchy-ytmusic);
+    # the config_dir fixture names the same directory.
+    monkeypatch.setenv("YTM_CONFIG_DIR", str(tmp_path / "ytm-config"))
+
+
+@pytest.fixture(autouse=True)
 def private_cache_dir(tmp_path, monkeypatch):
     # A Worker built without a cache uses the real one; tests must never read,
     # clear or record into ~/.cache/omarchy-ytmusic.

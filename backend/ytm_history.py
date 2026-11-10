@@ -33,6 +33,7 @@ Area module (see AREA_MODULES in ytm.py).
 
 import re
 
+import ytm_account as identities
 import ytm_actions as actions
 import ytm_normalize as norm
 from ytm_proto import Fixed, WorkerError
@@ -126,6 +127,8 @@ def m_report_plays(worker, params):
 
 def m_remove_history(worker, params):
     tokens = _tokens(params)
+    # S16: YouTube Music removes history entries of the own account only.
+    identities.require_own_identity(worker, "Removing songs from history")
     worker.require_auth()
     if not actions.processed(worker.yt.remove_history_items(feedbackTokens=tokens)):
         raise NotRemoved()

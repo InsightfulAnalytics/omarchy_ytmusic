@@ -10,7 +10,8 @@ YTM_STREAM_WITH_ACCOUNT=1 or the request asks for it (``account: true``,
 e.g. for uploads); each mode has its own yt-dlp instance.
 
 With the worker setting ``normalize`` at "youtube" (S17), a lookup also
-answers the song's loudness (see the loudness section below).
+answers the song's loudness (see the loudness section below). The setting
+``quality`` (S16) picks the yt-dlp format (see the quality section).
 """
 
 import os
@@ -91,9 +92,9 @@ class Resolver:
         use = stream_with_account() if account is None else bool(account)
         return use and auth.cookies_path().exists()
 
-    def options(self, account=None):
+    def options(self, account=None, fmt=FORMAT):
         opts = {
-            "format": FORMAT,
+            "format": fmt,
             "quiet": True,
             "no_warnings": True,
             "skip_download": True,
@@ -104,34 +105,38 @@ class Resolver:
             opts["cookiefile"] = str(auth.cookies_path())
         return opts
 
-    def _client(self, account=False):
+    def _client(self, account=False, fmt=FORMAT):
+        # One instance per mode and format (S16: the audio quality), each
+        # built on first use.
+        key = (account, fmt)
         with self._lock:
-            if account not in self._ydl:
-                opts = self.options(account)
+            if key not in self._ydl:
+                opts = self.options(account, fmt)
                 if self._factory is None:
                     import yt_dlp
 
-                    self._ydl[account] = yt_dlp.YoutubeDL(opts)
+                    self._ydl[key] = yt_dlp.YoutubeDL(opts)
                 else:
-                    self._ydl[account] = self._factory(opts)
-            return self._ydl[account]
+                    self._ydl[key] = self._factory(opts)
+            return self._ydl[key]
 
-    def warm(self):
+    def warm(self, quality=None):
         try:
-            self._client(self.wants_account())
+            self._client(self.wants_account(), format_for(quality))
         except Exception as exc:  # noqa: BLE001 - resolve() reports it properly later
             norm.log(f"could not load yt-dlp: {type(exc).__name__}: {exc}")
 
-    def resolve(self, video_id, account=None, loudness_from=None):
+    def resolve(self, video_id, account=None, loudness_from=None, quality=None):
         """The stream URL; ``account`` None means the YTM_STREAM_WITH_ACCOUNT default.
 
         With ``loudness_from`` (a ytmusicapi client; S17) the reply also
         carries ``loudnessDb``: a number, or None when YouTube gave none or
-        the lookup failed (it never fails the lookup itself).
+        the lookup failed (it never fails the lookup itself). ``quality``
+        (S16: low, normal, high; None is high) picks the format.
         """
         use_account = self.wants_account(account)
         try:
-            info = self._client(use_account).extract_info(WATCH_URL + video_id, download=False)
+            info = self._client(use_account, format_for(quality)).extract_info(WATCH_URL + video_id, download=False)
         except Exception as exc:  # noqa: BLE001 - yt-dlp raises DownloadError and friends
             raise _error(exc) from exc
         url = info.get("url")
@@ -238,3 +243,36 @@ class Loudness:
             while len(self._memo) > self.size:
                 self._memo.popitem(last=False)
         return value
+
+
+# ---- quality (S16) --------------------------------------------------------------
+# The shell's audio quality (prefs.quality, sent as the worker setting
+# `quality`): the yt-dlp format the resolver asks for. High is the best opus
+# stream, as before (format 251, about 130 to 160 kbps); Normal caps the
+# average bitrate near the web's 128 kbps; Low caps it at 70 kbps, which
+# picks opus 250 (about 70 kbps; the web's Low is 48), or the smallest
+# stream when none is that low. mpv's own fallback (ytdl-format, bin/ytm-mpv
+# and the shell) uses the same strings; tests/backend/test_streams.py keeps
+# them in step with YtmModel.js and bin/ytm-mpv. The web's 256 kbps "Always high" is not
+# offered: the account gets the same opus 251 (README, development notes).
+
+QUALITIES = ("low", "normal", "high")
+QUALITY_FORMATS = {
+    "low": "bestaudio[abr<=70]/worstaudio",
+    "normal": "bestaudio[abr<=130]/bestaudio",
+    "high": FORMAT,
+}
+
+
+def validate_quality(value):
+    if value not in QUALITIES:
+        raise WorkerError("BAD_REQUEST", f"'quality' must be one of {', '.join(QUALITIES)}")
+    return value
+
+
+def format_for(quality):
+    """The yt-dlp format of a quality; FORMAT (high) for None or anything else."""
+    return QUALITY_FORMATS.get(quality, FORMAT)
+
+
+SETTINGS["quality"] = validate_quality
