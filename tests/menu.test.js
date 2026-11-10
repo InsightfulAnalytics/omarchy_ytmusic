@@ -34,7 +34,7 @@ test("menuKind tells songs, albums, playlists, mixes, Liked Music and artists ap
 test("menuActions per type", () => {
   const ctx = { signedIn: true, pageKind: "search" }
   assert.deepEqual(ids(Model.menuActions(song, ctx)),
-    ["play", "playNext", "addToQueue", "radio", "addToPlaylist", "goArtist", "goAlbum", "share"])
+    ["play", "playNext", "addToQueue", "radio", "addToPlaylist", "goArtist", "goAlbum", "credits", "share"])
   assert.deepEqual(ids(Model.menuActions(album, ctx)),
     ["play", "shuffle", "playNext", "addToQueue", "radio", "goArtist", "share"])
   assert.deepEqual(ids(Model.menuActions(playlist, ctx)), ["play", "shuffle", "playNext", "addToQueue", "radio", "share"])
@@ -60,7 +60,7 @@ test("menuActions follow ctx: signed out hides account entries; page, queue and 
   assert.deepEqual(ids(Model.menuActions(mix, { pageKind: "home" })), ["play", "playNext", "addToQueue"])
   // The song playing: no Play, Play next or Add to queue.
   assert.deepEqual(ids(Model.menuActions(song, { signedIn: true, isCurrent: true })),
-    ["radio", "addToPlaylist", "goArtist", "goAlbum", "share"])
+    ["radio", "addToPlaylist", "goArtist", "goAlbum", "credits", "share"])
   // A queued song: jump to it, remove it; no duplicates.
   const queued = ids(Model.menuActions(song, { pageKind: "queue", removable: true, removeTitle: "Remove from queue" }))
   assert.ok(queued.includes("play") && queued.includes("remove") && !queued.includes("playNext") && !queued.includes("addToQueue"))

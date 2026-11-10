@@ -807,7 +807,9 @@ Item {
     var previous = likeStatusOf(track)
     var rating = like ? "LIKE" : "INDIFFERENT"
     storeItem.setLike(track.videoId, rating)
+    root._rateSent(track.videoId)  // S11
     backend.request("rate", { videoId: track.videoId, rating: rating }, function(reply) {
+      root._rateAnswered(track.videoId)  // S11
       if (root.unsure(reply)) {
         root.refreshUnsure([{ kind: "liked", id: "LM" }, { kind: "like", id: track.videoId }], Model.mediaTitle(track))
       } else if (!reply.ok) {
@@ -826,20 +828,71 @@ Item {
     return setLike(track, likeStatusOf(track) !== "LIKE")
   }
 
-  // Only looked up while a panel shows it; results are cached per videoId.
-  function refreshLikeStatus() {
-    var track = currentTrack
-    if (!signedIn || !track || likeStatusOf(track) !== null) return
-    refreshLikeOf(track.videoId)
-  }
-
+  // After an unsure rating (refreshUnsure).
   function refreshLikeOf(videoId) {
     backend.request("likeStatus", { videoId: videoId }, function(reply) {
       if (reply.ok && reply.result.likeStatus) storeItem.setLike(videoId, reply.result.likeStatus)
     })
   }
 
-  onCurrentTrackChanged: if (positionWanted) likeCheck.restart()
+  // ---- now context (S11) ------------------------------------------------------------
+  // One nowContext request per song while a panel is open (a moment after
+  // it starts, so skipping through the queue asks nothing): its like status
+  // goes to the Store's likes, and the whole reply (lyrics and Related ids,
+  // the song/video twin, the queue's chips, "Playing from", YouTube's up-next
+  // list) to the Store's memo for 10 min, reused when the song comes back.
+  // S12 reads the memo for autoplay.
+  readonly property var nowContext: currentTrack ? storeItem.nowContextOf(currentTrack.videoId, false) : null
+  // { videoId, message } when the last nowContext of that song failed.
+  property var nowContextFailure: null
+  property string _nowFetching: ""
+  // videoId -> ratings sent and not answered yet (setLike counts them). A
+  // nowContext runs on the worker's pages lane, beside a rating in flight
+  // on its main thread, so it may read the status from before that rating.
+  property var _ratesOut: ({})
+
+  function _rateSent(videoId) {
+    var next = ({})
+    for (var k in _ratesOut) next[k] = _ratesOut[k]
+    next[videoId] = (next[videoId] || 0) + 1
+    _ratesOut = next
+  }
+
+  function _rateAnswered(videoId) {
+    var next = ({})
+    for (var k in _ratesOut) if (k !== videoId) next[k] = _ratesOut[k]
+    if (_ratesOut[videoId] > 1) next[videoId] = _ratesOut[videoId] - 1
+    _ratesOut = next
+  }
+
+  function refreshNowContext() {
+    var track = currentTrack
+    if (!positionWanted || !track || !track.videoId) return
+    var videoId = track.videoId
+    if (storeItem.nowContextOf(videoId, true) || _nowFetching === videoId) return
+    _nowFetching = videoId
+    nowContextFailure = null
+    // A rating wins over the status this brings back: one still out when
+    // it is sent, one sent while it is out (still out, or already applied
+    // to the Store's likes) or a rating's rollback.
+    var likeBefore = storeItem.likeStatus(videoId)
+    var ratingOut = !!_ratesOut[videoId]
+    backend.request("nowContext", { videoId: videoId }, function(reply) {
+      if (root._nowFetching === videoId) root._nowFetching = ""
+      if (!reply.ok) {
+        root.nowContextFailure = { videoId: videoId, message: reply.error.message }
+        return
+      }
+      storeItem.rememberNowContext(videoId, reply.result)
+      var like = reply.result.likeStatus
+      if (root.signedIn && like && !ratingOut && !root._ratesOut[videoId] && storeItem.likeStatus(videoId) === likeBefore)
+        storeItem.setLike(videoId, like)
+    }, 15000)
+  }
+
+  onCurrentTrackChanged: if (positionWanted) nowCheck.restart()
+  // Signing in or out empties the memo: ask again for the song playing.
+  onNowContextChanged: if (!nowContext && positionWanted) nowCheck.restart()
 
   // ---- playlists ---------------------------------------------------------------------
 
@@ -978,7 +1031,7 @@ Item {
   onPositionWantedChanged: {
     if (!positionWanted) return
     fetchPosition()
-    likeCheck.restart()
+    nowCheck.restart()
   }
 
   function setVolume(percent) {
@@ -1302,6 +1355,7 @@ Item {
     worker: backend
     thumbsEnabled: root.panelsOpen > 0
     stateDir: root.cacheDir
+    nowKeep: root.currentTrack ? root.currentTrack.videoId : ""
   }
 
   Connections {
@@ -1321,9 +1375,9 @@ Item {
   }
 
   Timer {
-    id: likeCheck
+    id: nowCheck
     interval: 600
-    onTriggered: root.refreshLikeStatus()
+    onTriggered: root.refreshNowContext()
   }
 
   FileView {

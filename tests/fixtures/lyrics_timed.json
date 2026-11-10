@@ -1,0 +1,61 @@
+{
+ "contents": {
+  "elementRenderer": {
+   "newElement": {
+    "type": {
+     "componentType": {
+      "model": {
+       "timedLyricsModel": {
+        "lyricsData": {
+         "timedLyricsData": [
+          {
+           "lyricLine": "♪",
+           "cueRange": {
+            "startTimeMilliseconds": "0",
+            "endTimeMilliseconds": "26700",
+            "metadata": {
+             "id": "0"
+            }
+           }
+          },
+          {
+           "lyricLine": "Karma police",
+           "cueRange": {
+            "startTimeMilliseconds": "26700",
+            "endTimeMilliseconds": "30970",
+            "metadata": {
+             "id": "1"
+            }
+           }
+          },
+          {
+           "lyricLine": "Arrest this man",
+           "cueRange": {
+            "startTimeMilliseconds": "30970",
+            "endTimeMilliseconds": "33250",
+            "metadata": {
+             "id": "2"
+            }
+           }
+          },
+          {
+           "lyricLine": "He talks in maths",
+           "cueRange": {
+            "startTimeMilliseconds": "33250",
+            "endTimeMilliseconds": "37520",
+            "metadata": {
+             "id": "3"
+            }
+           }
+          }
+         ],
+         "sourceMessage": "Source: Musixmatch"
+        }
+       }
+      }
+     }
+    }
+   }
+  }
+ }
+}

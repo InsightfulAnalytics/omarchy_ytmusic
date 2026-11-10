@@ -6,13 +6,19 @@ import "../YtmModel.js" as Model
 
 // The play queue (mpv's playlist): click to jump, hover to move or remove,
 // right-click (or m) for a song's menu. Owns its keyboard cursor; Panel.qml
-// forwards keys.
+// forwards keys. Its header's pane chip (or y) switches the area below to
+// Lyrics or Related (S11): Panel puts those views in it as children.
 Item {
   id: root
 
   property var service: null
   property QtObject bar: null
   property int cursorIndex: -1
+  // "queue", "lyrics" or "related" (prefs.nowPane).
+  property string pane: "queue"
+  // The other panes, declared inside this view by Panel: they fill the area
+  // under the header while their pane is shown.
+  default property alias paneContent: paneArea.data
 
   readonly property color foreground: bar ? bar.foreground : Color.foreground
   readonly property string fontFamily: bar ? bar.fontFamily : Style.font.family
@@ -80,6 +86,13 @@ Item {
     if (cursorIndex >= queue.length - 1) cursorIndex = queue.length - 2
   }
 
+  // y or the pane chip: Queue, Lyrics, Related, round again (remembered).
+  function cyclePane() {
+    if (service) service.setPref("nowPane", Model.nextNowPane(pane, 1))
+  }
+
+  onPaneChanged: cursorIndex = -1
+
   function moveSelected(delta) {
     if (cursorIndex < 0 || !service) return
     var target = cursorIndex + delta
@@ -92,14 +105,31 @@ Item {
   Item {
     id: header
     width: parent.width
-    height: Math.max(heading.implicitHeight, autoplayButton.implicitHeight)
+    height: Math.max(heading.implicitHeight, autoplayButton.implicitHeight, paneChip.implicitHeight)
+
+    // One chip for the three panes: it names the one shown, a click (or y)
+    // shows the next.
+    Button {
+      id: paneChip
+      anchors.left: parent.left
+      anchors.verticalCenter: parent.verticalCenter
+      iconText: Model.nowPaneIcon(root.pane)
+      text: Model.nowPaneTitle(root.pane)
+      tooltipText: Model.withKey("Show " + Model.nowPaneTitle(Model.nextNowPane(root.pane, 1)).toLowerCase(), "nowPane")
+      foreground: root.foreground
+      fontSize: Style.font.caption
+      onClicked: root.cyclePane()
+    }
 
     Text {
       id: heading
+      anchors.left: paneChip.right
+      anchors.leftMargin: Style.space(8)
       anchors.verticalCenter: parent.verticalCenter
+      visible: root.pane === "queue"
       textFormat: Text.PlainText
-      text: root.queue.length === 0 ? "QUEUE"
-        : "QUEUE  " + (root.currentIndex >= 0 ? (root.currentIndex + 1) + " / " : "") + root.queue.length
+      text: root.queue.length === 0 ? ""
+        : (root.currentIndex >= 0 ? (root.currentIndex + 1) + " / " : "") + root.queue.length
       color: Qt.darker(root.foreground, 1.4)
       font.family: root.fontFamily
       font.pixelSize: Style.font.caption
@@ -109,6 +139,7 @@ Item {
     Row {
       anchors.right: parent.right
       anchors.verticalCenter: parent.verticalCenter
+      visible: root.pane === "queue"
       spacing: Style.space(4)
 
       Button {
@@ -134,12 +165,22 @@ Item {
     }
   }
 
+  // Lyrics and Related (Panel's children of this view) go here.
+  Item {
+    id: paneArea
+    anchors.top: header.bottom
+    anchors.topMargin: Style.space(6)
+    anchors.bottom: parent.bottom
+    width: parent.width
+  }
+
   ListView {
     id: list
     anchors.top: header.bottom
     anchors.topMargin: Style.space(6)
     anchors.bottom: parent.bottom
     width: parent.width
+    visible: root.pane === "queue"
     clip: true
     boundsBehavior: Flickable.StopAtBounds
     spacing: Style.space(2)

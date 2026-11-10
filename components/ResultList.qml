@@ -219,7 +219,7 @@ ListView {
     sourceComponent: kind === "header" ? headerComponent
       : kind === "track" ? trackComponent
       : kind === "query" ? queryComponent
-      : kind === "more" || kind === "loadMore" || kind === "action" || kind === "message" ? lineComponent
+      : kind === "more" || kind === "loadMore" || kind === "action" || kind === "message" || kind === "text" ? lineComponent
       : collectionComponent
 
     Component {
@@ -329,14 +329,17 @@ ListView {
 
     // See all, Load more and action rows (selectable, in the query-row
     // layout; an action row may show its key as a hint on the right), and
-    // message rows (plain text, never selected).
+    // message and text rows (plain text, never selected; a text row is page
+    // content, such as a credited name or About the artist, shown in full:
+    // the list scrolls over it, and G shows its end).
     Component {
       id: lineComponent
 
       Item {
         id: lineRow
         readonly property var line: row.modelData.item
-        readonly property bool selectable: line.type !== "message"
+        readonly property bool selectable: line.type !== "message" && line.type !== "text"
+        readonly property bool content: line.type === "text"
         readonly property bool highlighted: selectable && row.index === root.cursorIndex
 
         implicitHeight: Math.max(Style.space(32), lineLabel.implicitHeight + Style.space(12))
@@ -394,11 +397,12 @@ ListView {
           anchors.verticalCenter: parent.verticalCenter
           textFormat: Text.PlainText
           text: root.lineText(lineRow.line)
-          color: lineRow.selectable ? root.foreground : Qt.darker(root.foreground, 1.4)
+          color: lineRow.selectable || lineRow.content ? root.foreground : Qt.darker(root.foreground, 1.4)
           font.family: root.fontFamily
-          font.pixelSize: lineRow.selectable ? Style.font.body : Style.font.bodySmall
+          font.pixelSize: lineRow.selectable || lineRow.content ? Style.font.body : Style.font.bodySmall
           wrapMode: lineRow.selectable ? Text.NoWrap : Text.Wrap
-          maximumLineCount: lineRow.selectable ? 1 : 4
+          // undefined resets the cap: a text row has none.
+          maximumLineCount: lineRow.selectable ? 1 : lineRow.content ? undefined : 4
           elide: Text.ElideRight
         }
       }

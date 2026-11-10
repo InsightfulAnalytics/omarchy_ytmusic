@@ -478,8 +478,8 @@ function firstTrack(rows) {
   return null
 }
 
-// Next row a keyboard cursor may rest on (headers and message rows are
-// skipped). From -1, moving down lands on the first row; at either end the
+// Next row a keyboard cursor may rest on (headers, message and text rows
+// are skipped). From -1, moving down lands on the first row; at either end the
 // cursor stays put.
 function nextSelectable(rows, index, delta) {
   var count = (rows || []).length
@@ -492,7 +492,7 @@ function nextSelectable(rows, index, delta) {
 }
 
 function selectableRow(row) {
-  return !!row && !row.header && !!row.item && row.item.type !== "message"
+  return !!row && !row.header && !!row.item && row.item.type !== "message" && row.item.type !== "text"
 }
 
 function joinParts(parts) {
@@ -1818,5 +1818,169 @@ if (typeof module !== "undefined") {
     keyHelp: keyHelp,
     keysReadme: keysReadme,
     keysComment: keysComment
+  })
+}
+
+// ==== now (S11) ===========================================================================
+// The Now tab's pane under the song playing: Queue, Lyrics or Related (y or
+// the queue header's pane chip cycles them; prefs.nowPane remembers it). The
+// service reads one nowContext per track while a panel is open (like status,
+// lyrics and Related ids, the song/video twin, queue chips, "Playing from",
+// the up-next list) and the Store keeps it in a memo per video, which S12
+// reuses for autoplay. Credits and Related open as pages; lyrics lines are
+// highlighted from mpv's time-pos.
+
+var NOW_PANES = ["queue", "lyrics", "related"]
+var NOW_PANE_TITLES = { queue: "Queue", lyrics: "Lyrics", related: "Related" }
+var NOW_PANE_ICONS = { queue: "󰲸", lyrics: "󰦪", related: "󰌳" }
+// The nowContext memo: how long a reply is reused, and how many songs.
+var NOW_MEMO_TTL_MS = 10 * 60 * 1000
+var NOW_MEMO_MAX = 20
+
+function nowPane(value) {
+  return NOW_PANES.indexOf(value) >= 0 ? value : "queue"
+}
+
+// The pane after `pane` (before it with a negative delta), round the cycle.
+function nextNowPane(pane, delta) {
+  var i = NOW_PANES.indexOf(nowPane(pane))
+  var step = delta < 0 ? -1 : 1
+  return NOW_PANES[(i + step + NOW_PANES.length) % NOW_PANES.length]
+}
+
+function nowPaneTitle(pane) {
+  return NOW_PANE_TITLES[nowPane(pane)]
+}
+
+function nowPaneIcon(pane) {
+  return NOW_PANE_ICONS[nowPane(pane)]
+}
+
+// The synced line to highlight at `pos` seconds: the last one that has
+// started (lines are sorted by start), -1 before the first or without lines.
+function currentLineIndex(lines, pos) {
+  var list = lines || []
+  var t = Number(pos)
+  if (list.length === 0 || !isFinite(t)) return -1
+  var lo = 0
+  var hi = list.length - 1
+  var found = -1
+  while (lo <= hi) {
+    var mid = (lo + hi) >> 1
+    if (Number(list[mid].start) <= t) {
+      found = mid
+      lo = mid + 1
+    } else {
+      hi = mid - 1
+    }
+  }
+  return found
+}
+
+// A memo keyed by video: key -> { value, at }. Copy on write (bindings
+// follow); `max` entries at most, the most recently stored kept.
+function nowMemoPut(memo, key, value, now, max) {
+  var source = memo || {}
+  var limit = max > 0 ? max : NOW_MEMO_MAX
+  var keys = Object.keys(source).filter(function(k) { return k !== key })
+  keys.sort(function(a, b) { return source[b].at - source[a].at })
+  var out = {}
+  for (var i = 0; i < keys.length && i < limit - 1; i++) out[keys[i]] = source[keys[i]]
+  out[key] = { value: value, at: now }
+  return out
+}
+
+// The value stored for `key`, or null when there is none or it is older
+// than `ttlMs` (no ttlMs: whatever its age).
+function nowMemoGet(memo, key, now, ttlMs) {
+  var entry = memo && key ? memo[key] : null
+  if (!entry) return null
+  return !(ttlMs > 0) || now - entry.at < ttlMs ? entry.value : null
+}
+
+// `memo` with `key` used `now` (an LRU's order and age go by it); the same
+// object when it has no such entry.
+function nowMemoTouch(memo, key, now) {
+  var source = memo || {}
+  if (!key || !source[key]) return source
+  var out = {}
+  for (var k in source) out[k] = source[k]
+  out[key] = { value: source[key].value, at: now }
+  return out
+}
+
+// `memo` without the entries older than `ttlMs`, except `keep` (the song
+// playing); the same object when nothing went.
+function nowMemoSweep(memo, now, ttlMs, keep) {
+  var source = memo || {}
+  var out = null
+  for (var key in source) {
+    if (key === keep || now - source[key].at < ttlMs) continue
+    if (!out) {
+      out = {}
+      for (var k in source) out[k] = source[k]
+    }
+    delete out[key]
+  }
+  return out || source
+}
+
+// The credits page of a song (its menu's View credits).
+function creditsTarget(track) {
+  if (!track || !track.videoId) return null
+  return { type: "credits", videoId: track.videoId, title: track.title || "", thumb: track.thumb || null,
+           thumbLarge: track.thumbLarge || null }
+}
+
+// The Related page of a song, by the nowContext's relatedId.
+function relatedTarget(relatedId) {
+  return relatedId ? { type: "related", browseId: relatedId, title: "Related" } : null
+}
+
+// Credits: one section per role. Related: the web's Related tab, also the
+// Now tab's Related pane.
+PAGE_KINDS.credits = {
+  method: "credits", title: "Credits", round: false,
+  params: function(t) { return t.videoId ? { videoId: t.videoId } : null },
+  id: function(t) { return t.videoId }
+}
+PAGE_KINDS.related = {
+  method: "related", title: "Related", round: false,
+  params: function(t) { return t.browseId ? { browseId: t.browseId } : null },
+  id: function(t) { return t.browseId }
+}
+
+// Where MENU_ACTIONS has `id` (its end when it has none).
+function nowIndexOfAction(id) {
+  for (var i = 0; i < MENU_ACTIONS.length; i++) if (MENU_ACTIONS[i].id === id) return i
+  return MENU_ACTIONS.length
+}
+
+// Songs have credits; music videos and episodes have none. Listed before
+// Copy link, as on the web.
+MENU_ACTIONS.splice(nowIndexOfAction("share"), 0, { id: "credits", title: "View credits", icon: "󰗒",
+  applies: function(item, ctx) {
+    return menuKind(item) === "track" && item.kind !== "video" && item.kind !== "episode" && !ctx.page
+  },
+  run: function(env) { env.panel.push(creditsTarget(env.item)) } })
+
+KEYS.push({ id: "nowPane", group: "Now", keys: ["y"], title: "cycle the pane under the song: Queue, Lyrics, Related" })
+
+if (typeof module !== "undefined") {
+  Object.assign(module.exports, {
+    NOW_PANES: NOW_PANES,
+    NOW_MEMO_TTL_MS: NOW_MEMO_TTL_MS,
+    NOW_MEMO_MAX: NOW_MEMO_MAX,
+    nowPane: nowPane,
+    nextNowPane: nextNowPane,
+    nowPaneTitle: nowPaneTitle,
+    nowPaneIcon: nowPaneIcon,
+    currentLineIndex: currentLineIndex,
+    nowMemoPut: nowMemoPut,
+    nowMemoGet: nowMemoGet,
+    nowMemoTouch: nowMemoTouch,
+    nowMemoSweep: nowMemoSweep,
+    creditsTarget: creditsTarget,
+    relatedTarget: relatedTarget
   })
 }
