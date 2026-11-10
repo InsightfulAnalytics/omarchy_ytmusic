@@ -24,9 +24,13 @@ retry:false and refreshes what it touched when the outcome is unknown.
 - ``setTasteProfile({artists})`` adds artists (names from tasteProfile) to
   the taste profile: ``set_tasteprofile`` with the profile read just
   before (two requests), at most TASTE_MAX at once (the web's form takes
-  any number of the suggestions, about 900). A name no longer suggested is
-  BAD_REQUEST and nothing is sent. There is no API to take an artist out
-  again (the web only). Returns ``{added: [names]}``.
+  any number of the suggestions, about 900). Only the chosen artists are
+  sent, as impressions and selections: ytmusicapi on its own reports every
+  suggestion as seen (an impression), which may read as "seen and not
+  chosen" for the rest, and the list is ordered by the listener's
+  affinity. A name no longer suggested is BAD_REQUEST and nothing is sent.
+  There is no API to take an artist out again (the web only). Returns
+  ``{added: [names]}``.
 
 The menu parsing (pins by icon KEEP / KEEP_OFF, Not interested and Don't
 recommend by NOT_INTERESTED / REMOVE_CIRCLE, their Undo by the toast's
@@ -129,7 +133,9 @@ def m_set_taste_profile(worker, params):
     if missing:
         raise unsent(WorkerError("BAD_REQUEST", _missing_message(missing)))
     try:
-        worker.yt.set_tasteprofile(names, taste_profile=profile)
+        # Only the chosen artists: the whole profile would report all ~900
+        # suggestions as seen and not chosen.
+        worker.yt.set_tasteprofile(names, taste_profile={name: profile[name] for name in names})
     except Exception as exc:
         raise _refused(exc) from None
     return {"added": names}

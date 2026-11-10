@@ -392,7 +392,17 @@ def test_set_taste_profile_sends_the_names_with_the_profile_read_first():
     reply = call(worker, "setTasteProfile", artists=["Björk", "Radiohead", "Björk"])
     assert reply["ok"] and reply["result"] == {"added": ["Björk", "Radiohead"]}
     assert worker.yt.edits() == [("get_tasteprofile", (), {}),
-                                 ("set_tasteprofile", (["Björk", "Radiohead"],), {"taste_profile": PROFILE})]
+                                 ("set_tasteprofile", (["Björk", "Radiohead"],),
+                                  {"taste_profile": {"Björk": PROFILE["Björk"], "Radiohead": PROFILE["Radiohead"]}})]
+
+
+def test_only_the_chosen_artists_are_reported_as_seen():
+    # ytmusicapi sends an impression for every artist in the profile it is given:
+    # the rest of the ~900 suggestions must not be reported as seen and not chosen.
+    worker = signed_in(get_tasteprofile=PROFILE, set_tasteprofile=None)
+    assert call(worker, "setTasteProfile", artists=["Portishead"])["ok"]
+    sent = worker.yt.edits()[-1][2]["taste_profile"]
+    assert list(sent) == ["Portishead"] and sent["Portishead"] == PROFILE["Portishead"]
 
 
 def test_a_name_no_longer_suggested_is_bad_request_and_nothing_is_sent():
@@ -425,6 +435,7 @@ def test_every_suggestion_can_be_added_at_once():
     reply = call(worker, "setTasteProfile", artists=names)
     assert reply["ok"] and reply["result"]["added"] == names
     assert worker.yt.edits()[-1] == ("set_tasteprofile", (names,), {"taste_profile": profile})
+    assert list(worker.yt.edits()[-1][2]["taste_profile"]) == names
     assert feedback.TASTE_MAX >= 889
 
 
