@@ -53,7 +53,7 @@ test("menuActions per type", () => {
 
 test("menuActions follow ctx: signed out hides account entries; page, queue and current rows", () => {
   assert.ok(!ids(Model.menuActions(song, { signedIn: false })).includes("addToPlaylist"))
-  assert.deepEqual(ids(Model.menuActions(null, { page: true, pageKind: "library", signedIn: true })), ["signOut"])
+  assert.deepEqual(ids(Model.menuActions(null, { page: true, pageKind: "library", signedIn: true })), ["myChannel", "signOut"])
   assert.deepEqual(ids(Model.menuActions(null, { page: true, pageKind: "library", signedIn: false })), ["signIn"])
   // A row's menu on Library or Home has no account or page entries.
   assert.deepEqual(ids(Model.menuActions(playlist, { pageKind: "library", signedIn: true })),

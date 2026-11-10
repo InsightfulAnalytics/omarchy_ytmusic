@@ -57,6 +57,7 @@ import ytm_podcasts as podcasts  # noqa: E402
 import ytm_raw as raw  # noqa: E402
 import ytm_search as search  # noqa: E402
 import ytm_streams as streams  # noqa: E402
+import ytm_users as users  # noqa: E402 - S9
 from ytm_proto import (  # noqa: E402, F401 - re-exported for tests and tools
     Fixed,
     Prefixed,
@@ -362,7 +363,7 @@ class _Core:
 
 # Area modules, in a fixed order. A slice that rewrites a core method moves it
 # out of the core tables into its module.
-AREA_MODULES = (pages, play, now, artist, library, collections, actions, home, explore, search, podcasts)
+AREA_MODULES = (pages, play, now, artist, library, collections, actions, home, explore, search, podcasts, users)
 
 
 def merge_registries(sources):
@@ -461,6 +462,11 @@ class Worker:
         self.built_with = {}
         # Set by serve(): writes an unsolicited event line (thread-safe).
         self.emit = None
+        # S9: your channel's id, from the account menu verify_session reads
+        # (None when it links none; ytm_users.myChannel), and whether that
+        # menu was read for this client.
+        self.own_channel = None
+        self.own_channel_known = False
         if client is None:
             # Start with the client settings the disk cache was made with, so
             # the configure that follows every start finds nothing to change.
@@ -552,6 +558,7 @@ class Worker:
         self.yt, self.auth = yt, state
         self.built_with = self.client_settings()
         self.verified = False
+        self.own_channel, self.own_channel_known = None, False  # S9: the new client's account menu names it
         self.generation += 1
 
     def client_settings(self, settings=None):
@@ -605,13 +612,17 @@ class Worker:
         if self.auth != "ok" or self.verified:
             return
         try:
-            self.yt.get_account_info()
+            # S9: the account menu links your channel too (myChannel); it is
+            # read from this same response, never with a request of its own.
+            with raw.capture(("account/account_menu",)) as menu:
+                self.yt.get_account_info()
         except Exception as exc:  # noqa: BLE001
             error = classify(exc)
             if error.retryable:
                 raise error from exc  # offline or rate limited: can't tell, don't mark expired
             self.auth = "expired"
             return
+        users.remember_own_channel(self, menu)  # S9
         self.verified = True
 
     def require_auth(self):

@@ -6,12 +6,12 @@ import "../YtmModel.js" as Model
 // Your account and "new playlist", then the library's chips (S2):
 // Playlists (Liked Music, History, Recent activity, your and saved
 // playlists), Songs (Shuffle all, then the songs), Albums and Artists
-// (Subscriptions, then the artists), Podcasts (S8: Episodes for Later with
-// its count, New episodes and Channels, then the saved podcasts). h / l
-// switch chips (kept in prefs.libraryChip); O cycles the chip's sort order
-// (prefs.libraryOrders), named in its first heading. A chip's list loads
-// only once it is shown, about 50 at a time: Load more, or the cursor
-// nearing the end.
+// (Subscriptions and, S9, Profiles, then the artists), Podcasts (S8:
+// Episodes for Later with its count, New episodes and Channels, then the
+// saved podcasts). h / l switch chips (kept in prefs.libraryChip); O
+// cycles the chip's sort order (prefs.libraryOrders), named in its first
+// heading. A chip's list loads only once it is shown, about 50 at a time:
+// Load more, or the cursor nearing the end.
 Item {
   id: root
 
@@ -112,10 +112,12 @@ Item {
                              owner: root, index: index })
   }
 
-  // M: the account row's menu (Sign out; later slices add Your channel,
+  // M: the account row's menu (Your channel (S9), Sign out; later slices add
   // Improve recommendations, Record plays, Account, Quality, Location).
   function pageMenu() {
-    return { item: null, ctx: { page: true, pageKind: "library" }, owner: root, index: -1,
+    // S9: noChannel hides Your channel once the worker found none.
+    return { item: null, ctx: { page: true, pageKind: "library", noChannel: !!root.store && root.store.myChannelMissing },
+             owner: root, index: -1,
              title: root.signedIn ? (root.account && root.account.name ? root.account.name : "Signed in") : "Not signed in",
              subtitle: root.signedIn && root.account && root.account.handle ? root.account.handle : "" }
   }

@@ -1768,7 +1768,7 @@ Item {
     else notify("Not sure the change applied; open it again to check", title)
   }
 
-  // Subscribe to an artist (on) or unsubscribe.
+  // Subscribe to an artist, a podcast channel (S8) or a profile (S9), or unsubscribe.
   function subscribe(item, on, callback) {
     var params = Model.subscribeParams(item, on === true)
     var failTitle = on ? "Couldn't subscribe" : "Couldn't unsubscribe"
@@ -1805,6 +1805,9 @@ Item {
     // S8: a podcast channel's page and the library's channels.
     storeItem.forgetCollection("channel", channelId)
     storeItem.forgetCollection("libraryChannels")
+    // S9: a profile's page and the library's profiles.
+    storeItem.forgetCollection("user", channelId)
+    storeItem.forgetCollection("libraryProfiles")
   }
 
   // A song into the library (add) or out of it, with the token its row

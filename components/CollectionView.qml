@@ -26,6 +26,10 @@ import "../YtmModel.js" as Model
 // its chapters, which seek or play from there), a podcast channel
 // (Subscribe), a channel's episodes, New episodes and Episodes for Later (x
 // removes one). These pages have no Shuffle.
+//
+// Profiles (S9): a profile's page (its rows, each ending in See all when
+// the web has one, and Subscribe), Your channel (the same page for the
+// account's own channel, without Subscribe) and the library's Profiles.
 Item {
   id: root
 
@@ -117,7 +121,8 @@ Item {
   readonly property bool canSavePage: signedIn && !!pageSaveItem
     && Model.canSave(pageSaveItem, { page: true, owned: page.owned === true })
   readonly property bool pageSaved: canSavePage && !!store && store.savedState(pageSaveItem, headerSaved()) === true
-  readonly property bool canSubscribePage: signedIn && ((isArtist && !!Model.artistHeader(page)) || isChannel)
+  readonly property bool canSubscribePage: signedIn && ((isArtist && !!Model.artistHeader(page)) || isChannel
+    || (isUser && Model.canSubscribeProfile(page)))  // S9: not on your own channel
   readonly property bool pageSubscribed: canSubscribePage && !!store
     && store.subscribedState(subscribeItem().channelId, subscribeHeader().subscribed === true) === true
   // Podcasts (S8): an episode page's Play or Resume (where it was left, else
@@ -126,6 +131,11 @@ Item {
   readonly property bool podcastPage: Model.isPodcastKind(ref ? ref.kind : "")
   readonly property bool isSavedEpisodes: !!ref && ref.kind === "savedEpisodes" && isCollection
   readonly property bool isChannel: !!ref && ref.kind === "channel" && isPage && !!page.header && !!page.header.channelId
+  // Profiles (S9): a profile's page or Your channel, once loaded.
+  readonly property bool isUser: !!ref && Model.isProfileKind(ref.kind) && !!Model.profileHeader(page)
+  // S9: Subscriptions, Channels or Profiles, where every row is subscribed
+  // to (rowSubscribed).
+  readonly property bool listsSubscriptions: !!ref && Model.listsSubscriptions(ref.kind)
   readonly property var episodeTrack: isPage && !!ref && ref.kind === "episode" ? Model.episodeOfPage(page) : null
   readonly property var episodeResume: !!episodeTrack && !!service ? service.episodeResumeOf(episodeTrack) : null
   // The page's episode is the one playing (or paused): no Resume then.
@@ -191,7 +201,8 @@ Item {
     }
     var key = refKey
     store.loadCollection(ref, function(reply) {
-      if (root.refKey !== key) return
+      // The view may be gone by then (Back to an empty stack).
+      if (!root || root.refKey !== key) return
       root.loading = false
       // A disk copy (cached) is followed by its refresh.
       var wanted = root._moreWanted && !reply.cached
@@ -229,7 +240,7 @@ Item {
     loadingMore = true
     moreError = ""
     store.loadMore(ref, function(reply) {
-      if (root.refKey !== key) return
+      if (!root || root.refKey !== key) return
       root.loadingMore = false
       if (reply.ok) root.page = reply.result
       else if (!reply.stale) root.moreError = reply.error.message
@@ -328,8 +339,26 @@ Item {
   // S8 (Panel's saveRow hook): S on an Episodes for Later row takes the
   // episode out, as x does, and the row goes with it.
   function saveRow(index) {
-    if (!isSavedEpisodes) return false
+    if (!isSavedEpisodes) return saveSubscriptionRow(index)  // S9
     remove(index)
+    return true
+  }
+
+  // S9: a row of a list of your subscriptions is subscribed to unless an
+  // edit made here says otherwise. Any subscribe edit drops the list from
+  // the Store while this view still shows it, so its rows' state comes from
+  // here: undefined elsewhere (the Store's alone, Service.fillMenuState).
+  function rowSubscribed(item) {
+    if (!listsSubscriptions || !service || !Model.canSubscribe(item)) return undefined
+    return service.subscribedOf(item, true)
+  }
+
+  // S on such a row: Unsubscribe (Subscribe again after that).
+  function saveSubscriptionRow(index) {
+    var row = resultList.rowAt(index)
+    var subscribed = row ? rowSubscribed(row.item) : undefined
+    if (subscribed === undefined || Model.saveAction(row.item, service.saveContext(row.item)) !== "subscribe") return false
+    service.subscribe(row.item, subscribed !== true, editCallback())
     return true
   }
 
@@ -406,7 +435,8 @@ Item {
     root.itemMenuRequested({ item: row.item, owner: root, index: index,
       ctx: { pageKind: ref ? ref.kind : "", owned: editable, removable: removable,
              removeTitle: isLiked ? "Remove from Liked Music"
-               : isSavedEpisodes ? "Remove from Episodes for Later" : "Remove from playlist" } })
+               : isSavedEpisodes ? "Remove from Episodes for Later" : "Remove from playlist",
+             subscribed: rowSubscribed(row.item) } })  // S9
   }
 
   // The page as an item for its own menu: the opened item, completed from
@@ -415,6 +445,7 @@ Item {
     if (!target) return null
     if (episodeTrack) return episodeTrack  // S8: the episode page's own episode
     if (podcastSaveItem) return podcastSaveItem  // S8
+    if (isUser) return Model.profileOfPage(page)  // S9: Your channel too
     var item = ({})
     for (var key in target) item[key] = target[key]
     if (page && !item.playlistId && page.playlistId && ref && (ref.kind === "album" || ref.kind === "playlist"))
@@ -545,15 +576,16 @@ Item {
 
   // The artist page as the item Subscribe acts on, with the channel its
   // subscribe button names (S1's header.subscribeId); S8: a podcast
-  // channel's page likewise.
+  // channel's page likewise; S9: a profile's.
   function subscribeItem() {
     var header = subscribeHeader()
-    return { type: isChannel ? "channel" : "artist", channelId: header.channelId || (target ? target.channelId : ""),
+    return { type: isChannel ? "channel" : isUser ? "profile" : "artist",
+             channelId: header.channelId || (target ? target.channelId : ""),
              subscribeId: header.subscribeId || null, title: title }
   }
 
   function subscribeHeader() {
-    return Model.artistHeader(page) || (isChannel ? page.header : null) || {}
+    return Model.artistHeader(page) || (isChannel || isUser ? page.header : null) || {}
   }
 
   // S8: a page header's true / false, undefined when it says neither.
@@ -572,6 +604,11 @@ Item {
     // S8: a podcast into the library, an episode into Episodes for Later.
     if (canSavePodcastPage) return service.savePodcast(podcastSaveItem, !podcastPageSaved, editCallback())
     if (canSaveEpisodePage) return service.saveEpisode(episodeTrack, !episodePageSaved, editCallback())
+    // S9: your channel is titled with your name, which no log line holds.
+    if (isUser && !Model.canSubscribeProfile(page)) {
+      service.failAction("Nothing to save", "This is your own channel")
+      return false
+    }
     service.failAction("Nothing to save", !signedIn ? "Sign in to use your library"
       : (loading && !page) || error !== "" ? "The page has not loaded" : title)
     return false
@@ -823,8 +860,8 @@ Item {
 
         Button {
           visible: root.canSubscribePage
-          text: root.pageSubscribed ? "Subscribed" : "Subscribe"
-          tooltipText: Model.withKey(root.pageSubscribed ? "Unsubscribe" : "Subscribe", "save")
+          text: Model.subscribeLabel(root.pageSubscribed)
+          tooltipText: Model.withKey(Model.subscribeActionTitle(root.pageSubscribed), "save")
           foreground: root.pageSubscribed ? Color.accent : root.foreground
           fontSize: Style.font.caption
           onClicked: root.toggleSave()

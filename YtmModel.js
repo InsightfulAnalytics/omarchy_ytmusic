@@ -2148,15 +2148,8 @@ PAGE_KINDS.liked.claims = function(item) {
   return item.type === "playlist" && _stripVl(item.playlistId) === "LM"
 }
 
-// A user channel (Recent activity, Subscriptions) opens as its browse page
-// until S9 gives profiles a page of their own.
-if (!PAGE_KINDS.profile) {
-  PAGE_KINDS.profile = {
-    method: "browsePage", title: "Profile", round: true,
-    params: function(t) { return t.channelId ? { browseId: t.channelId } : null },
-    id: function(t) { return t.channelId }
-  }
-}
+// A user channel (Recent activity, Subscriptions) opens as a profile page
+// (S9's PAGE_KINDS.user).
 
 if (typeof module !== "undefined") {
   Object.assign(module.exports, {
@@ -4867,5 +4860,188 @@ if (typeof module !== "undefined") {
     savedEpisodeSetId: savedEpisodeSetId,
     podcastSavedState: podcastSavedState,
     episodeSavedState: episodeSavedState
+  })
+}
+
+// ==== profiles (S9) ==========================================================================
+// Profiles (user channels) as pages of their own. A profile's page (the
+// worker's `user`) has its rows as YouTube serves them (Videos, Playlists,
+// and so on), each ending in See all when the web has one (the channel with
+// params, a browse page), and Subscribe / Subscribed: S4's subscribe takes
+// any channel, and S and the page menu (M) are the button's twins, shown
+// at once and put back when YouTube says no. Your channel (Library's
+// account menu, M) is `myChannel`: the same page for the channel your
+// account menu links, led by your mix and without Subscribe; when the menu
+// links none, the page says so and the entry goes. The Artists chip has a
+// Profiles row: the profiles in your library (`libraryProfiles`). Profile
+// rows (Search, Home, Recent activity, Subscriptions, a playlist's author)
+// open the profile's page, with round covers and a menu (Open, Subscribe,
+// Copy link).
+
+var USER_CHANNEL_PAGE = "MUSIC_PAGE_TYPE_USER_CHANNEL"
+// The kinds that show a profile's page; its header is { channelId,
+// subscribeId, subscribed, subscribers, own }.
+var PROFILE_KINDS = ["user", "myChannel"]
+var PROFILE_ICON = "󰀄"
+// Rows with a round cover: people and channels.
+var ROUND_TYPES = ["artist", "profile", "channel"]
+
+function isProfileKind(kind) {
+  return PROFILE_KINDS.indexOf(kind) >= 0
+}
+
+function roundCover(item) {
+  return !!item && typeof item === "object" && ROUND_TYPES.indexOf(item.type) >= 0
+}
+
+PAGE_KINDS.user = {
+  method: "user", title: "Profile", round: true,
+  claims: function(item) { return item.type === "profile" && !!item.channelId },
+  params: function(t) { return t.channelId ? { channelId: t.channelId } : null },
+  id: function(t) { return t.channelId }
+}
+// Not kept on disk by the worker: the page is titled with your name.
+PAGE_KINDS.myChannel = {
+  method: "myChannel", title: "Your channel", round: true,
+  params: function() { return {} },
+  id: function() { return "myChannel" }
+}
+PAGE_KINDS.libraryProfiles = {
+  method: "libraryProfiles", title: "Profiles", round: false,
+  params: function() { return {} },
+  id: function() { return "profiles" }
+}
+
+// A user channel's own page (no params) is the profile; with params it is
+// one of its lists (a See all, Recaps), which S5's route keeps a browse page.
+ROUTES.push({ pageType: USER_CHANNEL_PAGE, prefix: "UC", when: function(ep) { return !ep.params },
+  target: function(ep, id) { return { type: "profile", channelId: id, name: ep.title || "" } } })
+
+// A profile row: its handle and what YouTube says under it ("164
+// subscribers"), else "Profile".
+var _s9ItemSubtitle = itemSubtitle
+itemSubtitle = function(item) {
+  if (!item || item.type !== "profile") return _s9ItemSubtitle(item)
+  var handle = item.handle ? String(item.handle) : ""
+  var served = item.subtitle ? String(item.subtitle) : ""
+  return joinParts([rankText(item), handle, served !== handle ? served : ""]) || "Profile"
+}
+
+var _s9MenuKind = menuKind
+menuKind = function(item) {
+  if (item && item.type === "profile") return item.channelId ? "profile" : ""
+  return _s9MenuKind(item)
+}
+
+// ---- subscribing --------------------------------------------------------------------------
+
+SUBSCRIBE_TYPES.push("profile")
+
+// The header button's text for a subscribed state (true: Subscribed).
+function subscribeLabel(subscribed) {
+  return subscribed === true ? "Subscribed" : "Subscribe"
+}
+
+// What pressing it does, for its tooltip.
+function subscribeActionTitle(subscribed) {
+  return subscribed === true ? "Unsubscribe" : "Subscribe"
+}
+
+// ---- pages --------------------------------------------------------------------------------
+
+function profileHeader(page) {
+  return page && page.type === "page" && page.kind === "user" && page.header && page.header.channelId ? page.header : null
+}
+
+// A profile's page as the item its menu and Subscribe act on (null until
+// it has loaded).
+function profileOfPage(page) {
+  var header = profileHeader(page)
+  if (!header) return null
+  return { type: "profile", channelId: String(header.channelId), name: String(page.title || ""),
+           thumb: page.thumb || null, thumbLarge: page.thumbLarge || null }
+}
+
+// Subscribe is on every profile's page but your own.
+function canSubscribeProfile(page) {
+  var header = profileHeader(page)
+  return !!header && header.own !== true
+}
+
+// ---- your channel -----------------------------------------------------------------------
+
+function myChannelItem() {
+  return { type: "myChannel", title: "Your channel", thumb: null }
+}
+
+// The worker found no channel in your account menu (myChannel's NOT_FOUND).
+function noChannel(reply) {
+  return !!reply && reply.ok === false && !!reply.error && reply.error.noChannel === true
+}
+
+// First among Library's account entries, as on the web (ctx.noChannel: the
+// worker said there is none).
+_insertAfter(MENU_ACTIONS, "refresh", [
+  { id: "myChannel", title: "Your channel", icon: PROFILE_ICON,
+    applies: function(item, ctx) {
+      return ctx.page === true && ctx.pageKind === "library" && ctx.signedIn === true && ctx.noChannel !== true
+    },
+    run: function(env) { env.panel.push(myChannelItem()) } }
+])
+
+// A profile row's menu opens it, as an artist row's does.
+var _s9OpenApplies = menuAction("open").applies
+menuAction("open").applies = function(item, ctx) {
+  return (menuKind(item) === "profile" && !ctx.page) || _s9OpenApplies(item, ctx)
+}
+
+// ---- library: the Profiles row ------------------------------------------------------------
+
+var PROFILES_ENTRY = { type: "libraryProfiles", title: "Profiles", subtitle: "Profiles you subscribe to", thumb: null }
+
+// The Artists chip: Subscriptions, then Profiles, then the artists.
+var _s9LibraryRows = libraryRows
+libraryRows = function(chip, data, playlists) {
+  var rows = _s9LibraryRows(chip, data, playlists)
+  if (chip !== "artists") return rows
+  var at = 0
+  for (var i = 0; i < rows.length; i++) if (rows[i].item && rows[i].item.type === "librarySubscriptions") at = i + 1
+  var entry = {}
+  for (var key in PROFILES_ENTRY) entry[key] = PROFILES_ENTRY[key]
+  rows.splice(at, 0, { item: entry })
+  return rows
+}
+
+// ---- lists of your subscriptions ----------------------------------------------------------
+
+// The pages that list only channels you subscribe to: Subscriptions (S4),
+// Channels (S8) and Profiles. Any subscribe edit drops them from the Store
+// (and its sweep does after their TTL) while a view may still show one, so
+// that view counts its rows as subscribed (CollectionView.rowSubscribed: the
+// fallback of Store.subscribedState, under any edit made here).
+var SUBSCRIPTION_LIST_KINDS = ["librarySubscriptions", "libraryChannels", "libraryProfiles"]
+
+function listsSubscriptions(kind) {
+  return SUBSCRIPTION_LIST_KINDS.indexOf(kind) >= 0
+}
+
+if (typeof module !== "undefined") {
+  Object.assign(module.exports, {
+    USER_CHANNEL_PAGE: USER_CHANNEL_PAGE,
+    PROFILE_KINDS: PROFILE_KINDS,
+    SUBSCRIPTION_LIST_KINDS: SUBSCRIPTION_LIST_KINDS,
+    listsSubscriptions: listsSubscriptions,
+    isProfileKind: isProfileKind,
+    roundCover: roundCover,
+    itemSubtitle: itemSubtitle,
+    menuKind: menuKind,
+    libraryRows: libraryRows,
+    subscribeLabel: subscribeLabel,
+    subscribeActionTitle: subscribeActionTitle,
+    profileHeader: profileHeader,
+    profileOfPage: profileOfPage,
+    canSubscribeProfile: canSubscribeProfile,
+    myChannelItem: myChannelItem,
+    noChannel: noChannel
   })
 }

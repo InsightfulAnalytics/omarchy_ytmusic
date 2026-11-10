@@ -388,6 +388,8 @@ Item {
         reply = { ok: true, cached: reply.cached, result: data }
         root._remember(ref, data)
         root.requestThumbs(Model.collectThumbs(data))
+      } else if (Model.noChannel(reply)) {
+        root.myChannelMissing = true  // S9: the account menu hides Your channel
       }
       callback(reply)
     }
@@ -1121,7 +1123,7 @@ Item {
     var list = page ? Model.libraryList(page) : null
     return Model.subscribedState(channelId, {
       subscribed: subscribed, fallback: fallback,
-      subscriptions: (list ? list.items : []).concat(libraryChannelItems()),  // S8
+      subscriptions: (list ? list.items : []).concat(libraryChannelItems()).concat(libraryProfileItems()),  // S8, S9
       subscriptionsComplete: !!list && !list.cursor && !list.hasMore
     })
   }
@@ -1257,6 +1259,23 @@ Item {
     podcastSaves = ({})
     episodeSaves = ({})
     episodeSetIds = ({})
+  }
+
+  // ---- profiles (S9) -----------------------------------------------------------------
+  // Your channel: the worker found no channel in the account menu
+  // (myChannel's NOT_FOUND, noChannel), so Library's account menu hides it.
+  // Every profile on the library's Profiles page held is subscribed to:
+  // subscribedState counts them with the Subscriptions list, as S8's
+  // Channels. reset() clears it (a new account may have a channel).
+  property bool myChannelMissing: false
+
+  function libraryProfileItems() {
+    var page = cachedCollection(Model.pageRef({ type: "libraryProfiles" }))
+    return page ? Model.libraryList(page).items : []
+  }
+
+  function _resetProfiles() {
+    myChannelMissing = false
   }
 
   // ---- now (S11) ----------------------------------------------------------------------
@@ -1428,6 +1447,7 @@ Item {
     likes = ({})
     _resetActions()  // S4
     _resetPodcasts()  // S8
+    _resetProfiles()  // S9
     _nowContexts = ({})
     // A failure may have come from the old session. Pending loads clear
     // themselves (every request is answered, at the latest by its timeout).

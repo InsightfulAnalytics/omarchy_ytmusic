@@ -297,7 +297,7 @@ INVALIDATES = {
     ],
     # The artist page (keyed by the page's channel id, not the subscribe
     # channel), Subscriptions, the library's artists and Recent activity.
-    # S8 and S9 add their channel and user pages here.
+    # S8 and S9 add their channel and user pages below.
     "subscribe": [
         ("artist", "pageChannelId", "channelId"),
         ("librarySubscriptions", None, None),
@@ -309,6 +309,10 @@ INVALIDATES = {
         ("channel", "pageChannelId", "channelId"),
         ("libraryChannels", None, None),
         ("browsePage", Fixed("FEmusic_library_non_music_audio_channels_list"), "browseId"),
+        # S9: a profile's page and the library's profiles (ytm_users).
+        ("user", "pageChannelId", "channelId"),
+        ("libraryProfiles", None, None),
+        ("browsePage", Fixed("FEmusic_library_user_profile_channels_list"), "browseId"),
     ],
     # The library's songs, the albums and artists it lists for them, and the
     # song's artists' pages ("From your library").

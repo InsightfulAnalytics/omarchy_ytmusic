@@ -490,7 +490,9 @@ def _section_key(items):
         if kind == "track":
             kind = "episodes" if item.get("kind") == "episode" else "videos" if item.get("kind") == "video" else "songs"
         else:
-            kind = {"podcast": "podcasts", "playlist": "playlists", "album": "albums"}.get(kind, kind)
+            # S9: a profile page's people too (your channel's Artists on repeat).
+            kind = {"podcast": "podcasts", "playlist": "playlists", "album": "albums", "artist": "artists",
+                    "profile": "profiles", "channel": "channels"}.get(kind, kind)
         kinds.add(kind)
     return kinds.pop() if len(kinds) == 1 else None
 

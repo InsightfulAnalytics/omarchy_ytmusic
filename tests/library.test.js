@@ -97,17 +97,19 @@ test("songs chip: Shuffle all, then indexed songs, then Load more", () => {
   assert.deepEqual(Model.libraryRows("songs", plain, []).map(label), ["# Songs", "track:a"])
 })
 
-test("albums and artists chips: heading with the order, Subscriptions first on Artists", () => {
+test("albums and artists chips: heading with the order, Subscriptions (and S9's Profiles) first on Artists", () => {
   const albums = Model.libraryList({ sections: [{ items: [album("MPRE1"), album("MPRE2")] }], hasMore: true,
     orders: ORDERS.slice(0, 3), order: "z_to_a" })
   assert.deepEqual(Model.libraryRows("albums", albums, []).map(label),
     ["# Albums, Z to A", "album:MPRE1", "album:MPRE2", "loadMore:Load more"])
   const artists = Model.libraryList({ sections: [{ items: [artist("UC1")] }], orders: ORDERS, order: "menu:3" })
   const rows = Model.libraryRows("artists", artists, [])
-  assert.deepEqual(rows.map(label), ["librarySubscriptions:Subscriptions", "# Artists, Most songs", "artist:UC1"])
+  assert.deepEqual(rows.map(label), ["librarySubscriptions:Subscriptions", "libraryProfiles:Profiles", "# Artists, Most songs",
+                                     "artist:UC1"])
   assert.equal(Model.pageRef(rows[0].item).method, "librarySubscriptions")
   // An empty list: only the entry row (the view says it is loading or empty).
-  assert.deepEqual(Model.libraryRows("artists", null, []).map(label), ["librarySubscriptions:Subscriptions"])
+  assert.deepEqual(Model.libraryRows("artists", null, []).map(label),
+    ["librarySubscriptions:Subscriptions", "libraryProfiles:Profiles"])
   // A served message.
   assert.deepEqual(Model.libraryRows("albums", Model.libraryList({ sections: [], message: "No albums yet" }), []).map(label),
     ["message:No albums yet"])
@@ -155,15 +157,15 @@ test("library artists: menu Shuffle and Start radio play YouTube's mixes", () =>
   assert.ok(ids.includes("shuffle") && ids.includes("radio") && ids.includes("open"))
 })
 
-test("Liked Music listed as a playlist opens as Liked Music; profiles open their browse page", () => {
+test("Liked Music listed as a playlist opens as Liked Music; profiles open their own page (S9)", () => {
   const liked = Model.pageRef({ type: "playlist", playlistId: "LM", title: "Liked Music" })
   assert.equal(liked.kind, "liked")
   assert.equal(liked.key, Model.pageRef({ type: "liked" }).key)
   assert.equal(Model.pageRef({ type: "playlist", playlistId: "VLLM" }).kind, "liked")
   assert.equal(Model.pageRef({ type: "playlist", playlistId: "PL1" }).kind, "playlist")
   const profile = Model.pageRef({ type: "profile", channelId: "UCp" })
-  assert.equal(profile.method, "browsePage")
-  assert.deepEqual(profile.params, { browseId: "UCp" })
+  assert.equal(profile.method, "user")
+  assert.deepEqual(profile.params, { channelId: "UCp" })
   assert.equal(Model.pageRound(profile, null), true)
 })
 
