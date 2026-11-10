@@ -46,7 +46,7 @@ from ytmusicapi.parsers.browsing import (
 )
 from ytmusicapi.parsers.library import parse_artists
 from ytmusicapi.parsers.playlists import parse_playlist_item
-from ytmusicapi.parsers.podcasts import parse_episode, parse_podcast
+from ytmusicapi.parsers.podcasts import parse_podcast
 from ytmusicapi.parsers.songs import parse_song_menu_data
 
 import ytm_normalize as norm
@@ -326,7 +326,12 @@ def item(renderer):
     if key == MRLIR:
         return _list_row(data)
     if key == MMRIR:
-        return norm.episode(parse_episode(data))
+        # G3: every episode row through S8's reader (its date, length, played
+        # part and page), not parse_episode's (the view count as its date).
+        # Imported here: ytm_podcasts imports this module.
+        import ytm_podcasts
+
+        return ytm_podcasts.episode_item(data)
     return None
 
 

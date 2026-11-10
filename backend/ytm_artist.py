@@ -9,7 +9,10 @@
   See all endpoint or by their items, never by title, so a section says what
   it holds (``key``); a row nothing matches is a generic section, and a row
   that fails to parse is left out. The header carries ``pin`` (S14): its
-  menu's Listen again toggle (raw.header_pin), or None.
+  menu's Listen again toggle (raw.header_pin), or None. G3: a page served
+  with its header only (no rows) is that header, no sections and a
+  ``message``; Latest episodes' See all carries the page type
+  ``YTM_CHANNEL_EPISODES`` (the channel's episode grid, channelEpisodes).
 - ``artistAlbums({browseId, params, order?, artist?, cursor?})`` is an
   artist's list of albums, singles or shows (the See all of those shelves,
   ``MPAD...`` + params), read the way get_artist_albums reads it but a page
@@ -21,6 +24,8 @@ Area module (see AREA_MODULES in ytm.py).
 """
 
 from urllib.parse import parse_qs, urlparse
+
+from ytmusicapi.navigation import nav
 
 import ytm_normalize as norm
 import ytm_pages as pages
@@ -41,6 +46,20 @@ FALLBACK_TITLES = {
 _NEEDS_PARAMS = ("albums", "singles", "shows")
 # What an album card without a type is in each list.
 _DEFAULT_TYPE = {"albums": "Album", "singles": "Single"}
+# ---- G3 (podcasts more): the page type ytm_podcasts gives a channel's
+# Latest episodes See all (ytm_podcasts.CHANNEL_EPISODES; that module
+# imports this one), and the message of an artist page YouTube serves with
+# a header only.
+CHANNEL_EPISODES = "YTM_CHANNEL_EPISODES"
+HEADER_ONLY_MESSAGE = "YouTube Music shows nothing else for this artist"
+
+
+def _episodes_row(key, items):
+    """A row of episodes: get_artist's Latest episodes, or episodes only."""
+    if key == "episodes":
+        return True
+    return bool(items) and all(i.get("type") == "track" and i.get("kind") == "episode" for i in items)
+# ---- end G3
 
 
 def _normalizer(key):
@@ -177,6 +196,10 @@ def sections(channel_id, data, rows):
             items = _key_items(key, data)  # a row whose items raw.item cannot read
         items = _fix_items(key, items)
         more = _more(row["more"], own, key)
+        if more and more.get("params") and more["browseId"] in own and _episodes_row(key, items):
+            # G3: Latest episodes' See all is the channel's episode grid (the
+            # served page type says artist, which opens no such page).
+            more = dict(more, pageType=CHANNEL_EPISODES)
         if items or more:
             out.append(norm.section(row["title"], items, more, row["play"], row["layout"], key=key))
     shown = set(matched.values())
@@ -287,6 +310,31 @@ def reparse(yt, channel_id, response):
     return YTMusic.get_artist(_Fetched(yt, fixed), channel_id)
 
 
+def header_only(channel_id, response):
+    """G3: an artist page served with its header and nothing under it (an
+    author's: Brandon Sanderson, Agatha Christie). get_artist and its reparse
+    read no such page (it has no rows); the web shows the header, so this
+    does: name, picture, subscribers and Subscribe, and a message where the
+    shelves go. No Shuffle or Radio: the header serves no mix."""
+    header = response.get("header") if isinstance(response, dict) else None
+    data = next(iter(header.values()), None) if isinstance(header, dict) and header else None
+    if not isinstance(data, dict) or not raw.text(data.get("title")):
+        raise WorkerError("NOT_FOUND", "YouTube Music has no such artist")
+    button = nav(data, ["subscriptionButton", "subscribeButtonRenderer"], True) or {}
+    parsed = {
+        "name": raw.text(data.get("title")),
+        "thumbnails": nav(data, ["thumbnail", "musicThumbnailRenderer", "thumbnail", "thumbnails"], True),
+        "channelId": button.get("channelId") or channel_id,
+        "subscribed": button.get("subscribed") is True,
+        # get_artist's short count ("8"): the shell adds "subscribers".
+        "subscribers": raw.text(button.get("subscriberCountText")) or raw.text(button.get("shortSubscriberCountText")),
+    }
+    page = build(channel_id, parsed, [])
+    page["message"] = HEADER_ONLY_MESSAGE
+    page["header"]["pin"] = raw.header_pin(response)
+    return page
+
+
 def fetch(worker, channel_id):
     """One get_artist request, its raw rows captured, as a page."""
     yt = worker.yt
@@ -300,6 +348,8 @@ def fetch(worker, channel_id):
             norm.log(f"get_artist could not read this artist page ({type(exc).__name__}); reading it again")
     response = cap.first("browse")
     rows = raw.rows(response)
+    if data is None and not rows:
+        return header_only(channel_id, response)  # G3
     if data is None or _songs_moved(rows):
         data = reparse(yt, channel_id, response)
     page = build(channel_id, data, rows)
