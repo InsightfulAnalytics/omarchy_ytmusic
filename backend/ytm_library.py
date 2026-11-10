@@ -234,6 +234,7 @@ def _each(contents, renderer, build, what):
             continue
         try:
             value = build(data)
+            value = raw.pin_fields(content, value)  # G2: each item's Pin to Listen again
         except (KeyError, TypeError, ValueError, IndexError, AttributeError) as exc:
             norm.log(f"skipped malformed {what}: {type(exc).__name__}")
             continue
@@ -323,8 +324,10 @@ def m_library_playlists(worker, params):
         with raw.capture(("browse",)) as cap:
             items = yt.get_library_playlists(limit=None)
         orders, current = _orders(cap.first("browse"), None)
-        return {"items": norm.normalize_list(items, playlist_item, "library playlist"), "orders": orders,
-                "order": current}
+        items = norm.normalize_list(items, playlist_item, "library playlist")
+        # G2: ytmusicapi reads no card menu; each pin comes from the grid pages it read.
+        items = raw.with_card_pins(items, raw.card_pins(cap.all("browse")))
+        return {"items": items, "orders": orders, "order": current}
     browse_id = BROWSE_IDS["libraryPlaylists"]
     body = _body(browse_id, order)
     first = _first_page(worker, browse_id, body, order)

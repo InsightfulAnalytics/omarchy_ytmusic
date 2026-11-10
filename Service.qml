@@ -131,6 +131,7 @@ Item {
       }
     }
     if (!changed) return
+    storeItem.keepLiveTokens(tracks)  // G2: their tokens, in memory only (withLiveTokens)
     meta = next
     _noteRemembered(tracks)  // S12
     metaSync.restart()
@@ -962,6 +963,7 @@ Item {
         return
       }
       storeItem.rememberNowContext(videoId, reply.result)
+      storeItem.keepLiveTokens([Model.nowCurrentTokens(reply.result)])  // G2: the song's own menu
       var like = reply.result.likeStatus
       if (root.signedIn && like && !ratingOut && !root._ratesOut[videoId] && storeItem.likeStatus(videoId) === likeBefore)
         storeItem.setLike(videoId, like)
@@ -1091,6 +1093,7 @@ Item {
     _rememberedAt = recent
     var kept = Model.trimMeta(meta, playlist, recent)
     if (kept !== meta) meta = kept
+    storeItem.trimLiveTokens(meta)  // G2: the tokens of songs no longer held go too
   }
 
   // mpv's playlist as it is now, with its current index, for edits by
@@ -2792,6 +2795,81 @@ Item {
       root._ownerCallback(callback, reply)
     }, 30000, noRetry)
     return true
+  }
+
+  // ---- song tokens (G2) ------------------------------------------------------------
+  // The song playing and every queue row offer Save to library and Pin to
+  // Listen again, as the web's player and Up next menus do. The queue keeps
+  // no tokens (remember strips them); the Store holds them in memory
+  // (liveTokens: from the reply a song was queued from, and from the song
+  // playing's nowContext) and withLiveTokens puts them back on a copy of
+  // the track for its menu or for S on Now (Panel.nowMenu, QueueView.menu,
+  // Panel.saveCursor). The edits themselves are setSongLibrary (S4) and
+  // setPinned (S14), sent with retry: false.
+
+  // A copy of `track` with the library and Listen again tokens it lacks:
+  // those held for it, else its own nowContext's, else the entry in the
+  // song playing's up-next list. The track itself when none has them
+  // (signed out, a song queued from a disk copy and not played yet).
+  function withLiveTokens(track) {
+    if (!track || !track.videoId) return track
+    var videoId = track.videoId
+    return Model.withLiveTokens(track, [storeItem.liveTokensOf(videoId),
+      Model.nowContextTokens(storeItem.nowContextOf(videoId, false), videoId),
+      Model.nowContextTokens(nowContext, videoId)])
+  }
+
+  // After a library or pin edit from Now or the queue whose outcome is
+  // unknown or whose token was stale (QueueView.editCallback): the tokens
+  // held for the song go, and its own menu is read again (one nowContext,
+  // while a panel is open), so the next menu shows what YouTube has. True
+  // when it asked.
+  function rereadSongTokens(videoId) {
+    if (!videoId || !signedIn || !positionWanted) return false
+    storeItem.forgetLiveTokens(videoId)
+    return readSongTokens(videoId, true)
+  }
+
+  // One nowContext for videoId (its own menu): its `current` replaces the
+  // tokens held, and Store.tokenReads notes that it answered or why it
+  // failed. One already out is not sent again unless `again` (after an
+  // edit, which an earlier read may predate). True when one is out.
+  function readSongTokens(videoId, again) {
+    if (!videoId || !signedIn || !positionWanted) return false
+    var read = storeItem.tokenReadOf(videoId)
+    if (again !== true && read && read.state === "pending") return true
+    var seq = storeItem.tokenSeq
+    storeItem.setTokenRead(videoId, { state: "pending" })
+    backend.request("nowContext", { videoId: videoId }, function(reply) {
+      if (seq !== storeItem.tokenSeq) return  // signed out, or another account, since
+      if (reply.ok) storeItem.keepLiveTokens([Model.nowCurrentTokens(reply.result)])
+      storeItem.setTokenRead(videoId, reply.ok ? { state: "read" } : { state: "failed", message: reply.error.message })
+    }, 15000)
+    return true
+  }
+
+  // S on Now when the song (videoId: the queue row under the cursor, or the
+  // one playing) has no library control in hand (Panel.saveNowSong, for
+  // Model.nowSaveNotice): { state: "read" } once its own menu answered
+  // without one, "loading" while it is read, "failed" with the message
+  // (asked again now), or "unread" when it cannot be asked. A menu never
+  // asked for is asked for now: the song playing's through
+  // refreshNowContext (its memo), a queue row's through readSongTokens.
+  function songMenuState(videoId) {
+    if (!videoId) return { state: "read" }
+    if (currentTrack && currentTrack.videoId === videoId) {
+      if (nowContext) return { state: "read" }
+      var failure = nowContextFailure && nowContextFailure.videoId === videoId ? nowContextFailure.message : ""
+      refreshNowContext()  // asks unless it is out already
+      if (_nowFetching !== videoId) return { state: "unread" }
+      return failure !== "" ? { state: "failed", message: failure } : { state: "loading" }
+    }
+    if (storeItem.nowContextOf(videoId, false)) return { state: "read" }
+    var read = storeItem.tokenReadOf(videoId)
+    if (read && read.state === "read") return read
+    var message = read && read.state === "failed" ? read.message : ""
+    if (!readSongTokens(videoId)) return { state: "unread" }
+    return read && read.state === "failed" ? { state: "failed", message: message } : { state: "loading" }
   }
 
   // Open the panel on the search tab with results for `query`.

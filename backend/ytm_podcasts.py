@@ -236,6 +236,7 @@ def _items(contents, podcast=None, name_of=None):
             continue
         try:
             value = episode_item(content[MMRIR], podcast, name_of) if MMRIR in content else raw.item(content)
+            value = raw.pin_fields(content, value)  # G2: each row's Pin to Listen again
         except _PARSE_ERRORS as exc:
             norm.log(f"skipped malformed podcast item: {type(exc).__name__}")
             continue
@@ -307,6 +308,16 @@ def episode_saved(header):
     return None if first is None else first.get("isToggled") is True
 
 
+def _with_pin(out, header):
+    """G2: a page header ``out`` with ``pin`` (``{pinned, listenAgainTokens}``)
+    when the served header's menu has Pin to Listen again (signed in), as an
+    album's or an artist's has; without the key otherwise."""
+    pin = raw.buttons_pin(header)
+    if pin is not None:
+        out["pin"] = pin
+    return out
+
+
 # ---- podcast -----------------------------------------------------------------------------
 
 
@@ -331,8 +342,9 @@ def _podcast_page(browse_id, title, items, cursor, header=None, thumbnails=None,
 def podcast_header(browse_id, header):
     author = _credit(nav(header, ["straplineTextOne", "runs"], True))
     description = raw.text(nav(header, ["description", "musicDescriptionShelfRenderer", "description"], True))
-    return {"browseId": browse_id, "podcastId": podcast_id(browse_id), "author": author,
-            "description": description or None, "saved": podcast_saved(header)}
+    out = {"browseId": browse_id, "podcastId": podcast_id(browse_id), "author": author,
+           "description": description or None, "saved": podcast_saved(header)}
+    return _with_pin(out, header)  # G2
 
 
 def m_podcast(worker, params):
@@ -468,6 +480,7 @@ def build_episode(video_id, response):
         "description": description,
         "descriptionRuns": description_runs(runs, video_id), "episode": episode,
     }
+    _with_pin(header_out, header)  # G2
     return norm.page("episode", video_id, title, header_out["date"], thumbnails, sections, header=header_out)
 
 

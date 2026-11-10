@@ -142,6 +142,7 @@ def items(contents):
             continue
         try:
             value = _item(content)
+            value = raw.pin_fields(content, value)  # G2: Pin to Listen again, as on the web's cards
         except (KeyError, TypeError, ValueError, IndexError, AttributeError) as exc:
             norm.log(f"skipped malformed explore item: {type(exc).__name__}")
             continue

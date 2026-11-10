@@ -84,6 +84,8 @@ class _Reading:
         self.saved = None
         # S14: the header's Listen again pin (raw.header_pin), or None.
         self.pin = None
+        # G2: the related shelf's card pins (raw.card_pins).
+        self.card_pins = {}
 
     def __call__(self, endpoint, response):
         if not isinstance(response, dict):
@@ -97,6 +99,7 @@ class _Reading:
             self.more = get_continuation_token(songs) is not None
         elif self.related_title is None and nav(response, SECTION_LIST_CONTINUATION, True):
             self.related_title = _carousel_title(response)
+            self.card_pins.update(raw.card_pins([response]))  # G2
 
 
 def _read(fetch):
@@ -134,6 +137,7 @@ def read_list(worker, kind, playlist_id, limit, related=False):
         page["header"]["likeStatus"] = actions.like_status(reading.saved)
     # S14: Pin to / Unpin from Listen again (the page menu's).
     page["header"]["pin"] = reading.pin
+    shelf_pins(page, reading.card_pins)  # G2
     if limit is None:
         page["capped"] = page["truncated"]
         if len(page["tracks"]) > MAX_TRACKS:
@@ -222,7 +226,7 @@ def m_album(worker, params):
     page = norm.collection("album", data, browse_id, titles=album_titles(cap.first("browse")))
     # S14: Pin to / Unpin from Listen again (the page menu's).
     page["header"]["pin"] = raw.header_pin(cap.first("browse"))
-    return page
+    return shelf_pins(page, raw.card_pins([cap.first("browse")]))  # G2
 
 
 def m_history(worker, params):
@@ -247,3 +251,16 @@ RECORDERS = {
     "playlist": record_playlist,
 }
 MUTATES = set()
+
+
+# ---- pins on the shelves under the songs (G2) --------------------------------------------
+
+
+def shelf_pins(page, pins):
+    """``page`` with each card of its shelves (an album's other versions and
+    releases, a playlist's related) carrying its Listen again pin from
+    ``pins`` (raw.card_pins of the responses read): ytmusicapi's
+    parse_album and parse_playlist read no menu."""
+    for section in page.get("sections") or []:
+        section["items"] = raw.with_card_pins(section.get("items"), pins)
+    return page

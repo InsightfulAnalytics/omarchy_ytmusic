@@ -339,6 +339,9 @@ Panel {
     var row = list ? list.rowAt(list.cursorIndex) : null
     var item = row ? row.item : null
     var target = Model.saveTarget(item, service.saveContext(item))
+    // G2: on Now (Queue, Lyrics, or Related with no item row) the page is
+    // the song playing, as for m and M.
+    if (target === "page" && !page && tab === "now") return saveNowSong()
     // S8: a view may take S on its row itself (the optional saveRow(i) hook:
     // Episodes for Later removes the episode, as x does).
     var owner = activeListOwner()
@@ -347,6 +350,24 @@ Panel {
     else if (target === "page") ownerHook("toggleSave")
     else service.failAction("Nothing to save", Model.menuKind(item) === "track"
       ? "This list has no library control for the song; open its album" : Model.itemTitle(item))
+  }
+
+  // G2: S on Now with no item row: the queue row under the cursor (Queue
+  // pane), else the song playing, with the tokens the queue leaves out
+  // (Service.withLiveTokens); an episode goes to Episodes for Later (S8).
+  // Never silent: without a library control it says why, and reads the
+  // song's own menu when it was not read (Service.songMenuState).
+  function saveNowSong() {
+    var queued = activeList() ? null : cursorItem()
+    var track = service.withLiveTokens(queued || service.currentTrack)
+    var action = track ? Model.saveAction(track, service.saveContext(track)) : ""
+    if (action !== "") {
+      // QueueView's callback reads a song's menu again: no use to an episode's save.
+      service.toggleSaveItem(track, action === "saveSong" ? Model.editCallbackOf(queueView, track) : null)
+      return
+    }
+    service.failAction("Nothing to save", Model.nowSaveNotice(track, { signedIn: service.signedIn,
+      menu: track && service.signedIn ? service.songMenuState(track.videoId) : null }))
   }
 
   // D: dislike the cursor row's song, else the one playing (it skips);
@@ -424,7 +445,8 @@ Panel {
   // The song playing: its own menu (the cover's menu button), or the Now
   // tab's page menu (M), which adds the queue header's Autoplay and Clear.
   function nowMenu(pageMenu) {
-    var track = service ? service.currentTrack : null
+    // G2: with its library and Listen again tokens (Save, Pin).
+    var track = service ? service.withLiveTokens(service.currentTrack) : null
     var ctx = { pageKind: pageMenu ? "now" : "nowPlaying", isCurrent: !!track }
     if (pageMenu) {
       ctx.page = true

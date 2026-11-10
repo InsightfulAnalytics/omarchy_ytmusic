@@ -508,8 +508,10 @@ Item {
   // the page (an album's audio playlist feeds Start radio).
   function pageItem() {
     if (!target) return null
-    if (episodeTrack) return episodeTrack  // S8: the episode page's own episode
-    if (podcastSaveItem) return podcastSaveItem  // S8
+    // S8: the episode page's own episode, a podcast's page; G2: with the
+    // header's Listen again pin, on a copy.
+    if (episodeTrack) return Model.withPagePinCopy(episodeTrack, page)
+    if (podcastSaveItem) return Model.withPagePinCopy(podcastSaveItem, page)
     if (isUser) return Model.profileOfPage(page)  // S9: Your channel too
     var item = ({})
     for (var key in target) item[key] = target[key]

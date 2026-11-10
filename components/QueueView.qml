@@ -79,9 +79,23 @@ Item {
     if (!entry || Model.menuKind(entry.track) === "") return
     cursorIndex = index
     var current = index === currentIndex
-    root.itemMenuRequested({ item: entry.track, owner: root, index: index,
+    // G2: the song with its library and Listen again tokens (Save, Pin).
+    var track = service ? service.withLiveTokens(entry.track) : entry.track
+    root.itemMenuRequested({ item: track, owner: root, index: index,
       ctx: { pageKind: "queue", removable: true, removeTitle: "Remove from queue", isCurrent: current,
              counterpart: current && service ? service.counterpartOf(entry.track) : null } })  // S12
+  }
+
+  // G2 (Model.editCallbackOf): after a library or pin edit made here or on
+  // the song playing (Panel.nowMenu, S on Now) whose outcome is unknown or
+  // whose token was stale, that song's own menu is read again; true then
+  // ("refreshed").
+  function editCallback(item) {
+    var videoId = item && item.videoId ? String(item.videoId) : ""
+    return function(reply) {
+      if (!root.service || videoId === "" || !(root.service.unsure(reply) || Model.staleToken(reply))) return false
+      return root.service.rereadSongTokens(videoId)
+    }
   }
 
   function removeCursor() {

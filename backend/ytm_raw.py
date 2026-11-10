@@ -47,6 +47,7 @@ from ytmusicapi.parsers.browsing import (
 from ytmusicapi.parsers.library import parse_artists
 from ytmusicapi.parsers.playlists import parse_playlist_item
 from ytmusicapi.parsers.podcasts import parse_episode, parse_podcast
+from ytmusicapi.parsers.songs import parse_song_menu_data
 
 import ytm_normalize as norm
 
@@ -288,7 +289,8 @@ def items(contents, extra=None):
     """Normalized items of a contents/items list; unknown or malformed ones are dropped.
     ``extra(content, item)`` (optional) returns the item with more of its
     raw renderer read (S14: ``feedback_fields``); when that fails, the item
-    is kept as it was read."""
+    is kept as it was read. Without one, ``pin_fields`` reads each item's
+    Listen again pin (G2: See all pages, artist shelves, Related)."""
     out = []
     for content in contents or []:
         try:
@@ -296,9 +298,9 @@ def items(contents, extra=None):
         except (KeyError, TypeError, ValueError, IndexError, AttributeError) as exc:
             norm.log(f"skipped malformed item: {type(exc).__name__}")
             continue
-        if value is not None and extra is not None:
+        if value is not None:
             try:
-                value = extra(content, value)
+                value = (extra or pin_fields)(content, value)
             except (KeyError, TypeError, ValueError, IndexError, AttributeError) as exc:
                 norm.log(f"item menu unreadable: {type(exc).__name__}")
         if value is not None:
@@ -375,6 +377,7 @@ def _two_row(data):
     if "watchEndpoint" in endpoint:
         song = parse_song(data)
         song["videoType"] = nav(endpoint, ["watchEndpoint", *VIDEO_TYPE], True)
+        song.update(song_menu(data))  # G2: Save to library and the pin, as on list rows
         return norm.track(song)
     return None
 
@@ -638,3 +641,88 @@ def feedback_fields(content, value):
     if feedback is not None:
         value = dict(value, feedback=feedback)
     return value
+
+
+# ---- pins and song tokens on every row (G2) ---------------------------------------------
+# The web offers Pin to Listen again in the menu of nearly every card and
+# row (albums, playlists, artists, podcasts, episodes, songs, videos), not
+# only on Home's. ``items`` reads it for every row it parses (pin_fields);
+# song and video cards read their whole song menu like list rows do
+# (``_two_row``: Save to library too); podcast and episode pages read their
+# header's; lists ytmusicapi parses without menus get theirs from the raw
+# cards (``card_pins``). Tokens stay in fresh replies only: the disk cache
+# drops them (ytm_cache.strip_tokens), and so does the recorder's scrub.
+
+
+def pin_fields(content, value):
+    """``items``'s default ``extra``: ``value`` (the item read from
+    ``content``) with ``pinned`` and ``listenAgainTokens`` from its menu's
+    Listen again toggle, unless it carries tokens of its own (a song's
+    come from its song menu). As it is when the menu has no pin."""
+    if not isinstance(value, dict) or value.get("listenAgainTokens"):
+        return value
+    data = next(iter(content.values()), None) if isinstance(content, dict) and len(content) == 1 else None
+    pin = pin_state(data.get("menu")) if isinstance(data, dict) and isinstance(data.get("menu"), dict) else None
+    return dict(value, **pin) if pin is not None else value
+
+
+def song_menu(data):
+    """ytmusicapi's song menu fields of a card (``inLibrary``,
+    ``feedbackTokens``, ``pinnedToListenAgain``, ``listenAgainFeedbackTokens``);
+    ``{}`` when its menu has no item list, so the card is kept without them."""
+    try:
+        return parse_song_menu_data(data)
+    except (KeyError, TypeError, IndexError, AttributeError):
+        return {}
+
+
+def buttons_pin(header):
+    """``pin_state`` of a musicResponsiveHeaderRenderer's menu button (a
+    podcast's or an episode's page header), or None."""
+    for button in (header.get("buttons") if isinstance(header, dict) else None) or []:
+        if isinstance(button, dict) and isinstance(button.get("menuRenderer"), dict):
+            return pin_state(button)
+    return None
+
+
+def card_pins(responses):
+    """``{browseId: pin_state}`` of the two-row cards (albums, playlists) in
+    raw ``responses`` that serve the Listen again toggle: for lists read
+    through a ytmusicapi parser that reads no menu (Library > Playlists'
+    grid, an album's other versions and releases, a playlist's related)."""
+    out = {}
+    stack = list(responses or [])
+    while stack:
+        value = stack.pop()
+        if isinstance(value, list):
+            stack.extend(value)
+            continue
+        if not isinstance(value, dict):
+            continue
+        data = value.get(MTRIR)
+        if not isinstance(data, dict):
+            stack.extend(value.values())
+            continue
+        browse_id = (nav(data, [*TITLE, "navigationEndpoint", "browseEndpoint", "browseId"], True)
+                     or nav(data, ["navigationEndpoint", "browseEndpoint", "browseId"], True))
+        pin = pin_state(data.get("menu")) if isinstance(data.get("menu"), dict) else None
+        if isinstance(browse_id, str) and pin is not None:
+            out.setdefault(browse_id, pin)
+    return out
+
+
+def with_card_pins(items, pins):
+    """``items`` (normalized albums and playlists) with ``pinned`` and
+    ``listenAgainTokens`` from ``pins`` (card_pins), matched by the card's
+    browse id; an item with tokens of its own or no card is as it was."""
+    if not pins:
+        return items
+    out = []
+    for value in items or []:
+        pin = None
+        if isinstance(value, dict) and not value.get("listenAgainTokens"):
+            playlist_id = value.get("playlistId") if value.get("type") == "playlist" else None
+            key = "VL" + str(playlist_id) if playlist_id else value.get("browseId")
+            pin = pins.get(key) or (pins.get(playlist_id) if playlist_id else None)
+        out.append(dict(value, **pin) if pin else value)
+    return out

@@ -2752,9 +2752,10 @@ function staleToken(reply) {
 // The owner's callback for an edit's reply: CollectionView's and
 // LibraryView's editCallback() reload the page or chip shown when the
 // edit's outcome is unknown or a token was stale (they return true when
-// they did). Null for owners without one (Search, Home).
-function editCallbackOf(owner) {
-  return owner && typeof owner.editCallback === "function" ? owner.editCallback() : null
+// they did). Null for owners without one (Search, Home). G2: `item` is
+// what the edit touches (QueueView reads that song's menu again).
+function editCallbackOf(owner, item) {
+  return owner && typeof owner.editCallback === "function" ? owner.editCallback(item) : null
 }
 
 // ---- menu entries and keys -------------------------------------------------------------
@@ -2793,7 +2794,7 @@ var _LIBRARY_ACTIONS = [
   { id: "saveSong", title: function(item, ctx) { return ctx.inLibrary === true ? "Remove from library" : "Save to library" },
     icon: "󰃅", key: "save",
     applies: function(item, ctx) { return ctx.signedIn === true && canSaveSong(item, ctx.inLibrary !== true) },
-    run: function(env) { env.service.setSongLibrary(env.item, env.ctx.inLibrary !== true, editCallbackOf(env.owner)) } },
+    run: function(env) { env.service.setSongLibrary(env.item, env.ctx.inLibrary !== true, editCallbackOf(env.owner, env.item)) } },
   // Liked Music's own rows have Remove from Liked Music already.
   { id: "like", title: function(item, ctx) { return ctx.liked === true ? "Remove from Liked Music" : "Add to Liked Music" },
     icon: "󰋕", key: "like",
@@ -5805,7 +5806,7 @@ var _RECOMMENDATION_ACTIONS = [
     icon: PIN_ICON,
     applies: function(item, ctx) { return ctx.signedIn === true && canPin(item, _pinnedIn(item, ctx)) },
     run: function(env) {
-      env.service.setPinned(env.item, !_pinnedIn(env.item, env.ctx), editCallbackOf(env.owner), env.ctx.pinSource || null)
+      env.service.setPinned(env.item, !_pinnedIn(env.item, env.ctx), editCallbackOf(env.owner, env.item), env.ctx.pinSource || null)
     } },
   // Home's cards only (their tokens are Home's); Home's menu has the Undo.
   { id: "notInterested", title: "Not interested", icon: "󰜺", confirm: "Really not interested? Choose again",
@@ -6635,5 +6636,152 @@ if (typeof module !== "undefined") {
     switchedNotice: switchedNotice,
     signInFirstNotice: signInFirstNotice,
     anotherLoginNotice: anotherLoginNotice
+  })
+}
+
+// ==== song tokens (G2) ======================================================================
+// Save to library and Pin to Listen again wherever the web's menus offer
+// them: the song playing and every queue row too. The queue keeps no
+// tokens (Service.remember strips them, so mpv's meta, session.json,
+// queue.json and the status stay token-free); the Store holds each queued
+// song's in memory instead (liveTokens, by videoId), from the reply it was
+// queued from and from its nowContext (`current`, read again after a stale
+// token or an unknown outcome). A menu or S on Now gets them back through
+// Service.withLiveTokens, which also looks in the up-next list of the song
+// playing. Rows elsewhere carry their own (the worker reads the pin on
+// every row now, and the podcast and episode pages' headers).
+
+var LIVE_TOKEN_KEYS = ["inLibrary", "libraryTokens", "pinned", "listenAgainTokens"]
+
+function _tokenPair(value, a, b) {
+  return value && typeof value === "object" && (value[a] || value[b]) ? value : null
+}
+
+// { inLibrary, libraryTokens, pinned, listenAgainTokens } of a track (or a
+// nowContext's `current`) that carries library or Listen again tokens,
+// each state only with its tokens; null when it carries neither.
+function liveTokensOf(value) {
+  if (!value || typeof value !== "object") return null
+  var library = _tokenPair(value.libraryTokens, "add", "remove")
+  var pin = _tokenPair(value.listenAgainTokens, "pin", "unpin")
+  if (!library && !pin) return null
+  return { inLibrary: library && typeof value.inLibrary === "boolean" ? value.inLibrary : null, libraryTokens: library,
+           pinned: pin && typeof value.pinned === "boolean" ? value.pinned : null, listenAgainTokens: pin }
+}
+
+// `map` (videoId -> liveTokensOf) with the tokens of `tracks` put in: a
+// copy, or the same map when none of them carries any. A track without
+// tokens (from a disk copy) leaves what the map holds for its song.
+function liveTokensPut(map, tracks) {
+  var next = null
+  for (var i = 0; i < (tracks || []).length; i++) {
+    var track = tracks[i]
+    var entry = track && track.videoId ? liveTokensOf(track) : null
+    if (!entry) continue
+    if (!next) {
+      next = {}
+      for (var key in map || {}) next[key] = map[key]
+    }
+    next[String(track.videoId)] = entry
+  }
+  return next || map || {}
+}
+
+// `map` with only the songs `keep` has (Service.meta after its trim); the
+// same map when none goes.
+function liveTokensTrim(map, keep) {
+  var out = {}
+  var dropped = false
+  for (var key in map || {}) {
+    if (keep && keep[key]) out[key] = map[key]
+    else dropped = true
+  }
+  return dropped ? out : map
+}
+
+// A nowContext reply's `current` as a track-like { videoId, ... } for
+// liveTokensPut; null without one.
+function nowCurrentTokens(context) {
+  if (!context || !context.videoId || !context.current || typeof context.current !== "object") return null
+  var out = { videoId: String(context.videoId) }
+  for (var i = 0; i < LIVE_TOKEN_KEYS.length; i++) out[LIVE_TOKEN_KEYS[i]] = context.current[LIVE_TOKEN_KEYS[i]]
+  return out
+}
+
+// The tokens nowContext `context` brings for videoId: its `current` when
+// it is that song's, else that song's entry in its up-next list; null when
+// it has none.
+function nowContextTokens(context, videoId) {
+  if (!context || !videoId) return null
+  if (context.videoId === videoId) return liveTokensOf(context.current)
+  var items = context.items || []
+  for (var i = 0; i < items.length; i++) if (items[i] && items[i].videoId === videoId) return liveTokensOf(items[i])
+  return null
+}
+
+// A copy of `track` with the library tokens and the Listen again pin it
+// lacks, each pair (with its state) from the first of `sources`
+// (liveTokensOf entries; nulls are skipped) that has it. The track itself
+// when it lacks nothing or no source has what it lacks.
+function withLiveTokens(track, sources) {
+  if (!track || typeof track !== "object" || !track.videoId) return track
+  var library = null
+  var pin = null
+  for (var i = 0; i < (sources || []).length; i++) {
+    var source = sources[i]
+    if (!source) continue
+    if (!library && source.libraryTokens && !_tokenPair(track.libraryTokens, "add", "remove")) library = source
+    if (!pin && source.listenAgainTokens && !_tokenPair(track.listenAgainTokens, "pin", "unpin")) pin = source
+  }
+  if (!library && !pin) return track
+  var out = {}
+  for (var key in track) out[key] = track[key]
+  if (library) {
+    out.libraryTokens = library.libraryTokens
+    out.inLibrary = library.inLibrary
+  }
+  if (pin) {
+    out.listenAgainTokens = pin.listenAgainTokens
+    out.pinned = pin.pinned
+  }
+  return out
+}
+
+// What S on Now says when the song under the cursor (or playing) has
+// nothing to save. o: { signedIn, menu (Service.songMenuState: its own
+// menu "read", "loading", "failed" with a message, or "unread") }. Only a
+// menu that was read and had no library entry is "no library control".
+function nowSaveNotice(track, o) {
+  var s = o || {}
+  var menu = s.menu || {}
+  if (!track) return "Nothing is playing"
+  if (s.signedIn !== true) return "Sign in to use your library"
+  if (menu.state === "loading") return "Its menu is still loading; try again in a moment"
+  if (menu.state === "failed")
+    return "Its menu did not load" + (menu.message ? ": " + menu.message : "") + ". Asking again; try in a moment"
+  if (menu.state === "unread") return "Its library control is not loaded; play it or open its album"
+  return "YouTube Music offers no library control for " + mediaTitle(track)
+}
+
+// A page item with its header's pin (withPagePin) on a copy: a view's
+// bound item (an episode page's episode, a podcast's) stays as it was read.
+function withPagePinCopy(item, page) {
+  if (!item || typeof item !== "object" || !pagePin(page)) return item
+  var out = {}
+  for (var key in item) out[key] = item[key]
+  return withPagePin(out, page)
+}
+
+if (typeof module !== "undefined") {
+  Object.assign(module.exports, {
+    LIVE_TOKEN_KEYS: LIVE_TOKEN_KEYS,
+    liveTokensOf: liveTokensOf,
+    liveTokensPut: liveTokensPut,
+    liveTokensTrim: liveTokensTrim,
+    nowCurrentTokens: nowCurrentTokens,
+    nowContextTokens: nowContextTokens,
+    withLiveTokens: withLiveTokens,
+    nowSaveNotice: nowSaveNotice,
+    withPagePinCopy: withPagePinCopy
   })
 }
