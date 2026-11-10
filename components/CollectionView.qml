@@ -49,6 +49,12 @@ import "../YtmModel.js" as Model
 // page ("Add artists you like", from Library's account menu) lists
 // YouTube's suggested artists: f finds, Enter marks or unmarks one here,
 // and the Add row sends the marked ones after a second press.
+//
+// Menus and lists (G4): Liked Music's mood and genre chips (All, the first
+// few, More for a chooser of every one; h / l cycle them, M has Filter; a
+// chip reads the list again filtered, with find and Load all reset), and
+// Start radio from it (M, or R with no row). A playlist's M has Go to
+// author, and A with no row opens the author.
 Item {
   id: root
 
@@ -148,6 +154,7 @@ Item {
   // read the whole list (Service.playItem), at most 500 queued.
   readonly property bool incomplete: !!page && (page.truncated === true || Model.pagePartial(ref ? ref.kind : "")
     || (isPage && (!!page.cursor || page.hasMore === true)))
+    && !(isLiked && filter !== null)  // G4: a filtered Liked Music plays what it shows, not all of it
   readonly property var orders: page && Array.isArray(page.orders) ? page.orders : []
   readonly property var currentOrder: order !== null ? order : (page && page.order !== undefined ? page.order : null)
   readonly property alias results: resultList
@@ -219,6 +226,9 @@ Item {
   readonly property var filters: Model.episodeFilters(page)
   readonly property bool episodeChips: filters.length > 0
   readonly property bool episodeFind: Model.episodeFindable(page)
+  // G4: Liked Music's chips (the `filter` property holds the one chosen).
+  readonly property var likedChips: Model.likedFilters(page)
+  readonly property bool likedChipRow: likedChips.length > 0
 
   signal openRequested(var item)
   // The page itself went away (playlist deleted).
@@ -573,7 +583,10 @@ Item {
                     pinSource: Model.pinSource(ref), tasteMarked: isTaste ? Model.tasteMarked(page, tasteMarks).length : 0,
                     // G3: a podcast's sort chip and filter chips.
                     episodeOrders: episodeChips && orders.length > 1, episodeOrderTitle: Model.episodeOrderTitle(orders, currentOrder),
-                    episodeFilters: episodeChips, episodeFilterTitle: Model.episodeFilterTitle(filters, filter) } }
+                    episodeFilters: episodeChips, episodeFilterTitle: Model.episodeFilterTitle(filters, filter),
+                    // G4: a playlist's author, Liked Music's chips.
+                    authorItem: Model.playlistAuthorItem(page),
+                    likedFilters: likedChipRow, likedFilterTitle: Model.likedFilterTitle(likedChips, filter) } }
   }
 
   // Play, Shuffle, Queue all (mode now, shuffle, queue; next from the menu).
@@ -600,9 +613,10 @@ Item {
   }
 
   // Panel's R when the cursor row has no radio (no row, a See all row): the
-  // artist's radio on an artist page. False elsewhere, so R falls back to
-  // the song playing.
+  // artist's radio on an artist page, (G4) Liked Music's on its page. False
+  // elsewhere, so R falls back to the song playing.
   function pageRadio() {
+    if (isLiked && service) return service.startRadio(pageItem())  // G4
     if (!isArtist) return false
     startArtistRadio()
     return true
@@ -1099,8 +1113,10 @@ Item {
   }
 
   // h / l (Panel's horizontal hook): the next or previous filter, all
-  // episodes between the last and the first. False on other pages.
+  // episodes between the last and the first (G4: Liked Music's chips, all
+  // songs between). False on other pages.
   function horizontal(dx) {
+    if (likedChipRow && dx) return setLikedFilter(Model.nextEpisodeFilter(likedChips, filter, dx))  // G4
     if (!episodeChips || !dx) return false
     return setFilter(Model.nextEpisodeFilter(filters, filter, dx))
   }
@@ -1118,6 +1134,27 @@ Item {
     if (!episodeChips) return false
     root.chooserRequested({ title: "Filter episodes", subtitle: title, choices: Model.episodeFilterChoices(filters, filter),
                             onChoice: function(choice) { if (root) root.setFilter(choice.value) } })
+    return true
+  }
+
+  // ---- menus and lists (G4) -------------------------------------------------------
+
+  // A Liked Music chip (null: all songs): the list again filtered to it,
+  // from its first read (Load all and the find field start over).
+  function setLikedFilter(index) {
+    var value = index === undefined ? null : index
+    if (!entry || loading || value === filter) return false
+    closeFind()
+    full = false
+    return setFilter(value)
+  }
+
+  // More, and the M menu's Filter: all songs or one chip.
+  function chooseLikedFilter() {
+    if (!likedChipRow) return false
+    root.chooserRequested({ title: "Filter Liked Music", subtitle: Model.likedFilterTitle(likedChips, filter),
+                            choices: Model.likedFilterChoices(likedChips, filter),
+                            onChoice: function(choice) { if (root) root.setLikedFilter(choice.value) } })
     return true
   }
 
@@ -1435,7 +1472,7 @@ Item {
     width: parent.width
     height: visible ? implicitHeight : 0
     spacing: Style.space(4)
-    visible: root.orders.length > 1 || root.episodeChips
+    visible: root.orders.length > 1 || root.episodeChips || root.likedChipRow  // G4
 
     Repeater {
       model: root.episodeChips ? [] : root.orders
@@ -1474,6 +1511,26 @@ Item {
         foreground: root.foreground
         fontSize: Style.font.caption
         onClicked: root.setFilter(modelData.index === root.filter ? null : modelData.index)
+      }
+    }
+
+    // ---- G4: Liked Music's chips (All, the first few, More)
+    Repeater {
+      model: root.likedChipRow ? Model.likedChipRow(root.likedChips, root.filter) : []
+
+      Button {
+        required property var modelData
+        iconText: modelData.more ? "󰅀" : ""
+        text: String(modelData.title || "")
+        selected: modelData.selected === true
+        tooltipText: modelData.more ? "Every mood and genre of your liked songs (" + Model.keyHint("pageMenu") + " has it too)"
+          : Model.withKey("Filter Liked Music", "horizontal")
+        foreground: root.foreground
+        fontSize: Style.font.caption
+        onClicked: {
+          if (modelData.more) root.chooseLikedFilter()
+          else root.setLikedFilter(modelData.value)
+        }
       }
     }
   }

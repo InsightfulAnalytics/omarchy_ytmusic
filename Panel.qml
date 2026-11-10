@@ -20,11 +20,12 @@ import "YtmModel.js" as Model
 // ← / → seek 10 s on Now, or the page's chips · Esc leave the field → close
 // the picker, editor or menu → clear the filter → back → close · Space
 // play/pause · n play next (a song, album or playlist) · a add to queue · R
-// start radio from the row, the artist page or the current song · s shuffle ·
-// r repeat · L like · S save to library or subscribe (the row, else the page)
-// · D dislike the row's song (again to undo) or the one playing, which skips
-// · p add to playlist (the song, or a whole album or playlist row) · A go to
-// artist (of the row, the album page or the current song) · o go to album (an
+// start radio from the row, the artist page, Liked Music or the current song
+// · s shuffle · r repeat · L like · S save to library or subscribe (the row,
+// else the page) · D dislike the row's song (again to undo) or the one
+// playing, which skips · p add to playlist (the song, or a whole album,
+// playlist or mix row) · A go to artist (of the row, the album page's artist
+// or the playlist's author, or the current song) · o go to album (an
 // episode's podcast) · J / K move a queued song, or a song of your own
 // playlist, down / up · i add the suggestion under the cursor to your
 // playlist · x remove (queue, own playlist, Liked Music, Episodes for Later,
@@ -605,8 +606,9 @@ Panel {
     editor.openFor(target)
   }
 
+  // G4: a mix too (Model.canSaveWhole), saved by its songs.
   function openSourcePicker(item, copy) {
-    if (!service || !service.signedIn || Model.sourcePlaylistOf(item) === "") return
+    if (!service || !service.signedIn || !Model.canSaveWhole(item)) return
     itemMenu.close()
     editor.close()
     picker.openSource(item, copy === true)
@@ -619,7 +621,7 @@ Panel {
 
   function addToPlaylistKey() {
     var item = cursorItem()
-    if (item && Model.sourcePlaylistOf(item) !== "") openSourcePicker(item, false)
+    if (item && Model.canSaveWhole(item)) openSourcePicker(item, false)  // G4: a mix row too
     else openPicker([cursorTrack()])
   }
 

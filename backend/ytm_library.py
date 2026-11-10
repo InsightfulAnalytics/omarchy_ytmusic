@@ -38,6 +38,7 @@ from ytmusicapi.parsers.browsing import parse_playlist
 from ytmusicapi.parsers.library import parse_albums, parse_artists
 from ytmusicapi.parsers.watch import parse_watch_playlist as parse_watch_tracks
 
+import ytm_collections as collections  # G4: explicit badges of the shuffle's songs
 import ytm_normalize as norm
 import ytm_pages as pages
 import ytm_raw as raw
@@ -373,13 +374,16 @@ def is_shuffle(playlist_id):
 
 def shuffle_tracks(worker, playlist_id, limit=SHUFFLE_TRACKS):
     """tracksFor's reply for the library's server shuffle: at most ``limit``
-    (and SHUFFLE_TRACKS) songs, in YouTube's shuffled order."""
+    (and SHUFFLE_TRACKS) songs, in YouTube's shuffled order, with their
+    explicit badges (G4)."""
     worker.require_auth()
     limit = max(1, min(limit, SHUFFLE_TRACKS))
     yt = worker.yt
     body = {"playlistId": playlist_id, "params": SHUFFLE_PARAMS, "enablePersistentPlaylistPanel": True,
             "isAudioOnly": True, "tunerSettingValue": "AUTOMIX_SETTING_NORMAL"}
-    panel = nav(yt._send_request("next", body), _PANEL, True)
+    response = yt._send_request("next", body)
+    responses = [response]  # G4: every page, for the explicit badges
+    panel = nav(response, _PANEL, True)
     if not isinstance(panel, dict):
         raise WorkerError("UPSTREAM", "YouTube Music sent no shuffle of your library")
     tracks = parse_watch_tracks(panel.get("contents") or [])
@@ -389,12 +393,14 @@ def shuffle_tracks(worker, playlist_id, limit=SHUFFLE_TRACKS):
         if not token:
             break
         response = yt._send_request("next", body, get_continuation_string(token))
+        responses.append(response)  # G4
         http += 1
         panel = nav(response, ["continuationContents", "playlistPanelContinuation"], True)
         page = parse_watch_tracks(panel.get("contents") or []) if isinstance(panel, dict) else []
         if not page:
             break
         tracks.extend(page)
+    tracks = collections.mark_explicit(tracks, responses)  # G4: ytmusicapi's watch tracks have no isExplicit
     items, seen = [], set()
     for track in norm.normalize_list(tracks, norm.track, "library shuffle track"):
         if track["videoId"] not in seen:

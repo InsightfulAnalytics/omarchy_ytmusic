@@ -18,12 +18,20 @@ retry:false and refreshes what it touched when the outcome is unknown.
   YouTube answers success in an auto-sorted playlist too and then shows
   its own order, so the shell asks for Manual order first (it knows the
   order from ``playlistSettings``).
-- ``addToPlaylist({playlistId, videoIds?, sourcePlaylistId?, duplicates?})``:
-  songs, or all of another playlist or album (its audio playlist), at the
-  end. Songs already there are refused with code DUPLICATE (the error
-  carries ``videoIds``, empty for a whole playlist: YouTube does not say
-  which) unless ``duplicates`` is true. Returns
-  ``{added: [{videoId, setVideoId}]}``.
+- ``addToPlaylist({playlistId, videoIds?, sourcePlaylistId?, duplicates?,
+  skipDuplicates?})``: songs, or all of another playlist or album (its
+  audio playlist), at the end. Songs already there are refused with code
+  DUPLICATE (the error carries ``videoIds``, empty for a whole playlist:
+  YouTube does not say which) unless ``duplicates`` is true (Add anyway).
+  G4: ``skipDuplicates`` adds only the songs not there yet, as the web's
+  Skip duplicates: a whole playlist goes with DEDUPE_OPTION_DROP_DUPLICATE
+  (the command the Duplicates dialog serves); for songs, once YouTube
+  refuses them, the refusal's own Skip duplicates command when it serves
+  one, else the songs not there yet (the ones a refusal of some of them
+  names, or, when it names every song, the ones the playlist, read again,
+  does not hold). Returns
+  ``{added: [{videoId, setVideoId}]}``, plus ``skipped`` (the songs left
+  out) and ``status`` ("Nothing new to add" when none was left) for songs.
 - ``createPlaylist({title, description?, privacy?, videoIds?,
   sourcePlaylistId?})``: a new playlist, empty or with the songs (the
   queue) or a copy of another playlist (not both: YouTube answers 400).
@@ -48,6 +56,13 @@ Read only, never cached (an owner's settings change with every edit):
 - ``playlistSuggestions({playlistId})``: the "Suggestions" YouTube shows
   under your own playlist (14, in two requests after the page), with the
   page's settings. None for a playlist that is not yours.
+
+G4: ``settings`` also has ``removeImage``, the served title of the
+header's "Remove custom image" entry (its cover's edit menu), else None;
+``removePlaylistImage({playlistId})`` (MUTATES) reads the page again and
+sends that entry's own edit (two requests), NOT_FOUND when it is not
+served. Setting a custom image is not offered: it is an image upload
+through YouTube's uploader, which ytmusicapi has no method for.
 
 Area module (see AREA_MODULES in ytm.py).
 """
@@ -305,7 +320,8 @@ def settings(response, playlist_id=None):
     editable = header_data.get("musicEditablePlaylistDetailHeaderRenderer") if isinstance(header_data, dict) else None
     out = {"playlistId": playlist_id, "owned": isinstance(editable, dict), "title": None, "description": None,
            "privacy": None, "sortOrder": None, "sortTitle": None, "sortOptions": None, "addToTop": None,
-           "voteOption": None, "voteOptions": None, "collaboration": None, "collaborators": None}
+           "voteOption": None, "voteOptions": None, "collaboration": None, "collaborators": None,
+           "removeImage": None}
     if not out["owned"]:
         return out
     edit = nav(editable, ["editHeader", "musicPlaylistEditHeaderRenderer"], True) or {}
@@ -321,6 +337,8 @@ def settings(response, playlist_id=None):
     out["voteOption"], out["voteOptions"] = _vote(edit)
     header = nav(editable, ["header", "musicResponsiveHeaderRenderer"], True) or {}
     out["collaboration"], out["collaborators"] = _collaborators(header)
+    entry = remove_image_entry(response)  # G4
+    out["removeImage"] = entry[0] if entry else None
     return out
 
 
@@ -435,6 +453,24 @@ def m_move_playlist_item(worker, params):
     return {"playlistId": playlist_id, "setVideoId": set_video_id, "beforeSetVideoId": before}
 
 
+def _added(result):
+    added = result.get("playlistEditResults") if isinstance(result, dict) else None
+    # A whole playlist added alone comes back with an empty entry (ytmusicapi
+    # asks for one so YouTube answers with the new entries).
+    return [{"videoId": a.get("videoId"), "setVideoId": a.get("setVideoId")}
+            for a in added or [] if isinstance(a, dict) and a.get("videoId")]
+
+
+def _checked(result):
+    """``result`` of an add, or the error it is (Duplicate, UPSTREAM)."""
+    refused = duplicates(result)
+    if refused is not None:
+        raise Duplicate(refused)
+    if not _succeeded(result):
+        raise WorkerError("UPSTREAM", "YouTube Music did not add the songs")
+    return result
+
+
 def m_add_to_playlist(worker, params):
     playlist_id = _playlist_id(params)
     video_ids = _video_ids(params)
@@ -444,7 +480,12 @@ def m_add_to_playlist(worker, params):
     if source == playlist_id:
         raise WorkerError("BAD_REQUEST", "A playlist cannot be added to itself")
     allow = opt_bool(params, "duplicates", False)
+    skip = opt_bool(params, "skipDuplicates", False)  # G4
+    if skip and (allow or (video_ids and source)):
+        raise WorkerError("BAD_REQUEST", "'skipDuplicates' takes songs or a whole playlist, without 'duplicates'")
     worker.require_auth()
+    if skip:
+        return _skip_duplicates(worker, playlist_id, video_ids, source)  # G4
     kwargs = {"duplicates": allow}
     if source:
         kwargs["source_playlist"] = source
@@ -455,16 +496,152 @@ def m_add_to_playlist(worker, params):
             result = worker.yt.add_playlist_items(playlist_id, video_ids, **kwargs)
     except Exception as exc:
         raise _refused(exc, "YouTube Music refused to add to that playlist") from None
-    refused = duplicates(result)
-    if refused is not None:
-        raise Duplicate(refused)
+    return {"added": _added(_checked(result))}
+
+
+# ---- G4: Skip duplicates, Remove custom image -----------------------------------------------
+
+NOTHING_NEW = "Nothing new to add"
+
+
+def _skip_duplicates(worker, playlist_id, video_ids, source):
+    """The web's Skip duplicates. A whole playlist: the Duplicates dialog's
+    command, its ACTION_ADD_PLAYLIST with DEDUPE_OPTION_DROP_DUPLICATE (one
+    request; YouTube answers with no entries for it). Songs: added as
+    usual. A refusal adds nothing (ytmusicapi), so then the refusal's own
+    Skip duplicates command goes when it serves one (served_skip), else the
+    songs not there yet (_already_there) are added; none left is ``status``
+    NOTHING_NEW."""
+    try:
+        if source:
+            action = {"action": "ACTION_ADD_PLAYLIST", "addedFullListId": source,
+                      "dedupeOption": "DEDUPE_OPTION_DROP_DUPLICATE"}
+            result = worker.yt._send_request("browse/edit_playlist", {"playlistId": playlist_id, "actions": [action]})
+            return {"added": _added(_checked(result)), "skipped": []}
+        result = worker.yt.add_playlist_items(playlist_id, video_ids, duplicates=False)
+        refused = duplicates(result)
+        if refused is None:
+            return {"added": _added(_checked(result)), "skipped": []}
+        command = served_skip(result, playlist_id, video_ids)
+        if command is not None:
+            added = _added(_unwrapped(_checked(worker.yt._send_request("browse/edit_playlist", command))))
+            got = {a["videoId"] for a in added}
+            # Without entries in the answer YouTube does not say which it left out.
+            return {"added": added, "skipped": [v for v in dict.fromkeys(video_ids) if v not in got] if added else []}
+        there = _already_there(worker, playlist_id, video_ids, refused)
+        rest = [v for v in video_ids if v not in there]
+        if not rest:
+            return {"added": [], "skipped": there, "status": NOTHING_NEW}
+        result = worker.yt.add_playlist_items(playlist_id, rest, duplicates=False)
+    except WorkerError:
+        raise
+    except Exception as exc:
+        raise _refused(exc, "YouTube Music refused to add to that playlist") from None
+    return {"added": _added(_checked(result)), "skipped": there}
+
+
+def served_skip(result, playlist_id, video_ids):
+    """The body of a refusal's own Skip duplicates command for songs (as the
+    whole-playlist Duplicates dialog serves one): a playlistEditEndpoint for
+    this playlist whose actions all add songs of ``video_ids`` with
+    DEDUPE_OPTION_DROP_DUPLICATE. None when none is served, so nothing else
+    is ever sent from a refusal."""
+    wanted = set(video_ids or ())
+    for found in _walk(result.get("actions") if isinstance(result, dict) else None, "playlistEditEndpoint"):
+        edit = found.get("playlistEditEndpoint")
+        actions = edit.get("actions") if isinstance(edit, dict) else None
+        if not isinstance(actions, list) or not actions \
+                or _strip_vl(str(edit.get("playlistId") or "")) != playlist_id:
+            continue
+        named = [a.get("addedVideoId") for a in actions if isinstance(a, dict)]
+        if all(isinstance(a, dict) and a.get("action") == "ACTION_ADD_VIDEO"
+               and a.get("dedupeOption") == "DEDUPE_OPTION_DROP_DUPLICATE" for a in actions) \
+                and any(named) and all(v is None or v in wanted for v in named):
+            body = {"playlistId": playlist_id, "actions": actions}
+            if edit.get("params"):
+                body["params"] = edit["params"]
+            return body
+    return None
+
+
+def _unwrapped(response):
+    """A raw edit_playlist answer with its entries unwrapped, as
+    ``add_playlist_items`` hands them back."""
+    if not _succeeded(response):
+        return response
+    return {"status": response.get("status"),
+            "playlistEditResults": [r.get("playlistEditVideoAddedResultData") if isinstance(r, dict) else None
+                                    for r in response.get("playlistEditResults") or []]}
+
+
+def _already_there(worker, playlist_id, video_ids, refused):
+    """The songs of ``video_ids`` already in the playlist, once YouTube
+    refused to add them. One song refused is there. A refusal that names
+    some of several names the ones there; one that names every song (or
+    none) may only be repeating the request in its Add anyway, as the
+    measured whole-playlist dialog does, so the playlist itself is read (its
+    videoIds) to tell."""
+    wanted = list(dict.fromkeys(video_ids))
+    if len(wanted) == 1:
+        return wanted
+    named = [v for v in wanted if v in refused]
+    if named and len(named) < len(wanted):
+        return named
+    data = worker.yt.get_playlist(playlist_id, limit=None)
+    present = {t.get("videoId") for t in (data or {}).get("tracks") or [] if isinstance(t, dict)}
+    there = [v for v in wanted if v in present]
+    if not there:
+        raise WorkerError("UPSTREAM", "YouTube Music did not say which songs are already there")
+    return there
+
+
+def _thumbnail_menu(response):
+    """The menu items of an owned playlist header's cover edit button
+    (thumbnailEditButton), ``[]`` when it has none."""
+    for found in _walk(response, "thumbnailEditButton"):
+        button = found.get("thumbnailEditButton")
+        items = nav(button, ["buttonRenderer", "command", "openPopupAction", "popup", "menuPopupRenderer", "items"],
+                    True)
+        return items if isinstance(items, list) else []
+    return []
+
+
+def remove_image_entry(response):
+    """``(title, edit)``: the cover menu's entry that is a playlist edit
+    (Remove custom image; the other entry uploads an image) with its served
+    playlistEditEndpoint, matched by the endpoint, never the words. None
+    when it is not served."""
+    for item in _thumbnail_menu(response):
+        data = next(iter(item.values()), None) if isinstance(item, dict) and item else None
+        if not isinstance(data, dict):
+            continue
+        endpoint = data.get("serviceEndpoint") or data.get("navigationEndpoint")
+        edit = endpoint.get("playlistEditEndpoint") if isinstance(endpoint, dict) else None
+        if isinstance(edit, dict) and edit.get("actions"):
+            return _runs_text(data.get("text")) or "Remove custom image", edit
+    return None
+
+
+def m_remove_playlist_image(worker, params):
+    playlist_id = _playlist_id(params)
+    worker.require_auth()
+    entry = remove_image_entry(worker.yt._send_request("browse", {"browseId": "VL" + playlist_id}))
+    if entry is None:
+        raise WorkerError("NOT_FOUND", "YouTube Music offers no custom image to remove on this playlist")
+    edit = entry[1]
+    body = {"playlistId": _strip_vl(str(edit.get("playlistId") or playlist_id)), "actions": edit["actions"]}
+    if edit.get("params"):
+        body["params"] = edit["params"]
+    if body["playlistId"] != playlist_id:
+        raise WorkerError("UPSTREAM", "YouTube Music served the edit for another playlist")
+    try:
+        result = worker.yt._send_request("browse/edit_playlist", body)
+    except Exception as exc:
+        raise _refused(exc, "YouTube Music refused to remove the custom image") from None
     if not _succeeded(result):
-        raise WorkerError("UPSTREAM", "YouTube Music did not add the songs")
-    added = result.get("playlistEditResults") if isinstance(result, dict) else None
-    # A whole playlist added alone comes back with an empty entry (ytmusicapi
-    # asks for one so YouTube answers with the new entries).
-    return {"added": [{"videoId": a.get("videoId"), "setVideoId": a.get("setVideoId")}
-                      for a in added or [] if isinstance(a, dict) and a.get("videoId")]}
+        raise WorkerError("UPSTREAM", "YouTube Music did not remove the custom image")
+    return {"playlistId": playlist_id}
+# ---- end G4
 
 
 def m_create_playlist(worker, params):
@@ -562,6 +739,7 @@ METHODS = {
     "joinPlaylist": m_join_playlist,
     "playlistSettings": m_playlist_settings,
     "playlistSuggestions": m_playlist_suggestions,
+    "removePlaylistImage": m_remove_playlist_image,  # G4
 }
 CACHEABLE = set()
 LANES = {"playlistSuggestions": "pages"}
@@ -571,6 +749,8 @@ INVALIDATES = {
     "addToPlaylist": _PLAYLIST,
     "createPlaylist": _LIBRARY,
     "joinPlaylist": _PLAYLIST,
+    "removePlaylistImage": _PLAYLIST,  # G4: the cover shows in the library's lists too
 }
 RECORDERS = {}
-MUTATES = {"editPlaylist", "movePlaylistItem", "addToPlaylist", "createPlaylist", "joinPlaylist"}
+MUTATES = {"editPlaylist", "movePlaylistItem", "addToPlaylist", "createPlaylist", "joinPlaylist",
+           "removePlaylistImage"}

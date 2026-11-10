@@ -42,8 +42,10 @@ test("menuActions per type", () => {
   assert.deepEqual(ids(Model.menuActions(playlist, ctx)),
     ["play", "shuffle", "playNext", "addToQueue", "radio", "saveToPlaylist", "copyToNewPlaylist", "share"])
   assert.deepEqual(ids(Model.menuActions(artist, ctx)), ["open", "shuffle", "radio", "subscribe", "share"])
-  assert.deepEqual(ids(Model.menuActions(mix, ctx)), ["play", "playNext", "addToQueue", "save"])
-  assert.deepEqual(ids(Model.menuActions({ type: "liked" }, ctx)), ["play", "shuffle", "playNext", "addToQueue"])
+  // G4: a mix shuffles and saves into a playlist; Liked Music starts its radio.
+  assert.deepEqual(ids(Model.menuActions(mix, ctx)),
+    ["play", "shuffle", "playNext", "addToQueue", "save", "saveToPlaylist", "copyToNewPlaylist"])
+  assert.deepEqual(ids(Model.menuActions({ type: "liked" }, ctx)), ["play", "shuffle", "playNext", "addToQueue", "radio"])
   assert.deepEqual(ids(Model.menuActions({ type: "history" }, ctx)), [])
   // Titles, icons and key hints come resolved.
   const next = Model.menuActions(song, ctx).find(a => a.id === "playNext")
@@ -66,7 +68,7 @@ test("menuActions follow ctx: signed out hides account entries; page, queue and 
   // A row's menu on Library or Home has no account or page entries.
   assert.deepEqual(ids(Model.menuActions(playlist, { pageKind: "library", signedIn: true })),
     ["play", "shuffle", "playNext", "addToQueue", "radio", "saveToPlaylist", "copyToNewPlaylist", "share"])
-  assert.deepEqual(ids(Model.menuActions(mix, { pageKind: "home" })), ["play", "playNext", "addToQueue"])
+  assert.deepEqual(ids(Model.menuActions(mix, { pageKind: "home" })), ["play", "shuffle", "playNext", "addToQueue"])  // G4
   // The song playing: no Play, Play next or Add to queue.
   assert.deepEqual(ids(Model.menuActions(song, { signedIn: true, isCurrent: true })),
     ["radio", "like", "dislike", "addToPlaylist", "goArtist", "goAlbum", "credits", "share"])

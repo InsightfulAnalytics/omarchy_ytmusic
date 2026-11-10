@@ -93,13 +93,15 @@ test("picker: DUPLICATE arms that playlist; Enter again sends duplicates; anythi
   const unknown = Model.pickerAfterReply(state, "PLa", { ok: false, error: { code: "DUPLICATE", message: "x", unknown: true } }, 1)
   assert.equal(unknown.duplicateOf, "", "an unknown outcome never arms")
   const some = Model.pickerAfterReply({}, "PLa", { ok: false, error: { code: "DUPLICATE", videoIds: ["a", "b"] } }, 23)
-  assert.equal(some.status, "2 of 23 songs are already there: Enter again to add anyway")
+  // G4: some of several songs offer Skip duplicates too, and the prompt names both.
+  assert.equal(some.status, "2 of 23 songs are already there: Enter again adds them anyway, or choose Skip duplicates")
   const all = Model.pickerAfterReply({}, "PLa", { ok: false, error: { code: "DUPLICATE", videoIds: ["a", "b"] } }, 2)
-  assert.equal(all.status, "All 2 songs are already there: Enter again to add anyway")
+  // G4: a refusal naming every song may only repeat the request: Skip duplicates, and no "All".
+  assert.equal(all.status, "Some of the 2 songs are already there: Enter again adds them anyway, or choose Skip duplicates")
   // A whole album or playlist (no songs of its own; YouTube names none of them).
   const whole = Model.pickerAfterReply({}, "PLa", { ok: false, error: { code: "DUPLICATE", videoIds: [] } }, 0)
-  assert.deepEqual(whole, { duplicateOf: "PLa", status: "Some of its songs are already there: Enter again to add them anyway",
-                            done: false })
+  assert.deepEqual(whole, { duplicateOf: "PLa", done: false, skip: true,  // G4
+                            status: "Some of its songs are already there: Enter again adds them anyway, or choose Skip duplicates" })
 })
 
 test("voteLabel: net votes on a playlist with voting, nothing without", () => {
@@ -263,7 +265,7 @@ test("keys: e edits, i adds a suggestion, J / K and p say what they do now", () 
   assert.equal(Model.keyId("i"), "addSuggestion")
   assert.equal(Model.keyId("J"), "queueMove")
   assert.match(Model.KEYS.find(k => k.id === "queueMove").title, /your own playlist/)
-  assert.match(Model.KEYS.find(k => k.id === "addToPlaylist").title, /whole album or playlist/)
+  assert.match(Model.KEYS.find(k => k.id === "addToPlaylist").title, /whole album, playlist or mix row/)  // G4: a mix too
   const order = Model.KEYS.map(k => k.id)
   assert.equal(order[order.indexOf("queueMove") + 1], "addSuggestion")
   assert.equal(order[order.indexOf("find") + 1], "editPlaylist")

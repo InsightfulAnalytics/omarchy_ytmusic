@@ -8,7 +8,8 @@
   unsure rating).
 - ``upNext`` (autoplay, S12) plays a finite context (an album, a playlist,
   Liked Music) on as its radio and a radio as it is; ``queueFrom`` is the
-  queue a tuner chip (All, Discover, Popular...) plays.
+  queue a tuner chip (All, Discover, Popular...) plays. Their songs, and
+  nowContext's, carry the explicit badge the responses show (G4).
 - ``lyrics`` asks the signed-out client for time-synced lyrics (they come
   from the Android client context, which YouTube rejects with HTTP 400 for a
   browser-cookie session) and falls back to the account's plain lyrics
@@ -25,6 +26,7 @@ import os
 from ytmusicapi.navigation import nav
 from ytmusicapi.parsers.watch import parse_watch_playlist
 
+import ytm_collections as collections
 import ytm_normalize as norm
 import ytm_raw as raw
 from ytm_auth import anonymous_client
@@ -104,7 +106,8 @@ def _current(tracks, video_id):
 def now_context(worker, video_id, playlist_id=None):
     with raw.capture(("next",)) as cap:
         data = worker.yt.get_watch_playlist(videoId=video_id, playlistId=playlist_id, limit=CONTEXT_LIMIT)
-    tracks = [t for t in data.get("tracks") or [] if isinstance(t, dict)]
+    # G4: YouTube's up-next songs with their explicit badges.
+    tracks = collections.mark_explicit([t for t in data.get("tracks") or [] if isinstance(t, dict)], cap.all("next"))
     entry, current, counterpart = _current(tracks, video_id)
     queue = _queue_renderer(cap.first("next"))
     items = norm.normalize_list([t for t in tracks if t is not entry and t.get("videoId") != video_id],
@@ -185,9 +188,11 @@ def _upcoming(tracks, video_id):
 
 
 def _watch(worker, video_id, playlist_id, radio, limit):
+    """``(data, responses)``: the watch playlist and every raw 'next'
+    response read for it (G4: continuation pages carry badges too)."""
     with raw.capture(("next",)) as cap:
         data = worker.yt.get_watch_playlist(videoId=video_id, playlistId=playlist_id, radio=radio, limit=limit)
-    return data, cap.first("next")
+    return data, cap.all("next")
 
 
 def m_up_next(worker, params):
@@ -197,9 +202,9 @@ def m_up_next(worker, params):
     video_id = req_str(params, "videoId")
     limit = opt_int(params, "limit", 25, high=100)
     seed, playlist_id, radio = up_next_source(video_id, opt_str(params, "playlistId"))
-    data, response = _watch(worker, seed, playlist_id, radio, limit)
-    tracks = [t for t in data.get("tracks") or [] if isinstance(t, dict)]
-    return {"playlistId": data.get("playlistId"), "playingFrom": playing_from(response),
+    data, responses = _watch(worker, seed, playlist_id, radio, limit)
+    tracks = collections.mark_explicit([t for t in data.get("tracks") or [] if isinstance(t, dict)], responses)  # G4
+    return {"playlistId": data.get("playlistId"), "playingFrom": playing_from(responses[0] if responses else None),
             "items": _upcoming(tracks, video_id)}
 
 
@@ -217,7 +222,7 @@ def m_queue_from(worker, params):
     panel = nav(_queue_renderer(response), QUEUE_PANEL, True)
     if not isinstance(panel, dict):
         raise WorkerError("UPSTREAM", "YouTube Music sent no queue for this chip")
-    tracks = parse_watch_playlist(panel.get("contents") or [])
+    tracks = collections.mark_explicit(parse_watch_playlist(panel.get("contents") or []), [response])  # G4
     return {"playlistId": panel.get("playlistId") or playlist_id, "playingFrom": playing_from(response),
             "items": _upcoming(tracks, video_id)}
 

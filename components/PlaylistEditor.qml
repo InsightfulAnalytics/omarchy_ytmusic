@@ -12,6 +12,8 @@ import "../YtmModel.js" as Model
 // sent only once chosen; Save sends only what changed. Keys: Tab moves
 // title, description, list; Enter in a field saves; in the list j / k,
 // Enter, and h / l cycle an option row; Esc leaves a field, then closes.
+// G4: Remove custom image, only when YouTube serves it (chosen twice
+// within 4 s: the panel cannot set one back).
 Rectangle {
   id: root
 
@@ -37,13 +39,19 @@ Rectangle {
   readonly property var current: ({ title: titleField.text, description: descriptionField.text,
                                     privacy: value("privacy"), sortOrder: value("sortOrder"),
                                     addToTop: value("addToTop"), voteOption: value("voteOption") })
-  readonly property var rows: open && initial ? Model.editorRows(initial, current, { busy: busy }) : []
+  readonly property var rows: open && initial ? Model.editorRows(initial, current, { busy: busy,
+                                                                                  imageArmed: imageGate.armed("removeImage") }) : []
   readonly property alias results: resultList
   readonly property bool inputFocused: titleField.activeFocus || descriptionField.activeFocus
 
   signal closed()
   // A field gave the keys back to the list (Tab, Down, Esc).
   signal leftField()
+
+  // G4: Remove custom image asks again.
+  ConfirmGate {
+    id: imageGate
+  }
 
   // An option's value: the one chosen, else the one it started with.
   function value(key) {
@@ -73,6 +81,7 @@ Rectangle {
     settingsLoading = false
     status = ""
     statusError = false
+    imageGate.reset()  // G4
     _generation++
     titleField.text = ""
     descriptionField.text = ""
@@ -227,6 +236,42 @@ Rectangle {
     else if (Model.EDITOR_OPTIONS[id]) cycle(Model.EDITOR_OPTIONS[id], 1)
     else if (id === Model.EDITOR_IDS.invite) invite()
     else if (id === Model.EDITOR_IDS.close) closeCollaboration()
+    else if (id === Model.EDITOR_REMOVE_IMAGE_ID) removeImage()  // G4
+  }
+
+  // G4: the custom cover goes (YouTube shows its own again); the row goes
+  // with it, and the page under the editor reads itself again.
+  function removeImage() {
+    if (!open || busy || !service || !initial || !initial.removeImage) return
+    if (!imageGate.arm("removeImage")) return
+    var t = target
+    var svc = service
+    var generation = _generation
+    busy = true
+    setStatus("Removing the custom image…", false)
+    var sent = service.removePlaylistImage(t, function(reply) {
+      if (typeof t.done === "function" && (reply.ok || svc.unsure(reply))) t.done(reply)
+      if (!root || generation !== root._generation) {
+        if (!reply.ok && !svc.unsure(reply)) svc.failAction("Couldn't remove the custom image", reply.error.message)
+        return
+      }
+      root.busy = false
+      if (reply.ok) {
+        var next = ({})
+        for (var key in root.initial) next[key] = root.initial[key]
+        next.removeImage = null
+        root.initial = next
+        root.setStatus("Custom image removed", false)
+      } else if (svc.unsure(reply)) {
+        root.close()
+      } else {
+        root.setStatus(reply.error.message, true)
+      }
+    })
+    if (!sent) {
+      busy = false
+      setStatus("", false)
+    }
   }
 
   // h / l (Panel's horizontal hook): cycle the option row under the cursor.
