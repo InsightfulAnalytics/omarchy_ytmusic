@@ -324,8 +324,9 @@ Item {
     else if (item.type === "loadMore") loadMore(true)
     else if (item.type === "action") runAction(item)
     else if (item.type === "message" || item.type === "text") return
-    else if (row.trackIndex !== undefined)
-      service.playCollection(isPage ? Model.sectionTracks(page, row.sectionIndex) : tracks, row.trackIndex, false)
+    else if (row.trackIndex !== undefined)  // S12: the page is what plays ("Playing from", autoplay)
+      service.playCollection(isPage ? Model.sectionTracks(page, row.sectionIndex) : tracks, row.trackIndex, false,
+                             { playlistId: page ? page.playlistId || null : null, title: title, radio: false })
     else root.openRequested(item)
   }
 

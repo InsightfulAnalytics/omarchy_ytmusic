@@ -179,15 +179,16 @@ function reorderCommands(ids, target) {
 
 // Songs from YouTube Music's up-next list worth appending: playable, not in
 // the queue yet (played ones included), songs before videos, at most `max`.
-function autoplayPicks(queue, candidates, max) {
-  var seen = {}
-  for (var i = 0; i < (queue || []).length; i++) if (queue[i].videoId) seen[queue[i].videoId] = true
+// S12: nor in `seen` (songs played and trimmed out of the queue; an array or
+// a map), nor the song/video twin of a song that is.
+function autoplayPicks(queue, candidates, max, seen) {
+  var known = _knownIds(queue, seen)  // S12
   var songs = []
   var videos = []
   for (var j = 0; j < (candidates || []).length; j++) {
     var track = candidates[j]
-    if (!playable(track) || seen[track.videoId]) continue
-    seen[track.videoId] = true
+    if (!playable(track) || known[track.videoId] || _twinKnown(track, known)) continue
+    _markKnown(track, known)
     if (track.kind === "video") videos.push(track)
     else songs.push(track)
   }
@@ -212,7 +213,8 @@ function _bool(fallback) {
 
 function _speed(value) {
   var n = Number(value)
-  return typeof value === "number" && isFinite(n) && n >= 0.5 && n <= 2 ? n : 1
+  // S17: on the 0.25 step grid (speedStep, the speed chooser).
+  return typeof value === "number" && isFinite(n) && n >= 0.5 && n <= 2 ? Math.round(n * 4) / 4 : 1
 }
 
 // key -> rule(value): the value when valid, else the default (rule(undefined)
@@ -461,9 +463,9 @@ function firstTrack(rows) {
   return null
 }
 
-// Next row a keyboard cursor may rest on (headers and message rows are
-// skipped). From -1, moving down lands on the first row; at either end the
-// cursor stays put.
+// Next row a keyboard cursor may rest on (headers, message rows and text
+// rows other than paragraphs are skipped). From -1, moving down lands on the
+// first row; at either end the cursor stays put.
 function nextSelectable(rows, index, delta) {
   var count = (rows || []).length
   var step = delta < 0 ? -1 : 1
@@ -474,8 +476,14 @@ function nextSelectable(rows, index, delta) {
   return index
 }
 
+// A text row ({type: "text", title, icon?}) is read-only page content, such
+// as a credited name or About the artist (S11): the cursor skips it. A text
+// row with `paragraph: true` (a description's paragraph: an artist's About
+// page, a collection's About rows) takes the cursor so the keyboard can
+// scroll through a long text; Enter and the menu do nothing there.
 function selectableRow(row) {
-  return !!row && !row.header && !!row.item && row.item.type !== "message"
+  if (!row || row.header || !row.item || row.item.type === "message") return false
+  return row.item.type !== "text" || row.item.paragraph === true
 }
 
 function joinParts(parts) {
@@ -1913,7 +1921,7 @@ function aboutPage(result) {
   var header = artistHeader(result) || {}
   var paragraphs = String(header.description || "").split(/\n\s*\n/).map(function(text) { return text.trim() })
     .filter(function(text) { return text !== "" })
-  var text = paragraphs.map(function(paragraph) { return { type: "text", title: paragraph } })
+  var text = paragraphs.map(function(paragraph) { return { type: "text", title: paragraph, paragraph: true } })
   if (text.length === 0) text.push({ type: "message", title: "No description" })
   var links = _artistLinks(header).map(function(link) {
     return { type: "action", id: "link:" + link.url, title: link.url, icon: "󰌷", url: link.url }
@@ -2423,7 +2431,9 @@ function collectionRows(page, opts) {
                         icon: "󰋽" } })
     if (o.aboutOpen) {
       var paragraphs = descriptionParagraphs(description)
-      for (var p = 0; p < paragraphs.length; p++) rows.push({ item: { type: "text", title: paragraphs[p] } })
+      for (var p = 0; p < paragraphs.length; p++) {
+        rows.push({ item: { type: "text", title: paragraphs[p], paragraph: true } })
+      }
     }
   }
   if (finding) return rows.concat(findRows(tracks, o.find, o.history === true))
@@ -2868,5 +2878,733 @@ if (typeof module !== "undefined") {
     dislikedState: dislikedState,
     staleToken: staleToken,
     editCallbackOf: editCallbackOf
+  })
+}
+
+// ==== now (S11) ===========================================================================
+// The Now tab's pane under the song playing: Queue, Lyrics or Related (y or
+// the queue header's pane chip cycles them; prefs.nowPane remembers it). The
+// service reads one nowContext per track while a panel is open (like status,
+// lyrics and Related ids, the song/video twin, queue chips, "Playing from",
+// the up-next list) and the Store keeps it in a memo per video, which S12
+// reuses for autoplay. Credits and Related open as pages; lyrics lines are
+// highlighted from mpv's time-pos.
+
+var NOW_PANES = ["queue", "lyrics", "related"]
+var NOW_PANE_TITLES = { queue: "Queue", lyrics: "Lyrics", related: "Related" }
+var NOW_PANE_ICONS = { queue: "󰲸", lyrics: "󰦪", related: "󰌳" }
+// The nowContext memo: how long a reply is reused, and how many songs.
+var NOW_MEMO_TTL_MS = 10 * 60 * 1000
+var NOW_MEMO_MAX = 20
+
+function nowPane(value) {
+  return NOW_PANES.indexOf(value) >= 0 ? value : "queue"
+}
+
+// The pane after `pane` (before it with a negative delta), round the cycle.
+function nextNowPane(pane, delta) {
+  var i = NOW_PANES.indexOf(nowPane(pane))
+  var step = delta < 0 ? -1 : 1
+  return NOW_PANES[(i + step + NOW_PANES.length) % NOW_PANES.length]
+}
+
+function nowPaneTitle(pane) {
+  return NOW_PANE_TITLES[nowPane(pane)]
+}
+
+function nowPaneIcon(pane) {
+  return NOW_PANE_ICONS[nowPane(pane)]
+}
+
+// The synced line to highlight at `pos` seconds: the last one that has
+// started (lines are sorted by start), -1 before the first or without lines.
+function currentLineIndex(lines, pos) {
+  var list = lines || []
+  var t = Number(pos)
+  if (list.length === 0 || !isFinite(t)) return -1
+  var lo = 0
+  var hi = list.length - 1
+  var found = -1
+  while (lo <= hi) {
+    var mid = (lo + hi) >> 1
+    if (Number(list[mid].start) <= t) {
+      found = mid
+      lo = mid + 1
+    } else {
+      hi = mid - 1
+    }
+  }
+  return found
+}
+
+// A memo keyed by video: key -> { value, at }. Copy on write (bindings
+// follow); `max` entries at most, the most recently stored kept.
+function nowMemoPut(memo, key, value, now, max) {
+  var source = memo || {}
+  var limit = max > 0 ? max : NOW_MEMO_MAX
+  var keys = Object.keys(source).filter(function(k) { return k !== key })
+  keys.sort(function(a, b) { return source[b].at - source[a].at })
+  var out = {}
+  for (var i = 0; i < keys.length && i < limit - 1; i++) out[keys[i]] = source[keys[i]]
+  out[key] = { value: value, at: now }
+  return out
+}
+
+// The value stored for `key`, or null when there is none or it is older
+// than `ttlMs` (no ttlMs: whatever its age).
+function nowMemoGet(memo, key, now, ttlMs) {
+  var entry = memo && key ? memo[key] : null
+  if (!entry) return null
+  return !(ttlMs > 0) || now - entry.at < ttlMs ? entry.value : null
+}
+
+// `memo` with `key` used `now` (an LRU's order and age go by it); the same
+// object when it has no such entry.
+function nowMemoTouch(memo, key, now) {
+  var source = memo || {}
+  if (!key || !source[key]) return source
+  var out = {}
+  for (var k in source) out[k] = source[k]
+  out[key] = { value: source[key].value, at: now }
+  return out
+}
+
+// `memo` without the entries older than `ttlMs`, except `keep` (the song
+// playing); the same object when nothing went.
+function nowMemoSweep(memo, now, ttlMs, keep) {
+  var source = memo || {}
+  var out = null
+  for (var key in source) {
+    if (key === keep || now - source[key].at < ttlMs) continue
+    if (!out) {
+      out = {}
+      for (var k in source) out[k] = source[k]
+    }
+    delete out[key]
+  }
+  return out || source
+}
+
+// The credits page of a song (its menu's View credits).
+function creditsTarget(track) {
+  if (!track || !track.videoId) return null
+  return { type: "credits", videoId: track.videoId, title: track.title || "", thumb: track.thumb || null,
+           thumbLarge: track.thumbLarge || null }
+}
+
+// The Related page of a song, by the nowContext's relatedId.
+function relatedTarget(relatedId) {
+  return relatedId ? { type: "related", browseId: relatedId, title: "Related" } : null
+}
+
+// Credits: one section per role. Related: the web's Related tab, also the
+// Now tab's Related pane.
+PAGE_KINDS.credits = {
+  method: "credits", title: "Credits", round: false,
+  params: function(t) { return t.videoId ? { videoId: t.videoId } : null },
+  id: function(t) { return t.videoId }
+}
+PAGE_KINDS.related = {
+  method: "related", title: "Related", round: false,
+  params: function(t) { return t.browseId ? { browseId: t.browseId } : null },
+  id: function(t) { return t.browseId }
+}
+
+// Where MENU_ACTIONS has `id` (its end when it has none).
+function nowIndexOfAction(id) {
+  for (var i = 0; i < MENU_ACTIONS.length; i++) if (MENU_ACTIONS[i].id === id) return i
+  return MENU_ACTIONS.length
+}
+
+// Songs have credits; music videos and episodes have none. Listed before
+// Copy link, as on the web.
+MENU_ACTIONS.splice(nowIndexOfAction("share"), 0, { id: "credits", title: "View credits", icon: "󰗒",
+  applies: function(item, ctx) {
+    return menuKind(item) === "track" && item.kind !== "video" && item.kind !== "episode" && !ctx.page
+  },
+  run: function(env) { env.panel.push(creditsTarget(env.item)) } })
+
+KEYS.push({ id: "nowPane", group: "Now", keys: ["y"], title: "cycle the pane under the song: Queue, Lyrics, Related" })
+
+if (typeof module !== "undefined") {
+  Object.assign(module.exports, {
+    NOW_PANES: NOW_PANES,
+    NOW_MEMO_TTL_MS: NOW_MEMO_TTL_MS,
+    NOW_MEMO_MAX: NOW_MEMO_MAX,
+    nowPane: nowPane,
+    nextNowPane: nextNowPane,
+    nowPaneTitle: nowPaneTitle,
+    nowPaneIcon: nowPaneIcon,
+    currentLineIndex: currentLineIndex,
+    nowMemoPut: nowMemoPut,
+    nowMemoGet: nowMemoGet,
+    nowMemoTouch: nowMemoTouch,
+    nowMemoSweep: nowMemoSweep,
+    creditsTarget: creditsTarget,
+    relatedTarget: relatedTarget
+  })
+}
+
+// ==== up next (S12) =======================================================================
+// The queue as the web's Up next. Autoplay tops it up whenever AUTOPLAY_LEFT
+// or fewer entries follow the current one (AUTOPLAY_BATCH songs at a time)
+// and goes on as radio for every context: the song playing's nowContext
+// items first (no request), then the worker's upNext for the playContext
+// (a finite album or playlist goes on as its radio). Entries that autoplay,
+// Start radio or a tuner chip added are "auto"; every other entry is the
+// user's. The origin is kept per mpv playlist entry id, so one song can be
+// both. A tuner chip ("Tune: All", t, or the Now page menu) replaces only the
+// upcoming auto entries; played entries more than TRIM_KEEP behind the
+// current one leave mpv's playlist (their ids stay `seen`, so autoplay does
+// not bring them back). Service keeps the origins, context, tuner and seen
+// ids in ~/.cache/omarchy-ytmusic/queue.json for hot reloads.
+
+var AUTOPLAY_LEFT = 3
+var AUTOPLAY_BATCH = 10
+var TRIM_KEEP = 50
+var SEEN_MAX = 300
+var QUEUE_STATE_VERSION = 1
+var _VIDEO_ID = /^[A-Za-z0-9_-]{11}$/
+
+// True when `pos` plays and `left` or fewer of `count` entries follow it.
+function topUpNeeded(count, pos, left) {
+  var n = Number(count) || 0
+  var p = typeof pos === "number" ? pos : -1
+  if (n <= 0 || p < 0 || p >= n) return false
+  return n - p - 1 <= (typeof left === "number" ? left : AUTOPLAY_LEFT)
+}
+
+// videoId -> true for the queue's songs, their known twins and `seen`.
+function _knownIds(queue, seen) {
+  var known = {}
+  for (var i = 0; i < (queue || []).length; i++) {
+    var entry = queue[i]
+    if (!entry || !entry.videoId) continue
+    known[entry.videoId] = true
+    var twin = entry.track && entry.track.counterpart
+    if (twin && twin.videoId) known[twin.videoId] = true
+  }
+  if (seen && typeof seen.length === "number") {
+    for (var j = 0; j < seen.length; j++) if (seen[j]) known[seen[j]] = true
+  } else if (seen && typeof seen === "object") {
+    for (var key in seen) if (seen[key]) known[key] = true
+  }
+  return known
+}
+
+function _twinKnown(track, known) {
+  var twin = track && track.counterpart
+  return !!(twin && twin.videoId && known[twin.videoId])
+}
+
+// A pick and its twin are queued from now on.
+function _markKnown(track, known) {
+  known[track.videoId] = true
+  if (track.counterpart && track.counterpart.videoId) known[track.counterpart.videoId] = true
+}
+
+// ---- origins ---------------------------------------------------------------------------
+// { "<mpv entry id>": { videoId, origin: "auto" } }; an entry missing from
+// the map (or holding another video) is the user's.
+
+function originOf(origins, entryId, videoId) {
+  var o = origins && entryId !== undefined && entryId !== null ? origins[String(entryId)] : null
+  return o && o.origin === "auto" && o.videoId === videoId ? "auto" : "user"
+}
+
+// Copies of the queue entries with their `origin`.
+function withOrigins(queue, origins) {
+  return (queue || []).map(function(entry) {
+    var out = {}
+    for (var k in entry) out[k] = entry[k]
+    out.origin = originOf(origins, entry.entryId, entry.videoId)
+    return out
+  })
+}
+
+// `origins` plus the entries in `added` ([{ entryId, videoId, origin }]),
+// copy on write.
+function addOrigins(origins, added) {
+  var out = {}
+  for (var k in origins || {}) out[k] = origins[k]
+  for (var i = 0; i < (added || []).length; i++) {
+    var a = added[i]
+    if (a && typeof a.entryId === "number" && a.videoId && a.origin === "auto")
+      out[String(a.entryId)] = { videoId: a.videoId, origin: "auto" }
+  }
+  return out
+}
+
+// The origins of entries still in mpv's playlist (by id and video); the
+// same object when none went. mpv answers in order, so a snapshot never
+// lacks an entry whose origin was already recorded.
+function pruneOrigins(origins, playlist) {
+  var present = {}
+  for (var i = 0; i < (playlist || []).length; i++) {
+    var entry = playlist[i]
+    if (entry && entry.id !== undefined) present[String(entry.id)] = videoIdFromUrl(entry.filename)
+  }
+  var out = {}
+  var dropped = false
+  for (var key in origins || {}) {
+    if (present[key] !== undefined && present[key] === origins[key].videoId) out[key] = origins[key]
+    else dropped = true
+  }
+  return dropped ? out : origins
+}
+
+// ---- queue changes --------------------------------------------------------------------
+
+// Where an added song goes so it plays before autoplay's picks, as on the
+// web: the first upcoming auto entry's index, -1 (the end) when none.
+function queueInsertAt(queue, pos) {
+  if (typeof pos !== "number" || pos < 0) return -1
+  for (var i = pos + 1; i < (queue || []).length; i++) if (queue[i].origin === "auto") return i
+  return -1
+}
+
+// Queue `tracks` at `at` (in order; the first starts playback when nothing
+// plays), or at the end when `at` < 0.
+function queueAtCommands(tracks, at) {
+  if (!(at >= 0)) return queueAllCommands(tracks)
+  var list = (tracks || []).filter(playable)
+  var commands = []
+  for (var i = 0; i < list.length; i++)
+    commands.push(["loadfile", trackUrl(list[i].videoId), i === 0 ? "insert-at-play" : "insert-at", at + i, loadfileOptions(list[i])])
+  return { commands: commands, tracks: list }
+}
+
+// A tuner chip's songs in place of the upcoming auto entries: those are
+// removed (from the end, so indexes hold), user entries stay, and up to
+// `max` new picks (autoplayPicks against what stays and `seen`) are
+// appended. Nothing changes when no pick is new.
+function replaceUpcomingAuto(queue, pos, candidates, max, seen) {
+  var list = queue || []
+  var kept = []
+  var remove = []
+  for (var i = 0; i < list.length; i++) {
+    if (typeof pos === "number" && pos >= 0 && i > pos && list[i].origin === "auto") remove.push(i)
+    else kept.push(list[i])
+  }
+  var picks = autoplayPicks(kept, candidates, max || AUTOPLAY_BATCH, seen)
+  if (picks.length === 0) return { commands: [], tracks: [], removed: 0 }
+  var commands = remove.reverse().map(function(index) { return ["playlist-remove", index] })
+  return { commands: commands.concat(queueAllCommands(picks).commands), tracks: picks, removed: remove.length }
+}
+
+// How many played entries leave the front of the playlist so at most `keep`
+// stay behind the current one.
+function trimPlayed(pos, keep) {
+  var k = typeof keep === "number" && keep >= 0 ? keep : TRIM_KEEP
+  return typeof pos === "number" && pos > k ? pos - k : 0
+}
+
+function trimCommands(count) {
+  var out = []
+  for (var i = 0; i < count; i++) out.push(["playlist-remove", 0])
+  return out
+}
+
+// `meta` without songs that are neither in the playlist nor in `keep`
+// (videoId -> true: remembered moments ago, their loadfile may not have
+// landed yet); the same object when none went.
+function trimMeta(meta, playlist, keep) {
+  var queued = {}
+  for (var i = 0; i < (playlist || []).length; i++) {
+    var videoId = videoIdFromUrl(playlist[i] && playlist[i].filename)
+    if (videoId) queued[videoId] = true
+  }
+  var out = {}
+  var dropped = false
+  for (var key in meta || {}) {
+    if (queued[key] || (keep && keep[key])) out[key] = meta[key]
+    else dropped = true
+  }
+  return dropped ? out : meta
+}
+
+// `seen` (oldest first) with `ids` added, at most `max`, each once.
+function withSeen(seen, ids, max) {
+  var limit = max > 0 ? max : SEEN_MAX
+  var out = (seen || []).filter(function(id) { return (ids || []).indexOf(id) < 0 })
+  for (var i = 0; i < (ids || []).length; i++) if (ids[i] && out.indexOf(ids[i]) < 0) out.push(ids[i])
+  return out.length > limit ? out.slice(out.length - limit) : out
+}
+
+// Where one top-up looks for new songs after `seedId`, in order, until one
+// gives a pick that is not a duplicate: the chosen tuner chip's queue, else
+// the song's nowContext items (`memo`, no request) and the context's
+// upNext; then, once, the song's own radio when the first ones were
+// something else. A step is { items } or { method, params }.
+function autoplaySources(seedId, tuner, memo, playlistId) {
+  var out = []
+  if (tuner && tuner.playlistId) {
+    var chip = { videoId: seedId, playlistId: tuner.playlistId }
+    if (tuner.params) chip.params = tuner.params
+    out.push({ method: "queueFrom", params: chip })
+  } else {
+    if (memo && memo.items && memo.items.length > 0) out.push({ items: memo.items })
+    var context = { videoId: seedId, limit: 25 }
+    if (playlistId) context.playlistId = playlistId
+    out.push({ method: "upNext", params: context })
+  }
+  if ((tuner && tuner.playlistId) || playlistId) out.push({ method: "upNext", params: { videoId: seedId, limit: 25 } })
+  return out
+}
+
+// ---- Playing from and the tuner -----------------------------------------------------------
+
+// The queue header's "Playing from" text: what the queue was started from,
+// else what YouTube plays the song from ("Karma Police Mix"); "" when unknown.
+function playingFrom(context, nowContext) {
+  if (context && context.title) return String(context.title)
+  if (nowContext && nowContext.playingFrom) return String(nowContext.playingFrom)
+  return ""
+}
+
+function tunerChips(nowContext) {
+  var chips = nowContext && nowContext.chips && typeof nowContext.chips.length === "number" ? nowContext.chips : []
+  var out = []
+  for (var i = 0; i < chips.length; i++) if (chips[i] && chips[i].playlistId && chips[i].title) out.push(chips[i])
+  return out
+}
+
+function _tunerIndex(chips, tuner) {
+  for (var i = 0; i < chips.length; i++) {
+    if (tuner ? chips[i].title === tuner.title : chips[i].selected === true) return i
+  }
+  return tuner ? -1 : 0
+}
+
+// The chip shown: the one chosen, else YouTube's own (All).
+function tunerTitle(tuner, chips) {
+  if (tuner && tuner.title) return String(tuner.title)
+  var list = chips || []
+  var i = _tunerIndex(list, null)
+  return list.length > 0 ? String(list[i].title) : "All"
+}
+
+// The chip after (or before, `delta` < 0) the one shown; null without chips.
+function nextTuner(chips, tuner, delta) {
+  var list = chips || []
+  if (list.length === 0) return null
+  var i = _tunerIndex(list, tuner)
+  var step = delta < 0 ? -1 : 1
+  return list[((i < 0 ? (step > 0 ? -1 : 0) : i) + step + list.length) % list.length]
+}
+
+// A chip as kept by the service and queue.json.
+function tunerOf(chip) {
+  if (!chip || !chip.playlistId || !chip.title) return null
+  return { title: String(chip.title), playlistId: String(chip.playlistId), params: chip.params ? String(chip.params) : null }
+}
+
+// ItemMenu chooser rows for the chips; the one shown is ticked.
+function tunerChoices(chips, tuner) {
+  var shown = _tunerIndex(chips || [], tuner)
+  return (chips || []).map(function(chip, i) {
+    return { id: "tune" + i, title: String(chip.title), icon: i === shown ? "󰄬" : "󰐹", value: chip }
+  })
+}
+
+// ---- song / video versions ----------------------------------------------------------------
+
+// The current song's twin: the nowContext's (the song playing's), else what
+// the queue entry learned from an up-next list.
+function counterpartOf(track, nowContext) {
+  if (!track || !track.videoId) return null
+  var fromContext = nowContext && nowContext.videoId === track.videoId ? nowContext.counterpart : null
+  var twin = fromContext || track.counterpart || null
+  return twin && twin.videoId && twin.videoId !== track.videoId ? twin : null
+}
+
+// The queue track of `track`'s twin (the other version of the same song).
+function counterpartTrack(track, counterpart) {
+  if (!track || !counterpart || !counterpart.videoId) return null
+  var out = {}
+  for (var k in track) out[k] = track[k]
+  out.videoId = counterpart.videoId
+  out.title = counterpart.title || track.title || ""
+  out.kind = counterpart.kind === "video" ? "video" : "song"
+  out.counterpart = { videoId: track.videoId, title: track.title || "", kind: track.kind === "video" ? "video" : "song" }
+  if (out.kind === "video") out.album = null
+  out.likeStatus = null
+  out.setVideoId = null
+  out.played = null
+  return out
+}
+
+// Play `track` from its start in place of the entry at `pos`: insert it
+// next, jump to it, then take the old entry out (not before: removing the
+// entry playing would start the one after it).
+function switchVersionCommands(track, pos) {
+  return [loadfile(track, "insert-next"), ["playlist-play-index", pos + 1], ["set_property", "pause", false],
+          ["playlist-remove", pos]]
+}
+
+// ---- queue.json ---------------------------------------------------------------------------
+// { version, pid, context, tuner, origins, seen }: `pid` is the mpv process
+// the entry ids belong to (a new player starts its ids over, so its origins
+// go).
+
+function _context(value) {
+  if (!value || typeof value !== "object" || typeof value.title !== "string") return null
+  return { playlistId: typeof value.playlistId === "string" && value.playlistId ? value.playlistId : null,
+           title: value.title, radio: value.radio === true }
+}
+
+function parseQueueState(text) {
+  var saved = null
+  try {
+    saved = JSON.parse(text)
+  } catch (e) {
+    saved = null
+  }
+  var state = { pid: null, context: null, tuner: null, origins: {}, seen: [] }
+  if (!saved || typeof saved !== "object" || Array.isArray(saved)) return state
+  state.pid = typeof saved.pid === "number" && saved.pid > 0 ? saved.pid : null
+  state.context = _context(saved.context)
+  state.tuner = saved.tuner && typeof saved.tuner === "object" ? tunerOf(saved.tuner) : null
+  var origins = saved.origins && typeof saved.origins === "object" && !Array.isArray(saved.origins) ? saved.origins : {}
+  for (var key in origins) {
+    var o = origins[key]
+    if (/^\d+$/.test(key) && o && o.origin === "auto" && _VIDEO_ID.test(String(o.videoId || "")))
+      state.origins[key] = { videoId: o.videoId, origin: "auto" }
+  }
+  var seen = Array.isArray(saved.seen) ? saved.seen : []
+  state.seen = withSeen([], seen.filter(function(id) { return _VIDEO_ID.test(String(id)) }), SEEN_MAX)
+  return state
+}
+
+function queueStateText(state) {
+  var s = state || {}
+  return JSON.stringify({ version: QUEUE_STATE_VERSION, pid: typeof s.pid === "number" ? s.pid : null,
+                          context: _context(s.context), tuner: tunerOf(s.tuner), origins: s.origins || {},
+                          seen: s.seen || [] }) + "\n"
+}
+
+// Song or video version entries for the menu of the song playing
+// (ctx.counterpart, filled by Panel and QueueView from counterpartOf).
+MENU_ACTIONS.splice(nowIndexOfAction("radio"), 0, { id: "switchVersion",
+  title: function(item, ctx) { return ctx.counterpart.kind === "video" ? "Play video version" : "Play song version" },
+  icon: "󰓡",
+  applies: function(item, ctx) {
+    return menuKind(item) === "track" && ctx.isCurrent === true && !!ctx.counterpart && !!ctx.counterpart.videoId
+      && ctx.counterpart.videoId !== item.videoId
+  },
+  run: function(env) { env.service.switchVersion(env.ctx.counterpart, env.item) } })
+
+// The Now page menu (M): every tuner chip in a chooser (ctx.tunerChips,
+// ctx.tunerTitle from Panel.nowMenu).
+MENU_ACTIONS.push({ id: "tune", title: function(item, ctx) { return "Tune the queue (" + ctx.tunerTitle + ")" }, icon: "󰘮",
+  key: "tune",
+  applies: function(item, ctx) { return ctx.page === true && ctx.pageKind === "now" && ctx.tunerChips > 0 },
+  run: function(env) { env.panel.openTuner() } })
+
+KEYS.push({ id: "tune", group: "Now", keys: ["t"], title: "cycle the queue tuner chip: All, Discover, Popular and the rest" })
+
+if (typeof module !== "undefined") {
+  Object.assign(module.exports, {
+    AUTOPLAY_LEFT: AUTOPLAY_LEFT,
+    AUTOPLAY_BATCH: AUTOPLAY_BATCH,
+    TRIM_KEEP: TRIM_KEEP,
+    SEEN_MAX: SEEN_MAX,
+    topUpNeeded: topUpNeeded,
+    originOf: originOf,
+    withOrigins: withOrigins,
+    addOrigins: addOrigins,
+    pruneOrigins: pruneOrigins,
+    queueInsertAt: queueInsertAt,
+    queueAtCommands: queueAtCommands,
+    replaceUpcomingAuto: replaceUpcomingAuto,
+    autoplaySources: autoplaySources,
+    trimPlayed: trimPlayed,
+    trimCommands: trimCommands,
+    trimMeta: trimMeta,
+    withSeen: withSeen,
+    playingFrom: playingFrom,
+    tunerChips: tunerChips,
+    tunerTitle: tunerTitle,
+    nextTuner: nextTuner,
+    tunerOf: tunerOf,
+    tunerChoices: tunerChoices,
+    counterpartOf: counterpartOf,
+    counterpartTrack: counterpartTrack,
+    switchVersionCommands: switchVersionCommands,
+    parseQueueState: parseQueueState,
+    queueStateText: queueStateText
+  })
+}
+
+// ==== playback (S17) =======================================================================
+// Speed and loudness, the mpv way. Speed is mpv's `speed`, SPEED_MIN to
+// SPEED_MAX in SPEED_STEP steps ([ and ], or the Now page menu), remembered
+// per kind of entry in prefs.speed { music, episode } and applied whenever
+// the kind of the entry playing changes, so an episode keeps its own speed.
+// Loudness is prefs.normalize: with "youtube" the worker answers each
+// resolved song's loudnessDb (its `normalize` setting, workerSettings), the
+// stream keeps it as `gain` (loudnessGain: turned down only, as on the web)
+// and mpv/ytm-levels.lua sets it as that file's own volume-gain when it
+// loads; "dynamic" runs mpv's dynaudnorm filter (ytm-levels.lua too); "off"
+// neither. The shell tells mpv the mode in user-data/ytm/normalize.
+
+var SPEED_MIN = 0.5
+var SPEED_MAX = 2
+var SPEED_STEP = 0.25
+var SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2]
+var NORMALIZE_MODES = ["off", "youtube", "dynamic"]
+
+// "episode" for a podcast episode, else "music" (songs and videos).
+function speedKind(track) {
+  return track && track.kind === "episode" ? "episode" : "music"
+}
+
+// A speed on the step grid within the bounds; 1 for anything not a number.
+function clampSpeed(value) {
+  var n = Number(value)
+  if (typeof value !== "number" || !isFinite(n)) return 1
+  return Math.min(SPEED_MAX, Math.max(SPEED_MIN, Math.round(n / SPEED_STEP) * SPEED_STEP))
+}
+
+// One step up (`delta` > 0) or down from `speed`, within the bounds; a speed
+// between steps (set over MPRIS) goes to the step on that side.
+function speedStep(speed, delta) {
+  var n = Number(speed)
+  if (typeof speed !== "number" || !isFinite(n) || n <= 0) n = 1
+  var steps = n / SPEED_STEP
+  var next = delta > 0 ? (Math.floor(steps + 1e-6) + 1) * SPEED_STEP
+    : delta < 0 ? (Math.ceil(steps - 1e-6) - 1) * SPEED_STEP
+    : clampSpeed(n)
+  return Math.min(SPEED_MAX, Math.max(SPEED_MIN, next))
+}
+
+// The saved speed for a kind ("music" or "episode") of prefs.speed.
+function speedFor(speeds, kind) {
+  var value = speeds && typeof speeds === "object" ? speeds[kind === "episode" ? "episode" : "music"] : undefined
+  return typeof value === "number" && value >= SPEED_MIN && value <= SPEED_MAX ? value : 1
+}
+
+// prefs.speed with `kind`'s speed set to `value` (copy on write).
+function withSpeed(speeds, kind, value) {
+  var episode = kind === "episode"
+  return { music: episode ? speedFor(speeds, "music") : clampSpeed(value),
+           episode: episode ? clampSpeed(value) : speedFor(speeds, "episode") }
+}
+
+// The Now badge: "1.5x", "" at normal speed.
+function speedLabel(speed) {
+  var n = Number(speed)
+  if (typeof speed !== "number" || !isFinite(n) || Math.abs(n - 1) < 0.001) return ""
+  return String(Math.round(n * 100) / 100) + "x"
+}
+
+function speedTitle(speed) {
+  return speedLabel(speed) || "Normal"
+}
+
+// ItemMenu chooser rows for the speeds; the one playing is ticked.
+function speedChoices(speed) {
+  return SPEEDS.map(function(value) {
+    var current = typeof speed === "number" && Math.abs(speed - value) < 0.001
+    return { id: "speed" + value, title: speedTitle(value), icon: current ? "󰄬" : "󰓅", value: value }
+  })
+}
+
+function normalizeMode(value) {
+  return NORMALIZE_MODES.indexOf(value) >= 0 ? value : "off"
+}
+
+function normalizeTitle(mode) {
+  var m = normalizeMode(mode)
+  return m === "youtube" ? "YouTube" : m === "dynamic" ? "Dynamic" : "Off"
+}
+
+// ItemMenu chooser rows for the loudness modes; the one on is ticked.
+function normalizeChoices(mode) {
+  var on = normalizeMode(mode)
+  var about = { off: "Off (the music as it comes)", youtube: "YouTube (loud songs turned down, like the web)",
+                dynamic: "Dynamic (evens out quiet and loud parts)" }
+  return NORMALIZE_MODES.map(function(m) {
+    return { id: "normalize-" + m, title: about[m], icon: m === on ? "󰄬" : "󰺢", value: m }
+  })
+}
+
+// The volume-gain (dB) for YouTube's loudnessDb: songs above YouTube's target
+// are turned down by that much, quieter ones are left alone (never boosted).
+// null when there is no loudness.
+function loudnessGain(loudnessDb) {
+  var n = Number(loudnessDb)
+  if (typeof loudnessDb !== "number" || !isFinite(n)) return null
+  return n > 0 ? -Math.round(n * 100) / 100 : 0
+}
+
+// A stream as the shell keeps it (and mpv reads it): { url, expires }, plus
+// `gain` (a number, or null when YouTube gave none) when the worker was asked
+// for the loudness; without that key nobody asked.
+function streamEntry(stream) {
+  var entry = { url: stream ? stream.url : "", expires: stream ? stream.expires : 0 }
+  if (stream && stream.loudnessDb !== undefined) entry.gain = loudnessGain(stream.loudnessDb)
+  return entry
+}
+
+function streamHasLoudness(entry) {
+  return !!entry && entry.gain !== undefined
+}
+
+// Only the streams resolved with their loudness (the same object when that
+// is all of them): turning YouTube levelling on forgets the others, so
+// they are resolved again, with it.
+function streamsWithLoudness(streams) {
+  var out = {}
+  var dropped = false
+  for (var id in streams || {}) {
+    if (streamHasLoudness(streams[id])) out[id] = streams[id]
+    else dropped = true
+  }
+  return dropped ? out : streams
+}
+
+// The worker's settings from the prefs (Backend.configureParams); S16 adds
+// location and quality here.
+function workerSettings(prefs) {
+  return { normalize: normalizeMode(prefs && prefs.normalize) }
+}
+
+// The Now page menu (M): Playback speed and Loudness, each a chooser
+// (ctx.speed and ctx.normalize from Panel.nowMenu).
+MENU_ACTIONS.push({ id: "speed", title: function(item, ctx) { return "Playback speed (" + speedTitle(ctx.speed) + ")" },
+  icon: "󰓅", key: "speed",
+  applies: function(item, ctx) { return ctx.page === true && ctx.pageKind === "now" },
+  run: function(env) { env.panel.openSpeedChooser() } })
+MENU_ACTIONS.push({ id: "loudness", title: function(item, ctx) { return "Loudness (" + normalizeTitle(ctx.normalize) + ")" },
+  icon: "󰺢",
+  applies: function(item, ctx) { return ctx.page === true && ctx.pageKind === "now" },
+  run: function(env) { env.panel.openLoudnessChooser() } })
+
+KEYS.push({ id: "speed", group: "Now", keys: ["[", "]"], title: "playback speed down / up (0.5x to 2x, kept apart for episodes)" })
+
+if (typeof module !== "undefined") {
+  Object.assign(module.exports, {
+    SPEED_MIN: SPEED_MIN,
+    SPEED_MAX: SPEED_MAX,
+    SPEED_STEP: SPEED_STEP,
+    SPEEDS: SPEEDS,
+    NORMALIZE_MODES: NORMALIZE_MODES,
+    speedKind: speedKind,
+    clampSpeed: clampSpeed,
+    speedStep: speedStep,
+    speedFor: speedFor,
+    withSpeed: withSpeed,
+    speedLabel: speedLabel,
+    speedTitle: speedTitle,
+    speedChoices: speedChoices,
+    normalizeMode: normalizeMode,
+    normalizeTitle: normalizeTitle,
+    normalizeChoices: normalizeChoices,
+    loudnessGain: loudnessGain,
+    streamEntry: streamEntry,
+    streamHasLoudness: streamHasLoudness,
+    streamsWithLoudness: streamsWithLoudness,
+    workerSettings: workerSettings
   })
 }

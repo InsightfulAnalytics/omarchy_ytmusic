@@ -1,4 +1,6 @@
 import pytest
+import requests
+from ytmusicapi.exceptions import YTMusicServerError
 
 import ytm
 import ytm_streams as streams
@@ -149,3 +151,146 @@ def test_worker_passes_the_account_flag():
     assert reply["result"]["account"] is True
     bad = worker.handle({"id": 2, "method": "resolve", "params": {"videoId": "abc", "account": "yes"}})
     assert bad["error"]["code"] == "BAD_REQUEST"
+
+
+# ---- loudness (S17) ---------------------------------------------------------------------
+# With the worker setting normalize "youtube", resolve also answers the song's
+# loudnessDb from its raw player response (one request through the account
+# client), memoised per video. The responses below copy the shape YouTube
+# sent live (Karma Police: audioConfig loudnessDb -1.43, formats -1.44).
+
+
+def player_response(loudness=-1.4300003, formats=-1.4399996):
+    response = {
+        "playabilityStatus": {"status": "OK"},
+        "videoDetails": {"videoId": "nbCOAPR33ME", "title": "Karma Police"},
+        "streamingData": {"adaptiveFormats": [
+            {"itag": 137, "mimeType": "video/mp4; codecs=\"avc1.640028\"", "loudnessDb": 99.0},
+            {"itag": 251, "mimeType": "audio/webm; codecs=\"opus\"", "loudnessDb": formats},
+        ]},
+    }
+    if loudness is not None:
+        response["playerConfig"] = {"audioConfig": {
+            "loudnessDb": loudness, "perceptualLoudnessDb": -8.43, "enablePerFormatLoudness": True,
+            "trackAbsoluteLoudnessLkfs": -8.43, "loudnessTargetLkfs": -7}}
+    return response
+
+
+class PlayerClient:
+    """A ytmusicapi client whose raw requests answer `answers` in turn (an
+    exception is raised)."""
+
+    def __init__(self, *answers):
+        self.answers = list(answers)
+        self.requests = []
+
+    def _send_request(self, endpoint, body, additionalParams=""):
+        self.requests.append((endpoint, body))
+        answer = self.answers.pop(0) if len(self.answers) > 1 else self.answers[0]
+        if isinstance(answer, Exception):
+            raise answer
+        return answer
+
+
+def stream_worker(client):
+    resolver = streams.Resolver(factory=factory(info={"url": "https://x/a?expire=5", "format_id": "251"}))
+    return ytm.Worker(client, "ok", resolver=resolver)
+
+
+def resolve(worker, video_id="nbCOAPR33ME"):
+    return worker.handle({"id": 1, "method": "resolve", "params": {"videoId": video_id}})
+
+
+def test_loudness_only_when_normalize_is_youtube():
+    client = PlayerClient(player_response())
+    worker = stream_worker(client)
+    plain = resolve(worker)
+    assert plain["ok"] and "loudnessDb" not in plain["result"] and client.requests == []
+    for mode in ("off", "dynamic"):
+        assert worker.handle({"id": 2, "method": "configure", "params": {"normalize": mode}})["ok"]
+        assert "loudnessDb" not in resolve(worker)["result"] and client.requests == []
+    reply = worker.handle({"id": 3, "method": "configure", "params": {"normalize": "youtube"}})
+    assert reply["result"] == {"settings": {"normalize": "youtube"}, "ignored": [], "reloaded": False}
+    result = resolve(worker)["result"]
+    assert result["loudnessDb"] == pytest.approx(-1.43, abs=0.001) and result["url"] == "https://x/a?expire=5"
+    (endpoint, body), = client.requests
+    assert endpoint == "player" and body["video_id"] == "nbCOAPR33ME"
+    stamp = body["playbackContext"]["contentPlaybackContext"]["signatureTimestamp"]
+    assert isinstance(stamp, int) and stamp > 19000, "get_song's body: days since the epoch, less one"
+
+
+def test_normalize_setting_is_validated():
+    worker = stream_worker(PlayerClient(player_response()))
+    for bad in ("loud", True, None, 1):
+        error = worker.handle({"id": 1, "method": "configure", "params": {"normalize": bad}})["error"]
+        assert error["code"] == "BAD_REQUEST"
+    assert ytm.SETTINGS["normalize"] is streams.validate_normalize
+    assert "normalize" not in ytm.CLIENT_SETTINGS, "levelling never rebuilds the client or clears the cache"
+
+
+def test_loudness_is_memoised_per_video_least_recently_used_out():
+    client = PlayerClient(player_response(loudness=2.5))
+    memo = streams.Loudness(size=2)
+    assert memo.get(client, "a") == 2.5 and memo.get(client, "a") == 2.5
+    assert len(client.requests) == 1, "asked once per video"
+    memo.get(client, "b")
+    memo.get(client, "a")  # a is now the most recently used
+    memo.get(client, "c")  # b goes
+    assert len(memo) == 2 and len(client.requests) == 3
+    memo.get(client, "a")
+    assert len(client.requests) == 3, "a stayed"
+    memo.get(client, "b")
+    assert len(client.requests) == 4, "b was dropped and is asked again"
+    assert streams.LOUDNESS_MEMO == 500 and streams.Resolver().loudness.size == 500
+
+
+def test_worker_memo_spans_requests():
+    client = PlayerClient(player_response(loudness=3.0))
+    worker = stream_worker(client)
+    worker.handle({"id": 1, "method": "configure", "params": {"normalize": "youtube"}})
+    assert resolve(worker)["result"]["loudnessDb"] == 3.0
+    assert resolve(worker)["result"]["loudnessDb"] == 3.0
+    assert len(client.requests) == 1
+
+
+def test_loudness_is_null_when_youtube_gives_none():
+    assert streams.loudness_db(player_response(loudness=None, formats=-5.53)) == pytest.approx(-5.53)
+    assert streams.loudness_db(player_response(loudness=None, formats=None)) is None
+    assert streams.loudness_db({"playabilityStatus": {"status": "UNPLAYABLE"}}) is None
+    assert streams.loudness_db({"playerConfig": {"audioConfig": {"loudnessDb": "loud"}}}) is None
+    assert streams.loudness_db({"playerConfig": {"audioConfig": {"loudnessDb": True}}}) is None
+    assert streams.loudness_db(None) is None
+    client = PlayerClient({"playabilityStatus": {"status": "OK"}})
+    worker = stream_worker(client)
+    worker.handle({"id": 1, "method": "configure", "params": {"normalize": "youtube"}})
+    reply = resolve(worker)
+    assert reply["ok"] and reply["result"]["loudnessDb"] is None
+    resolve(worker)
+    assert len(client.requests) == 1, "an answer without loudness is kept too"
+
+
+@pytest.mark.parametrize("failure", [
+    requests.exceptions.ConnectionError("offline"),
+    requests.exceptions.Timeout("slow"),
+    YTMusicServerError("Server returned HTTP 429: Too Many Requests."),
+    KeyError("playerConfig"),
+    ValueError("not JSON"),
+])
+def test_loudness_never_fails_the_resolve(failure):
+    client = PlayerClient(failure, player_response(loudness=1.25))
+    worker = stream_worker(client)
+    worker.handle({"id": 1, "method": "configure", "params": {"normalize": "youtube"}})
+    reply = resolve(worker)
+    assert reply["ok"] and reply["result"]["url"] == "https://x/a?expire=5"
+    assert reply["result"]["loudnessDb"] is None
+    assert resolve(worker)["result"]["loudnessDb"] == 1.25, "a failure is not kept: the next resolve asks again"
+    assert len(client.requests) == 2
+
+
+def test_a_failed_stream_asks_no_loudness():
+    client = PlayerClient(player_response())
+    resolver = streams.Resolver(factory=factory(error=RuntimeError("ERROR: Video unavailable")))
+    worker = ytm.Worker(client, "ok", resolver=resolver)
+    worker.handle({"id": 1, "method": "configure", "params": {"normalize": "youtube"}})
+    assert resolve(worker)["error"]["code"] == "NOT_FOUND"
+    assert client.requests == []

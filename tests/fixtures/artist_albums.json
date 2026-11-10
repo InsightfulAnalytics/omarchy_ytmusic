@@ -1826,7 +1826,6 @@
                  ]
                 },
                 "navigationEndpoint": {
-                 "clickTrackingParams": "CBMQ_V0YACITCNPk69-i_JcDFd6AVgEdTEQ6LcoBBFwHG_I=",
                  "browseSectionListReloadEndpoint": {}
                 },
                 "accessibilityData": {
@@ -1836,7 +1835,6 @@
                 },
                 "isSelected": true,
                 "onDeselectedCommand": {
-                 "clickTrackingParams": "CBMQ_V0YACITCNPk69-i_JcDFd6AVgEdTEQ6LcoBBFwHG_I=",
                  "browseSectionListReloadEndpoint": {}
                 },
                 "uniqueId": "Albums"
@@ -1852,7 +1850,6 @@
                  ]
                 },
                 "navigationEndpoint": {
-                 "clickTrackingParams": "CBAQ_V0YASITCNPk69-i_JcDFd6AVgEdTEQ6LcoBBFwHG_I=",
                  "browseSectionListReloadEndpoint": {}
                 },
                 "accessibilityData": {
@@ -1862,7 +1859,6 @@
                 },
                 "isSelected": false,
                 "onDeselectedCommand": {
-                 "clickTrackingParams": "CBAQ_V0YASITCNPk69-i_JcDFd6AVgEdTEQ6LcoBBFwHG_I=",
                  "browseSectionListReloadEndpoint": {}
                 },
                 "uniqueId": "Singles & EPs"
@@ -1910,39 +1906,33 @@
                   },
                   "formItemEntityKey": "EmNNUEFEVUNyX2l5VUFOY245T1hfeXk5cGlZb0x3UkVMRUFTRV9GT1JNQVRfVFlQRV9BTEJVTVMtU09SVF9UWVBFX1VOU1BFQ0lGSUVEX1NPUlRfT1JERVJfVU5TUEVDSUZJRUQgkQEoAQ%3D%3D",
                   "selectedCommand": {
-                   "clickTrackingParams": "CA0Qk5QFGAAiEwjT5OvfovyXAxXegFYBHUxEOi3KAQRcBxvy",
                    "commandExecutorCommand": {
                     "commands": [
                      {
-                      "clickTrackingParams": "CA0Qk5QFGAAiEwjT5OvfovyXAxXegFYBHUxEOi3KAQRcBxvy",
                       "musicCheckboxFormItemMutatedCommand": {
                        "formItemEntityKey": "EllNUEFEVUNyX2l5VUFOY245T1hfeXk5cGlZb0x3UkVMRUFTRV9GT1JNQVRfVFlQRV9BTEJVTVMtUkVMRUFTRV9USVRMRV9TT1JUX09SREVSX0FTQ0VORElORyCRASgB",
                        "newCheckedState": false
                       }
                      },
                      {
-                      "clickTrackingParams": "CA0Qk5QFGAAiEwjT5OvfovyXAxXegFYBHUxEOi3KAQRcBxvy",
                       "musicCheckboxFormItemMutatedCommand": {
                        "formItemEntityKey": "EmJNUEFEVUNyX2l5VUFOY245T1hfeXk5cGlZb0x3UkVMRUFTRV9GT1JNQVRfVFlQRV9BTEJVTVMtT1JJR0lOQUxfUkVMRUFTRV9EQVRFX1NPUlRfT1JERVJfREVTQ0VORElORyCRASgB",
                        "newCheckedState": false
                       }
                      },
                      {
-                      "clickTrackingParams": "CA0Qk5QFGAAiEwjT5OvfovyXAxXegFYBHUxEOi3KAQRcBxvy",
                       "musicCheckboxFormItemMutatedCommand": {
                        "formItemEntityKey": "EmNNUEFEVUNyX2l5VUFOY245T1hfeXk5cGlZb0x3UkVMRUFTRV9GT1JNQVRfVFlQRV9BTEJVTVMtU09SVF9UWVBFX1VOU1BFQ0lGSUVEX1NPUlRfT1JERVJfVU5TUEVDSUZJRUQgkQEoAQ%3D%3D",
                        "newCheckedState": true
                       }
                      },
                      {
-                      "clickTrackingParams": "CA0Qk5QFGAAiEwjT5OvfovyXAxXegFYBHUxEOi3KAQRcBxvy",
                       "musicCheckboxFormItemMutatedCommand": {
                        "formItemEntityKey": "El5NUEFEVUNyX2l5VUFOY245T1hfeXk5cGlZb0x3UkVMRUFTRV9GT1JNQVRfVFlQRV9BTEJVTVMtVklFV1NfTEFTVF83X0RBWVNfU09SVF9PUkRFUl9ERVNDRU5ESU5HIJEBKAE%3D",
                        "newCheckedState": false
                       }
                      },
                      {
-                      "clickTrackingParams": "CA0Qk5QFGAAiEwjT5OvfovyXAxXegFYBHUxEOi3KAQRcBxvy",
                       "browseSectionListReloadEndpoint": {}
                      }
                     ]
@@ -1969,39 +1959,33 @@
                   },
                   "formItemEntityKey": "EmJNUEFEVUNyX2l5VUFOY245T1hfeXk5cGlZb0x3UkVMRUFTRV9GT1JNQVRfVFlQRV9BTEJVTVMtT1JJR0lOQUxfUkVMRUFTRV9EQVRFX1NPUlRfT1JERVJfREVTQ0VORElORyCRASgB",
                   "selectedCommand": {
-                   "clickTrackingParams": "CAsQk5QFGAEiEwjT5OvfovyXAxXegFYBHUxEOi3KAQRcBxvy",
                    "commandExecutorCommand": {
                     "commands": [
                      {
-                      "clickTrackingParams": "CAsQk5QFGAEiEwjT5OvfovyXAxXegFYBHUxEOi3KAQRcBxvy",
                       "musicCheckboxFormItemMutatedCommand": {
                        "formItemEntityKey": "El5NUEFEVUNyX2l5VUFOY245T1hfeXk5cGlZb0x3UkVMRUFTRV9GT1JNQVRfVFlQRV9BTEJVTVMtVklFV1NfTEFTVF83X0RBWVNfU09SVF9PUkRFUl9ERVNDRU5ESU5HIJEBKAE%3D",
                        "newCheckedState": false
                       }
                      },
                      {
-                      "clickTrackingParams": "CAsQk5QFGAEiEwjT5OvfovyXAxXegFYBHUxEOi3KAQRcBxvy",
                       "musicCheckboxFormItemMutatedCommand": {
                        "formItemEntityKey": "EmNNUEFEVUNyX2l5VUFOY245T1hfeXk5cGlZb0x3UkVMRUFTRV9GT1JNQVRfVFlQRV9BTEJVTVMtU09SVF9UWVBFX1VOU1BFQ0lGSUVEX1NPUlRfT1JERVJfVU5TUEVDSUZJRUQgkQEoAQ%3D%3D",
                        "newCheckedState": false
                       }
                      },
                      {
-                      "clickTrackingParams": "CAsQk5QFGAEiEwjT5OvfovyXAxXegFYBHUxEOi3KAQRcBxvy",
                       "musicCheckboxFormItemMutatedCommand": {
                        "formItemEntityKey": "EllNUEFEVUNyX2l5VUFOY245T1hfeXk5cGlZb0x3UkVMRUFTRV9GT1JNQVRfVFlQRV9BTEJVTVMtUkVMRUFTRV9USVRMRV9TT1JUX09SREVSX0FTQ0VORElORyCRASgB",
                        "newCheckedState": false
                       }
                      },
                      {
-                      "clickTrackingParams": "CAsQk5QFGAEiEwjT5OvfovyXAxXegFYBHUxEOi3KAQRcBxvy",
                       "musicCheckboxFormItemMutatedCommand": {
                        "formItemEntityKey": "EmJNUEFEVUNyX2l5VUFOY245T1hfeXk5cGlZb0x3UkVMRUFTRV9GT1JNQVRfVFlQRV9BTEJVTVMtT1JJR0lOQUxfUkVMRUFTRV9EQVRFX1NPUlRfT1JERVJfREVTQ0VORElORyCRASgB",
                        "newCheckedState": true
                       }
                      },
                      {
-                      "clickTrackingParams": "CAsQk5QFGAEiEwjT5OvfovyXAxXegFYBHUxEOi3KAQRcBxvy",
                       "browseSectionListReloadEndpoint": {}
                      }
                     ]
@@ -2028,39 +2012,33 @@
                   },
                   "formItemEntityKey": "El5NUEFEVUNyX2l5VUFOY245T1hfeXk5cGlZb0x3UkVMRUFTRV9GT1JNQVRfVFlQRV9BTEJVTVMtVklFV1NfTEFTVF83X0RBWVNfU09SVF9PUkRFUl9ERVNDRU5ESU5HIJEBKAE%3D",
                   "selectedCommand": {
-                   "clickTrackingParams": "CAkQk5QFGAIiEwjT5OvfovyXAxXegFYBHUxEOi3KAQRcBxvy",
                    "commandExecutorCommand": {
                     "commands": [
                      {
-                      "clickTrackingParams": "CAkQk5QFGAIiEwjT5OvfovyXAxXegFYBHUxEOi3KAQRcBxvy",
                       "musicCheckboxFormItemMutatedCommand": {
                        "formItemEntityKey": "EllNUEFEVUNyX2l5VUFOY245T1hfeXk5cGlZb0x3UkVMRUFTRV9GT1JNQVRfVFlQRV9BTEJVTVMtUkVMRUFTRV9USVRMRV9TT1JUX09SREVSX0FTQ0VORElORyCRASgB",
                        "newCheckedState": false
                       }
                      },
                      {
-                      "clickTrackingParams": "CAkQk5QFGAIiEwjT5OvfovyXAxXegFYBHUxEOi3KAQRcBxvy",
                       "musicCheckboxFormItemMutatedCommand": {
                        "formItemEntityKey": "EmJNUEFEVUNyX2l5VUFOY245T1hfeXk5cGlZb0x3UkVMRUFTRV9GT1JNQVRfVFlQRV9BTEJVTVMtT1JJR0lOQUxfUkVMRUFTRV9EQVRFX1NPUlRfT1JERVJfREVTQ0VORElORyCRASgB",
                        "newCheckedState": false
                       }
                      },
                      {
-                      "clickTrackingParams": "CAkQk5QFGAIiEwjT5OvfovyXAxXegFYBHUxEOi3KAQRcBxvy",
                       "musicCheckboxFormItemMutatedCommand": {
                        "formItemEntityKey": "EmNNUEFEVUNyX2l5VUFOY245T1hfeXk5cGlZb0x3UkVMRUFTRV9GT1JNQVRfVFlQRV9BTEJVTVMtU09SVF9UWVBFX1VOU1BFQ0lGSUVEX1NPUlRfT1JERVJfVU5TUEVDSUZJRUQgkQEoAQ%3D%3D",
                        "newCheckedState": false
                       }
                      },
                      {
-                      "clickTrackingParams": "CAkQk5QFGAIiEwjT5OvfovyXAxXegFYBHUxEOi3KAQRcBxvy",
                       "musicCheckboxFormItemMutatedCommand": {
                        "formItemEntityKey": "El5NUEFEVUNyX2l5VUFOY245T1hfeXk5cGlZb0x3UkVMRUFTRV9GT1JNQVRfVFlQRV9BTEJVTVMtVklFV1NfTEFTVF83X0RBWVNfU09SVF9PUkRFUl9ERVNDRU5ESU5HIJEBKAE%3D",
                        "newCheckedState": true
                       }
                      },
                      {
-                      "clickTrackingParams": "CAkQk5QFGAIiEwjT5OvfovyXAxXegFYBHUxEOi3KAQRcBxvy",
                       "browseSectionListReloadEndpoint": {}
                      }
                     ]
@@ -2087,39 +2065,33 @@
                   },
                   "formItemEntityKey": "EllNUEFEVUNyX2l5VUFOY245T1hfeXk5cGlZb0x3UkVMRUFTRV9GT1JNQVRfVFlQRV9BTEJVTVMtUkVMRUFTRV9USVRMRV9TT1JUX09SREVSX0FTQ0VORElORyCRASgB",
                   "selectedCommand": {
-                   "clickTrackingParams": "CAcQk5QFGAMiEwjT5OvfovyXAxXegFYBHUxEOi3KAQRcBxvy",
                    "commandExecutorCommand": {
                     "commands": [
                      {
-                      "clickTrackingParams": "CAcQk5QFGAMiEwjT5OvfovyXAxXegFYBHUxEOi3KAQRcBxvy",
                       "musicCheckboxFormItemMutatedCommand": {
                        "formItemEntityKey": "EmNNUEFEVUNyX2l5VUFOY245T1hfeXk5cGlZb0x3UkVMRUFTRV9GT1JNQVRfVFlQRV9BTEJVTVMtU09SVF9UWVBFX1VOU1BFQ0lGSUVEX1NPUlRfT1JERVJfVU5TUEVDSUZJRUQgkQEoAQ%3D%3D",
                        "newCheckedState": false
                       }
                      },
                      {
-                      "clickTrackingParams": "CAcQk5QFGAMiEwjT5OvfovyXAxXegFYBHUxEOi3KAQRcBxvy",
                       "musicCheckboxFormItemMutatedCommand": {
                        "formItemEntityKey": "El5NUEFEVUNyX2l5VUFOY245T1hfeXk5cGlZb0x3UkVMRUFTRV9GT1JNQVRfVFlQRV9BTEJVTVMtVklFV1NfTEFTVF83X0RBWVNfU09SVF9PUkRFUl9ERVNDRU5ESU5HIJEBKAE%3D",
                        "newCheckedState": false
                       }
                      },
                      {
-                      "clickTrackingParams": "CAcQk5QFGAMiEwjT5OvfovyXAxXegFYBHUxEOi3KAQRcBxvy",
                       "musicCheckboxFormItemMutatedCommand": {
                        "formItemEntityKey": "EmJNUEFEVUNyX2l5VUFOY245T1hfeXk5cGlZb0x3UkVMRUFTRV9GT1JNQVRfVFlQRV9BTEJVTVMtT1JJR0lOQUxfUkVMRUFTRV9EQVRFX1NPUlRfT1JERVJfREVTQ0VORElORyCRASgB",
                        "newCheckedState": false
                       }
                      },
                      {
-                      "clickTrackingParams": "CAcQk5QFGAMiEwjT5OvfovyXAxXegFYBHUxEOi3KAQRcBxvy",
                       "musicCheckboxFormItemMutatedCommand": {
                        "formItemEntityKey": "EllNUEFEVUNyX2l5VUFOY245T1hfeXk5cGlZb0x3UkVMRUFTRV9GT1JNQVRfVFlQRV9BTEJVTVMtUkVMRUFTRV9USVRMRV9TT1JUX09SREVSX0FTQ0VORElORyCRASgB",
                        "newCheckedState": true
                       }
                      },
                      {
-                      "clickTrackingParams": "CAcQk5QFGAMiEwjT5OvfovyXAxXegFYBHUxEOi3KAQRcBxvy",
                       "browseSectionListReloadEndpoint": {}
                      }
                     ]

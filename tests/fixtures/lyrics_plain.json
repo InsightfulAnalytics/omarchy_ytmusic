@@ -1,0 +1,26 @@
+{
+ "contents": {
+  "sectionListRenderer": {
+   "contents": [
+    {
+     "musicDescriptionShelfRenderer": {
+      "description": {
+       "runs": [
+        {
+         "text": "Karma police\nArrest this man\nHe talks in maths"
+        }
+       ]
+      },
+      "footer": {
+       "runs": [
+        {
+         "text": "Source: Musixmatch"
+        }
+       ]
+      }
+     }
+    }
+   ]
+  }
+ }
+}

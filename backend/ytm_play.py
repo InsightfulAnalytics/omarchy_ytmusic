@@ -19,6 +19,8 @@ Area module (see AREA_MODULES in ytm.py).
 import ytm_artist as artist
 import ytm_library as library
 import ytm_normalize as norm
+import ytm_now as now
+import ytm_raw as raw
 from ytm_proto import WorkerError, choice, opt_int, req_str
 
 MAX_TRACKS = 5000
@@ -135,6 +137,15 @@ def _radio_source(params):
 
 
 def m_radio(worker, params):
+    """``_radio`` plus ``playingFrom`` (S12): the queue header's name for the
+    radio ("Karma Police Mix"), read from the same response."""
+    with raw.capture(("next",)) as cap:
+        reply = _radio(worker, params)
+    reply["playingFrom"] = now.playing_from(cap.first("next"))
+    return reply
+
+
+def _radio(worker, params):
     """Start radio: ``{videoId}``, ``{playlistId}`` (a playlist or an album's
     audio playlist), ``{mixId}`` (played as it is), ``{browseId}`` (an album
     page: its audio playlist) or ``{channelId}`` (an artist: its radio mix).
