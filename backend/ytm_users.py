@@ -18,11 +18,14 @@
   (one when the session was checked another way, as a switch of identity
   does).
   NOT_FOUND with ``noChannel: true`` when the menu links no channel.
-- ``libraryProfiles({cursor?})`` (signed in): the profiles in your library
-  (FEmusic_library_user_profile_channels_list), a music shelf read a page
-  at a time like the library's lists; the note YouTube serves under it
+- ``libraryProfiles({order?, cursor?})`` (signed in): the profiles in your
+  library (FEmusic_library_user_profile_channels_list), a music shelf read a
+  page at a time like the library's lists; the note YouTube serves under it
   ("Only profiles with music activity are shown.", alone when there are
-  none) is the page's ``message``.
+  none) is the page's ``message``. G4: the page's served sort orders
+  (Recently saved, A to Z, Z to A) as ``orders`` / ``order``, read and
+  applied as ytm_library's lists do (an order's params replace the plain
+  list's; YouTube saves the order on the account).
 
 Your own channel's pages are titled with your account's name, which never
 reaches the disk cache or a log: ``myChannel`` is not cacheable, and
@@ -32,6 +35,7 @@ Area module (see AREA_MODULES in ytm.py). The recorder is anonymous: a
 public profile's raw page, trimmed as S8's pages are.
 """
 
+from ytmusicapi.mixins._utils import prepare_order_params
 from ytmusicapi.navigation import MRLIR, THUMBNAILS, nav
 
 import ytm_library as library
@@ -214,29 +218,48 @@ def served_message(response):
     return None
 
 
-def _profiles_page(items, cursor, message=None):
+def _profiles_page(items, cursor, message=None, orders=None, order=None):
     sections = [norm.section(None, items, layout="shelf")] if items else []
-    return norm.page("libraryProfiles", PROFILES_BROWSE_ID, None, sections=sections, cursor=cursor, message=message)
+    return norm.page("libraryProfiles", PROFILES_BROWSE_ID, None, sections=sections, cursor=cursor, message=message,
+                     orders=orders, order=order)
+
+
+# ---- G4: the profiles' sort orders --------------------------------------------------------
+# The page serves Recently saved, A to Z and Z to A; each option's reload
+# token carries ytmusicapi's order params in place of PROFILES_PARAMS, so
+# an order goes into the body as the library's lists send it (one request).
+# Only served orders are offered (none when the page serves no menu).
+
+
+def profiles_body(order):
+    """The browse body of the profiles list in ``order`` (one of
+    ytm_library.ORDERS; anything else reads the plain list)."""
+    params = prepare_order_params(order) if order in library.ORDERS else PROFILES_PARAMS
+    return {"browseId": PROFILES_BROWSE_ID, "params": params}
+# ---- end G4
 
 
 def m_library_profiles(worker, params):
     worker.require_auth()
+    order = library.order_param(params)  # G4
     cursor = opt_cursor(params)
-    body = {"browseId": PROFILES_BROWSE_ID, "params": PROFILES_PARAMS}
+    body = profiles_body(order)  # G4
     yt = worker.yt
     if cursor:
         items, cursor = pages.fetch(yt, "browse", body, "ctoken", None, _profiles, cursor=cursor,
                                     min_items=PAGE_ITEMS, max_http=library._budget(0))
-        return _profiles_page(items, cursor)
-    first = pages.first_page(yt, "browse", body)
+        return _profiles_page(items, cursor, order=order)
+    # G4: an ordered read is a saved setting: the cached browsePage copies go.
+    first = library._first_page(worker, PROFILES_BROWSE_ID, body, order)
     response = first[0]
+    orders, current = library._orders(first[3], order, offered=())  # G4
     message = served_message(response)
     shelf = podcasts._shelf(response, ("musicShelfRenderer",))
     if shelf is None:
-        return _profiles_page([], None, message)
+        return _profiles_page([], None, message, orders, current)
     items, cursor = pages.fetch(yt, "browse", body, "ctoken", lambda _: shelf, _profiles, min_items=PAGE_ITEMS,
                                 max_http=library._budget(first[1]), first=first)
-    return _profiles_page(items, cursor, message)
+    return _profiles_page(items, cursor, message, orders, current)
 
 
 # ---- recorder (anonymous) --------------------------------------------------------------------

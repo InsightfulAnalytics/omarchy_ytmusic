@@ -468,7 +468,7 @@ def test_settings_from_an_owned_page():
                                    {"value": "NEWEST_FIRST", "title": "Newest first"},
                                    {"value": "NEWEST_LAST", "title": "Oldest first"}],
                    "addToTop": None, "voteOption": "OFF", "voteOptions": ["EVERYONE_CAN_VOTE", "OFF"],
-                   "collaboration": True, "collaborators": "by You and 1 other"}
+                   "collaboration": True, "collaborators": "by You and 1 other", "removeImage": None}
 
 
 def test_settings_missing_fields_are_null():
@@ -581,7 +581,8 @@ def test_an_empty_playlist_of_yours_is_owned_by_its_page():
 
 
 def test_every_edit_mutates_and_invalidates():
-    edits = {"editPlaylist", "movePlaylistItem", "addToPlaylist", "createPlaylist", "joinPlaylist"}
+    edits = {"editPlaylist", "movePlaylistItem", "addToPlaylist", "createPlaylist", "joinPlaylist",
+             "removePlaylistImage"}  # G4
     assert edit.MUTATES == edits and edits <= ytm.MUTATES
     for name in edits:
         triples = ytm.INVALIDATES[name]

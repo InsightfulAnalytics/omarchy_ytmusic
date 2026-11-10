@@ -7,7 +7,10 @@ import "../YtmModel.js" as Model
 // The play queue (mpv's playlist): click to jump, hover to move or remove,
 // right-click (or m) for a song's menu. Owns its keyboard cursor; Panel.qml
 // forwards keys. Its header's pane chip (or y) switches the area below to
-// Lyrics or Related (S11): Panel puts those views in it as children.
+// Lyrics or Related (S11): Panel puts those views in it as children. G4:
+// the songs autoplay added after the current one sit under an "Autoplay"
+// caption, dimmed, as the web's Up next sets them apart (not in a radio or
+// a tuned queue, whose songs are plain rows there).
 Item {
   id: root
 
@@ -24,6 +27,11 @@ Item {
   readonly property string fontFamily: bar ? bar.fontFamily : Style.font.family
   readonly property var queue: service ? service.queue : []
   readonly property int currentIndex: service ? service.playlistPos : -1
+  // G4: whether autoplay's songs are set apart, and the row the "Autoplay"
+  // caption goes above (-1: none).
+  readonly property bool autoplayApart: Model.autoplaySetApart(service ? service.playContext : null,
+                                                               service ? service.tuner : null)
+  readonly property int firstAutoIndex: autoplayApart ? Model.firstAutoIndex(queue, currentIndex) : -1
 
   // A song's menu: Panel opens it.
   signal itemMenuRequested(var request)
@@ -281,24 +289,46 @@ Item {
       policy: ScrollBar.AsNeeded
     }
 
-    delegate: TrackRow {
+    // G4: a caption above the first song autoplay added; its songs dimmed
+    // until they play. A Column skips the hidden caption, so other rows keep
+    // their height (positionViewAtIndex copes with the taller one).
+    delegate: Column {
+      id: queueRow
       required property var modelData
       required property int index
 
       width: list.width
-      bar: root.bar
-      store: root.service ? root.service.store : null
-      track: modelData.track
-      current: modelData.current
-      cursor: index === root.cursorIndex
-      showMove: true
-      showRemove: true
-      showMenu: true
 
-      onActivated: root.service.jumpTo(index)
-      onRemoveRequested: root.service.removeAt(index)
-      onMenuRequested: root.menu(index)
-      onMoveRequested: function(delta) { root.service.move(index, index + delta) }
+      Text {
+        width: parent.width
+        visible: queueRow.index === root.firstAutoIndex
+        topPadding: Style.space(4)
+        bottomPadding: Style.space(2)
+        textFormat: Text.PlainText
+        text: Model.AUTOPLAY_CAPTION
+        color: Qt.darker(root.foreground, 1.6)
+        font.family: root.fontFamily
+        font.pixelSize: Style.font.caption
+        font.letterSpacing: 1
+      }
+
+      TrackRow {
+        width: parent.width
+        opacity: root.autoplayApart && Model.autoplayAdded(queueRow.modelData, queueRow.index, root.currentIndex) ? 0.7 : 1
+        bar: root.bar
+        store: root.service ? root.service.store : null
+        track: queueRow.modelData.track
+        current: queueRow.modelData.current
+        cursor: queueRow.index === root.cursorIndex
+        showMove: true
+        showRemove: true
+        showMenu: true
+
+        onActivated: root.service.jumpTo(queueRow.index)
+        onRemoveRequested: root.service.removeAt(queueRow.index)
+        onMenuRequested: root.menu(queueRow.index)
+        onMoveRequested: function(delta) { root.service.move(queueRow.index, queueRow.index + delta) }
+      }
     }
 
     // S12: where autoplay would have added songs, why it did not.

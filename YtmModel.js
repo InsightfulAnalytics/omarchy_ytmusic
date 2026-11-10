@@ -7338,3 +7338,304 @@ if (typeof module !== "undefined") {
     clearFilterRow: clearFilterRow
   })
 }
+
+// ==== menus and lists (G4) =====================================================================
+// The menu and list gaps a completeness audit found:
+// - Start radio from Liked Music (its row, its page's M and R with no row):
+//   YouTube's RDAMPLLM, signed in only.
+// - A mix (RDTMAK, RDAT, RD... rows and pages) offers Shuffle, Save to
+//   playlist and Copy to new playlist; its songs (the 50 the panel plays)
+//   go into the playlist, not the mix's id.
+// - A playlist page's M has Go to author (the byline link's twin), and A
+//   with no song row opens it, as it opens an album's artist.
+// - Liked Music's mood and genre chips (served as `filters`): All, the first
+//   few, and More (a chooser of every one); h / l cycle them, M has Filter.
+// - Save to playlist offers Skip duplicates next to Add anyway when some of
+//   several songs, or of a whole album or playlist, are already there.
+// - The queue sets the songs autoplay added apart (an "Autoplay" caption,
+//   dimmed rows), as the web's Up next does.
+// - Your playlist's editor offers Remove custom image when YouTube serves
+//   it. Setting one and Report are browser only (README, Not in the panel).
+
+var LIKED_FILTER_ALL = "All songs"
+var LIKED_CHIPS_SHOWN = 3
+var LIKED_MORE_ID = "liked:moreChips"
+var SKIP_DUPLICATES_ID = "picker:skipDuplicates"
+var EDITOR_REMOVE_IMAGE_ID = "editor:removeImage"
+var AUTOPLAY_CAPTION = "Autoplay"
+
+// ---- Start radio from Liked Music -----------------------------------------------------------
+
+_RADIOS.push("liked")
+var _g4RadioParams = radioParams
+radioParams = function(item) {
+  return menuKind(item) === "liked" ? { playlistId: "LM" } : _g4RadioParams(item)
+}
+
+// ---- mixes: Shuffle, Save to playlist, Copy to new playlist ---------------------------------
+
+_SHUFFLES.push("mix")
+
+// An album, a playlist or (G4) a mix can be saved whole into a playlist: an
+// album or playlist by its id (sourcePlaylistOf), a mix by its songs.
+function canSaveWhole(item) {
+  return sourcePlaylistOf(item) !== "" || menuKind(item) === "mix"
+}
+
+menuAction("saveToPlaylist").applies = function(item, ctx) { return ctx.signedIn === true && canSaveWhole(item) }
+menuAction("copyToNewPlaylist").applies = function(item, ctx) { return ctx.signedIn === true && canSaveWhole(item) }
+
+// The picker's second line and its name field's placeholder for what is
+// saved whole.
+function pickerSourceText(item) {
+  var kind = menuKind(item)
+  return (kind === "album" ? "The whole album: " : kind === "mix" ? "The mix: " : "The whole playlist: ") + itemTitle(item)
+}
+
+function pickerSourcePlaceholder(item) {
+  var kind = menuKind(item)
+  return kind === "album" ? "New playlist from this album" : kind === "mix" ? "New playlist from this mix"
+    : "New playlist from this playlist"
+}
+
+// ---- a playlist's author --------------------------------------------------------------------
+
+// The author of a playlist page as the byline links it (a profile), null
+// when the playlist has collaborators or the author has no channel.
+function playlistAuthorItem(page) {
+  if (!isCollection(page) || page.kind !== "playlist") return null
+  var header = collectionHeader(page)
+  var author = header.author
+  if (header.collaborators || !author || !author.name || String(author.id || "").indexOf("UC") !== 0) return null
+  return { type: "profile", channelId: author.id, name: author.name }
+}
+
+// A with no song row: an album's first artist, else a playlist's author.
+var _g4PageArtistItem = pageArtistItem
+pageArtistItem = function(page) {
+  return _g4PageArtistItem(page) || playlistAuthorItem(page)
+}
+
+_insertAfter(MENU_ACTIONS, "goAlbum", [
+  { id: "goAuthor", title: "Go to author", icon: PROFILE_ICON, key: "artist",
+    applies: function(item, ctx) { return ctx.page === true && ctx.pageKind === "playlist" && !!ctx.authorItem },
+    run: function(env) { env.panel.push(env.ctx.authorItem) } }
+])
+
+// ---- Liked Music's chips --------------------------------------------------------------------
+
+// The page's chips, [{ index, title, selected }]; `index` is the chip's
+// served id (the chips move between reads), sent back as `filter`.
+function likedFilters(page) {
+  return isCollection(page) && page.kind === "liked" && Array.isArray(page.filters) ? page.filters : []
+}
+
+// "Chill"; "All songs" for none.
+function likedFilterTitle(filters, current) {
+  if (current === null || current === undefined) return LIKED_FILTER_ALL
+  for (var i = 0; i < (filters || []).length; i++)
+    if (filters[i] && filters[i].index === current) return String(filters[i].title || "")
+  return LIKED_FILTER_ALL
+}
+
+// The chip row: All, the first LIKED_CHIPS_SHOWN chips, then More (every
+// chip in a chooser; it names the chosen one when that is not shown).
+// [{ title, value, selected, more }]
+function likedChipRow(filters, current) {
+  var list = (filters || []).filter(function(f) { return !!f })
+  if (list.length === 0) return []
+  var none = current === null || current === undefined
+  var row = [{ title: "All", value: null, selected: none, more: false }]
+  var shown = list.slice(0, LIKED_CHIPS_SHOWN)
+  for (var i = 0; i < shown.length; i++)
+    row.push({ title: String(shown[i].title || ""), value: shown[i].index, selected: shown[i].index === current, more: false })
+  if (list.length > LIKED_CHIPS_SHOWN) {
+    var hidden = !none && shown.every(function(f) { return f.index !== current })
+    row.push({ title: hidden ? likedFilterTitle(list, current) : "More", value: null, selected: hidden, more: true })
+  }
+  return row
+}
+
+// The chooser (ItemMenu.openChooser): All songs, then every chip, the
+// current one ticked.
+function likedFilterChoices(filters, current) {
+  var none = current === null || current === undefined
+  var rows = [{ id: "liked:all", title: LIKED_FILTER_ALL, icon: none ? EPISODE_CHOSEN_ICON : FILTER_ICON, value: null }]
+  for (var i = 0; i < (filters || []).length; i++) {
+    var f = filters[i]
+    if (f) rows.push({ id: "liked:" + f.index, title: String(f.title || ""), icon: f.index === current ? EPISODE_CHOSEN_ICON : FILTER_ICON,
+                       value: f.index })
+  }
+  return rows
+}
+
+// M: the chips' twin (h / l is the key).
+_insertAfter(MENU_ACTIONS, "episodeFilter", [
+  { id: "likedFilter", title: function(item, ctx) { return "Filter: " + (ctx.likedFilterTitle || LIKED_FILTER_ALL) },
+    icon: FILTER_ICON, key: "horizontal",
+    applies: function(item, ctx) { return ctx.page === true && ctx.likedFilters === true },
+    run: function(env) { if (env.owner && typeof env.owner.chooseLikedFilter === "function") env.owner.chooseLikedFilter() } }
+])
+
+// ---- Skip duplicates ------------------------------------------------------------------------
+
+// Skip duplicates is offered for a whole album, playlist or mix (total 0:
+// YouTube does not say which songs) and for any refused add of several
+// songs. A refusal may name every song even when some are new (its Add
+// anyway can repeat the whole request, as the whole-album one does), so
+// the count cannot tell; the worker finds out. One song: Esc is the skip.
+function canSkipDuplicates(count, total) {
+  return total === 0 || total > 1
+}
+
+// "2 of 5 songs are" only when YouTube named some but not all of them.
+function skipDuplicatesPrompt(count, total) {
+  var what = total === 0 ? "Some of its songs are"
+    : count > 0 && count < total ? count + " of " + total + " songs are" : "Some of the " + total + " songs are"
+  return what + " already there: Enter again adds them anyway, or choose Skip duplicates"
+}
+
+// S13's options plus (G4) skipDuplicates when `skip` and the playlist is
+// the one YouTube refused (never with Add anyway).
+var _g4PickerAddOptions = pickerAddOptions
+pickerAddOptions = function(state, playlistId, skip) {
+  var options = _g4PickerAddOptions(state, playlistId)
+  if (skip === true && options.duplicates) {
+    options.duplicates = false
+    options.skipDuplicates = true
+  }
+  return options
+}
+
+// S13's reply handling plus (G4) `skip: true` when Skip duplicates is
+// offered (the prompt then names both choices).
+var _g4PickerAfterReply = pickerAfterReply
+pickerAfterReply = function(state, playlistId, reply, total) {
+  var next = _g4PickerAfterReply(state, playlistId, reply, total)
+  var error = reply && reply.error ? reply.error : null
+  if (next.duplicateOf !== "" && error) {
+    var count = Array.isArray(error.videoIds) ? error.videoIds.length : 0
+    var all = total === undefined ? 1 : total
+    if (canSkipDuplicates(count, all)) {
+      next.skip = true
+      next.status = skipDuplicatesPrompt(count, all)
+    }
+  }
+  return next
+}
+
+// The picker's rows with the Skip duplicates row after the playlist
+// YouTube refused, while it is offered.
+function withSkipRow(rows, playlistId, offered) {
+  var list = rows || []
+  if (!offered || !playlistId) return list
+  for (var i = 0; i < list.length; i++) {
+    if (list[i] && list[i].item && list[i].item.playlistId === playlistId)
+      return list.slice(0, i + 1).concat([{ item: { type: "action", id: SKIP_DUPLICATES_ID, icon: "󰒬",
+                                                    title: "Skip duplicates: add only the songs not there yet" } }],
+                                         list.slice(i + 1))
+  }
+  return list
+}
+
+// The notice after an add that skipped duplicates: { title, body }.
+// `label` names what was added (a song count, an album's title).
+function skippedNotice(playlistTitle, label, result) {
+  var r = result || {}
+  var skipped = Array.isArray(r.skipped) ? r.skipped.length : 0
+  if (r.status) return { title: String(r.status), body: "Every song is already in " + playlistTitle }
+  return { title: "Added to " + playlistTitle,
+           body: label + (skipped > 0 ? " (" + songsText(skipped) + " already there, skipped)" : " (songs already there skipped)") }
+}
+
+// ---- the queue: what autoplay added ---------------------------------------------------------
+
+// Whether the queue sets autoplay's songs apart (the caption, dimmed rows).
+// Not in a radio (Start radio, Liked Music Mix, a queue autoplay made one)
+// or a queue tuned to a chip other than All: every song after the current
+// one is then that radio's, plain rows as on the web, though S12 marks
+// them "auto" so a chip can replace them.
+function autoplaySetApart(context, tuner) {
+  return !(context && context.radio === true) && !(tuner && tuner.playlistId)
+}
+
+// The first entry after the current one that autoplay added (-1: none):
+// the "Autoplay" caption goes above it.
+function firstAutoIndex(queue, currentIndex) {
+  var list = queue || []
+  var from = Math.max(0, (Number(currentIndex) >= 0 ? Number(currentIndex) + 1 : 0))
+  for (var i = from; i < list.length; i++) if (list[i] && list[i].origin === "auto") return i
+  return -1
+}
+
+// A queue row autoplay added that has not played yet (shown dimmed).
+function autoplayAdded(entry, index, currentIndex) {
+  return !!entry && entry.origin === "auto" && index > currentIndex
+}
+
+// ---- your playlist's custom image ---------------------------------------------------------
+
+var _g4EditorInitial = editorInitial
+editorInitial = function(target, settings) {
+  var out = _g4EditorInitial(target, settings)
+  out.removeImage = settings && typeof settings.removeImage === "string" && settings.removeImage !== "" ? settings.removeImage : null
+  return out
+}
+
+// S13's rows plus, when YouTube serves it, Remove custom image (under
+// Privacy, before Advanced). opts.imageArmed: the first press asks again.
+var _g4EditorRows = editorRows
+editorRows = function(initial, current, opts) {
+  var rows = _g4EditorRows(initial, current, opts)
+  var title = initial && initial.removeImage
+  if (!title) return rows
+  var o = opts || {}
+  var row = { item: { type: "action", id: EDITOR_REMOVE_IMAGE_ID, icon: "󰋩",
+                      title: o.imageArmed ? "Really remove the custom image? Choose again" : String(title) } }
+  var at = rows.length
+  for (var i = 0; i < rows.length; i++) {
+    if (rows[i].header) {
+      at = i
+      break
+    }
+  }
+  return rows.slice(0, at).concat([row], rows.slice(at))
+}
+
+// ---- keys ---------------------------------------------------------------------------------------
+
+_keyEntry("artist").title = "go to artist (of the row, the album page's artist or the playlist's author, or the current song)"
+_keyEntry("radio").title = "start radio from the row, the artist page, Liked Music or the current song"
+_keyEntry("addToPlaylist").title = "add to playlist (the song, or a whole album, playlist or mix row)"
+
+if (typeof module !== "undefined") {
+  Object.assign(module.exports, {
+    LIKED_FILTER_ALL: LIKED_FILTER_ALL,
+    LIKED_CHIPS_SHOWN: LIKED_CHIPS_SHOWN,
+    LIKED_MORE_ID: LIKED_MORE_ID,
+    SKIP_DUPLICATES_ID: SKIP_DUPLICATES_ID,
+    EDITOR_REMOVE_IMAGE_ID: EDITOR_REMOVE_IMAGE_ID,
+    AUTOPLAY_CAPTION: AUTOPLAY_CAPTION,
+    radioParams: radioParams,
+    canSaveWhole: canSaveWhole,
+    pickerSourceText: pickerSourceText,
+    pickerSourcePlaceholder: pickerSourcePlaceholder,
+    playlistAuthorItem: playlistAuthorItem,
+    pageArtistItem: pageArtistItem,
+    likedFilters: likedFilters,
+    likedFilterTitle: likedFilterTitle,
+    likedChipRow: likedChipRow,
+    likedFilterChoices: likedFilterChoices,
+    canSkipDuplicates: canSkipDuplicates,
+    skipDuplicatesPrompt: skipDuplicatesPrompt,
+    pickerAddOptions: pickerAddOptions,
+    pickerAfterReply: pickerAfterReply,
+    withSkipRow: withSkipRow,
+    skippedNotice: skippedNotice,
+    firstAutoIndex: firstAutoIndex,
+    autoplayAdded: autoplayAdded,
+    autoplaySetApart: autoplaySetApart,
+    editorInitial: editorInitial,
+    editorRows: editorRows
+  })
+}

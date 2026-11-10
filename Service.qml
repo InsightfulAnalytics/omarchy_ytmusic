@@ -2149,7 +2149,9 @@ Item {
   // S13: opts { duplicates (add anyway), sourcePlaylistId (a whole album or
   // playlist, with sourceTitle) }. A song already there (DUPLICATE) is the
   // callback's to ask about: it returns true when it did (the picker),
-  // else a notice says nothing was added.
+  // else a notice says nothing was added. G4: opts.skipDuplicates adds
+  // only what is not there yet (the notice says what was skipped);
+  // sourceTitle also names songs added for a mix.
   function addToPlaylist(playlist, tracks, callback, opts) {
     var o = opts || {}
     var list = (tracks || []).filter(function(t) { return t && t.videoId })
@@ -2158,6 +2160,7 @@ Item {
     if (list.length > 0) params.videoIds = list.map(function(t) { return t.videoId })
     if (o.sourcePlaylistId) params.sourcePlaylistId = String(o.sourcePlaylistId)
     if (o.duplicates === true) params.duplicates = true
+    if (o.skipDuplicates === true) params.skipDuplicates = true  // G4
     backend.request("addToPlaylist", params, function(reply) {
       if (!reply.ok && reply.error.code === "DUPLICATE" && !root.unsure(reply)) {
         if (!(callback && callback(reply) === true)) root.notify("Already in " + playlist.title, "Nothing was added")
@@ -2166,15 +2169,20 @@ Item {
       if (reply.ok) {
         storeItem.forgetCollection("playlist", playlist.playlistId)
         storeItem.forgetCollection("libraryLanding")  // S2: Recent activity lists playlists too
-        root.notify("Added to " + playlist.title, o.sourceTitle ? String(o.sourceTitle)
-          : list.length === 1 ? Model.mediaTitle(list[0]) : list.length + " songs")
+        var label = o.sourceTitle ? String(o.sourceTitle) : list.length === 1 ? Model.mediaTitle(list[0]) : list.length + " songs"
+        if (o.skipDuplicates === true) {  // G4
+          var skipped = Model.skippedNotice(playlist.title, label, reply.result)
+          root.notify(skipped.title, skipped.body)
+        } else {
+          root.notify("Added to " + playlist.title, label)
+        }
       } else if (root.unsure(reply)) {
         root.refreshUnsure([{ kind: "playlist", id: playlist.playlistId }, { kind: "library" }], playlist.title)
       } else {
         root.fail(reply.error.message)
       }
       if (callback) callback(reply)
-    }, list.length > 100 || o.sourcePlaylistId ? 60000 : 30000, noRetry)
+    }, list.length > 100 || o.sourcePlaylistId || o.skipDuplicates === true ? 60000 : 30000, noRetry)  // G4: a skip may read the playlist
     return true
   }
 
@@ -2310,6 +2318,22 @@ Item {
     if (!signedIn || !params || !params.playlistId || !params.setVideoId) return false
     backend.request("movePlaylistItem", params, function(reply) {
       if (reply.ok || root.unsure(reply)) storeItem.forgetCollection("playlist", params.playlistId)
+      if (callback) callback(reply)
+    }, 30000, noRetry)
+    return true
+  }
+
+  // G4: Remove custom image (the editor's row, when YouTube serves it). The
+  // page and the library's lists show the cover again from YouTube.
+  function removePlaylistImage(playlist, callback) {
+    if (!playlist || !playlist.playlistId || !_signedInFor("Couldn't remove the custom image")) return false
+    backend.request("removePlaylistImage", { playlistId: playlist.playlistId }, function(reply) {
+      if (reply.ok) {
+        storeItem.forgetCollection("playlist", playlist.playlistId)
+        storeItem.loadLibrary(true)
+      } else if (root.unsure(reply)) {
+        root.refreshUnsure([{ kind: "playlist", id: playlist.playlistId }, { kind: "library" }], playlist.title || "")
+      }
       if (callback) callback(reply)
     }, 30000, noRetry)
     return true

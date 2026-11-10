@@ -7,7 +7,9 @@
   page opens must not wait behind it. Play, Play next and Add to queue ask
   for the 500 songs the queue takes; Shuffle reads all of it.
 - ``radio`` is YouTube Music's Start radio for a song, an album or
-  playlist, an artist or a mix (the watch playlist with ``radio=True``).
+  playlist (Liked Music too: RDAMPLLM, signed in), an artist or a mix (the
+  watch playlist with ``radio=True``). Its songs, and a mix's, carry the
+  explicit badge the 'next' responses show (G4).
 - ``albumBrowseId`` finds an album page (``MPRE...``) from its audio
   playlist (``OLAK5uy_...``). ytmusicapi reads it from the playlist's whole
   HTML page, so replies are cached and the shell only asks when an item has
@@ -17,6 +19,7 @@ Area module (see AREA_MODULES in ytm.py).
 """
 
 import ytm_artist as artist
+import ytm_collections as collections
 import ytm_library as library
 import ytm_normalize as norm
 import ytm_now as now
@@ -67,8 +70,10 @@ def _playlist(worker, playlist_id, kind="playlist", limit=MAX_TRACKS):
 
 def _mix(worker, mix_id, limit=MIX_TRACKS):
     # ytmusicapi's limit is a minimum (it reads whole continuation pages).
-    data = worker.yt.get_watch_playlist(playlistId=mix_id, limit=limit)
-    items = norm.normalize_list(data.get("tracks"), norm.track, "mix track")[:limit]
+    with raw.capture(("next",)) as cap:  # G4: explicit badges
+        data = worker.yt.get_watch_playlist(playlistId=mix_id, limit=limit)
+    tracks = collections.mark_explicit(data.get("tracks"), cap.all("next"))
+    items = norm.normalize_list(tracks, norm.track, "mix track")[:limit]
     return _reply(data.get("playlistId") or mix_id, items, len(items), True)
 
 
@@ -163,23 +168,27 @@ def _radio(worker, params):
     A song's radio leaves the song itself out."""
     limit = opt_int(params, "limit", 50, high=200)
     key, value = _radio_source(params)
-    if key == "videoId":
-        data = worker.yt.get_watch_playlist(videoId=value, radio=True, limit=limit)
-    elif key == "mixId":
-        data = worker.yt.get_watch_playlist(playlistId=_strip_vl(value), limit=limit)
-    elif key == "channelId":
-        radio_id = artist.cached_or_fetch(worker, value, "radioId")["header"].get("radioId")
-        if not radio_id:
-            raise WorkerError("NOT_FOUND", "This artist has no radio")
-        data = worker.yt.get_watch_playlist(playlistId=radio_id, limit=limit)
-    else:
-        playlist_id = value
-        if key == "browseId":
-            playlist_id = worker.yt.get_album(value).get("audioPlaylistId")
-            if not playlist_id:
-                raise WorkerError("NOT_FOUND", "This album has no radio")
-        data = worker.yt.get_watch_playlist(playlistId="RDAMPL" + _strip_vl(playlist_id), radio=True, limit=limit)
-    items = norm.normalize_list(data.get("tracks"), norm.track, "radio track")
+    # G4: every 'next' response read (continuation pages too) marks the
+    # explicit songs; m_radio's own capture sees the same responses.
+    with raw.capture(("next",)) as cap:
+        if key == "videoId":
+            data = worker.yt.get_watch_playlist(videoId=value, radio=True, limit=limit)
+        elif key == "mixId":
+            data = worker.yt.get_watch_playlist(playlistId=_strip_vl(value), limit=limit)
+        elif key == "channelId":
+            radio_id = artist.cached_or_fetch(worker, value, "radioId")["header"].get("radioId")
+            if not radio_id:
+                raise WorkerError("NOT_FOUND", "This artist has no radio")
+            data = worker.yt.get_watch_playlist(playlistId=radio_id, limit=limit)
+        else:
+            playlist_id = value
+            if key == "browseId":
+                playlist_id = worker.yt.get_album(value).get("audioPlaylistId")
+                if not playlist_id:
+                    raise WorkerError("NOT_FOUND", "This album has no radio")
+            data = worker.yt.get_watch_playlist(playlistId="RDAMPL" + _strip_vl(playlist_id), radio=True, limit=limit)
+    tracks = collections.mark_explicit(data.get("tracks"), cap.all("next"))
+    items = norm.normalize_list(tracks, norm.track, "radio track")
     if key == "videoId":
         # The song itself comes first; the shell already has it (as upNext).
         items = [t for t in items if t["videoId"] != value]

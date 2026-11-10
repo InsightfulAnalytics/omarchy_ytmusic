@@ -10,7 +10,14 @@
   or RDPN) reads the watch playlist instead: kind ``mix``, its first
   MIX_TRACKS songs (explicit ones marked from the responses), titled as the
   queue header names it.
-- ``liked({limit?})``: Liked Music, read the same way (signed in).
+- ``liked({limit?, filter?})``: Liked Music, read the same way (signed in).
+  G4: its mood and genre chips (Party, Chill, Rock, ...) as ``filters``
+  (``[{index, title, selected}]``, titles as served; ``index`` is the
+  chip's served id, its uniqueId) and ``filter`` (the chosen one, None for
+  all); ``filter`` reads the page and reloads it with that chip (two
+  requests), then reads on like a playlist, so Load all (``limit: "all"``)
+  works on the filtered list too. The chips' reload tokens never leave the
+  worker.
 - ``album({browseId})``: the songs with their numbers, the header (artists,
   description, likeStatus, audio playlist) and the Other versions and
   recommendations shelves, under their served titles.
@@ -29,13 +36,15 @@ Area module (see AREA_MODULES in ytm.py). Like ytm_library.py it reads
 ytmusicapi internals (continuation paths), pinned to 1.12.2.
 """
 
-from ytmusicapi.continuations import CONTINUATION_ITEMS, get_continuation_token
-from ytmusicapi.navigation import SECTION_LIST_CONTINUATION, nav
+from ytmusicapi.continuations import CONTINUATION_ITEMS, get_continuation_string, get_continuation_token
+from ytmusicapi.navigation import (RESPONSIVE_HEADER, SECTION_LIST_CONTINUATION, SECTION_LIST_ITEM, TAB_CONTENT,
+                                   THUMBNAILS, TWO_COLUMN_RENDERER, nav)
+from ytmusicapi.parsers.playlists import parse_playlist_items
 
 import ytm_actions as actions
 import ytm_normalize as norm
 import ytm_raw as raw
-from ytm_proto import opt_bool, opt_int, opt_limit, req_str
+from ytm_proto import WorkerError, opt_bool, opt_int, opt_limit, req_str
 
 # A playlist's or Liked Music's first read; "all" reads up to MAX_TRACKS.
 PAGE_TRACKS = 200
@@ -169,6 +178,23 @@ def explicit_videos(response):
     return out
 
 
+# ---- G4: explicit badges on watch playlists ------------------------------------------------
+# ytmusicapi's watch tracks have no isExplicit: Start radio, autoplay and a
+# tuner chip's queue mark theirs from the 'next' responses they read.
+
+
+def mark_explicit(tracks, responses):
+    """``tracks`` (ytmusicapi watch tracks) with ``isExplicit`` set on the
+    songs any of ``responses`` (raw 'next' responses, continuation pages
+    included) badges explicit; the others as they are."""
+    badged = set()
+    for response in responses or ():
+        badged |= explicit_videos(response)
+    return [dict(t, isExplicit=True) if isinstance(t, dict) and t.get("videoId") in badged else t
+            for t in tracks or []]
+# ---- end G4
+
+
 def read_mix(worker, mix_id):
     """A mix as the web plays it: its watch playlist's first MIX_TRACKS songs."""
     seen = {"explicit": set()}
@@ -209,9 +235,122 @@ def m_playlist(worker, params):
     return read_list(worker, "playlist", playlist_id, limit, related)
 
 
+# ---- G4: Liked Music's mood and genre chips ------------------------------------------------
+# The page's chipCloud (sectionList header): each chip reloads the songs
+# shelf filtered to it (browseSectionListReloadEndpoint). The chips are
+# made from your likes and their order changes between reads (live, two
+# chips swapped places a minute apart), so a chip is named by its served
+# uniqueId (its title when it has none), echoed back as served, never read
+# for meaning. The reply after a reload serves a narrower set (a Clear
+# filters chip, the chosen one, refinements), so the choices offered are
+# always the plain page's, one at a time.
+
+LIKED_BROWSE_ID = "VLLM"
+_RELOAD = ["browseSectionListReloadEndpoint", "continuation", "reloadContinuationData", "continuation"]
+_LIKED_SHELF = ["continuationContents", "sectionListContinuation", "contents", 0, "musicPlaylistShelfRenderer"]
+
+
+def liked_chips(response):
+    """``[(id, title, token)]`` of a Liked Music page's chips that reload
+    the list (a chip without a title, such as Clear filters, is left out);
+    ``id`` is the chip's uniqueId, else its title. The first of an id wins."""
+    found = raw.section_list(response)
+    chips = nav(found, ["header", "chipCloudRenderer", "chips"], True) if isinstance(found, dict) else None
+    out = []
+    seen = set()
+    for chip in chips or []:
+        data = chip.get("chipCloudChipRenderer") if isinstance(chip, dict) else None
+        title = raw.text(data.get("text")) if isinstance(data, dict) else None
+        token = nav(data, ["navigationEndpoint", *_RELOAD], True) if title else None
+        unique = data.get("uniqueId") if title else None
+        chip_id = unique if isinstance(unique, str) and unique else title
+        if title and token and chip_id not in seen:
+            seen.add(chip_id)
+            out.append((chip_id, title, token))
+    return out
+
+
+def liked_filters(response, chosen=None):
+    """``[{index, title, selected}]`` of a Liked Music page's chips
+    (``index``: the chip's id); ``chosen`` is the selected one."""
+    return [{"index": chip_id, "title": title, "selected": chip_id == chosen}
+            for chip_id, title, _ in liked_chips(response)]
+
+
+def _filter_id(params):
+    value = params.get("filter")
+    if value is None:
+        return None
+    if not isinstance(value, str) or not value or len(value) > 200:
+        raise WorkerError("BAD_REQUEST", "'filter' must be the id of one of Liked Music's chips")
+    return value
+
+
+def read_liked_filtered(worker, chosen, limit):
+    """Liked Music filtered to the chip whose id is ``chosen``: the page
+    (its header and chips), the reload with that chip, then its later pages
+    (body continuations, as get_playlist reads them) until ``limit`` songs
+    are read (None: every one, at most MAX_TRACKS). YouTube serves only
+    Liked Music's own count, so a filtered list cut short has none. A chip
+    the page no longer offers is NOT_FOUND."""
+    yt = worker.yt
+    body = {"browseId": LIKED_BROWSE_ID}
+    base = yt._send_request("browse", dict(body))
+    token = next((t for chip_id, _, t in liked_chips(base) if chip_id == chosen), None)
+    if token is None:
+        raise WorkerError("NOT_FOUND", "Liked Music does not offer that chip now")
+    response = yt._send_request("browse", dict(body), get_continuation_string(token))
+    shelf = nav(response, _LIKED_SHELF, True)
+    if not isinstance(shelf, dict):
+        raise WorkerError("UPSTREAM", "YouTube Music sent no songs for that chip")
+    asked = MAX_TRACKS if limit is None else limit
+    contents = shelf.get("contents") or []
+    tracks = parse_playlist_items(contents)
+    token = get_continuation_token(contents)
+    while token and len(tracks) < asked:
+        more = nav(yt._send_request("browse", {"continuation": token}), CONTINUATION_ITEMS, True) or []
+        parsed = parse_playlist_items(more) if more else []
+        if not parsed:
+            token = None
+            break
+        tracks.extend(parsed)
+        token = get_continuation_token(more)
+    # The header get_playlist reads (title and cover); Liked Music's own name otherwise.
+    header = nav(base, [*TWO_COLUMN_RENDERER, *TAB_CONTENT, *SECTION_LIST_ITEM, *RESPONSIVE_HEADER], True)
+    header = header if isinstance(header, dict) else {}
+    page = norm.collection("liked", {"title": raw.text(header.get("title")), "thumbnails": nav(header, THUMBNAILS, True),
+                                     "tracks": tracks[:MAX_TRACKS]}, "LM", limit=asked,
+                           more=token is not None or len(tracks) > MAX_TRACKS)
+    if page["truncated"]:
+        page["trackCount"] = None
+        page["unavailable"] = None
+    if limit is None:
+        page["capped"] = page["truncated"]
+    page["header"]["pin"] = raw.header_pin(base)
+    page["filters"] = liked_filters(base, chosen)
+    page["filter"] = chosen
+    return page
+# ---- end G4
+
+
 def m_liked(worker, params):
     worker.require_auth()
-    return read_list(worker, "liked", "LM", opt_limit(params, "limit", PAGE_TRACKS, high=MAX_TRACKS))
+    limit = opt_limit(params, "limit", PAGE_TRACKS, high=MAX_TRACKS)
+    chosen = _filter_id(params)  # G4
+    if chosen is not None:
+        return read_liked_filtered(worker, chosen, limit)
+    # G4: the chips of the page get_liked_songs reads first.
+    first = []
+
+    def keep_first(endpoint, response):
+        if not first:
+            first.append(response)
+
+    with raw.capture(("browse",), each=keep_first):
+        page = read_list(worker, "liked", "LM", limit)
+    page["filters"] = liked_filters(first[0] if first else None)
+    page["filter"] = None
+    return page
 
 
 def m_album(worker, params):
