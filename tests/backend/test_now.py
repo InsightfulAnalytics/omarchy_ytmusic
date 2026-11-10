@@ -104,7 +104,7 @@ def test_now_context_reads_everything_from_one_next_request(load_fixture):
     assert all(c["playlistId"].startswith("RD") and c["params"] for c in chips)
     assert sum(c["selected"] for c in chips) == 1
     items = context["items"]
-    assert KARMA not in [t["videoId"] for t in items] and len(items) == 3
+    assert KARMA not in [t["videoId"] for t in items] and len(items) == 5
     assert all(t["type"] == "track" and t["counterpart"] is None for t in items)
     assert "cursor" not in str(context).lower() and "token" not in str(context).lower()
 
@@ -114,7 +114,7 @@ def test_now_context_of_the_video_twin(load_fixture):
     context = call(signed_in(yt), "nowContext", videoId=TWIN)["result"]
     assert context["counterpart"] == {"videoId": KARMA, "title": "Karma Police", "kind": "song"}
     # The song is the video playing, in its other form: not up next.
-    assert KARMA not in [t["videoId"] for t in context["items"]] and len(context["items"]) == 3
+    assert KARMA not in [t["videoId"] for t in context["items"]] and len(context["items"]) == 5
 
 
 def test_now_context_signed_out_has_no_like_status(load_fixture):
@@ -376,15 +376,176 @@ def test_registry():
     assert ytm.METHODS["nowContext"] is now.m_now_context
     assert ytm.METHODS["likeStatus"] is now.m_like_status and ytm.METHODS["upNext"] is now.m_up_next
     assert {"lyrics", "related", "credits"} <= ytm.CACHEABLE and "nowContext" not in ytm.CACHEABLE
-    assert all(ytm.LANES[m] == "pages" for m in ("nowContext", "lyrics", "related", "credits"))
-    assert "likeStatus" not in ytm.LANES and "upNext" not in ytm.LANES
-    assert {"watchRaw", "lyricsTimed", "lyricsPlain", "related", "credits"} <= set(ytm.RECORDERS)
+    assert all(ytm.LANES[m] == "pages" for m in ("nowContext", "lyrics", "related", "credits", "upNext", "queueFrom"))
+    assert "likeStatus" not in ytm.LANES
+    assert {"watchRaw", "queueRaw", "lyricsTimed", "lyricsPlain", "related", "credits"} <= set(ytm.RECORDERS)
+    assert ytm.METHODS["queueFrom"] is now.m_queue_from and not {"upNext", "queueFrom"} & ytm.CACHEABLE
     assert not (set(now.METHODS) & ytm.MUTATES)
 
 
 @pytest.mark.parametrize("name", ["watch_raw.json", "related.json", "credits.json", "lyrics_timed.json",
-                                  "lyrics_plain.json"])
+                                  "lyrics_plain.json", "queue_raw.json"])
 def test_fixtures_hold_no_tokens(load_fixture, name):
     text = str(load_fixture(name)).lower()
-    for part in ("token", "continuation", "cursor", "feedback", "onbehalfofuser"):
+    for part in ("token", "continuation", "cursor", "feedback", "onbehalfofuser", "clicktrackingparams"):
         assert part not in text, (name, part)
+
+
+# ---- up next (S12) -------------------------------------------------------------------------
+# upNext turns a finite context into its radio and passes a radio through;
+# queueFrom is a tuner chip's queue. Both run on real ytmusicapi code over the
+# anonymous watch_raw / queue_raw fixtures (no continuations: one request).
+
+OLAK = "OLAK5uy_nc6aI2v4Wzz-QzHn2vjvJ1PJr3yP2vx4M"
+
+
+def up_next(load_fixture, playlist_id=None, response=None, **extra):
+    yt = client(response or load_fixture("watch_raw.json"))
+    params = dict({"videoId": KARMA}, **extra)
+    if playlist_id is not None:
+        params["playlistId"] = playlist_id
+    reply = call(ytm.Worker(yt, "none"), "upNext", **params)
+    assert reply["ok"], reply
+    return yt, reply["result"]
+
+
+@pytest.mark.parametrize("context, radio", [
+    ("PLIPfake", "RDAMPLPLIPfake"),
+    (OLAK, "RDAMPL" + OLAK),
+    ("VLPLIPfake", "RDAMPLPLIPfake"),
+    ("LM", "RDAMPLLM"),
+    ("VLLM", "RDAMPLLM"),
+    ("RDCLAK5uy_curated", "RDAMPLRDCLAK5uy_curated"),
+])
+def test_up_next_plays_a_finite_context_on_as_its_radio(load_fixture, context, radio):
+    yt, result = up_next(load_fixture, context)
+    assert [s[0] for s in yt.sent] == ["next"]
+    body = yt.sent[0][1]
+    # Never the context's own window (only songs already queued); the song
+    # goes with it (a list without a radio is then seeded by the song).
+    assert body["playlistId"] == radio and body["params"] == "wAEB" and body["videoId"] == KARMA
+    assert "watchEndpointMusicSupportedConfigs" not in body
+
+
+@pytest.mark.parametrize("context", ["RDAMVM" + KARMA, "RDTMAKmix", "RDEMartist", "RDAMPL" + OLAK, "VLRDAMVM" + KARMA])
+def test_up_next_passes_a_radio_context_as_it_is(load_fixture, context):
+    yt, _ = up_next(load_fixture, context)
+    body = yt.sent[0][1]
+    assert body["playlistId"] == context.removeprefix("VL") and body["videoId"] == KARMA
+    assert "params" not in body, "a radio goes on as it is, not re-seeded"
+
+
+def test_up_next_without_a_context_is_the_songs_radio(load_fixture):
+    yt, result = up_next(load_fixture)
+    body = yt.sent[0][1]
+    assert body["videoId"] == KARMA and body["playlistId"] == "RDAMVM" + KARMA and body["params"] == "wAEB"
+    assert result["playlistId"] == "RDAMVM" + KARMA and result["playingFrom"] == "Karma Police Mix"
+    items = result["items"]
+    assert len(items) == 5 and KARMA not in [t["videoId"] for t in items]
+    assert all(t["type"] == "track" and "counterpart" in t for t in items)
+    assert "token" not in str(result).lower() and "feedback" not in str(result).lower()
+
+
+def test_up_next_drops_the_song_and_its_twin_and_keeps_counterparts(load_fixture):
+    # Signed in, entries come with their song/video twins: the twin of the
+    # song playing is not up next, every other entry keeps its own.
+    response = signed_in_watch(load_fixture)
+    contents = panel(response)["contents"]
+    other = copy.deepcopy(contents[2]["playlistPanelVideoRenderer"])
+    other["videoId"] = "OtherTwin01"
+    other["navigationEndpoint"]["watchEndpoint"]["videoId"] = "OtherTwin01"
+    other["navigationEndpoint"]["watchEndpoint"]["watchEndpointMusicSupportedConfigs"] = {
+        "watchEndpointMusicConfig": {"musicVideoType": "MUSIC_VIDEO_TYPE_OMV"}}
+    contents[2] = {"playlistPanelVideoWrapperRenderer": {
+        "primaryRenderer": contents[2], "counterpart": [{"counterpartRenderer": {"playlistPanelVideoRenderer": other}}]}}
+    _, result = up_next(load_fixture, response=response)
+    ids = [t["videoId"] for t in result["items"]]
+    assert KARMA not in ids and TWIN not in ids
+    twin = [t for t in result["items"] if t["counterpart"]]
+    assert len(twin) == 1 and twin[0]["counterpart"]["videoId"] == "OtherTwin01"
+    assert twin[0]["counterpart"]["kind"] == "video" and twin[0]["counterpart"]["title"]
+    # Asked for the twin (the video plays), the song is not up next either.
+    _, from_video = up_next(load_fixture, response=signed_in_watch(load_fixture), videoId=TWIN)
+    assert KARMA not in [t["videoId"] for t in from_video["items"]]
+
+
+def test_up_next_takes_youtubes_queue_for_a_list_without_a_radio(load_fixture):
+    # Live, YouTube answers RDAMPL + an id it has no radio for (a podcast's
+    # list, an unknown id) with HTTP 200 and a "Your Queue" (seeded by the
+    # song sent with it), never "No content": one request, passed on as it is.
+    response = load_fixture("watch_raw.json")
+    queue = response["contents"]["singleColumnMusicWatchNextResultsRenderer"]["tabbedRenderer"][
+        "watchNextTabbedResultsRenderer"]["tabs"][0]["tabRenderer"]["content"]["musicQueueRenderer"]
+    queue.pop("subHeaderChipCloud")  # no chips either
+    queue["header"]["musicQueueHeaderRenderer"]["subtitle"] = {"runs": [{"text": "Your Queue"}]}
+    yt, result = up_next(load_fixture, "RDPNepisodes", response=response)
+    assert len(yt.sent) == 1 and yt.sent[0][1]["playlistId"] == "RDAMPLRDPNepisodes"
+    assert yt.sent[0][1]["videoId"] == KARMA
+    assert result["playingFrom"] == "Your Queue" and len(result["items"]) == 5
+    # An HTTP error is the worker's to report: no second request.
+    yt = client(YTMusicServerError("Server returned HTTP 429: Too Many Requests."))
+    reply = call(ytm.Worker(yt, "none"), "upNext", videoId=KARMA, playlistId=OLAK)
+    assert reply["error"]["code"] == "RATE_LIMITED" and len(yt.sent) == 1
+
+
+def test_up_next_limit_and_params(load_fixture):
+    yt, _ = up_next(load_fixture, None, limit=100)
+    assert len(yt.sent) == 1
+    worker = ytm.Worker(client(), "none")
+    assert call(worker, "upNext")["error"]["code"] == "BAD_REQUEST"
+    assert call(worker, "upNext", videoId=KARMA, limit="25")["error"]["code"] == "BAD_REQUEST"
+
+
+def test_queue_from_pins_the_web_body(load_fixture):
+    recorded = load_fixture("queue_raw.json")
+    chip = recorded.pop("chip")
+    yt = client(recorded)
+    reply = call(ytm.Worker(yt, "none"), "queueFrom", videoId=KARMA, playlistId=chip["playlistId"], params=chip["params"])
+    assert reply["ok"], reply
+    assert [s[0] for s in yt.sent] == ["next"]
+    assert yt.sent[0][1] == {"videoId": KARMA, "playlistId": chip["playlistId"], "params": chip["params"],
+                             "isAudioOnly": True, "enablePersistentPlaylistPanel": True}
+    result = reply["result"]
+    assert result["playlistId"] == chip["playlistId"] and result["playingFrom"].endswith(chip["title"])
+    items = result["items"]
+    assert len(items) == 5 and KARMA not in [t["videoId"] for t in items]
+    assert all(t["type"] == "track" and t["title"] and "counterpart" in t for t in items)
+    # Without params the body has none.
+    yt = client(copy.deepcopy(recorded))
+    assert call(ytm.Worker(yt, "none"), "queueFrom", videoId=KARMA, playlistId=chip["playlistId"])["ok"]
+    assert "params" not in yt.sent[0][1] and yt.sent[0][1]["isAudioOnly"] is True
+
+
+def test_queue_from_normalizes_counterparts_and_is_never_cached(load_fixture):
+    recorded = load_fixture("queue_raw.json")
+    chip = recorded.pop("chip")
+    contents = panel(recorded)["contents"]
+    video = copy.deepcopy(contents[1]["playlistPanelVideoRenderer"])
+    video["videoId"] = "TwinVideo01"
+    video["navigationEndpoint"]["watchEndpoint"]["watchEndpointMusicSupportedConfigs"] = {
+        "watchEndpointMusicConfig": {"musicVideoType": "MUSIC_VIDEO_TYPE_OMV"}}
+    contents[1] = {"playlistPanelVideoWrapperRenderer": {
+        "primaryRenderer": contents[1], "counterpart": [{"counterpartRenderer": {"playlistPanelVideoRenderer": video}}]}}
+    yt = client(recorded, recorded)
+    worker = ytm.Worker(yt, "none")
+    params = {"videoId": KARMA, "playlistId": chip["playlistId"], "params": chip["params"], "cache": "prefer"}
+    first = worker.handle({"id": 1, "method": "queueFrom", "params": params})
+    second = worker.handle({"id": 2, "method": "queueFrom", "params": params})
+    assert first["ok"] and second["ok"] and "cached" not in second and len(yt.sent) == 2
+    twins = [t["counterpart"] for t in first["result"]["items"] if t["counterpart"]]
+    assert twins == [{"videoId": "TwinVideo01", "title": video["title"]["runs"][0]["text"], "kind": "video"}]
+
+
+def test_queue_from_errors():
+    worker = ytm.Worker(client({"contents": {}}), "none")
+    assert call(worker, "queueFrom", videoId=KARMA, playlistId="RDATx")["error"]["code"] == "UPSTREAM"
+    assert call(worker, "queueFrom", videoId=KARMA)["error"]["code"] == "BAD_REQUEST"
+    assert call(worker, "queueFrom", playlistId="RDATx")["error"]["code"] == "BAD_REQUEST"
+
+
+def test_radio_names_what_plays(load_fixture):
+    # Start radio's reply carries the queue header's name ("Karma Police Mix").
+    yt = client(load_fixture("watch_raw.json"))
+    result = call(ytm.Worker(yt, "none"), "radio", videoId=KARMA)["result"]
+    assert result["playingFrom"] == "Karma Police Mix" and KARMA not in [t["videoId"] for t in result["items"]]
+    assert yt.sent[0][1]["params"] == "wAEB"

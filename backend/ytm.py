@@ -963,7 +963,8 @@ def cmd_selftest(args):
     return 0 if all(ok for ok, _, _ in checks) else 1
 
 
-SCRUB_KEYS = ("streamingData", "playbackTracking", "playerConfig", "microformat", "responseContext", "trackingParams")
+SCRUB_KEYS = ("streamingData", "playbackTracking", "playerConfig", "microformat", "responseContext", "trackingParams",
+              "clickTrackingParams")
 # Any key containing one of these (case-insensitive) is dropped as well.
 SCRUB_PARTS = ("token", "continuation", "cursor", "jct", "feedback", "onbehalfofuser")
 

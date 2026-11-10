@@ -23,7 +23,8 @@ import "YtmModel.js" as Model
 // playlist, Liked Music, recent search) · m / . the row's menu (or
 // right-click) · M the page's menu (Library: account) · O next sort order on
 // a page that has one · f find, on pages that offer it · ? these keys · y
-// cycle the pane under the song: Queue, Lyrics, Related.
+// cycle the pane under the song: Queue, Lyrics, Related · t cycle the queue
+// tuner chip: All, Discover, Popular and the rest.
 // Text keys go through Model.keyId to runKey(); Ctrl and Alt chords are
 // ignored. Views offer optional hooks, checked with typeof: horizontal(dx),
 // cycleOrder(), find(), playNext(i) / addToQueue(i), menu(i), pageMenu(),
@@ -332,9 +333,25 @@ Panel {
       ctx.page = true
       ctx.autoplay = service.autoplay
       ctx.queueLength = service.queue.length
+      // S12: the tuner chooser (Tune the queue).
+      ctx.tunerChips = service.tunerChips.length
+      ctx.tunerTitle = service.tunerTitle
     }
+    ctx.counterpart = track ? service.counterpartOf(track) : null  // S12: song / video version
     return { item: track, ctx: ctx, owner: queueView, index: -1,
              title: track ? Model.itemTitle(track) : "Queue", subtitle: track ? Model.itemSubtitle(track) : "" }
+  }
+
+  // ---- up next (S12) -----------------------------------------------------------------
+  // The Now page menu's Tune the queue: every chip of the song playing in a
+  // chooser; the one picked replaces the songs autoplay added.
+  function openTuner() {
+    if (!service) return
+    var chips = service.tunerChips
+    if (chips.length === 0) return
+    itemMenu.openChooser("Tune the queue", "Replaces the songs autoplay added; yours stay",
+      Model.tunerChoices(chips, service.tuner), function(choice) { root.service.chooseTuner(choice.value) })
+    keyCatcher.forceActiveFocus()
   }
 
   // m / . : the cursor row's menu; with no row, the page's.
@@ -388,6 +405,7 @@ Panel {
     else if (id === "repeat") { if (service) service.cycleRepeat() }
     else if (id === "queueMove") { if (root.queueShown && (text === "J" || text === "K")) queueView.moveSelected(text === "J" ? 1 : -1) }
     else if (id === "nowPane") { if (root.tab === "now" && !root.page) queueView.cyclePane() }
+    else if (id === "tune") { if (root.queueShown) queueView.cycleTuner() }
     else if (id === "top") jumpCursor(false)
     else if (id === "bottom") jumpCursor(true)
     else if (id === "order") ownerHook("cycleOrder")

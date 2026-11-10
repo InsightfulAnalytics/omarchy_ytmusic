@@ -57,7 +57,6 @@
            "content": {
             "musicPlayButtonRenderer": {
              "playNavigationEndpoint": {
-              "clickTrackingParams": "CKwIEMjeAiITCM7D3NGb_JcDFabMNAcdzNwYy8oBBG965ac=",
               "watchEndpoint": {
                "videoId": "Z2aH-sluR5s",
                "watchEndpointMusicSupportedConfigs": {
@@ -108,9 +107,9 @@
               {
                "text": "There, There",
                "navigationEndpoint": {
-                "clickTrackingParams": "CJkIEMn0AhgAIhMIzsPc0Zv8lwMVpsw0Bx3M3BjLygEEb3rlpw==",
                 "watchEndpoint": {
                  "videoId": "Z2aH-sluR5s",
+                 "playerParams": "0gcJCTUC0OBS9m0t",
                  "watchEndpointMusicSupportedConfigs": {
                   "watchEndpointMusicConfig": {
                    "musicVideoType": "MUSIC_VIDEO_TYPE_ATV"
@@ -131,7 +130,6 @@
               {
                "text": "Radiohead",
                "navigationEndpoint": {
-                "clickTrackingParams": "CJkIEMn0AhgAIhMIzsPc0Zv8lwMVpsw0Bx3M3BjLygEEb3rlpw==",
                 "browseEndpoint": {
                  "browseId": "UCr_iyUANcn9OX_yy9piYoLw",
                  "browseEndpointContextSupportedConfigs": {
@@ -154,7 +152,6 @@
               {
                "text": "Hail To the Thief",
                "navigationEndpoint": {
-                "clickTrackingParams": "CJkIEMn0AhgAIhMIzsPc0Zv8lwMVpsw0Bx3M3BjLygEEb3rlpw==",
                 "browseEndpoint": {
                  "browseId": "MPREb_HBwHC7oaiOz",
                  "browseEndpointContextSupportedConfigs": {
@@ -213,7 +210,6 @@
            "content": {
             "musicPlayButtonRenderer": {
              "playNavigationEndpoint": {
-              "clickTrackingParams": "CJcIEMjeAiITCM7D3NGb_JcDFabMNAcdzNwYy8oBBG965ac=",
               "watchEndpoint": {
                "videoId": "Wy5HTaOZ6EA",
                "watchEndpointMusicSupportedConfigs": {
@@ -264,7 +260,6 @@
               {
                "text": "There Is a Light That Never Goes Out (2017 Master)",
                "navigationEndpoint": {
-                "clickTrackingParams": "CIQIEMn0AhgBIhMIzsPc0Zv8lwMVpsw0Bx3M3BjLygEEb3rlpw==",
                 "watchEndpoint": {
                  "videoId": "Wy5HTaOZ6EA",
                  "watchEndpointMusicSupportedConfigs": {
@@ -287,7 +282,6 @@
               {
                "text": "The Smiths",
                "navigationEndpoint": {
-                "clickTrackingParams": "CIQIEMn0AhgBIhMIzsPc0Zv8lwMVpsw0Bx3M3BjLygEEb3rlpw==",
                 "browseEndpoint": {
                  "browseId": "UCklWLf-5N7mE8S06rj2OrQw",
                  "browseEndpointContextSupportedConfigs": {
@@ -310,7 +304,6 @@
               {
                "text": "The Queen Is Dead (Deluxe Edition)",
                "navigationEndpoint": {
-                "clickTrackingParams": "CIQIEMn0AhgBIhMIzsPc0Zv8lwMVpsw0Bx3M3BjLygEEb3rlpw==",
                 "browseEndpoint": {
                  "browseId": "MPREb_rA6cOBlj9Bh",
                  "browseEndpointContextSupportedConfigs": {
@@ -341,12 +334,12 @@
            "thumbnail": {
             "thumbnails": [
              {
-              "url": "https://yt3.googleusercontent.com/IimEK_f6ZYM-yBCQbdU-P4wUxggRZxKfawmaflEW40x5jk6fdLoo5CtBG61LNQqDnpnDqGvlhdk6vnOC=w60-h60-l90-rj",
+              "url": "https://yt3.googleusercontent.com/aovas6mvuRwzzr5PD3dUFKLEFIG402lAnky4dHsTRI8J2sn9B9vnVCW1uuLm-VqzJ95yBSaC-RufXixoBw=w60-h60-l90-rj",
               "width": 60,
               "height": 60
              },
              {
-              "url": "https://yt3.googleusercontent.com/IimEK_f6ZYM-yBCQbdU-P4wUxggRZxKfawmaflEW40x5jk6fdLoo5CtBG61LNQqDnpnDqGvlhdk6vnOC=w120-h120-l90-rj",
+              "url": "https://yt3.googleusercontent.com/aovas6mvuRwzzr5PD3dUFKLEFIG402lAnky4dHsTRI8J2sn9B9vnVCW1uuLm-VqzJ95yBSaC-RufXixoBw=w120-h120-l90-rj",
               "width": 120,
               "height": 120
              }
@@ -369,10 +362,8 @@
            "content": {
             "musicPlayButtonRenderer": {
              "playNavigationEndpoint": {
-              "clickTrackingParams": "CIIIEMjeAiITCM7D3NGb_JcDFabMNAcdzNwYy8oBBG965ac=",
               "watchEndpoint": {
-               "videoId": "Kler5kYbRqM",
-               "playerParams": "0gcJCQkB-iE-y48-",
+               "videoId": "o_RaZPmeJCU",
                "watchEndpointMusicSupportedConfigs": {
                 "watchEndpointMusicConfig": {
                  "musicVideoType": "MUSIC_VIDEO_TYPE_ATV"
@@ -399,12 +390,12 @@
              "rippleTarget": "MUSIC_PLAY_BUTTON_RIPPLE_TARGET_SELF",
              "accessibilityPlayData": {
               "accessibilityData": {
-               "label": "Play Plug in Baby - Muse"
+               "label": "Play Beetlebum - Blur"
               }
              },
              "accessibilityPauseData": {
               "accessibilityData": {
-               "label": "Pause Plug in Baby - Muse"
+               "label": "Pause Beetlebum - Blur"
               }
              }
             }
@@ -419,12 +410,10 @@
             "text": {
              "runs": [
               {
-               "text": "Plug in Baby",
+               "text": "Beetlebum",
                "navigationEndpoint": {
-                "clickTrackingParams": "CO8HEMn0AhgCIhMIzsPc0Zv8lwMVpsw0Bx3M3BjLygEEb3rlpw==",
                 "watchEndpoint": {
-                 "videoId": "Kler5kYbRqM",
-                 "playerParams": "0gcJCTUC0OBS9m0t",
+                 "videoId": "o_RaZPmeJCU",
                  "watchEndpointMusicSupportedConfigs": {
                   "watchEndpointMusicConfig": {
                    "musicVideoType": "MUSIC_VIDEO_TYPE_ATV"
@@ -443,11 +432,10 @@
             "text": {
              "runs": [
               {
-               "text": "Muse",
+               "text": "Blur",
                "navigationEndpoint": {
-                "clickTrackingParams": "CO8HEMn0AhgCIhMIzsPc0Zv8lwMVpsw0Bx3M3BjLygEEb3rlpw==",
                 "browseEndpoint": {
-                 "browseId": "UCw8jIQzB2mdvvo_CVplLxug",
+                 "browseId": "UCI3EFb2lvZyBMykNd64JDhg",
                  "browseEndpointContextSupportedConfigs": {
                   "browseEndpointContextMusicConfig": {
                    "pageType": "MUSIC_PAGE_TYPE_ARTIST"
@@ -466,11 +454,10 @@
             "text": {
              "runs": [
               {
-               "text": "Origin of Symmetry",
+               "text": "Blur",
                "navigationEndpoint": {
-                "clickTrackingParams": "CO8HEMn0AhgCIhMIzsPc0Zv8lwMVpsw0Bx3M3BjLygEEb3rlpw==",
                 "browseEndpoint": {
-                 "browseId": "MPREb_6si4Ckr7jcD",
+                 "browseId": "MPREb_juC52fPAHtt",
                  "browseEndpointContextSupportedConfigs": {
                   "browseEndpointContextMusicConfig": {
                    "pageType": "MUSIC_PAGE_TYPE_ALBUM"
@@ -486,7 +473,7 @@
           }
          ],
          "playlistItemData": {
-          "videoId": "Kler5kYbRqM"
+          "videoId": "o_RaZPmeJCU"
          },
          "flexColumnDisplayStyle": "MUSIC_RESPONSIVE_LIST_ITEM_FLEX_COLUMN_DISPLAY_STYLE_TWO_LINE_STACK",
          "itemHeight": "MUSIC_RESPONSIVE_LIST_ITEM_HEIGHT_MEDIUM_COMPACT"
@@ -546,7 +533,6 @@
            {
             "text": "Avsurdist",
             "navigationEndpoint": {
-             "clickTrackingParams": "CPcEEKCzAhgAIhMIzsPc0Zv8lwMVpsw0Bx3M3BjLygEEb3rlpw==",
              "browseEndpoint": {
               "browseId": "VLPLgNdvZME6IyslU0yP8JIMEy4sAMP7GCLK",
               "browseEndpointContextSupportedConfigs": {
@@ -570,7 +556,6 @@
            {
             "text": "Alienjandro",
             "navigationEndpoint": {
-             "clickTrackingParams": "CPcEEKCzAhgAIhMIzsPc0Zv8lwMVpsw0Bx3M3BjLygEEb3rlpw==",
              "browseEndpoint": {
               "browseId": "UCmc6iQaW0WhuaMAYM3j8btg",
               "browseEndpointContextSupportedConfigs": {
@@ -590,7 +575,6 @@
           ]
          },
          "navigationEndpoint": {
-          "clickTrackingParams": "CPcEEKCzAhgAIhMIzsPc0Zv8lwMVpsw0Bx3M3BjLygEEb3rlpw==",
           "browseEndpoint": {
            "browseId": "VLPLgNdvZME6IyslU0yP8JIMEy4sAMP7GCLK",
            "browseEndpointContextSupportedConfigs": {
@@ -614,7 +598,6 @@
            "content": {
             "musicPlayButtonRenderer": {
              "playNavigationEndpoint": {
-              "clickTrackingParams": "CPkEEMjeAiITCM7D3NGb_JcDFabMNAcdzNwYy8oBBG965ac=",
               "watchPlaylistEndpoint": {
                "playlistId": "PLgNdvZME6IyslU0yP8JIMEy4sAMP7GCLK",
                "params": "wAEB"
@@ -686,7 +669,6 @@
             }
            },
            "onTap": {
-            "clickTrackingParams": "CPgEEIS_AiITCM7D3NGb_JcDFabMNAcdzNwYy8oBBG965ac=",
             "browseEndpoint": {
              "browseId": "UCmc6iQaW0WhuaMAYM3j8btg",
              "browseEndpointContextSupportedConfigs": {
@@ -728,7 +710,6 @@
            {
             "text": "Sad",
             "navigationEndpoint": {
-             "clickTrackingParams": "COcEEKCzAhgBIhMIzsPc0Zv8lwMVpsw0Bx3M3BjLygEEb3rlpw==",
              "browseEndpoint": {
               "browseId": "VLPLbnaEYf0DTfaoXpUAQQk5_B85kUBlLq37",
               "browseEndpointContextSupportedConfigs": {
@@ -752,7 +733,6 @@
            {
             "text": "CDJ",
             "navigationEndpoint": {
-             "clickTrackingParams": "COcEEKCzAhgBIhMIzsPc0Zv8lwMVpsw0Bx3M3BjLygEEb3rlpw==",
              "browseEndpoint": {
               "browseId": "UCEeFr6IuSAJIT7jcu9NNJuw",
               "browseEndpointContextSupportedConfigs": {
@@ -772,7 +752,6 @@
           ]
          },
          "navigationEndpoint": {
-          "clickTrackingParams": "COcEEKCzAhgBIhMIzsPc0Zv8lwMVpsw0Bx3M3BjLygEEb3rlpw==",
           "browseEndpoint": {
            "browseId": "VLPLbnaEYf0DTfaoXpUAQQk5_B85kUBlLq37",
            "browseEndpointContextSupportedConfigs": {
@@ -796,7 +775,6 @@
            "content": {
             "musicPlayButtonRenderer": {
              "playNavigationEndpoint": {
-              "clickTrackingParams": "COkEEMjeAiITCM7D3NGb_JcDFabMNAcdzNwYy8oBBG965ac=",
               "watchPlaylistEndpoint": {
                "playlistId": "PLbnaEYf0DTfaoXpUAQQk5_B85kUBlLq37",
                "params": "wAEB"
@@ -868,7 +846,6 @@
             }
            },
            "onTap": {
-            "clickTrackingParams": "COgEEIS_AiITCM7D3NGb_JcDFabMNAcdzNwYy8oBBG965ac=",
             "browseEndpoint": {
              "browseId": "UCEeFr6IuSAJIT7jcu9NNJuw",
              "browseEndpointContextSupportedConfigs": {
@@ -910,7 +887,6 @@
            {
             "text": "series",
             "navigationEndpoint": {
-             "clickTrackingParams": "CNcEEKCzAhgCIhMIzsPc0Zv8lwMVpsw0Bx3M3BjLygEEb3rlpw==",
              "browseEndpoint": {
               "browseId": "VLPLQs2hjG-OlDUJYc8K7zZjB7kKnEoYaxiQ",
               "browseEndpointContextSupportedConfigs": {
@@ -934,7 +910,6 @@
            {
             "text": "Lais Maciel",
             "navigationEndpoint": {
-             "clickTrackingParams": "CNcEEKCzAhgCIhMIzsPc0Zv8lwMVpsw0Bx3M3BjLygEEb3rlpw==",
              "browseEndpoint": {
               "browseId": "UC-NNhbWdR4j5O2CgQI8iIzw",
               "browseEndpointContextSupportedConfigs": {
@@ -954,7 +929,6 @@
           ]
          },
          "navigationEndpoint": {
-          "clickTrackingParams": "CNcEEKCzAhgCIhMIzsPc0Zv8lwMVpsw0Bx3M3BjLygEEb3rlpw==",
           "browseEndpoint": {
            "browseId": "VLPLQs2hjG-OlDUJYc8K7zZjB7kKnEoYaxiQ",
            "browseEndpointContextSupportedConfigs": {
@@ -978,7 +952,6 @@
            "content": {
             "musicPlayButtonRenderer": {
              "playNavigationEndpoint": {
-              "clickTrackingParams": "CNkEEMjeAiITCM7D3NGb_JcDFabMNAcdzNwYy8oBBG965ac=",
               "watchPlaylistEndpoint": {
                "playlistId": "PLQs2hjG-OlDUJYc8K7zZjB7kKnEoYaxiQ",
                "params": "wAEB"
@@ -1050,7 +1023,6 @@
             }
            },
            "onTap": {
-            "clickTrackingParams": "CNgEEIS_AiITCM7D3NGb_JcDFabMNAcdzNwYy8oBBG965ac=",
             "browseEndpoint": {
              "browseId": "UC-NNhbWdR4j5O2CgQI8iIzw",
              "browseEndpointContextSupportedConfigs": {
@@ -1124,7 +1096,6 @@
            "content": {
             "musicPlayButtonRenderer": {
              "playNavigationEndpoint": {
-              "clickTrackingParams": "COMDEMjeAiITCM7D3NGb_JcDFabMNAcdzNwYy8oBBG965ac=",
               "watchEndpoint": {
                "videoId": "tWLo7DTrEy0",
                "watchEndpointMusicSupportedConfigs": {
@@ -1175,7 +1146,6 @@
               {
                "text": "Karma Police (triple j Like A Version)",
                "navigationEndpoint": {
-                "clickTrackingParams": "CNADEMn0AhgAIhMIzsPc0Zv8lwMVpsw0Bx3M3BjLygEEb3rlpw==",
                 "watchEndpoint": {
                  "videoId": "tWLo7DTrEy0",
                  "watchEndpointMusicSupportedConfigs": {
@@ -1198,7 +1168,6 @@
               {
                "text": "Pierce the Veil",
                "navigationEndpoint": {
-                "clickTrackingParams": "CNADEMn0AhgAIhMIzsPc0Zv8lwMVpsw0Bx3M3BjLygEEb3rlpw==",
                 "browseEndpoint": {
                  "browseId": "UCgo9dlUzeF35B9dcnCXzQ1Q",
                  "browseEndpointContextSupportedConfigs": {
@@ -1221,7 +1190,6 @@
               {
                "text": "Karma Police (triple j Like A Version)",
                "navigationEndpoint": {
-                "clickTrackingParams": "CNADEMn0AhgAIhMIzsPc0Zv8lwMVpsw0Bx3M3BjLygEEb3rlpw==",
                 "browseEndpoint": {
                  "browseId": "MPREb_bNEtEDrl32a",
                  "browseEndpointContextSupportedConfigs": {
@@ -1280,7 +1248,6 @@
            "content": {
             "musicPlayButtonRenderer": {
              "playNavigationEndpoint": {
-              "clickTrackingParams": "CM4DEMjeAiITCM7D3NGb_JcDFabMNAcdzNwYy8oBBG965ac=",
               "watchEndpoint": {
                "videoId": "82NfSr7_nr8",
                "watchEndpointMusicSupportedConfigs": {
@@ -1331,7 +1298,6 @@
               {
                "text": "Karma Police (Live In Denver)",
                "navigationEndpoint": {
-                "clickTrackingParams": "CLsDEMn0AhgBIhMIzsPc0Zv8lwMVpsw0Bx3M3BjLygEEb3rlpw==",
                 "watchEndpoint": {
                  "videoId": "82NfSr7_nr8",
                  "watchEndpointMusicSupportedConfigs": {
@@ -1354,7 +1320,6 @@
               {
                "text": "Panic! At The Disco",
                "navigationEndpoint": {
-                "clickTrackingParams": "CLsDEMn0AhgBIhMIzsPc0Zv8lwMVpsw0Bx3M3BjLygEEb3rlpw==",
                 "browseEndpoint": {
                  "browseId": "UC5J__UU0Y7ZAVluolcIjrbw",
                  "browseEndpointContextSupportedConfigs": {
@@ -1377,7 +1342,6 @@
               {
                "text": "A Fever You Can't Sweat Out (20th Anniversary Deluxe)",
                "navigationEndpoint": {
-                "clickTrackingParams": "CLsDEMn0AhgBIhMIzsPc0Zv8lwMVpsw0Bx3M3BjLygEEb3rlpw==",
                 "browseEndpoint": {
                  "browseId": "MPREb_pdBzJMdcZ2i",
                  "browseEndpointContextSupportedConfigs": {
@@ -1445,7 +1409,6 @@
            "content": {
             "musicPlayButtonRenderer": {
              "playNavigationEndpoint": {
-              "clickTrackingParams": "CLkDEMjeAiITCM7D3NGb_JcDFabMNAcdzNwYy8oBBG965ac=",
               "watchEndpoint": {
                "videoId": "tIOBLlehkpA",
                "watchEndpointMusicSupportedConfigs": {
@@ -1496,7 +1459,6 @@
               {
                "text": "Radiohead - Karma Police LIVE (Lollapalooza 25 Years)",
                "navigationEndpoint": {
-                "clickTrackingParams": "CKsDEMn0AhgCIhMIzsPc0Zv8lwMVpsw0Bx3M3BjLygEEb3rlpw==",
                 "watchEndpoint": {
                  "videoId": "tIOBLlehkpA",
                  "watchEndpointMusicSupportedConfigs": {
@@ -1519,7 +1481,6 @@
               {
                "text": "Rob Omodo",
                "navigationEndpoint": {
-                "clickTrackingParams": "CKsDEMn0AhgCIhMIzsPc0Zv8lwMVpsw0Bx3M3BjLygEEb3rlpw==",
                 "browseEndpoint": {
                  "browseId": "UCxrN07C6mkZ1TLrWlEZu70A",
                  "browseEndpointContextSupportedConfigs": {
@@ -1614,7 +1575,6 @@
            {
             "text": "Jeff Buckley",
             "navigationEndpoint": {
-             "clickTrackingParams": "CMwCEKCzAhgAIhMIzsPc0Zv8lwMVpsw0Bx3M3BjLygEEb3rlpw==",
              "browseEndpoint": {
               "browseId": "UCbchKSYoDnilVrYQYsKPhxg",
               "browseEndpointContextSupportedConfigs": {
@@ -1640,7 +1600,6 @@
           }
          },
          "navigationEndpoint": {
-          "clickTrackingParams": "CMwCEKCzAhgAIhMIzsPc0Zv8lwMVpsw0Bx3M3BjLygEEb3rlpw==",
           "browseEndpoint": {
            "browseId": "UCbchKSYoDnilVrYQYsKPhxg",
            "browseEndpointContextSupportedConfigs": {
@@ -1680,7 +1639,6 @@
            {
             "text": "Thom Yorke",
             "navigationEndpoint": {
-             "clickTrackingParams": "CMQCEKCzAhgBIhMIzsPc0Zv8lwMVpsw0Bx3M3BjLygEEb3rlpw==",
              "browseEndpoint": {
               "browseId": "UCgXVrNtoMd3CusXrRMX3Tqg",
               "browseEndpointContextSupportedConfigs": {
@@ -1706,7 +1664,6 @@
           }
          },
          "navigationEndpoint": {
-          "clickTrackingParams": "CMQCEKCzAhgBIhMIzsPc0Zv8lwMVpsw0Bx3M3BjLygEEb3rlpw==",
           "browseEndpoint": {
            "browseId": "UCgXVrNtoMd3CusXrRMX3Tqg",
            "browseEndpointContextSupportedConfigs": {
@@ -1746,7 +1703,6 @@
            {
             "text": "The Strokes",
             "navigationEndpoint": {
-             "clickTrackingParams": "CLwCEKCzAhgCIhMIzsPc0Zv8lwMVpsw0Bx3M3BjLygEEb3rlpw==",
              "browseEndpoint": {
               "browseId": "UC8N13xhRG78YQK7Ppc4Ytrg",
               "browseEndpointContextSupportedConfigs": {
@@ -1772,7 +1728,6 @@
           }
          },
          "navigationEndpoint": {
-          "clickTrackingParams": "CLwCEKCzAhgCIhMIzsPc0Zv8lwMVpsw0Bx3M3BjLygEEb3rlpw==",
           "browseEndpoint": {
            "browseId": "UC8N13xhRG78YQK7Ppc4Ytrg",
            "browseEndpointContextSupportedConfigs": {
@@ -1798,7 +1753,6 @@
           {
            "text": "Radiohead",
            "navigationEndpoint": {
-            "clickTrackingParams": "CIkCEIe8BCITCM7D3NGb_JcDFabMNAcdzNwYy8oBBG965ac=",
             "browseEndpoint": {
              "browseId": "UCr_iyUANcn9OX_yy9piYoLw",
              "browseEndpointContextSupportedConfigs": {
@@ -1848,7 +1802,6 @@
            }
           },
           "onTap": {
-           "clickTrackingParams": "CIoCEIS_AiITCM7D3NGb_JcDFabMNAcdzNwYy8oBBG965ac=",
            "browseEndpoint": {
             "browseId": "UCr_iyUANcn9OX_yy9piYoLw",
             "browseEndpointContextSupportedConfigs": {
@@ -1891,7 +1844,6 @@
            {
             "text": "KID A MNESIA",
             "navigationEndpoint": {
-             "clickTrackingParams": "CPkBEKCzAhgAIhMIzsPc0Zv8lwMVpsw0Bx3M3BjLygEEb3rlpw==",
              "browseEndpoint": {
               "browseId": "MPREb_E7NpKw54NIT",
               "browseEndpointContextSupportedConfigs": {
@@ -1918,7 +1870,6 @@
           ]
          },
          "navigationEndpoint": {
-          "clickTrackingParams": "CPkBEKCzAhgAIhMIzsPc0Zv8lwMVpsw0Bx3M3BjLygEEb3rlpw==",
           "browseEndpoint": {
            "browseId": "MPREb_E7NpKw54NIT",
            "browseEndpointContextSupportedConfigs": {
@@ -1942,7 +1893,6 @@
            "content": {
             "musicPlayButtonRenderer": {
              "playNavigationEndpoint": {
-              "clickTrackingParams": "CPoBEMjeAiITCM7D3NGb_JcDFabMNAcdzNwYy8oBBG965ac=",
               "watchPlaylistEndpoint": {
                "playlistId": "OLAK5uy_m8Yan_MSAia_ZYmZpl6xm1AINDg8LF1NI"
               }
@@ -2010,7 +1960,6 @@
            {
             "text": "A Moon Shaped Pool",
             "navigationEndpoint": {
-             "clickTrackingParams": "COkBEKCzAhgBIhMIzsPc0Zv8lwMVpsw0Bx3M3BjLygEEb3rlpw==",
              "browseEndpoint": {
               "browseId": "MPREb_zwdwliUWiJm",
               "browseEndpointContextSupportedConfigs": {
@@ -2037,7 +1986,6 @@
           ]
          },
          "navigationEndpoint": {
-          "clickTrackingParams": "COkBEKCzAhgBIhMIzsPc0Zv8lwMVpsw0Bx3M3BjLygEEb3rlpw==",
           "browseEndpoint": {
            "browseId": "MPREb_zwdwliUWiJm",
            "browseEndpointContextSupportedConfigs": {
@@ -2061,7 +2009,6 @@
            "content": {
             "musicPlayButtonRenderer": {
              "playNavigationEndpoint": {
-              "clickTrackingParams": "COoBEMjeAiITCM7D3NGb_JcDFabMNAcdzNwYy8oBBG965ac=",
               "watchPlaylistEndpoint": {
                "playlistId": "OLAK5uy_l2JdqQ9q-aHSQmRiz3NfIkU2kkbxd1-ps"
               }
@@ -2129,7 +2076,6 @@
            {
             "text": "The King Of Limbs",
             "navigationEndpoint": {
-             "clickTrackingParams": "CNkBEKCzAhgCIhMIzsPc0Zv8lwMVpsw0Bx3M3BjLygEEb3rlpw==",
              "browseEndpoint": {
               "browseId": "MPREb_0MasdQ0OscT",
               "browseEndpointContextSupportedConfigs": {
@@ -2156,7 +2102,6 @@
           ]
          },
          "navigationEndpoint": {
-          "clickTrackingParams": "CNkBEKCzAhgCIhMIzsPc0Zv8lwMVpsw0Bx3M3BjLygEEb3rlpw==",
           "browseEndpoint": {
            "browseId": "MPREb_0MasdQ0OscT",
            "browseEndpointContextSupportedConfigs": {
@@ -2180,7 +2125,6 @@
            "content": {
             "musicPlayButtonRenderer": {
              "playNavigationEndpoint": {
-              "clickTrackingParams": "CNoBEMjeAiITCM7D3NGb_JcDFabMNAcdzNwYy8oBBG965ac=",
               "watchPlaylistEndpoint": {
                "playlistId": "OLAK5uy_kkxS8q1obnji_VjkWtpgWgpZAzAePSSA0"
               }
@@ -2242,7 +2186,6 @@
         {
          "text": "https://en.wikipedia.org/wiki/Radiohead",
          "navigationEndpoint": {
-          "clickTrackingParams": "CAIQiPgDGAUiEwjOw9zRm_yXAxWmzDQHHczcGMvKAQRveuWn",
           "urlEndpoint": {
            "url": "https://en.wikipedia.org/wiki/Radiohead",
            "target": "TARGET_NEW_WINDOW"
@@ -2255,7 +2198,6 @@
         {
          "text": "http://creativecommons.org/licenses/b...",
          "navigationEndpoint": {
-          "clickTrackingParams": "CAIQiPgDGAUiEwjOw9zRm_yXAxWmzDQHHczcGMvKAQRveuWn",
           "urlEndpoint": {
            "url": "http://creativecommons.org/licenses/by-sa/3.0/legalcode",
            "target": "TARGET_NEW_WINDOW"

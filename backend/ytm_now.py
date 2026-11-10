@@ -5,7 +5,10 @@
   the Lyrics and Related tab ids, the song/video twin (``counterpart``), the
   queue header's "Playing from", its tuner chips and YouTube's own up-next
   list. ``likeStatus`` is a thin alias of it (the shell's refresh after an
-  unsure rating); ``upNext`` (autoplay) moved here from ytm.py unchanged.
+  unsure rating).
+- ``upNext`` (autoplay, S12) plays a finite context (an album, a playlist,
+  Liked Music) on as its radio and a radio as it is; ``queueFrom`` is the
+  queue a tuner chip (All, Discover, Popular...) plays.
 - ``lyrics`` asks the signed-out client for time-synced lyrics (they come
   from the Android client context, which YouTube rejects with HTTP 400 for a
   browser-cookie session) and falls back to the account's plain lyrics
@@ -20,6 +23,7 @@ Area module (see AREA_MODULES in ytm.py).
 import os
 
 from ytmusicapi.navigation import nav
+from ytmusicapi.parsers.watch import parse_watch_playlist
 
 import ytm_normalize as norm
 import ytm_raw as raw
@@ -138,12 +142,84 @@ def m_like_status(worker, params):
     return {"videoId": context["videoId"], "likeStatus": context["likeStatus"]}
 
 
+# ---- up next (S12) -------------------------------------------------------------------
+# Autoplay's lists. A finite context (an album's audio playlist, a playlist,
+# Liked Music, a curated RDCLAK list) goes on as its radio, RDAMPL + id: its
+# own window would only hold the songs already queued, which the shell's
+# dedupe throws away, and autoplay would stall. The song goes with it:
+# YouTube still plays the list's radio ("OK Computer Mix"), and for a list it
+# has no radio for (a podcast's, an id that does not exist) it answers a
+# "Your Queue" seeded by the song instead of one seeded by the account alone
+# (it never answers "No content" for these). A radio (any other RD...) goes
+# on as it is; no context is the song's own radio.
+
+RADIO_PREFIX = "RDAMPL"
+QUEUE_PANEL = ["content", "playlistPanelRenderer"]
+
+
+def playing_from(response):
+    """The queue header's "Playing from" text of a raw 'next' response (None
+    without one)."""
+    if not isinstance(response, dict):
+        return None
+    return raw.text(nav(_queue_renderer(response), ["header", "musicQueueHeaderRenderer", "subtitle"], True))
+
+
+def up_next_source(video_id, playlist_id=None):
+    """``(videoId, playlistId, radio)``: what get_watch_playlist is asked for
+    autoplay after ``video_id`` in the context ``playlist_id``."""
+    if not playlist_id:
+        return video_id, None, True
+    pid = playlist_id[2:] if playlist_id.startswith("VL") else playlist_id
+    if norm.is_mix(pid):
+        return video_id, pid, False
+    return video_id, RADIO_PREFIX + pid, True
+
+
+def _upcoming(tracks, video_id):
+    """Watch tracks without ``video_id`` (nor the entry it is the twin of),
+    normalized, each with its own ``counterpart``."""
+    entry = _current(tracks, video_id)[0]
+    rest = [t for t in tracks if isinstance(t, dict) and t is not entry and t.get("videoId") != video_id]
+    return norm.normalize_list(rest, _with_counterpart, "up-next track")
+
+
+def _watch(worker, video_id, playlist_id, radio, limit):
+    with raw.capture(("next",)) as cap:
+        data = worker.yt.get_watch_playlist(videoId=video_id, playlistId=playlist_id, radio=radio, limit=limit)
+    return data, cap.first("next")
+
+
 def m_up_next(worker, params):
-    """What YouTube Music would play after ``videoId`` (autoplay), without it."""
+    """``{videoId, playlistId?, limit?}``: what autoplay appends after
+    ``videoId`` (at least ``limit`` songs, 25 by default, at most 100), without
+    it. ``playlistId`` is what plays (the shell's playContext)."""
     video_id = req_str(params, "videoId")
-    data = worker.yt.get_watch_playlist(videoId=video_id, limit=opt_int(params, "limit", 25, high=100))
-    tracks = norm.normalize_list(data.get("tracks"), norm.track, "up-next track")
-    return {"playlistId": data.get("playlistId"), "items": [t for t in tracks if t["videoId"] != video_id]}
+    limit = opt_int(params, "limit", 25, high=100)
+    seed, playlist_id, radio = up_next_source(video_id, opt_str(params, "playlistId"))
+    data, response = _watch(worker, seed, playlist_id, radio, limit)
+    tracks = [t for t in data.get("tracks") or [] if isinstance(t, dict)]
+    return {"playlistId": data.get("playlistId"), "playingFrom": playing_from(response),
+            "items": _upcoming(tracks, video_id)}
+
+
+def m_queue_from(worker, params):
+    """``{videoId, playlistId, params?}`` (a nowContext chip): the queue that
+    chip plays from ``videoId`` on, one raw 'next' request as the web sends
+    it, without the song itself. Not cached."""
+    video_id, playlist_id = req_str(params, "videoId"), req_str(params, "playlistId")
+    body = {"videoId": video_id, "playlistId": playlist_id, "isAudioOnly": True,
+            "enablePersistentPlaylistPanel": True}
+    chip_params = opt_str(params, "params")
+    if chip_params:
+        body["params"] = chip_params
+    response = worker.yt._send_request("next", body)
+    panel = nav(_queue_renderer(response), QUEUE_PANEL, True)
+    if not isinstance(panel, dict):
+        raise WorkerError("UPSTREAM", "YouTube Music sent no queue for this chip")
+    tracks = parse_watch_playlist(panel.get("contents") or [])
+    return {"playlistId": panel.get("playlistId") or playlist_id, "playingFrom": playing_from(response),
+            "items": _upcoming(tracks, video_id)}
 
 
 # ---- lyrics --------------------------------------------------------------------------
@@ -358,6 +434,28 @@ def record_watch_raw(yt, params):
         "watchNextTabbedResultsRenderer": {"tabs": tabs}}}}}
 
 
+def record_queue_raw(yt, params):
+    """The raw 'next' response of one of a song's tuner chips (``chip``, an
+    index into its chips, default 2), trimmed like watchRaw."""
+    first = _record(yt, "next", lambda: yt.get_watch_playlist(videoId=params["videoId"], limit=CONTEXT_LIMIT))
+    chips = _chips(_queue_renderer(first))
+    chip = chips[min(params.get("chip", 2), len(chips) - 1)] if chips else None
+    if chip is None:
+        raise ValueError("this song has no tuner chips")
+    body = {"videoId": params["videoId"], "playlistId": chip["playlistId"], "params": chip["params"],
+            "isAudioOnly": True, "enablePersistentPlaylistPanel": True}
+    response = yt._send_request("next", body)
+    panel = dict(nav(_queue_renderer(response), QUEUE_PANEL, True) or {})
+    panel = {key: panel[key] for key in ("playlistId", "contents") if key in panel}
+    panel["contents"] = (panel.get("contents") or [])[:params.get("keep", 6)]
+    queue = _queue_renderer(response) or {}
+    tab = {"tabRenderer": {"content": {"musicQueueRenderer": {
+        "header": queue.get("header"), "content": {"playlistPanelRenderer": panel}}}}}
+    return {"chip": {"title": chip["title"], "playlistId": chip["playlistId"], "params": chip["params"]},
+            "contents": {"singleColumnMusicWatchNextResultsRenderer": {"tabbedRenderer": {
+                "watchNextTabbedResultsRenderer": {"tabs": [tab]}}}}}
+
+
 def record_lyrics_timed(yt, params):
     """The raw mobile lyrics response, cut to its first ``keep`` timed lines."""
     response = _record(yt, "browse", lambda: yt.get_lyrics(params["browseId"], timestamps=True))
@@ -415,6 +513,7 @@ METHODS = {
     "nowContext": m_now_context,
     "likeStatus": m_like_status,
     "upNext": m_up_next,
+    "queueFrom": m_queue_from,
     "lyrics": m_lyrics,
     "related": m_related,
     "credits": m_credits,
@@ -426,10 +525,13 @@ CACHEABLE = {"lyrics", "related", "credits"}
 # nowContext brings). lyrics is the only user of the signed-out client in
 # the worker, and a lane runs one request at a time, so its as_mobile()
 # switch (not thread-safe) never overlaps another.
-LANES = {"nowContext": "pages", "lyrics": "pages", "related": "pages", "credits": "pages"}
+LANES = {"nowContext": "pages", "lyrics": "pages", "related": "pages", "credits": "pages",
+         # S12: autoplay's top-ups and the tuner chips (about 1 s each).
+         "upNext": "pages", "queueFrom": "pages"}
 INVALIDATES = {}
 RECORDERS = {
     "watchRaw": record_watch_raw,
+    "queueRaw": record_queue_raw,
     "lyricsTimed": record_lyrics_timed,
     "lyricsPlain": record_lyrics_plain,
     "related": record_related,

@@ -39,7 +39,6 @@
                 ]
                },
                "navigationEndpoint": {
-                "clickTrackingParams": "CCYQ0-cHGAAiEwjmp7fSm_yXAxWItrkFHRsOAsnKAQSRAmv5",
                 "modalEndpoint": {
                  "modal": {
                   "modalWithTitleAndButtonRenderer": {
@@ -69,7 +68,6 @@
                       ]
                      },
                      "navigationEndpoint": {
-                      "clickTrackingParams": "CCcQ8FsiEwjmp7fSm_yXAxWItrkFHRsOAsnKAQSRAmv5",
                       "signInEndpoint": {
                        "hack": true
                       }
@@ -109,11 +107,9 @@
                 ]
                },
                "navigationEndpoint": {
-                "clickTrackingParams": "CCQQ_V0YACITCOant9Kb_JcDFYi2uQUdGw4CycoBBJECa_k=",
                 "queueUpdateCommand": {
                  "queueUpdateSection": "QUEUE_UPDATE_SECTION_QUEUE",
                  "fetchContentsCommand": {
-                  "clickTrackingParams": "CCQQ_V0YACITCOant9Kb_JcDFYi2uQUdGw4CycoBBJECa_k=",
                   "watchEndpoint": {
                    "playlistId": "RDAMVMnbCOAPR33ME",
                    "params": "ggUMRWdBWUFRJTNEJTNE",
@@ -147,14 +143,13 @@
                 ]
                },
                "navigationEndpoint": {
-                "clickTrackingParams": "CCMQ_V0YASITCOant9Kb_JcDFYi2uQUdGw4CycoBBJECa_k=",
                 "queueUpdateCommand": {
                  "queueUpdateSection": "QUEUE_UPDATE_SECTION_QUEUE",
                  "fetchContentsCommand": {
-                  "clickTrackingParams": "CCMQ_V0YASITCOant9Kb_JcDFYi2uQUdGw4CycoBBJECa_k=",
                   "watchEndpoint": {
                    "playlistId": "RDATpYvnbCOAPR33ME",
                    "params": "ggU4Q2hKU1JFRlVjRmwyYm1KRFQwRlFVak16VFVVWUN5SU5DZ2RRYjNCMWJHRnlHZ0psYmclM0QlM0Q%3D",
+                   "playerParams": "0gcJCW0At9Zurpe2",
                    "loggingContext": {
                     "vssLoggingContext": {
                      "serializedContextData": "GhJSREFUcFl2bmJDT0FQUjMzTUU%3D"
@@ -185,14 +180,13 @@
                 ]
                },
                "navigationEndpoint": {
-                "clickTrackingParams": "CCIQ_V0YAiITCOant9Kb_JcDFYi2uQUdGw4CycoBBJECa_k=",
                 "queueUpdateCommand": {
                  "queueUpdateSection": "QUEUE_UPDATE_SECTION_QUEUE",
                  "fetchContentsCommand": {
-                  "clickTrackingParams": "CCIQ_V0YAiITCOant9Kb_JcDFYi2uQUdGw4CycoBBJECa_k=",
                   "watchEndpoint": {
                    "playlistId": "RDATiXvnbCOAPR33ME",
                    "params": "ggU2Q2hKU1JFRlVhVmgyYm1KRFQwRlFVak16VFVVWUN5SU9DZ2hFYVhOamIzWmxjaG9DWlc0JTNE",
+                   "playerParams": "0gcJCW0At9Zurpe2",
                    "loggingContext": {
                     "vssLoggingContext": {
                      "serializedContextData": "GhJSREFUaVh2bmJDT0FQUjMzTUU%3D"
@@ -223,14 +217,13 @@
                 ]
                },
                "navigationEndpoint": {
-                "clickTrackingParams": "CCEQ_V0YAyITCOant9Kb_JcDFYi2uQUdGw4CycoBBJECa_k=",
                 "queueUpdateCommand": {
                  "queueUpdateSection": "QUEUE_UPDATE_SECTION_QUEUE",
                  "fetchContentsCommand": {
-                  "clickTrackingParams": "CCEQ_V0YAyITCOant9Kb_JcDFYi2uQUdGw4CycoBBJECa_k=",
                   "watchEndpoint": {
                    "playlistId": "RDATpXvnbCOAPR33ME",
                    "params": "ggU0Q2hKU1JFRlVjRmgyYm1KRFQwRlFVak16VFVVWUN5SVBDZ2xFWldWd0lHTjFkSE1hQW1WdQ%3D%3D",
+                   "playerParams": "0gcJCW0At9Zurpe2",
                    "loggingContext": {
                     "vssLoggingContext": {
                      "serializedContextData": "GhJSREFUcFh2bmJDT0FQUjMzTUU%3D"
@@ -261,15 +254,12 @@
                 ]
                },
                "navigationEndpoint": {
-                "clickTrackingParams": "CCAQ_V0YBCITCOant9Kb_JcDFYi2uQUdGw4CycoBBJECa_k=",
                 "queueUpdateCommand": {
                  "queueUpdateSection": "QUEUE_UPDATE_SECTION_QUEUE",
                  "fetchContentsCommand": {
-                  "clickTrackingParams": "CCAQ_V0YBCITCOant9Kb_JcDFYi2uQUdGw4CycoBBJECa_k=",
                   "watchEndpoint": {
                    "playlistId": "RDATmcvnbCOAPR33ME",
                    "params": "ggU2Q2hKU1JFRlViV04yYm1KRFQwRlFVak16VFVVWUN5SU9DZ2hFYjNkdVltVmhkQm9DWlc0JTNE",
-                   "playerParams": "0gcJCW0At9Zurpe2",
                    "loggingContext": {
                     "vssLoggingContext": {
                      "serializedContextData": "GhJSREFUbWN2bmJDT0FQUjMzTUU%3D"
@@ -300,11 +290,9 @@
                 ]
                },
                "navigationEndpoint": {
-                "clickTrackingParams": "CB8Q_V0YBSITCOant9Kb_JcDFYi2uQUdGw4CycoBBJECa_k=",
                 "queueUpdateCommand": {
                  "queueUpdateSection": "QUEUE_UPDATE_SECTION_QUEUE",
                  "fetchContentsCommand": {
-                  "clickTrackingParams": "CB8Q_V0YBSITCOant9Kb_JcDFYi2uQUdGw4CycoBBJECa_k=",
                   "watchEndpoint": {
                    "playlistId": "RDATd0XvnbCOAPR33ME",
                    "params": "ggUwQ2hOU1JFRlVaREJZZG01aVEwOUJVRkl6TTAxRkdBc2lDd29GTWpBeE1ITWFBbVZ1",
@@ -338,11 +326,9 @@
                 ]
                },
                "navigationEndpoint": {
-                "clickTrackingParams": "CB4Q_V0YBiITCOant9Kb_JcDFYi2uQUdGw4CycoBBJECa_k=",
                 "queueUpdateCommand": {
                  "queueUpdateSection": "QUEUE_UPDATE_SECTION_QUEUE",
                  "fetchContentsCommand": {
-                  "clickTrackingParams": "CB4Q_V0YBiITCOant9Kb_JcDFYi2uQUdGw4CycoBBJECa_k=",
                   "watchEndpoint": {
                    "playlistId": "RDATd-vnbCOAPR33ME",
                    "params": "ggUyQ2hKU1JFRlVaQzEyYm1KRFQwRlFVak16VFVVWUN5SUxDZ1V5TURBd2N4b0NaVzQlM0Q%3D",
@@ -376,15 +362,12 @@
                 ]
                },
                "navigationEndpoint": {
-                "clickTrackingParams": "CB0Q_V0YByITCOant9Kb_JcDFYi2uQUdGw4CycoBBJECa_k=",
                 "queueUpdateCommand": {
                  "queueUpdateSection": "QUEUE_UPDATE_SECTION_QUEUE",
                  "fetchContentsCommand": {
-                  "clickTrackingParams": "CB0Q_V0YByITCOant9Kb_JcDFYi2uQUdGw4CycoBBJECa_k=",
                   "watchEndpoint": {
                    "playlistId": "RDATd_vnbCOAPR33ME",
                    "params": "ggUyQ2hKU1JFRlVaRjkyYm1KRFQwRlFVak16VFVVWUN5SUxDZ1V4T1Rrd2N4b0NaVzQlM0Q%3D",
-                   "playerParams": "0gcJCW0At9Zurpe2",
                    "loggingContext": {
                     "vssLoggingContext": {
                      "serializedContextData": "GhJSREFUZF92bmJDT0FQUjMzTUU%3D"
@@ -415,11 +398,9 @@
                 ]
                },
                "navigationEndpoint": {
-                "clickTrackingParams": "CBwQ_V0YCCITCOant9Kb_JcDFYi2uQUdGw4CycoBBJECa_k=",
                 "queueUpdateCommand": {
                  "queueUpdateSection": "QUEUE_UPDATE_SECTION_QUEUE",
                  "fetchContentsCommand": {
-                  "clickTrackingParams": "CBwQ_V0YCCITCOant9Kb_JcDFYi2uQUdGw4CycoBBJECa_k=",
                   "watchEndpoint": {
                    "playlistId": "RDATgFXvnbCOAPR33ME",
                    "params": "ggUyQ2hOU1JFRlVaMFpZZG01aVEwOUJVRkl6TTAxRkdBc2lDZ29FVW05amF4b0NaVzQlM0Q%3D",
@@ -453,11 +434,9 @@
                 ]
                },
                "navigationEndpoint": {
-                "clickTrackingParams": "CBsQ_V0YCSITCOant9Kb_JcDFYi2uQUdGw4CycoBBJECa_k=",
                 "queueUpdateCommand": {
                  "queueUpdateSection": "QUEUE_UPDATE_SECTION_QUEUE",
                  "fetchContentsCommand": {
-                  "clickTrackingParams": "CBsQ_V0YCSITCOant9Kb_JcDFYi2uQUdGw4CycoBBJECa_k=",
                   "watchEndpoint": {
                    "playlistId": "RDATgXvnbCOAPR33ME",
                    "params": "ggU6Q2hKU1JFRlVaMWgyYm1KRFQwRlFVak16VFVVWUN5SVJDZ3RCYkhSbGNtNWhkR2wyWlJvQ1pXNCUzRA%3D%3D",
@@ -486,54 +465,14 @@
                "text": {
                 "runs": [
                  {
-                  "text": "Rock noir"
-                 }
-                ]
-               },
-               "navigationEndpoint": {
-                "clickTrackingParams": "CBoQ_V0YCiITCOant9Kb_JcDFYi2uQUdGw4CycoBBJECa_k=",
-                "queueUpdateCommand": {
-                 "queueUpdateSection": "QUEUE_UPDATE_SECTION_QUEUE",
-                 "fetchContentsCommand": {
-                  "clickTrackingParams": "CBoQ_V0YCiITCOant9Kb_JcDFYi2uQUdGw4CycoBBJECa_k=",
-                  "watchEndpoint": {
-                   "playlistId": "RDATG04f6hs6EvnbCOAPR33ME",
-                   "params": "ggVEQ2hsU1JFRlVSekEwWmpab2N6WkZkbTVpUTA5QlVGSXpNMDFGR0FzaUR3b0pVbTlqYXlCdWIybHlHZ0psYmclM0QlM0Q%3D",
-                   "loggingContext": {
-                    "vssLoggingContext": {
-                     "serializedContextData": "GhlSREFURzA0ZjZoczZFdm5iQ09BUFIzM01F"
-                    }
-                   }
-                  }
-                 },
-                 "dedupeAgainstLocalQueue": true,
-                 "syncMode": "QUEUE_UPDATE_SYNC_MODE_DEDUPE_AGAINST_LOCAL"
-                }
-               },
-               "accessibilityData": {
-                "accessibilityData": {
-                 "label": "Rock noir"
-                }
-               },
-               "isSelected": false,
-               "uniqueId": "Rock noir"
-              }
-             },
-             {
-              "chipCloudChipRenderer": {
-               "text": {
-                "runs": [
-                 {
                   "text": "Lounge rock"
                  }
                 ]
                },
                "navigationEndpoint": {
-                "clickTrackingParams": "CBkQ_V0YCyITCOant9Kb_JcDFYi2uQUdGw4CycoBBJECa_k=",
                 "queueUpdateCommand": {
                  "queueUpdateSection": "QUEUE_UPDATE_SECTION_QUEUE",
                  "fetchContentsCommand": {
-                  "clickTrackingParams": "CBkQ_V0YCyITCOant9Kb_JcDFYi2uQUdGw4CycoBBJECa_k=",
                   "watchEndpoint": {
                    "playlistId": "RDATG09w5rbEvnbCOAPR33ME",
                    "params": "ggVCQ2hoU1JFRlVSekE1ZHpWeVlrVjJibUpEVDBGUVVqTXpUVVVZQ3lJUkNndE1iM1Z1WjJVZ2NtOWpheG9DWlc0JTNE",
@@ -555,6 +494,42 @@
                },
                "isSelected": false,
                "uniqueId": "Lounge rock"
+              }
+             },
+             {
+              "chipCloudChipRenderer": {
+               "text": {
+                "runs": [
+                 {
+                  "text": "Rock noir"
+                 }
+                ]
+               },
+               "navigationEndpoint": {
+                "queueUpdateCommand": {
+                 "queueUpdateSection": "QUEUE_UPDATE_SECTION_QUEUE",
+                 "fetchContentsCommand": {
+                  "watchEndpoint": {
+                   "playlistId": "RDATG04f6hs6EvnbCOAPR33ME",
+                   "params": "ggVEQ2hsU1JFRlVSekEwWmpab2N6WkZkbTVpUTA5QlVGSXpNMDFGR0FzaUR3b0pVbTlqYXlCdWIybHlHZ0psYmclM0QlM0Q%3D",
+                   "loggingContext": {
+                    "vssLoggingContext": {
+                     "serializedContextData": "GhlSREFURzA0ZjZoczZFdm5iQ09BUFIzM01F"
+                    }
+                   }
+                  }
+                 },
+                 "dedupeAgainstLocalQueue": true,
+                 "syncMode": "QUEUE_UPDATE_SYNC_MODE_DEDUPE_AGAINST_LOCAL"
+                }
+               },
+               "accessibilityData": {
+                "accessibilityData": {
+                 "label": "Rock noir"
+                }
+               },
+               "isSelected": false,
+               "uniqueId": "Rock noir"
               }
              }
             ],
@@ -579,7 +554,6 @@
                  {
                   "text": "Radiohead",
                   "navigationEndpoint": {
-                   "clickTrackingParams": "CM4HEMggGAAiEwjmp7fSm_yXAxWItrkFHRsOAsnKAQSRAmv5",
                    "browseEndpoint": {
                     "browseId": "UCr_iyUANcn9OX_yy9piYoLw",
                     "browseEndpointContextSupportedConfigs": {
@@ -596,7 +570,6 @@
                  {
                   "text": "OK Computer OKNOTOK 1997 2017",
                   "navigationEndpoint": {
-                   "clickTrackingParams": "CM4HEMggGAAiEwjmp7fSm_yXAxWItrkFHRsOAsnKAQSRAmv5",
                    "browseEndpoint": {
                     "browseId": "MPREb_b9Yfli6Cg79",
                     "browseEndpointContextSupportedConfigs": {
@@ -663,7 +636,6 @@
                },
                "selected": true,
                "navigationEndpoint": {
-                "clickTrackingParams": "CM4HEMggGAAiEwjmp7fSm_yXAxWItrkFHRsOAskyA0JGYUjBud-jj8Cj2J0BmgEFCAwQ-B3KAQSRAmv5",
                 "watchEndpoint": {
                  "videoId": "nbCOAPR33ME",
                  "playlistId": "RDAMVMnbCOAPR33ME",
@@ -708,7 +680,6 @@
                      "iconType": "MIX"
                     },
                     "navigationEndpoint": {
-                     "clickTrackingParams": "COAHEJvzBRgAIhMI5qe30pv8lwMViLa5BR0bDgLJygEEkQJr-Q==",
                      "watchEndpoint": {
                       "videoId": "nbCOAPR33ME",
                       "playlistId": "RDAMVMnbCOAPR33ME",
@@ -740,12 +711,10 @@
                      "iconType": "QUEUE_PLAY_NEXT"
                     },
                     "serviceEndpoint": {
-                     "clickTrackingParams": "CN4HEL7uBRgBIhMI5qe30pv8lwMViLa5BR0bDgLJygEEkQJr-Q==",
                      "queueAddEndpoint": {
                       "queueTarget": {
                        "videoId": "nbCOAPR33ME",
                        "onEmptyQueue": {
-                        "clickTrackingParams": "CN4HEL7uBRgBIhMI5qe30pv8lwMViLa5BR0bDgLJygEEkQJr-Q==",
                         "watchEndpoint": {
                          "videoId": "nbCOAPR33ME"
                         }
@@ -754,7 +723,6 @@
                       "queueInsertPosition": "INSERT_AFTER_CURRENT_VIDEO",
                       "commands": [
                        {
-                        "clickTrackingParams": "CN4HEL7uBRgBIhMI5qe30pv8lwMViLa5BR0bDgLJygEEkQJr-Q==",
                         "addToToastAction": {
                          "item": {
                           "notificationTextRenderer": {
@@ -787,12 +755,10 @@
                      "iconType": "ADD_TO_REMOTE_QUEUE"
                     },
                     "serviceEndpoint": {
-                     "clickTrackingParams": "CNwHEPvvBRgCIhMI5qe30pv8lwMViLa5BR0bDgLJygEEkQJr-Q==",
                      "queueAddEndpoint": {
                       "queueTarget": {
                        "videoId": "nbCOAPR33ME",
                        "onEmptyQueue": {
-                        "clickTrackingParams": "CNwHEPvvBRgCIhMI5qe30pv8lwMViLa5BR0bDgLJygEEkQJr-Q==",
                         "watchEndpoint": {
                          "videoId": "nbCOAPR33ME"
                         }
@@ -801,7 +767,6 @@
                       "queueInsertPosition": "INSERT_AT_END",
                       "commands": [
                        {
-                        "clickTrackingParams": "CNwHEPvvBRgCIhMI5qe30pv8lwMViLa5BR0bDgLJygEEkQJr-Q==",
                         "addToToastAction": {
                          "item": {
                           "notificationTextRenderer": {
@@ -834,7 +799,6 @@
                      "iconType": "FAVORITE"
                     },
                     "defaultServiceEndpoint": {
-                     "clickTrackingParams": "CNoHEIyfBhgDIhMI5qe30pv8lwMViLa5BR0bDgLJygEEkQJr-Q==",
                      "modalEndpoint": {
                       "modal": {
                        "modalWithTitleAndButtonRenderer": {
@@ -864,7 +828,6 @@
                            ]
                           },
                           "navigationEndpoint": {
-                           "clickTrackingParams": "CNsHEPBbIhMI5qe30pv8lwMViLa5BR0bDgLJygEEkQJr-Q==",
                            "signInEndpoint": {
                             "hack": true
                            }
@@ -890,11 +853,9 @@
                   {
                    "menuServiceItemDownloadRenderer": {
                     "serviceEndpoint": {
-                     "clickTrackingParams": "CNkHENGqBRgEIhMI5qe30pv8lwMViLa5BR0bDgLJygEEkQJr-Q==",
                      "offlineVideoEndpoint": {
                       "videoId": "nbCOAPR33ME",
                       "onAddCommand": {
-                       "clickTrackingParams": "CNkHENGqBRgEIhMI5qe30pv8lwMViLa5BR0bDgLJygEEkQJr-Q==",
                        "getDownloadActionCommand": {
                         "videoId": "nbCOAPR33ME",
                         "params": "CAI%3D"
@@ -920,7 +881,6 @@
                      "iconType": "ADD_TO_PLAYLIST"
                     },
                     "navigationEndpoint": {
-                     "clickTrackingParams": "CNcHEMOUBhgFIhMI5qe30pv8lwMViLa5BR0bDgLJygEEkQJr-Q==",
                      "modalEndpoint": {
                       "modal": {
                        "modalWithTitleAndButtonRenderer": {
@@ -950,7 +910,6 @@
                            ]
                           },
                           "navigationEndpoint": {
-                           "clickTrackingParams": "CNgHEPBbIhMI5qe30pv8lwMViLa5BR0bDgLJygEEkQJr-Q==",
                            "signInEndpoint": {
                             "hack": true
                            }
@@ -976,7 +935,6 @@
                      "iconType": "REMOVE_FROM_PLAYLIST"
                     },
                     "serviceEndpoint": {
-                     "clickTrackingParams": "CM4HEMggGAAiEwjmp7fSm_yXAxWItrkFHRsOAsnKAQSRAmv5",
                      "playlistEditEndpoint": {
                       "playlistId": "RDAMVMnbCOAPR33ME",
                       "actions": [
@@ -1003,12 +961,10 @@
                      "iconType": "REMOVE"
                     },
                     "serviceEndpoint": {
-                     "clickTrackingParams": "CNUHEOP7BRgHIhMI5qe30pv8lwMViLa5BR0bDgLJygEEkQJr-Q==",
                      "removeFromQueueEndpoint": {
                       "videoId": "nbCOAPR33ME",
                       "commands": [
                        {
-                        "clickTrackingParams": "CNUHEOP7BRgHIhMI5qe30pv8lwMViLa5BR0bDgLJygEEkQJr-Q==",
                         "addToToastAction": {
                          "item": {
                           "notificationTextRenderer": {
@@ -1041,7 +997,6 @@
                      "iconType": "ALBUM"
                     },
                     "navigationEndpoint": {
-                     "clickTrackingParams": "CNQHEI_7BRgIIhMI5qe30pv8lwMViLa5BR0bDgLJygEEkQJr-Q==",
                      "browseEndpoint": {
                       "browseId": "MPREb_b9Yfli6Cg79",
                       "browseEndpointContextSupportedConfigs": {
@@ -1066,7 +1021,6 @@
                      "iconType": "ARTIST"
                     },
                     "navigationEndpoint": {
-                     "clickTrackingParams": "CNMHEJD7BRgJIhMI5qe30pv8lwMViLa5BR0bDgLJygEEkQJr-Q==",
                      "browseEndpoint": {
                       "browseId": "UCr_iyUANcn9OX_yy9piYoLw",
                       "browseEndpointContextSupportedConfigs": {
@@ -1091,7 +1045,6 @@
                      "iconType": "PEOPLE_GROUP"
                     },
                     "navigationEndpoint": {
-                     "clickTrackingParams": "CNIHEK-jChgKIhMI5qe30pv8lwMViLa5BR0bDgLJygEEkQJr-Q==",
                      "browseEndpoint": {
                       "browseId": "MPTCnbCOAPR33ME",
                       "browseEndpointContextSupportedConfigs": {
@@ -1116,7 +1069,6 @@
                      "iconType": "SHARE"
                     },
                     "navigationEndpoint": {
-                     "clickTrackingParams": "CNEHEJH7BRgLIhMI5qe30pv8lwMViLa5BR0bDgLJygEEkQJr-Q==",
                      "shareEntityEndpoint": {
                       "serializedShareEntity": "CgtuYkNPQVBSMzNNRQ%3D%3D",
                       "sharePanelType": "SHARE_PANEL_TYPE_UNIFIED_SHARE_PANEL"
@@ -1137,7 +1089,6 @@
                      "iconType": "FLAG"
                     },
                     "serviceEndpoint": {
-                     "clickTrackingParams": "CM8HEI32CRgMIhMI5qe30pv8lwMViLa5BR0bDgLJygEEkQJr-Q==",
                      "modalEndpoint": {
                       "modal": {
                        "modalWithTitleAndButtonRenderer": {
@@ -1167,7 +1118,6 @@
                            ]
                           },
                           "navigationEndpoint": {
-                           "clickTrackingParams": "CNAHEPBbIhMI5qe30pv8lwMViLa5BR0bDgLJygEEkQJr-Q==",
                            "signInEndpoint": {
                             "hack": true
                            }
@@ -1191,7 +1141,6 @@
                "playlistSetVideoId": "56B44F6D10557CC6",
                "canReorder": true,
                "queueNavigationEndpoint": {
-                "clickTrackingParams": "CM4HEMggGAAiEwjmp7fSm_yXAxWItrkFHRsOAsnKAQSRAmv5",
                 "queueAddEndpoint": {
                  "queueTarget": {
                   "videoId": "nbCOAPR33ME"
@@ -1216,7 +1165,6 @@
                  {
                   "text": "Radiohead",
                   "navigationEndpoint": {
-                   "clickTrackingParams": "CLoHEMggGAEiEwjmp7fSm_yXAxWItrkFHRsOAsnKAQSRAmv5",
                    "browseEndpoint": {
                     "browseId": "UCr_iyUANcn9OX_yy9piYoLw",
                     "browseEndpointContextSupportedConfigs": {
@@ -1233,7 +1181,6 @@
                  {
                   "text": "Creep",
                   "navigationEndpoint": {
-                   "clickTrackingParams": "CLoHEMggGAEiEwjmp7fSm_yXAxWItrkFHRsOAsnKAQSRAmv5",
                    "browseEndpoint": {
                     "browseId": "MPREb_TgQPwAzodvg",
                     "browseEndpointContextSupportedConfigs": {
@@ -1300,7 +1247,6 @@
                },
                "selected": false,
                "navigationEndpoint": {
-                "clickTrackingParams": "CLoHEMggGAEiEwjmp7fSm_yXAxWItrkFHRsOAskyA0JGYUj704SN_rT1i_UBmgEFCAwQ-B3KAQSRAmv5",
                 "watchEndpoint": {
                  "videoId": "9RfVp-GhKfs",
                  "playlistId": "RDAMVMnbCOAPR33ME",
@@ -1359,7 +1305,6 @@
                      "iconType": "MIX"
                     },
                     "navigationEndpoint": {
-                     "clickTrackingParams": "CMwHEJvzBRgBIhMI5qe30pv8lwMViLa5BR0bDgLJygEEkQJr-Q==",
                      "watchEndpoint": {
                       "videoId": "9RfVp-GhKfs",
                       "playlistId": "RDAMVM9RfVp-GhKfs",
@@ -1391,12 +1336,10 @@
                      "iconType": "QUEUE_PLAY_NEXT"
                     },
                     "serviceEndpoint": {
-                     "clickTrackingParams": "CMoHEL7uBRgCIhMI5qe30pv8lwMViLa5BR0bDgLJygEEkQJr-Q==",
                      "queueAddEndpoint": {
                       "queueTarget": {
                        "videoId": "9RfVp-GhKfs",
                        "onEmptyQueue": {
-                        "clickTrackingParams": "CMoHEL7uBRgCIhMI5qe30pv8lwMViLa5BR0bDgLJygEEkQJr-Q==",
                         "watchEndpoint": {
                          "videoId": "9RfVp-GhKfs"
                         }
@@ -1405,7 +1348,6 @@
                       "queueInsertPosition": "INSERT_AFTER_CURRENT_VIDEO",
                       "commands": [
                        {
-                        "clickTrackingParams": "CMoHEL7uBRgCIhMI5qe30pv8lwMViLa5BR0bDgLJygEEkQJr-Q==",
                         "addToToastAction": {
                          "item": {
                           "notificationTextRenderer": {
@@ -1438,12 +1380,10 @@
                      "iconType": "ADD_TO_REMOTE_QUEUE"
                     },
                     "serviceEndpoint": {
-                     "clickTrackingParams": "CMgHEPvvBRgDIhMI5qe30pv8lwMViLa5BR0bDgLJygEEkQJr-Q==",
                      "queueAddEndpoint": {
                       "queueTarget": {
                        "videoId": "9RfVp-GhKfs",
                        "onEmptyQueue": {
-                        "clickTrackingParams": "CMgHEPvvBRgDIhMI5qe30pv8lwMViLa5BR0bDgLJygEEkQJr-Q==",
                         "watchEndpoint": {
                          "videoId": "9RfVp-GhKfs"
                         }
@@ -1452,7 +1392,6 @@
                       "queueInsertPosition": "INSERT_AT_END",
                       "commands": [
                        {
-                        "clickTrackingParams": "CMgHEPvvBRgDIhMI5qe30pv8lwMViLa5BR0bDgLJygEEkQJr-Q==",
                         "addToToastAction": {
                          "item": {
                           "notificationTextRenderer": {
@@ -1485,7 +1424,6 @@
                      "iconType": "FAVORITE"
                     },
                     "defaultServiceEndpoint": {
-                     "clickTrackingParams": "CMYHEIyfBhgEIhMI5qe30pv8lwMViLa5BR0bDgLJygEEkQJr-Q==",
                      "modalEndpoint": {
                       "modal": {
                        "modalWithTitleAndButtonRenderer": {
@@ -1515,7 +1453,6 @@
                            ]
                           },
                           "navigationEndpoint": {
-                           "clickTrackingParams": "CMcHEPBbIhMI5qe30pv8lwMViLa5BR0bDgLJygEEkQJr-Q==",
                            "signInEndpoint": {
                             "hack": true
                            }
@@ -1541,11 +1478,9 @@
                   {
                    "menuServiceItemDownloadRenderer": {
                     "serviceEndpoint": {
-                     "clickTrackingParams": "CMUHENGqBRgFIhMI5qe30pv8lwMViLa5BR0bDgLJygEEkQJr-Q==",
                      "offlineVideoEndpoint": {
                       "videoId": "9RfVp-GhKfs",
                       "onAddCommand": {
-                       "clickTrackingParams": "CMUHENGqBRgFIhMI5qe30pv8lwMViLa5BR0bDgLJygEEkQJr-Q==",
                        "getDownloadActionCommand": {
                         "videoId": "9RfVp-GhKfs",
                         "params": "CAI%3D"
@@ -1571,7 +1506,6 @@
                      "iconType": "ADD_TO_PLAYLIST"
                     },
                     "navigationEndpoint": {
-                     "clickTrackingParams": "CMMHEMOUBhgGIhMI5qe30pv8lwMViLa5BR0bDgLJygEEkQJr-Q==",
                      "modalEndpoint": {
                       "modal": {
                        "modalWithTitleAndButtonRenderer": {
@@ -1601,7 +1535,6 @@
                            ]
                           },
                           "navigationEndpoint": {
-                           "clickTrackingParams": "CMQHEPBbIhMI5qe30pv8lwMViLa5BR0bDgLJygEEkQJr-Q==",
                            "signInEndpoint": {
                             "hack": true
                            }
@@ -1627,7 +1560,6 @@
                      "iconType": "REMOVE_FROM_PLAYLIST"
                     },
                     "serviceEndpoint": {
-                     "clickTrackingParams": "CLoHEMggGAEiEwjmp7fSm_yXAxWItrkFHRsOAsnKAQSRAmv5",
                      "playlistEditEndpoint": {
                       "playlistId": "RDAMVMnbCOAPR33ME",
                       "actions": [
@@ -1654,12 +1586,10 @@
                      "iconType": "REMOVE"
                     },
                     "serviceEndpoint": {
-                     "clickTrackingParams": "CMEHEOP7BRgIIhMI5qe30pv8lwMViLa5BR0bDgLJygEEkQJr-Q==",
                      "removeFromQueueEndpoint": {
                       "videoId": "9RfVp-GhKfs",
                       "commands": [
                        {
-                        "clickTrackingParams": "CMEHEOP7BRgIIhMI5qe30pv8lwMViLa5BR0bDgLJygEEkQJr-Q==",
                         "addToToastAction": {
                          "item": {
                           "notificationTextRenderer": {
@@ -1692,7 +1622,6 @@
                      "iconType": "ALBUM"
                     },
                     "navigationEndpoint": {
-                     "clickTrackingParams": "CMAHEI_7BRgJIhMI5qe30pv8lwMViLa5BR0bDgLJygEEkQJr-Q==",
                      "browseEndpoint": {
                       "browseId": "MPREb_TgQPwAzodvg",
                       "browseEndpointContextSupportedConfigs": {
@@ -1717,7 +1646,6 @@
                      "iconType": "ARTIST"
                     },
                     "navigationEndpoint": {
-                     "clickTrackingParams": "CL8HEJD7BRgKIhMI5qe30pv8lwMViLa5BR0bDgLJygEEkQJr-Q==",
                      "browseEndpoint": {
                       "browseId": "UCr_iyUANcn9OX_yy9piYoLw",
                       "browseEndpointContextSupportedConfigs": {
@@ -1742,7 +1670,6 @@
                      "iconType": "PEOPLE_GROUP"
                     },
                     "navigationEndpoint": {
-                     "clickTrackingParams": "CL4HEK-jChgLIhMI5qe30pv8lwMViLa5BR0bDgLJygEEkQJr-Q==",
                      "browseEndpoint": {
                       "browseId": "MPTC9RfVp-GhKfs",
                       "browseEndpointContextSupportedConfigs": {
@@ -1767,7 +1694,6 @@
                      "iconType": "SHARE"
                     },
                     "navigationEndpoint": {
-                     "clickTrackingParams": "CL0HEJH7BRgMIhMI5qe30pv8lwMViLa5BR0bDgLJygEEkQJr-Q==",
                      "shareEntityEndpoint": {
                       "serializedShareEntity": "Cgs5UmZWcC1HaEtmcw%3D%3D",
                       "sharePanelType": "SHARE_PANEL_TYPE_UNIFIED_SHARE_PANEL"
@@ -1788,7 +1714,6 @@
                      "iconType": "FLAG"
                     },
                     "serviceEndpoint": {
-                     "clickTrackingParams": "CLsHEI32CRgNIhMI5qe30pv8lwMViLa5BR0bDgLJygEEkQJr-Q==",
                      "modalEndpoint": {
                       "modal": {
                        "modalWithTitleAndButtonRenderer": {
@@ -1818,7 +1743,6 @@
                            ]
                           },
                           "navigationEndpoint": {
-                           "clickTrackingParams": "CLwHEPBbIhMI5qe30pv8lwMViLa5BR0bDgLJygEEkQJr-Q==",
                            "signInEndpoint": {
                             "hack": true
                            }
@@ -1842,7 +1766,6 @@
                "playlistSetVideoId": "289F4A46DF0A30D2",
                "canReorder": true,
                "queueNavigationEndpoint": {
-                "clickTrackingParams": "CLoHEMggGAEiEwjmp7fSm_yXAxWItrkFHRsOAsnKAQSRAmv5",
                 "queueAddEndpoint": {
                  "queueTarget": {
                   "videoId": "9RfVp-GhKfs"
@@ -1867,7 +1790,6 @@
                  {
                   "text": "Oasis",
                   "navigationEndpoint": {
-                   "clickTrackingParams": "CKcHEMggGAIiEwjmp7fSm_yXAxWItrkFHRsOAsnKAQSRAmv5",
                    "browseEndpoint": {
                     "browseId": "UCmMUZbaYdNH0bEd1PAlAqsA",
                     "browseEndpointContextSupportedConfigs": {
@@ -1884,7 +1806,6 @@
                  {
                   "text": "Heathen Chemistry",
                   "navigationEndpoint": {
-                   "clickTrackingParams": "CKcHEMggGAIiEwjmp7fSm_yXAxWItrkFHRsOAsnKAQSRAmv5",
                    "browseEndpoint": {
                     "browseId": "MPREb_4obNWjDVCfX",
                     "browseEndpointContextSupportedConfigs": {
@@ -1951,7 +1872,6 @@
                },
                "selected": false,
                "navigationEndpoint": {
-                "clickTrackingParams": "CKcHEMggGAIiEwjmp7fSm_yXAxWItrkFHRsOAskyA0JGYUj_8a-qm4e59KsBmgEFCAwQ-B3KAQSRAmv5",
                 "watchEndpoint": {
                  "videoId": "q-jkObVL-P8",
                  "playlistId": "RDAMVMnbCOAPR33ME",
@@ -1996,7 +1916,6 @@
                      "iconType": "MIX"
                     },
                     "navigationEndpoint": {
-                     "clickTrackingParams": "CLkHEJvzBRgAIhMI5qe30pv8lwMViLa5BR0bDgLJygEEkQJr-Q==",
                      "watchEndpoint": {
                       "videoId": "q-jkObVL-P8",
                       "playlistId": "RDAMVMq-jkObVL-P8",
@@ -2028,12 +1947,10 @@
                      "iconType": "QUEUE_PLAY_NEXT"
                     },
                     "serviceEndpoint": {
-                     "clickTrackingParams": "CLcHEL7uBRgBIhMI5qe30pv8lwMViLa5BR0bDgLJygEEkQJr-Q==",
                      "queueAddEndpoint": {
                       "queueTarget": {
                        "videoId": "q-jkObVL-P8",
                        "onEmptyQueue": {
-                        "clickTrackingParams": "CLcHEL7uBRgBIhMI5qe30pv8lwMViLa5BR0bDgLJygEEkQJr-Q==",
                         "watchEndpoint": {
                          "videoId": "q-jkObVL-P8"
                         }
@@ -2042,7 +1959,6 @@
                       "queueInsertPosition": "INSERT_AFTER_CURRENT_VIDEO",
                       "commands": [
                        {
-                        "clickTrackingParams": "CLcHEL7uBRgBIhMI5qe30pv8lwMViLa5BR0bDgLJygEEkQJr-Q==",
                         "addToToastAction": {
                          "item": {
                           "notificationTextRenderer": {
@@ -2075,12 +1991,10 @@
                      "iconType": "ADD_TO_REMOTE_QUEUE"
                     },
                     "serviceEndpoint": {
-                     "clickTrackingParams": "CLUHEPvvBRgCIhMI5qe30pv8lwMViLa5BR0bDgLJygEEkQJr-Q==",
                      "queueAddEndpoint": {
                       "queueTarget": {
                        "videoId": "q-jkObVL-P8",
                        "onEmptyQueue": {
-                        "clickTrackingParams": "CLUHEPvvBRgCIhMI5qe30pv8lwMViLa5BR0bDgLJygEEkQJr-Q==",
                         "watchEndpoint": {
                          "videoId": "q-jkObVL-P8"
                         }
@@ -2089,7 +2003,6 @@
                       "queueInsertPosition": "INSERT_AT_END",
                       "commands": [
                        {
-                        "clickTrackingParams": "CLUHEPvvBRgCIhMI5qe30pv8lwMViLa5BR0bDgLJygEEkQJr-Q==",
                         "addToToastAction": {
                          "item": {
                           "notificationTextRenderer": {
@@ -2122,7 +2035,6 @@
                      "iconType": "FAVORITE"
                     },
                     "defaultServiceEndpoint": {
-                     "clickTrackingParams": "CLMHEIyfBhgDIhMI5qe30pv8lwMViLa5BR0bDgLJygEEkQJr-Q==",
                      "modalEndpoint": {
                       "modal": {
                        "modalWithTitleAndButtonRenderer": {
@@ -2152,7 +2064,6 @@
                            ]
                           },
                           "navigationEndpoint": {
-                           "clickTrackingParams": "CLQHEPBbIhMI5qe30pv8lwMViLa5BR0bDgLJygEEkQJr-Q==",
                            "signInEndpoint": {
                             "hack": true
                            }
@@ -2178,11 +2089,9 @@
                   {
                    "menuServiceItemDownloadRenderer": {
                     "serviceEndpoint": {
-                     "clickTrackingParams": "CLIHENGqBRgEIhMI5qe30pv8lwMViLa5BR0bDgLJygEEkQJr-Q==",
                      "offlineVideoEndpoint": {
                       "videoId": "q-jkObVL-P8",
                       "onAddCommand": {
-                       "clickTrackingParams": "CLIHENGqBRgEIhMI5qe30pv8lwMViLa5BR0bDgLJygEEkQJr-Q==",
                        "getDownloadActionCommand": {
                         "videoId": "q-jkObVL-P8",
                         "params": "CAI%3D"
@@ -2208,7 +2117,6 @@
                      "iconType": "ADD_TO_PLAYLIST"
                     },
                     "navigationEndpoint": {
-                     "clickTrackingParams": "CLAHEMOUBhgFIhMI5qe30pv8lwMViLa5BR0bDgLJygEEkQJr-Q==",
                      "modalEndpoint": {
                       "modal": {
                        "modalWithTitleAndButtonRenderer": {
@@ -2238,7 +2146,6 @@
                            ]
                           },
                           "navigationEndpoint": {
-                           "clickTrackingParams": "CLEHEPBbIhMI5qe30pv8lwMViLa5BR0bDgLJygEEkQJr-Q==",
                            "signInEndpoint": {
                             "hack": true
                            }
@@ -2264,7 +2171,6 @@
                      "iconType": "REMOVE_FROM_PLAYLIST"
                     },
                     "serviceEndpoint": {
-                     "clickTrackingParams": "CKcHEMggGAIiEwjmp7fSm_yXAxWItrkFHRsOAsnKAQSRAmv5",
                      "playlistEditEndpoint": {
                       "playlistId": "RDAMVMnbCOAPR33ME",
                       "actions": [
@@ -2291,12 +2197,10 @@
                      "iconType": "REMOVE"
                     },
                     "serviceEndpoint": {
-                     "clickTrackingParams": "CK4HEOP7BRgHIhMI5qe30pv8lwMViLa5BR0bDgLJygEEkQJr-Q==",
                      "removeFromQueueEndpoint": {
                       "videoId": "q-jkObVL-P8",
                       "commands": [
                        {
-                        "clickTrackingParams": "CK4HEOP7BRgHIhMI5qe30pv8lwMViLa5BR0bDgLJygEEkQJr-Q==",
                         "addToToastAction": {
                          "item": {
                           "notificationTextRenderer": {
@@ -2329,7 +2233,6 @@
                      "iconType": "ALBUM"
                     },
                     "navigationEndpoint": {
-                     "clickTrackingParams": "CK0HEI_7BRgIIhMI5qe30pv8lwMViLa5BR0bDgLJygEEkQJr-Q==",
                      "browseEndpoint": {
                       "browseId": "MPREb_4obNWjDVCfX",
                       "browseEndpointContextSupportedConfigs": {
@@ -2354,7 +2257,6 @@
                      "iconType": "ARTIST"
                     },
                     "navigationEndpoint": {
-                     "clickTrackingParams": "CKwHEJD7BRgJIhMI5qe30pv8lwMViLa5BR0bDgLJygEEkQJr-Q==",
                      "browseEndpoint": {
                       "browseId": "UCmMUZbaYdNH0bEd1PAlAqsA",
                       "browseEndpointContextSupportedConfigs": {
@@ -2379,7 +2281,6 @@
                      "iconType": "PEOPLE_GROUP"
                     },
                     "navigationEndpoint": {
-                     "clickTrackingParams": "CKsHEK-jChgKIhMI5qe30pv8lwMViLa5BR0bDgLJygEEkQJr-Q==",
                      "browseEndpoint": {
                       "browseId": "MPTCq-jkObVL-P8",
                       "browseEndpointContextSupportedConfigs": {
@@ -2404,7 +2305,6 @@
                      "iconType": "SHARE"
                     },
                     "navigationEndpoint": {
-                     "clickTrackingParams": "CKoHEJH7BRgLIhMI5qe30pv8lwMViLa5BR0bDgLJygEEkQJr-Q==",
                      "shareEntityEndpoint": {
                       "serializedShareEntity": "CgtxLWprT2JWTC1QOA%3D%3D",
                       "sharePanelType": "SHARE_PANEL_TYPE_UNIFIED_SHARE_PANEL"
@@ -2425,7 +2325,6 @@
                      "iconType": "FLAG"
                     },
                     "serviceEndpoint": {
-                     "clickTrackingParams": "CKgHEI32CRgMIhMI5qe30pv8lwMViLa5BR0bDgLJygEEkQJr-Q==",
                      "modalEndpoint": {
                       "modal": {
                        "modalWithTitleAndButtonRenderer": {
@@ -2455,7 +2354,6 @@
                            ]
                           },
                           "navigationEndpoint": {
-                           "clickTrackingParams": "CKkHEPBbIhMI5qe30pv8lwMViLa5BR0bDgLJygEEkQJr-Q==",
                            "signInEndpoint": {
                             "hack": true
                            }
@@ -2479,7 +2377,6 @@
                "playlistSetVideoId": "017208FAA85233F9",
                "canReorder": true,
                "queueNavigationEndpoint": {
-                "clickTrackingParams": "CKcHEMggGAIiEwjmp7fSm_yXAxWItrkFHRsOAsnKAQSRAmv5",
                 "queueAddEndpoint": {
                  "queueTarget": {
                   "videoId": "q-jkObVL-P8"
@@ -2495,18 +2392,17 @@
                "title": {
                 "runs": [
                  {
-                  "text": "Black"
+                  "text": "The Scientist"
                  }
                 ]
                },
                "longBylineText": {
                 "runs": [
                  {
-                  "text": "Pearl Jam",
+                  "text": "Coldplay",
                   "navigationEndpoint": {
-                   "clickTrackingParams": "CJQHEMggGAMiEwjmp7fSm_yXAxWItrkFHRsOAsnKAQSRAmv5",
                    "browseEndpoint": {
-                    "browseId": "UCI1tnOMUhNh2QiHTpMrPDbw",
+                    "browseId": "UCIaFw5VBEK8qaW6nRpx_qnw",
                     "browseEndpointContextSupportedConfigs": {
                      "browseEndpointContextMusicConfig": {
                       "pageType": "MUSIC_PAGE_TYPE_ARTIST"
@@ -2519,11 +2415,10 @@
                   "text": " • "
                  },
                  {
-                  "text": "Ten",
+                  "text": "A Rush of Blood to the Head",
                   "navigationEndpoint": {
-                   "clickTrackingParams": "CJQHEMggGAMiEwjmp7fSm_yXAxWItrkFHRsOAsnKAQSRAmv5",
                    "browseEndpoint": {
-                    "browseId": "MPREb_IBgDGohw5WG",
+                    "browseId": "MPREb_U4m9ZEeYxdi",
                     "browseEndpointContextSupportedConfigs": {
                      "browseEndpointContextMusicConfig": {
                       "pageType": "MUSIC_PAGE_TYPE_ALBUM"
@@ -2536,39 +2431,39 @@
                   "text": " • "
                  },
                  {
-                  "text": "1991"
+                  "text": "2002"
                  }
                 ]
                },
                "thumbnail": {
                 "thumbnails": [
                  {
-                  "url": "https://yt3.googleusercontent.com/OFbHAl0CZa2BKjLckDDlmAGYJNavMkOmGF8yiF5Yq-WE0vTcr8yugqkpvmxg5PVtjc_mpFwzAZoAp1E=w60-h60-l90-rj",
+                  "url": "https://yt3.googleusercontent.com/-5tnsyG-BDCZj2gipRW710kLtHWPDVmlvt2BMwJ4StWqrfMxRUYvLsirYPClRDg1qnDU3avAgVn66eS20A=w60-h60-l90-rj",
                   "width": 60,
                   "height": 60
                  },
                  {
-                  "url": "https://yt3.googleusercontent.com/OFbHAl0CZa2BKjLckDDlmAGYJNavMkOmGF8yiF5Yq-WE0vTcr8yugqkpvmxg5PVtjc_mpFwzAZoAp1E=w120-h120-l90-rj",
+                  "url": "https://yt3.googleusercontent.com/-5tnsyG-BDCZj2gipRW710kLtHWPDVmlvt2BMwJ4StWqrfMxRUYvLsirYPClRDg1qnDU3avAgVn66eS20A=w120-h120-l90-rj",
                   "width": 120,
                   "height": 120
                  },
                  {
-                  "url": "https://yt3.googleusercontent.com/OFbHAl0CZa2BKjLckDDlmAGYJNavMkOmGF8yiF5Yq-WE0vTcr8yugqkpvmxg5PVtjc_mpFwzAZoAp1E=w180-h180-l90-rj",
+                  "url": "https://yt3.googleusercontent.com/-5tnsyG-BDCZj2gipRW710kLtHWPDVmlvt2BMwJ4StWqrfMxRUYvLsirYPClRDg1qnDU3avAgVn66eS20A=w180-h180-l90-rj",
                   "width": 180,
                   "height": 180
                  },
                  {
-                  "url": "https://yt3.googleusercontent.com/OFbHAl0CZa2BKjLckDDlmAGYJNavMkOmGF8yiF5Yq-WE0vTcr8yugqkpvmxg5PVtjc_mpFwzAZoAp1E=w226-h226-l90-rj",
+                  "url": "https://yt3.googleusercontent.com/-5tnsyG-BDCZj2gipRW710kLtHWPDVmlvt2BMwJ4StWqrfMxRUYvLsirYPClRDg1qnDU3avAgVn66eS20A=w226-h226-l90-rj",
                   "width": 226,
                   "height": 226
                  },
                  {
-                  "url": "https://yt3.googleusercontent.com/OFbHAl0CZa2BKjLckDDlmAGYJNavMkOmGF8yiF5Yq-WE0vTcr8yugqkpvmxg5PVtjc_mpFwzAZoAp1E=w302-h302-l90-rj",
+                  "url": "https://yt3.googleusercontent.com/-5tnsyG-BDCZj2gipRW710kLtHWPDVmlvt2BMwJ4StWqrfMxRUYvLsirYPClRDg1qnDU3avAgVn66eS20A=w302-h302-l90-rj",
                   "width": 302,
                   "height": 302
                  },
                  {
-                  "url": "https://yt3.googleusercontent.com/OFbHAl0CZa2BKjLckDDlmAGYJNavMkOmGF8yiF5Yq-WE0vTcr8yugqkpvmxg5PVtjc_mpFwzAZoAp1E=w544-h544-l90-rj",
+                  "url": "https://yt3.googleusercontent.com/-5tnsyG-BDCZj2gipRW710kLtHWPDVmlvt2BMwJ4StWqrfMxRUYvLsirYPClRDg1qnDU3avAgVn66eS20A=w544-h544-l90-rj",
                   "width": 544,
                   "height": 544
                  }
@@ -2577,20 +2472,19 @@
                "lengthText": {
                 "runs": [
                  {
-                  "text": "5:43"
+                  "text": "5:10"
                  }
                 ],
                 "accessibility": {
                  "accessibilityData": {
-                  "label": "5 minutes, 43 seconds"
+                  "label": "5 minutes, 10 seconds"
                  }
                 }
                },
                "selected": false,
                "navigationEndpoint": {
-                "clickTrackingParams": "CJQHEMggGAMiEwjmp7fSm_yXAxWItrkFHRsOAskyA0JGYUjbztyp9uCBziKaAQUIDBD4HcoBBJECa_k=",
                 "watchEndpoint": {
-                 "videoId": "IpwHB2U3J1s",
+                 "videoId": "gm-Y9idMMQ4",
                  "playlistId": "RDAMVMnbCOAPR33ME",
                  "index": 3,
                  "params": "OAHyAQIIAQ%3D%3D",
@@ -2609,11 +2503,11 @@
                  }
                 }
                },
-               "videoId": "IpwHB2U3J1s",
+               "videoId": "gm-Y9idMMQ4",
                "shortBylineText": {
                 "runs": [
                  {
-                  "text": "Pearl Jam"
+                  "text": "Coldplay"
                  }
                 ]
                },
@@ -2633,14 +2527,13 @@
                      "iconType": "MIX"
                     },
                     "navigationEndpoint": {
-                     "clickTrackingParams": "CKYHEJvzBRgAIhMI5qe30pv8lwMViLa5BR0bDgLJygEEkQJr-Q==",
                      "watchEndpoint": {
-                      "videoId": "IpwHB2U3J1s",
-                      "playlistId": "RDAMVMIpwHB2U3J1s",
+                      "videoId": "gm-Y9idMMQ4",
+                      "playlistId": "RDAMVMgm-Y9idMMQ4",
                       "params": "wAEB",
                       "loggingContext": {
                        "vssLoggingContext": {
-                        "serializedContextData": "GhFSREFNVk1JcHdIQjJVM0oxcw%3D%3D"
+                        "serializedContextData": "GhFSREFNVk1nbS1ZOWlkTU1RNA%3D%3D"
                        }
                       },
                       "watchEndpointMusicSupportedConfigs": {
@@ -2665,21 +2558,18 @@
                      "iconType": "QUEUE_PLAY_NEXT"
                     },
                     "serviceEndpoint": {
-                     "clickTrackingParams": "CKQHEL7uBRgBIhMI5qe30pv8lwMViLa5BR0bDgLJygEEkQJr-Q==",
                      "queueAddEndpoint": {
                       "queueTarget": {
-                       "videoId": "IpwHB2U3J1s",
+                       "videoId": "gm-Y9idMMQ4",
                        "onEmptyQueue": {
-                        "clickTrackingParams": "CKQHEL7uBRgBIhMI5qe30pv8lwMViLa5BR0bDgLJygEEkQJr-Q==",
                         "watchEndpoint": {
-                         "videoId": "IpwHB2U3J1s"
+                         "videoId": "gm-Y9idMMQ4"
                         }
                        }
                       },
                       "queueInsertPosition": "INSERT_AFTER_CURRENT_VIDEO",
                       "commands": [
                        {
-                        "clickTrackingParams": "CKQHEL7uBRgBIhMI5qe30pv8lwMViLa5BR0bDgLJygEEkQJr-Q==",
                         "addToToastAction": {
                          "item": {
                           "notificationTextRenderer": {
@@ -2712,21 +2602,18 @@
                      "iconType": "ADD_TO_REMOTE_QUEUE"
                     },
                     "serviceEndpoint": {
-                     "clickTrackingParams": "CKIHEPvvBRgCIhMI5qe30pv8lwMViLa5BR0bDgLJygEEkQJr-Q==",
                      "queueAddEndpoint": {
                       "queueTarget": {
-                       "videoId": "IpwHB2U3J1s",
+                       "videoId": "gm-Y9idMMQ4",
                        "onEmptyQueue": {
-                        "clickTrackingParams": "CKIHEPvvBRgCIhMI5qe30pv8lwMViLa5BR0bDgLJygEEkQJr-Q==",
                         "watchEndpoint": {
-                         "videoId": "IpwHB2U3J1s"
+                         "videoId": "gm-Y9idMMQ4"
                         }
                        }
                       },
                       "queueInsertPosition": "INSERT_AT_END",
                       "commands": [
                        {
-                        "clickTrackingParams": "CKIHEPvvBRgCIhMI5qe30pv8lwMViLa5BR0bDgLJygEEkQJr-Q==",
                         "addToToastAction": {
                          "item": {
                           "notificationTextRenderer": {
@@ -2759,7 +2646,6 @@
                      "iconType": "FAVORITE"
                     },
                     "defaultServiceEndpoint": {
-                     "clickTrackingParams": "CKAHEIyfBhgDIhMI5qe30pv8lwMViLa5BR0bDgLJygEEkQJr-Q==",
                      "modalEndpoint": {
                       "modal": {
                        "modalWithTitleAndButtonRenderer": {
@@ -2789,7 +2675,6 @@
                            ]
                           },
                           "navigationEndpoint": {
-                           "clickTrackingParams": "CKEHEPBbIhMI5qe30pv8lwMViLa5BR0bDgLJygEEkQJr-Q==",
                            "signInEndpoint": {
                             "hack": true
                            }
@@ -2815,13 +2700,11 @@
                   {
                    "menuServiceItemDownloadRenderer": {
                     "serviceEndpoint": {
-                     "clickTrackingParams": "CJ8HENGqBRgEIhMI5qe30pv8lwMViLa5BR0bDgLJygEEkQJr-Q==",
                      "offlineVideoEndpoint": {
-                      "videoId": "IpwHB2U3J1s",
+                      "videoId": "gm-Y9idMMQ4",
                       "onAddCommand": {
-                       "clickTrackingParams": "CJ8HENGqBRgEIhMI5qe30pv8lwMViLa5BR0bDgLJygEEkQJr-Q==",
                        "getDownloadActionCommand": {
-                        "videoId": "IpwHB2U3J1s",
+                        "videoId": "gm-Y9idMMQ4",
                         "params": "CAI%3D"
                        }
                       }
@@ -2845,7 +2728,6 @@
                      "iconType": "ADD_TO_PLAYLIST"
                     },
                     "navigationEndpoint": {
-                     "clickTrackingParams": "CJ0HEMOUBhgFIhMI5qe30pv8lwMViLa5BR0bDgLJygEEkQJr-Q==",
                      "modalEndpoint": {
                       "modal": {
                        "modalWithTitleAndButtonRenderer": {
@@ -2875,7 +2757,6 @@
                            ]
                           },
                           "navigationEndpoint": {
-                           "clickTrackingParams": "CJ4HEPBbIhMI5qe30pv8lwMViLa5BR0bDgLJygEEkQJr-Q==",
                            "signInEndpoint": {
                             "hack": true
                            }
@@ -2901,14 +2782,13 @@
                      "iconType": "REMOVE_FROM_PLAYLIST"
                     },
                     "serviceEndpoint": {
-                     "clickTrackingParams": "CJQHEMggGAMiEwjmp7fSm_yXAxWItrkFHRsOAsnKAQSRAmv5",
                      "playlistEditEndpoint": {
                       "playlistId": "RDAMVMnbCOAPR33ME",
                       "actions": [
                        {
                         "setVideoId": "52152B4946C2F73F",
                         "action": "ACTION_REMOVE_VIDEO",
-                        "removedVideoId": "IpwHB2U3J1s"
+                        "removedVideoId": "gm-Y9idMMQ4"
                        }
                       ]
                      }
@@ -2928,12 +2808,10 @@
                      "iconType": "REMOVE"
                     },
                     "serviceEndpoint": {
-                     "clickTrackingParams": "CJsHEOP7BRgHIhMI5qe30pv8lwMViLa5BR0bDgLJygEEkQJr-Q==",
                      "removeFromQueueEndpoint": {
-                      "videoId": "IpwHB2U3J1s",
+                      "videoId": "gm-Y9idMMQ4",
                       "commands": [
                        {
-                        "clickTrackingParams": "CJsHEOP7BRgHIhMI5qe30pv8lwMViLa5BR0bDgLJygEEkQJr-Q==",
                         "addToToastAction": {
                          "item": {
                           "notificationTextRenderer": {
@@ -2966,9 +2844,8 @@
                      "iconType": "ALBUM"
                     },
                     "navigationEndpoint": {
-                     "clickTrackingParams": "CJoHEI_7BRgIIhMI5qe30pv8lwMViLa5BR0bDgLJygEEkQJr-Q==",
                      "browseEndpoint": {
-                      "browseId": "MPREb_IBgDGohw5WG",
+                      "browseId": "MPREb_U4m9ZEeYxdi",
                       "browseEndpointContextSupportedConfigs": {
                        "browseEndpointContextMusicConfig": {
                         "pageType": "MUSIC_PAGE_TYPE_ALBUM"
@@ -2991,9 +2868,8 @@
                      "iconType": "ARTIST"
                     },
                     "navigationEndpoint": {
-                     "clickTrackingParams": "CJkHEJD7BRgJIhMI5qe30pv8lwMViLa5BR0bDgLJygEEkQJr-Q==",
                      "browseEndpoint": {
-                      "browseId": "UCI1tnOMUhNh2QiHTpMrPDbw",
+                      "browseId": "UCIaFw5VBEK8qaW6nRpx_qnw",
                       "browseEndpointContextSupportedConfigs": {
                        "browseEndpointContextMusicConfig": {
                         "pageType": "MUSIC_PAGE_TYPE_ARTIST"
@@ -3016,9 +2892,8 @@
                      "iconType": "PEOPLE_GROUP"
                     },
                     "navigationEndpoint": {
-                     "clickTrackingParams": "CJgHEK-jChgKIhMI5qe30pv8lwMViLa5BR0bDgLJygEEkQJr-Q==",
                      "browseEndpoint": {
-                      "browseId": "MPTCIpwHB2U3J1s",
+                      "browseId": "MPTCgm-Y9idMMQ4",
                       "browseEndpointContextSupportedConfigs": {
                        "browseEndpointContextMusicConfig": {
                         "pageType": "MUSIC_PAGE_TYPE_TRACK_CREDITS"
@@ -3041,9 +2916,8 @@
                      "iconType": "SHARE"
                     },
                     "navigationEndpoint": {
-                     "clickTrackingParams": "CJcHEJH7BRgLIhMI5qe30pv8lwMViLa5BR0bDgLJygEEkQJr-Q==",
                      "shareEntityEndpoint": {
-                      "serializedShareEntity": "CgtJcHdIQjJVM0oxcw%3D%3D",
+                      "serializedShareEntity": "CgtnbS1ZOWlkTU1RNA%3D%3D",
                       "sharePanelType": "SHARE_PANEL_TYPE_UNIFIED_SHARE_PANEL"
                      }
                     }
@@ -3062,7 +2936,6 @@
                      "iconType": "FLAG"
                     },
                     "serviceEndpoint": {
-                     "clickTrackingParams": "CJUHEI32CRgMIhMI5qe30pv8lwMViLa5BR0bDgLJygEEkQJr-Q==",
                      "modalEndpoint": {
                       "modal": {
                        "modalWithTitleAndButtonRenderer": {
@@ -3092,7 +2965,6 @@
                            ]
                           },
                           "navigationEndpoint": {
-                           "clickTrackingParams": "CJYHEPBbIhMI5qe30pv8lwMViLa5BR0bDgLJygEEkQJr-Q==",
                            "signInEndpoint": {
                             "hack": true
                            }
@@ -3116,10 +2988,1231 @@
                "playlistSetVideoId": "52152B4946C2F73F",
                "canReorder": true,
                "queueNavigationEndpoint": {
-                "clickTrackingParams": "CJQHEMggGAMiEwjmp7fSm_yXAxWItrkFHRsOAsnKAQSRAmv5",
                 "queueAddEndpoint": {
                  "queueTarget": {
-                  "videoId": "IpwHB2U3J1s"
+                  "videoId": "gm-Y9idMMQ4"
+                 },
+                 "queueInsertPosition": "INSERT_AT_END",
+                 "params": "Q0FJJTNE"
+                }
+               }
+              }
+             },
+             {
+              "playlistPanelVideoRenderer": {
+               "title": {
+                "runs": [
+                 {
+                  "text": "Somewhere Only We Know"
+                 }
+                ]
+               },
+               "longBylineText": {
+                "runs": [
+                 {
+                  "text": "Keane",
+                  "navigationEndpoint": {
+                   "browseEndpoint": {
+                    "browseId": "UCTE7TdLSp9K2GacePon_WGA",
+                    "browseEndpointContextSupportedConfigs": {
+                     "browseEndpointContextMusicConfig": {
+                      "pageType": "MUSIC_PAGE_TYPE_ARTIST"
+                     }
+                    }
+                   }
+                  }
+                 },
+                 {
+                  "text": " • "
+                 },
+                 {
+                  "text": "Hopes And Fears",
+                  "navigationEndpoint": {
+                   "browseEndpoint": {
+                    "browseId": "MPREb_F94xKaB6YN7",
+                    "browseEndpointContextSupportedConfigs": {
+                     "browseEndpointContextMusicConfig": {
+                      "pageType": "MUSIC_PAGE_TYPE_ALBUM"
+                     }
+                    }
+                   }
+                  }
+                 },
+                 {
+                  "text": " • "
+                 },
+                 {
+                  "text": "2004"
+                 }
+                ]
+               },
+               "thumbnail": {
+                "thumbnails": [
+                 {
+                  "url": "https://yt3.googleusercontent.com/EgTvWQw8OXlTSnTAb-7l01bDftQgQ39netrLXjJ6VIu39aTEtT9wP92VDRXXrrdBmHxTdV_ulTqfnEQ=w60-h60-l90-rj",
+                  "width": 60,
+                  "height": 60
+                 },
+                 {
+                  "url": "https://yt3.googleusercontent.com/EgTvWQw8OXlTSnTAb-7l01bDftQgQ39netrLXjJ6VIu39aTEtT9wP92VDRXXrrdBmHxTdV_ulTqfnEQ=w120-h120-l90-rj",
+                  "width": 120,
+                  "height": 120
+                 },
+                 {
+                  "url": "https://yt3.googleusercontent.com/EgTvWQw8OXlTSnTAb-7l01bDftQgQ39netrLXjJ6VIu39aTEtT9wP92VDRXXrrdBmHxTdV_ulTqfnEQ=w180-h180-l90-rj",
+                  "width": 180,
+                  "height": 180
+                 },
+                 {
+                  "url": "https://yt3.googleusercontent.com/EgTvWQw8OXlTSnTAb-7l01bDftQgQ39netrLXjJ6VIu39aTEtT9wP92VDRXXrrdBmHxTdV_ulTqfnEQ=w226-h226-l90-rj",
+                  "width": 226,
+                  "height": 226
+                 },
+                 {
+                  "url": "https://yt3.googleusercontent.com/EgTvWQw8OXlTSnTAb-7l01bDftQgQ39netrLXjJ6VIu39aTEtT9wP92VDRXXrrdBmHxTdV_ulTqfnEQ=w302-h302-l90-rj",
+                  "width": 302,
+                  "height": 302
+                 },
+                 {
+                  "url": "https://yt3.googleusercontent.com/EgTvWQw8OXlTSnTAb-7l01bDftQgQ39netrLXjJ6VIu39aTEtT9wP92VDRXXrrdBmHxTdV_ulTqfnEQ=w544-h544-l90-rj",
+                  "width": 544,
+                  "height": 544
+                 }
+                ]
+               },
+               "lengthText": {
+                "runs": [
+                 {
+                  "text": "3:58"
+                 }
+                ],
+                "accessibility": {
+                 "accessibilityData": {
+                  "label": "3 minutes, 58 seconds"
+                 }
+                }
+               },
+               "selected": false,
+               "navigationEndpoint": {
+                "watchEndpoint": {
+                 "videoId": "0LuignGmX_0",
+                 "playlistId": "RDAMVMnbCOAPR33ME",
+                 "index": 4,
+                 "params": "OAHyAQIIAQ%3D%3D",
+                 "playerParams": "8AUBygYQMDkwNzk2QTc1RDE1MzkzMrAIAg%3D%3D",
+                 "playlistSetVideoId": "090796A75D153932",
+                 "loggingContext": {
+                  "vssLoggingContext": {
+                   "serializedContextData": "GhFSREFNVk1uYkNPQVBSMzNNRQ%3D%3D"
+                  }
+                 },
+                 "watchEndpointMusicSupportedConfigs": {
+                  "watchEndpointMusicConfig": {
+                   "hasPersistentPlaylistPanel": true,
+                   "musicVideoType": "MUSIC_VIDEO_TYPE_ATV"
+                  }
+                 }
+                }
+               },
+               "videoId": "0LuignGmX_0",
+               "shortBylineText": {
+                "runs": [
+                 {
+                  "text": "Keane"
+                 }
+                ]
+               },
+               "menu": {
+                "menuRenderer": {
+                 "items": [
+                  {
+                   "menuNavigationItemRenderer": {
+                    "text": {
+                     "runs": [
+                      {
+                       "text": "Start mix"
+                      }
+                     ]
+                    },
+                    "icon": {
+                     "iconType": "MIX"
+                    },
+                    "navigationEndpoint": {
+                     "watchEndpoint": {
+                      "videoId": "0LuignGmX_0",
+                      "playlistId": "RDAMVM0LuignGmX_0",
+                      "params": "wAEB",
+                      "loggingContext": {
+                       "vssLoggingContext": {
+                        "serializedContextData": "GhFSREFNVk0wTHVpZ25HbVhfMA%3D%3D"
+                       }
+                      },
+                      "watchEndpointMusicSupportedConfigs": {
+                       "watchEndpointMusicConfig": {
+                        "musicVideoType": "MUSIC_VIDEO_TYPE_ATV"
+                       }
+                      }
+                     }
+                    }
+                   }
+                  },
+                  {
+                   "menuServiceItemRenderer": {
+                    "text": {
+                     "runs": [
+                      {
+                       "text": "Play next"
+                      }
+                     ]
+                    },
+                    "icon": {
+                     "iconType": "QUEUE_PLAY_NEXT"
+                    },
+                    "serviceEndpoint": {
+                     "queueAddEndpoint": {
+                      "queueTarget": {
+                       "videoId": "0LuignGmX_0",
+                       "onEmptyQueue": {
+                        "watchEndpoint": {
+                         "videoId": "0LuignGmX_0"
+                        }
+                       }
+                      },
+                      "queueInsertPosition": "INSERT_AFTER_CURRENT_VIDEO",
+                      "commands": [
+                       {
+                        "addToToastAction": {
+                         "item": {
+                          "notificationTextRenderer": {
+                           "successResponseText": {
+                            "runs": [
+                             {
+                              "text": "Song will play next"
+                             }
+                            ]
+                           }
+                          }
+                         }
+                        }
+                       }
+                      ]
+                     }
+                    }
+                   }
+                  },
+                  {
+                   "menuServiceItemRenderer": {
+                    "text": {
+                     "runs": [
+                      {
+                       "text": "Add to queue"
+                      }
+                     ]
+                    },
+                    "icon": {
+                     "iconType": "ADD_TO_REMOTE_QUEUE"
+                    },
+                    "serviceEndpoint": {
+                     "queueAddEndpoint": {
+                      "queueTarget": {
+                       "videoId": "0LuignGmX_0",
+                       "onEmptyQueue": {
+                        "watchEndpoint": {
+                         "videoId": "0LuignGmX_0"
+                        }
+                       }
+                      },
+                      "queueInsertPosition": "INSERT_AT_END",
+                      "commands": [
+                       {
+                        "addToToastAction": {
+                         "item": {
+                          "notificationTextRenderer": {
+                           "successResponseText": {
+                            "runs": [
+                             {
+                              "text": "Song added to queue"
+                             }
+                            ]
+                           }
+                          }
+                         }
+                        }
+                       }
+                      ]
+                     }
+                    }
+                   }
+                  },
+                  {
+                   "toggleMenuServiceItemRenderer": {
+                    "defaultText": {
+                     "runs": [
+                      {
+                       "text": "Add to liked songs"
+                      }
+                     ]
+                    },
+                    "defaultIcon": {
+                     "iconType": "FAVORITE"
+                    },
+                    "defaultServiceEndpoint": {
+                     "modalEndpoint": {
+                      "modal": {
+                       "modalWithTitleAndButtonRenderer": {
+                        "title": {
+                         "runs": [
+                          {
+                           "text": "Like this song"
+                          }
+                         ]
+                        },
+                        "content": {
+                         "runs": [
+                          {
+                           "text": "Improve recommendations and save music after signing in"
+                          }
+                         ]
+                        },
+                        "button": {
+                         "buttonRenderer": {
+                          "style": "STYLE_BLUE_TEXT",
+                          "isDisabled": false,
+                          "text": {
+                           "runs": [
+                            {
+                             "text": "Sign in"
+                            }
+                           ]
+                          },
+                          "navigationEndpoint": {
+                           "signInEndpoint": {
+                            "hack": true
+                           }
+                          }
+                         }
+                        }
+                       }
+                      }
+                     }
+                    },
+                    "toggledText": {
+                     "runs": [
+                      {
+                       "text": "Remove from liked songs"
+                      }
+                     ]
+                    },
+                    "toggledIcon": {
+                     "iconType": "UNFAVORITE"
+                    }
+                   }
+                  },
+                  {
+                   "menuServiceItemDownloadRenderer": {
+                    "serviceEndpoint": {
+                     "offlineVideoEndpoint": {
+                      "videoId": "0LuignGmX_0",
+                      "onAddCommand": {
+                       "getDownloadActionCommand": {
+                        "videoId": "0LuignGmX_0",
+                        "params": "CAI%3D"
+                       }
+                      }
+                     }
+                    },
+                    "badgeIcon": {
+                     "iconType": "PREMIUM_STANDALONE_CAIRO"
+                    }
+                   }
+                  },
+                  {
+                   "menuNavigationItemRenderer": {
+                    "text": {
+                     "runs": [
+                      {
+                       "text": "Save to playlist"
+                      }
+                     ]
+                    },
+                    "icon": {
+                     "iconType": "ADD_TO_PLAYLIST"
+                    },
+                    "navigationEndpoint": {
+                     "modalEndpoint": {
+                      "modal": {
+                       "modalWithTitleAndButtonRenderer": {
+                        "title": {
+                         "runs": [
+                          {
+                           "text": "Save this for later"
+                          }
+                         ]
+                        },
+                        "content": {
+                         "runs": [
+                          {
+                           "text": "Make playlists and share them after signing in"
+                          }
+                         ]
+                        },
+                        "button": {
+                         "buttonRenderer": {
+                          "style": "STYLE_BLUE_TEXT",
+                          "isDisabled": false,
+                          "text": {
+                           "runs": [
+                            {
+                             "text": "Sign in"
+                            }
+                           ]
+                          },
+                          "navigationEndpoint": {
+                           "signInEndpoint": {
+                            "hack": true
+                           }
+                          }
+                         }
+                        }
+                       }
+                      }
+                     }
+                    }
+                   }
+                  },
+                  {
+                   "menuServiceItemRenderer": {
+                    "text": {
+                     "runs": [
+                      {
+                       "text": "Remove from playlist"
+                      }
+                     ]
+                    },
+                    "icon": {
+                     "iconType": "REMOVE_FROM_PLAYLIST"
+                    },
+                    "serviceEndpoint": {
+                     "playlistEditEndpoint": {
+                      "playlistId": "RDAMVMnbCOAPR33ME",
+                      "actions": [
+                       {
+                        "setVideoId": "090796A75D153932",
+                        "action": "ACTION_REMOVE_VIDEO",
+                        "removedVideoId": "0LuignGmX_0"
+                       }
+                      ]
+                     }
+                    }
+                   }
+                  },
+                  {
+                   "menuServiceItemRenderer": {
+                    "text": {
+                     "runs": [
+                      {
+                       "text": "Remove from queue"
+                      }
+                     ]
+                    },
+                    "icon": {
+                     "iconType": "REMOVE"
+                    },
+                    "serviceEndpoint": {
+                     "removeFromQueueEndpoint": {
+                      "videoId": "0LuignGmX_0",
+                      "commands": [
+                       {
+                        "addToToastAction": {
+                         "item": {
+                          "notificationTextRenderer": {
+                           "successResponseText": {
+                            "runs": [
+                             {
+                              "text": "Item removed from queue"
+                             }
+                            ]
+                           }
+                          }
+                         }
+                        }
+                       }
+                      ]
+                     }
+                    }
+                   }
+                  },
+                  {
+                   "menuNavigationItemRenderer": {
+                    "text": {
+                     "runs": [
+                      {
+                       "text": "Go to album"
+                      }
+                     ]
+                    },
+                    "icon": {
+                     "iconType": "ALBUM"
+                    },
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPREb_F94xKaB6YN7",
+                      "browseEndpointContextSupportedConfigs": {
+                       "browseEndpointContextMusicConfig": {
+                        "pageType": "MUSIC_PAGE_TYPE_ALBUM"
+                       }
+                      }
+                     }
+                    }
+                   }
+                  },
+                  {
+                   "menuNavigationItemRenderer": {
+                    "text": {
+                     "runs": [
+                      {
+                       "text": "Go to artist"
+                      }
+                     ]
+                    },
+                    "icon": {
+                     "iconType": "ARTIST"
+                    },
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "UCTE7TdLSp9K2GacePon_WGA",
+                      "browseEndpointContextSupportedConfigs": {
+                       "browseEndpointContextMusicConfig": {
+                        "pageType": "MUSIC_PAGE_TYPE_ARTIST"
+                       }
+                      }
+                     }
+                    }
+                   }
+                  },
+                  {
+                   "menuNavigationItemRenderer": {
+                    "text": {
+                     "runs": [
+                      {
+                       "text": "View song credits"
+                      }
+                     ]
+                    },
+                    "icon": {
+                     "iconType": "PEOPLE_GROUP"
+                    },
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPTC0LuignGmX_0",
+                      "browseEndpointContextSupportedConfigs": {
+                       "browseEndpointContextMusicConfig": {
+                        "pageType": "MUSIC_PAGE_TYPE_TRACK_CREDITS"
+                       }
+                      }
+                     }
+                    }
+                   }
+                  },
+                  {
+                   "menuNavigationItemRenderer": {
+                    "text": {
+                     "runs": [
+                      {
+                       "text": "Share"
+                      }
+                     ]
+                    },
+                    "icon": {
+                     "iconType": "SHARE"
+                    },
+                    "navigationEndpoint": {
+                     "shareEntityEndpoint": {
+                      "serializedShareEntity": "CgswTHVpZ25HbVhfMA%3D%3D",
+                      "sharePanelType": "SHARE_PANEL_TYPE_UNIFIED_SHARE_PANEL"
+                     }
+                    }
+                   }
+                  },
+                  {
+                   "menuServiceItemRenderer": {
+                    "text": {
+                     "runs": [
+                      {
+                       "text": "Report"
+                      }
+                     ]
+                    },
+                    "icon": {
+                     "iconType": "FLAG"
+                    },
+                    "serviceEndpoint": {
+                     "modalEndpoint": {
+                      "modal": {
+                       "modalWithTitleAndButtonRenderer": {
+                        "title": {
+                         "runs": [
+                          {
+                           "text": "Need to report the video?"
+                          }
+                         ]
+                        },
+                        "content": {
+                         "runs": [
+                          {
+                           "text": "Sign in to report inappropriate content."
+                          }
+                         ]
+                        },
+                        "button": {
+                         "buttonRenderer": {
+                          "style": "STYLE_BLUE_TEXT",
+                          "isDisabled": false,
+                          "text": {
+                           "runs": [
+                            {
+                             "text": "Sign in"
+                            }
+                           ]
+                          },
+                          "navigationEndpoint": {
+                           "signInEndpoint": {
+                            "hack": true
+                           }
+                          }
+                         }
+                        }
+                       }
+                      }
+                     }
+                    }
+                   }
+                  }
+                 ],
+                 "accessibility": {
+                  "accessibilityData": {
+                   "label": "Action menu"
+                  }
+                 }
+                }
+               },
+               "playlistSetVideoId": "090796A75D153932",
+               "canReorder": true,
+               "queueNavigationEndpoint": {
+                "queueAddEndpoint": {
+                 "queueTarget": {
+                  "videoId": "0LuignGmX_0"
+                 },
+                 "queueInsertPosition": "INSERT_AT_END",
+                 "params": "Q0FJJTNE"
+                }
+               }
+              }
+             },
+             {
+              "playlistPanelVideoRenderer": {
+               "title": {
+                "runs": [
+                 {
+                  "text": "No Surprises"
+                 }
+                ]
+               },
+               "longBylineText": {
+                "runs": [
+                 {
+                  "text": "Radiohead",
+                  "navigationEndpoint": {
+                   "browseEndpoint": {
+                    "browseId": "UCr_iyUANcn9OX_yy9piYoLw",
+                    "browseEndpointContextSupportedConfigs": {
+                     "browseEndpointContextMusicConfig": {
+                      "pageType": "MUSIC_PAGE_TYPE_ARTIST"
+                     }
+                    }
+                   }
+                  }
+                 },
+                 {
+                  "text": " • "
+                 },
+                 {
+                  "text": "OK Computer OKNOTOK 1997 2017",
+                  "navigationEndpoint": {
+                   "browseEndpoint": {
+                    "browseId": "MPREb_b9Yfli6Cg79",
+                    "browseEndpointContextSupportedConfigs": {
+                     "browseEndpointContextMusicConfig": {
+                      "pageType": "MUSIC_PAGE_TYPE_ALBUM"
+                     }
+                    }
+                   }
+                  }
+                 },
+                 {
+                  "text": " • "
+                 },
+                 {
+                  "text": "1997"
+                 }
+                ]
+               },
+               "thumbnail": {
+                "thumbnails": [
+                 {
+                  "url": "https://yt3.googleusercontent.com/gdMTA2cTkNFr6COYNygeVpgIpxR2yNg5MjaX02OQqmsU6NlymcR2mqWR0UZe2HaBYVSTHU8lIQamafQC=w60-h60-l90-rj",
+                  "width": 60,
+                  "height": 60
+                 },
+                 {
+                  "url": "https://yt3.googleusercontent.com/gdMTA2cTkNFr6COYNygeVpgIpxR2yNg5MjaX02OQqmsU6NlymcR2mqWR0UZe2HaBYVSTHU8lIQamafQC=w120-h120-l90-rj",
+                  "width": 120,
+                  "height": 120
+                 },
+                 {
+                  "url": "https://yt3.googleusercontent.com/gdMTA2cTkNFr6COYNygeVpgIpxR2yNg5MjaX02OQqmsU6NlymcR2mqWR0UZe2HaBYVSTHU8lIQamafQC=w180-h180-l90-rj",
+                  "width": 180,
+                  "height": 180
+                 },
+                 {
+                  "url": "https://yt3.googleusercontent.com/gdMTA2cTkNFr6COYNygeVpgIpxR2yNg5MjaX02OQqmsU6NlymcR2mqWR0UZe2HaBYVSTHU8lIQamafQC=w226-h226-l90-rj",
+                  "width": 226,
+                  "height": 226
+                 },
+                 {
+                  "url": "https://yt3.googleusercontent.com/gdMTA2cTkNFr6COYNygeVpgIpxR2yNg5MjaX02OQqmsU6NlymcR2mqWR0UZe2HaBYVSTHU8lIQamafQC=w302-h302-l90-rj",
+                  "width": 302,
+                  "height": 302
+                 },
+                 {
+                  "url": "https://yt3.googleusercontent.com/gdMTA2cTkNFr6COYNygeVpgIpxR2yNg5MjaX02OQqmsU6NlymcR2mqWR0UZe2HaBYVSTHU8lIQamafQC=w544-h544-l90-rj",
+                  "width": 544,
+                  "height": 544
+                 }
+                ]
+               },
+               "lengthText": {
+                "runs": [
+                 {
+                  "text": "3:49"
+                 }
+                ],
+                "accessibility": {
+                 "accessibilityData": {
+                  "label": "3 minutes, 49 seconds"
+                 }
+                }
+               },
+               "selected": false,
+               "navigationEndpoint": {
+                "watchEndpoint": {
+                 "videoId": "7374CZQoS2Y",
+                 "playlistId": "RDAMVMnbCOAPR33ME",
+                 "index": 5,
+                 "params": "OAHyAQIIAQ%3D%3D",
+                 "playerParams": "8AUBygYQMTJFRkIzQjFDNTdERTRFMbAIAg%3D%3D",
+                 "playlistSetVideoId": "12EFB3B1C57DE4E1",
+                 "loggingContext": {
+                  "vssLoggingContext": {
+                   "serializedContextData": "GhFSREFNVk1uYkNPQVBSMzNNRQ%3D%3D"
+                  }
+                 },
+                 "watchEndpointMusicSupportedConfigs": {
+                  "watchEndpointMusicConfig": {
+                   "hasPersistentPlaylistPanel": true,
+                   "musicVideoType": "MUSIC_VIDEO_TYPE_ATV"
+                  }
+                 }
+                }
+               },
+               "videoId": "7374CZQoS2Y",
+               "shortBylineText": {
+                "runs": [
+                 {
+                  "text": "Radiohead"
+                 }
+                ]
+               },
+               "menu": {
+                "menuRenderer": {
+                 "items": [
+                  {
+                   "menuNavigationItemRenderer": {
+                    "text": {
+                     "runs": [
+                      {
+                       "text": "Start mix"
+                      }
+                     ]
+                    },
+                    "icon": {
+                     "iconType": "MIX"
+                    },
+                    "navigationEndpoint": {
+                     "watchEndpoint": {
+                      "videoId": "7374CZQoS2Y",
+                      "playlistId": "RDAMVM7374CZQoS2Y",
+                      "params": "wAEB",
+                      "loggingContext": {
+                       "vssLoggingContext": {
+                        "serializedContextData": "GhFSREFNVk03Mzc0Q1pRb1MyWQ%3D%3D"
+                       }
+                      },
+                      "watchEndpointMusicSupportedConfigs": {
+                       "watchEndpointMusicConfig": {
+                        "musicVideoType": "MUSIC_VIDEO_TYPE_ATV"
+                       }
+                      }
+                     }
+                    }
+                   }
+                  },
+                  {
+                   "menuServiceItemRenderer": {
+                    "text": {
+                     "runs": [
+                      {
+                       "text": "Play next"
+                      }
+                     ]
+                    },
+                    "icon": {
+                     "iconType": "QUEUE_PLAY_NEXT"
+                    },
+                    "serviceEndpoint": {
+                     "queueAddEndpoint": {
+                      "queueTarget": {
+                       "videoId": "7374CZQoS2Y",
+                       "onEmptyQueue": {
+                        "watchEndpoint": {
+                         "videoId": "7374CZQoS2Y"
+                        }
+                       }
+                      },
+                      "queueInsertPosition": "INSERT_AFTER_CURRENT_VIDEO",
+                      "commands": [
+                       {
+                        "addToToastAction": {
+                         "item": {
+                          "notificationTextRenderer": {
+                           "successResponseText": {
+                            "runs": [
+                             {
+                              "text": "Song will play next"
+                             }
+                            ]
+                           }
+                          }
+                         }
+                        }
+                       }
+                      ]
+                     }
+                    }
+                   }
+                  },
+                  {
+                   "menuServiceItemRenderer": {
+                    "text": {
+                     "runs": [
+                      {
+                       "text": "Add to queue"
+                      }
+                     ]
+                    },
+                    "icon": {
+                     "iconType": "ADD_TO_REMOTE_QUEUE"
+                    },
+                    "serviceEndpoint": {
+                     "queueAddEndpoint": {
+                      "queueTarget": {
+                       "videoId": "7374CZQoS2Y",
+                       "onEmptyQueue": {
+                        "watchEndpoint": {
+                         "videoId": "7374CZQoS2Y"
+                        }
+                       }
+                      },
+                      "queueInsertPosition": "INSERT_AT_END",
+                      "commands": [
+                       {
+                        "addToToastAction": {
+                         "item": {
+                          "notificationTextRenderer": {
+                           "successResponseText": {
+                            "runs": [
+                             {
+                              "text": "Song added to queue"
+                             }
+                            ]
+                           }
+                          }
+                         }
+                        }
+                       }
+                      ]
+                     }
+                    }
+                   }
+                  },
+                  {
+                   "toggleMenuServiceItemRenderer": {
+                    "defaultText": {
+                     "runs": [
+                      {
+                       "text": "Add to liked songs"
+                      }
+                     ]
+                    },
+                    "defaultIcon": {
+                     "iconType": "FAVORITE"
+                    },
+                    "defaultServiceEndpoint": {
+                     "modalEndpoint": {
+                      "modal": {
+                       "modalWithTitleAndButtonRenderer": {
+                        "title": {
+                         "runs": [
+                          {
+                           "text": "Like this song"
+                          }
+                         ]
+                        },
+                        "content": {
+                         "runs": [
+                          {
+                           "text": "Improve recommendations and save music after signing in"
+                          }
+                         ]
+                        },
+                        "button": {
+                         "buttonRenderer": {
+                          "style": "STYLE_BLUE_TEXT",
+                          "isDisabled": false,
+                          "text": {
+                           "runs": [
+                            {
+                             "text": "Sign in"
+                            }
+                           ]
+                          },
+                          "navigationEndpoint": {
+                           "signInEndpoint": {
+                            "hack": true
+                           }
+                          }
+                         }
+                        }
+                       }
+                      }
+                     }
+                    },
+                    "toggledText": {
+                     "runs": [
+                      {
+                       "text": "Remove from liked songs"
+                      }
+                     ]
+                    },
+                    "toggledIcon": {
+                     "iconType": "UNFAVORITE"
+                    }
+                   }
+                  },
+                  {
+                   "menuServiceItemDownloadRenderer": {
+                    "serviceEndpoint": {
+                     "offlineVideoEndpoint": {
+                      "videoId": "7374CZQoS2Y",
+                      "onAddCommand": {
+                       "getDownloadActionCommand": {
+                        "videoId": "7374CZQoS2Y",
+                        "params": "CAI%3D"
+                       }
+                      }
+                     }
+                    },
+                    "badgeIcon": {
+                     "iconType": "PREMIUM_STANDALONE_CAIRO"
+                    }
+                   }
+                  },
+                  {
+                   "menuNavigationItemRenderer": {
+                    "text": {
+                     "runs": [
+                      {
+                       "text": "Save to playlist"
+                      }
+                     ]
+                    },
+                    "icon": {
+                     "iconType": "ADD_TO_PLAYLIST"
+                    },
+                    "navigationEndpoint": {
+                     "modalEndpoint": {
+                      "modal": {
+                       "modalWithTitleAndButtonRenderer": {
+                        "title": {
+                         "runs": [
+                          {
+                           "text": "Save this for later"
+                          }
+                         ]
+                        },
+                        "content": {
+                         "runs": [
+                          {
+                           "text": "Make playlists and share them after signing in"
+                          }
+                         ]
+                        },
+                        "button": {
+                         "buttonRenderer": {
+                          "style": "STYLE_BLUE_TEXT",
+                          "isDisabled": false,
+                          "text": {
+                           "runs": [
+                            {
+                             "text": "Sign in"
+                            }
+                           ]
+                          },
+                          "navigationEndpoint": {
+                           "signInEndpoint": {
+                            "hack": true
+                           }
+                          }
+                         }
+                        }
+                       }
+                      }
+                     }
+                    }
+                   }
+                  },
+                  {
+                   "menuServiceItemRenderer": {
+                    "text": {
+                     "runs": [
+                      {
+                       "text": "Remove from playlist"
+                      }
+                     ]
+                    },
+                    "icon": {
+                     "iconType": "REMOVE_FROM_PLAYLIST"
+                    },
+                    "serviceEndpoint": {
+                     "playlistEditEndpoint": {
+                      "playlistId": "RDAMVMnbCOAPR33ME",
+                      "actions": [
+                       {
+                        "setVideoId": "12EFB3B1C57DE4E1",
+                        "action": "ACTION_REMOVE_VIDEO",
+                        "removedVideoId": "7374CZQoS2Y"
+                       }
+                      ]
+                     }
+                    }
+                   }
+                  },
+                  {
+                   "menuServiceItemRenderer": {
+                    "text": {
+                     "runs": [
+                      {
+                       "text": "Remove from queue"
+                      }
+                     ]
+                    },
+                    "icon": {
+                     "iconType": "REMOVE"
+                    },
+                    "serviceEndpoint": {
+                     "removeFromQueueEndpoint": {
+                      "videoId": "7374CZQoS2Y",
+                      "commands": [
+                       {
+                        "addToToastAction": {
+                         "item": {
+                          "notificationTextRenderer": {
+                           "successResponseText": {
+                            "runs": [
+                             {
+                              "text": "Item removed from queue"
+                             }
+                            ]
+                           }
+                          }
+                         }
+                        }
+                       }
+                      ]
+                     }
+                    }
+                   }
+                  },
+                  {
+                   "menuNavigationItemRenderer": {
+                    "text": {
+                     "runs": [
+                      {
+                       "text": "Go to album"
+                      }
+                     ]
+                    },
+                    "icon": {
+                     "iconType": "ALBUM"
+                    },
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPREb_b9Yfli6Cg79",
+                      "browseEndpointContextSupportedConfigs": {
+                       "browseEndpointContextMusicConfig": {
+                        "pageType": "MUSIC_PAGE_TYPE_ALBUM"
+                       }
+                      }
+                     }
+                    }
+                   }
+                  },
+                  {
+                   "menuNavigationItemRenderer": {
+                    "text": {
+                     "runs": [
+                      {
+                       "text": "Go to artist"
+                      }
+                     ]
+                    },
+                    "icon": {
+                     "iconType": "ARTIST"
+                    },
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "UCr_iyUANcn9OX_yy9piYoLw",
+                      "browseEndpointContextSupportedConfigs": {
+                       "browseEndpointContextMusicConfig": {
+                        "pageType": "MUSIC_PAGE_TYPE_ARTIST"
+                       }
+                      }
+                     }
+                    }
+                   }
+                  },
+                  {
+                   "menuNavigationItemRenderer": {
+                    "text": {
+                     "runs": [
+                      {
+                       "text": "View song credits"
+                      }
+                     ]
+                    },
+                    "icon": {
+                     "iconType": "PEOPLE_GROUP"
+                    },
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPTC7374CZQoS2Y",
+                      "browseEndpointContextSupportedConfigs": {
+                       "browseEndpointContextMusicConfig": {
+                        "pageType": "MUSIC_PAGE_TYPE_TRACK_CREDITS"
+                       }
+                      }
+                     }
+                    }
+                   }
+                  },
+                  {
+                   "menuNavigationItemRenderer": {
+                    "text": {
+                     "runs": [
+                      {
+                       "text": "Share"
+                      }
+                     ]
+                    },
+                    "icon": {
+                     "iconType": "SHARE"
+                    },
+                    "navigationEndpoint": {
+                     "shareEntityEndpoint": {
+                      "serializedShareEntity": "Cgs3Mzc0Q1pRb1MyWQ%3D%3D",
+                      "sharePanelType": "SHARE_PANEL_TYPE_UNIFIED_SHARE_PANEL"
+                     }
+                    }
+                   }
+                  },
+                  {
+                   "menuServiceItemRenderer": {
+                    "text": {
+                     "runs": [
+                      {
+                       "text": "Report"
+                      }
+                     ]
+                    },
+                    "icon": {
+                     "iconType": "FLAG"
+                    },
+                    "serviceEndpoint": {
+                     "modalEndpoint": {
+                      "modal": {
+                       "modalWithTitleAndButtonRenderer": {
+                        "title": {
+                         "runs": [
+                          {
+                           "text": "Need to report the video?"
+                          }
+                         ]
+                        },
+                        "content": {
+                         "runs": [
+                          {
+                           "text": "Sign in to report inappropriate content."
+                          }
+                         ]
+                        },
+                        "button": {
+                         "buttonRenderer": {
+                          "style": "STYLE_BLUE_TEXT",
+                          "isDisabled": false,
+                          "text": {
+                           "runs": [
+                            {
+                             "text": "Sign in"
+                            }
+                           ]
+                          },
+                          "navigationEndpoint": {
+                           "signInEndpoint": {
+                            "hack": true
+                           }
+                          }
+                         }
+                        }
+                       }
+                      }
+                     }
+                    }
+                   }
+                  }
+                 ],
+                 "accessibility": {
+                  "accessibilityData": {
+                   "label": "Action menu"
+                  }
+                 }
+                }
+               },
+               "playlistSetVideoId": "12EFB3B1C57DE4E1",
+               "canReorder": true,
+               "queueNavigationEndpoint": {
+                "queueAddEndpoint": {
+                 "queueTarget": {
+                  "videoId": "7374CZQoS2Y"
                  },
                  "queueInsertPosition": "INSERT_AT_END",
                  "params": "Q0FJJTNE"
@@ -3138,7 +4231,6 @@
        "tabRenderer": {
         "title": "Lyrics",
         "endpoint": {
-         "clickTrackingParams": "CBYQpLQFGAciEwjmp7fSm_yXAxWItrkFHRsOAsnKAQSRAmv5",
          "browseEndpoint": {
           "browseId": "MPLYt_b9Yfli6Cg79-6",
           "browseEndpointContextSupportedConfigs": {
@@ -3159,7 +4251,6 @@
        "tabRenderer": {
         "title": "Related",
         "endpoint": {
-         "clickTrackingParams": "CBIQlM0FGAkiEwjmp7fSm_yXAxWItrkFHRsOAsnKAQSRAmv5",
          "browseEndpoint": {
           "browseId": "MPTRt_b9Yfli6Cg79-6",
           "browseEndpointContextSupportedConfigs": {

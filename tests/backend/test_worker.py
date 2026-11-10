@@ -185,7 +185,8 @@ def test_up_next_drops_the_seed_and_normalizes():
     result = call(ytm.Worker(fake, "none"), "upNext", videoId=seed)["result"]
     assert result["items"] and all(t["videoId"] != seed for t in result["items"])
     assert all(t["type"] == "track" and t["title"] and t["thumb"] for t in result["items"])
-    assert fake.calls[-1][2] == {"videoId": seed, "limit": 25}
+    # No context: the song's own radio (S12).
+    assert fake.calls[-1][2] == {"videoId": seed, "playlistId": None, "radio": True, "limit": 25}
     assert call(ytm.Worker(fake, "none"), "upNext")["error"]["code"] == "BAD_REQUEST"
 
 

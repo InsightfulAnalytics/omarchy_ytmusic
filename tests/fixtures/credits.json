@@ -1,7 +1,6 @@
 {
  "onResponseReceivedActions": [
   {
-   "clickTrackingParams": "CAAQhGciEwjlsYjHm_yXAxVFpVYBHRlDFgDKAQT5yjzX",
    "openPopupAction": {
     "popup": {
      "dismissableDialogRenderer": {
@@ -171,7 +170,6 @@
           {
            "text": "Radiohead",
            "navigationEndpoint": {
-            "clickTrackingParams": "CAIQ3-AIIhMI5bGIx5v8lwMVRaVWAR0ZQxYAygEE-co81w==",
             "browseEndpoint": {
              "browseId": "UCr_iyUANcn9OX_yy9piYoLw",
              "browseEndpointContextSupportedConfigs": {
@@ -189,7 +187,6 @@
           {
            "text": "Karma Police",
            "navigationEndpoint": {
-            "clickTrackingParams": "CAIQ3-AIIhMI5bGIx5v8lwMVRaVWAR0ZQxYAygEE-co81w==",
             "watchEndpoint": {
              "videoId": "nbCOAPR33ME",
              "watchEndpointMusicSupportedConfigs": {

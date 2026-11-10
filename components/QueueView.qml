@@ -76,8 +76,10 @@ Item {
     var entry = index >= 0 && index < queue.length ? queue[index] : null
     if (!entry || Model.menuKind(entry.track) === "") return
     cursorIndex = index
+    var current = index === currentIndex
     root.itemMenuRequested({ item: entry.track, owner: root, index: index,
-      ctx: { pageKind: "queue", removable: true, removeTitle: "Remove from queue", isCurrent: index === currentIndex } })
+      ctx: { pageKind: "queue", removable: true, removeTitle: "Remove from queue", isCurrent: current,
+             counterpart: current && service ? service.counterpartOf(entry.track) : null } })  // S12
   }
 
   function removeCursor() {
@@ -92,6 +94,28 @@ Item {
   }
 
   onPaneChanged: cursorIndex = -1
+
+  // ---- up next (S12) ------------------------------------------------------------------
+  // Under the header on the Queue pane: "Playing from <title>" and the one
+  // tuner chip ("Tune: All"; a click or t shows the next chip, the Now page
+  // menu lists them all). Choosing a chip replaces only the songs autoplay
+  // added. The chip hides when the song has none (signed out, a video).
+  readonly property string playingFrom: service ? service.playingFrom : ""
+  readonly property int tunerCount: service && service.tunerChips ? service.tunerChips.length : 0
+  readonly property bool contextShown: pane === "queue" && (playingFrom !== "" || tunerCount > 0)
+
+  function cycleTuner() {
+    if (service && tunerCount > 0) service.cycleTuner(1)
+  }
+
+  // A trim took played rows off the top: the cursor stays on its song (and
+  // goes when its row went).
+  Connections {
+    target: root.service
+    function onTrimmed(count) {
+      if (root.cursorIndex >= 0) root.cursorIndex = root.cursorIndex >= count ? root.cursorIndex - count : -1
+    }
+  }
 
   function moveSelected(delta) {
     if (cursorIndex < 0 || !service) return
@@ -165,6 +189,45 @@ Item {
     }
   }
 
+  // S12: "Playing from" and the tuner chip (Queue pane only).
+  Item {
+    id: contextRow
+    anchors.top: header.bottom
+    anchors.topMargin: visible ? Style.space(4) : 0
+    width: parent.width
+    height: visible ? Math.max(playingFromText.implicitHeight, tuneChip.visible ? tuneChip.implicitHeight : 0) : 0
+    visible: root.contextShown
+
+    Text {
+      id: playingFromText
+      anchors.left: parent.left
+      anchors.right: tuneChip.visible ? tuneChip.left : parent.right
+      anchors.rightMargin: tuneChip.visible ? Style.space(8) : 0
+      anchors.verticalCenter: parent.verticalCenter
+      visible: root.playingFrom !== ""
+      textFormat: Text.PlainText
+      text: "Playing from " + root.playingFrom
+      color: Qt.darker(root.foreground, 1.4)
+      font.family: root.fontFamily
+      font.pixelSize: Style.font.caption
+      elide: Text.ElideRight
+    }
+
+    Button {
+      id: tuneChip
+      anchors.right: parent.right
+      anchors.verticalCenter: parent.verticalCenter
+      visible: root.tunerCount > 0
+      iconText: "󰘮"
+      text: "Tune: " + (root.service ? root.service.tunerTitle : "All")
+      tooltipText: Model.withKey("Next tuner chip (M lists them all)", "tune")
+      selected: !!root.service && !!root.service.tuner
+      foreground: root.foreground
+      fontSize: Style.font.caption
+      onClicked: root.cycleTuner()
+    }
+  }
+
   // Lyrics and Related (Panel's children of this view) go here.
   Item {
     id: paneArea
@@ -176,7 +239,7 @@ Item {
 
   ListView {
     id: list
-    anchors.top: header.bottom
+    anchors.top: contextRow.bottom  // S12
     anchors.topMargin: Style.space(6)
     anchors.bottom: parent.bottom
     width: parent.width
@@ -209,6 +272,26 @@ Item {
       onRemoveRequested: root.service.removeAt(index)
       onMenuRequested: root.menu(index)
       onMoveRequested: function(delta) { root.service.move(index, index + delta) }
+    }
+
+    // S12: where autoplay would have added songs, why it did not.
+    footer: Item {
+      readonly property string text: note.text
+      width: list.width
+      height: note.text !== "" ? note.implicitHeight + Style.space(8) : 0
+      visible: note.text !== ""
+
+      Text {
+        id: note
+        anchors.bottom: parent.bottom
+        width: parent.width
+        textFormat: Text.PlainText
+        text: root.service && root.service.autoplay ? root.service.autoplayNote : ""
+        color: Qt.darker(root.foreground, 1.6)
+        font.family: root.fontFamily
+        font.pixelSize: Style.font.caption
+        horizontalAlignment: Text.AlignHCenter
+      }
     }
 
     Text {
