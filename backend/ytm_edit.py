@@ -510,8 +510,8 @@ def _skip_duplicates(worker, playlist_id, video_ids, source):
     request; YouTube answers with no entries for it). Songs: added as
     usual. A refusal adds nothing (ytmusicapi), so then the refusal's own
     Skip duplicates command goes when it serves one (served_skip), else the
-    songs not there yet (_already_there) are added; none left is ``status``
-    NOTHING_NEW."""
+    songs not there yet (_already_there) are added; none left (or a served
+    command that adds none) is ``status`` NOTHING_NEW."""
     try:
         if source:
             action = {"action": "ACTION_ADD_PLAYLIST", "addedFullListId": source,
@@ -525,9 +525,14 @@ def _skip_duplicates(worker, playlist_id, video_ids, source):
         command = served_skip(result, playlist_id, video_ids)
         if command is not None:
             added = _added(_unwrapped(_checked(worker.yt._send_request("browse/edit_playlist", command))))
+            wanted = list(dict.fromkeys(video_ids))
+            if not added:
+                # Measured live (2026-11-11): this command answers with an entry
+                # per song it adds, and with none when every song was already
+                # there.
+                return {"added": [], "skipped": wanted, "status": NOTHING_NEW}
             got = {a["videoId"] for a in added}
-            # Without entries in the answer YouTube does not say which it left out.
-            return {"added": added, "skipped": [v for v in dict.fromkeys(video_ids) if v not in got] if added else []}
+            return {"added": added, "skipped": [v for v in wanted if v not in got]}
         there = _already_there(worker, playlist_id, video_ids, refused)
         rest = [v for v in video_ids if v not in there]
         if not rest:

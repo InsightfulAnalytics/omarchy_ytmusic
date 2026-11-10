@@ -580,8 +580,10 @@ def test_skip_duplicates_sends_the_refusals_own_skip_command():
     assert len(worker.yt.edits()) == 2, "no read, no other add"
     assert reply["result"] == {"added": [{"videoId": "c", "setVideoId": "S3"}], "skipped": ["a", "b"]}
     worker = signed_in(add_playlist_items=[refusal], _send_request={"status": "STATUS_SUCCEEDED"})
+    # Measured live: the command answers with no entries when every song was
+    # already there, so nothing was added.
     assert result(worker, "addToPlaylist", playlistId="PLx", videoIds=["a", "b", "c"], skipDuplicates=True) == \
-        {"added": [], "skipped": []}, "an answer without entries does not say which were left out"
+        {"added": [], "skipped": ["a", "b", "c"], "status": "Nothing new to add"}
 
 
 @pytest.mark.parametrize("change", [
