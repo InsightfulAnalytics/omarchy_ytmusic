@@ -452,23 +452,6 @@ function trackRows(tracks) {
   return rows
 }
 
-function flattenArtist(page) {
-  var rows = []
-  if (!page) return rows
-  var songs = page.songs || []
-  if (songs.length) {
-    rows.push({ header: true, title: "Top songs" })
-    for (var i = 0; i < songs.length; i++) rows.push({ item: songs[i], trackIndex: i })
-  }
-  var groups = [["Albums", page.albums || []], ["Singles", page.singles || []]]
-  for (var g = 0; g < groups.length; g++) {
-    if (!groups[g][1].length) continue
-    rows.push({ header: true, title: groups[g][0] })
-    for (var j = 0; j < groups[g][1].length; j++) rows.push({ item: groups[g][1][j] })
-  }
-  return rows
-}
-
 // The first playable track among result rows (a fresh search's likely pick).
 function firstTrack(rows) {
   for (var i = 0; i < (rows || []).length; i++) {
@@ -856,7 +839,6 @@ if (typeof module !== "undefined") {
     queueAllCommands: queueAllCommands,
     flattenSearch: flattenSearch,
     trackRows: trackRows,
-    flattenArtist: flattenArtist,
     nextSelectable: nextSelectable,
     selectableRow: selectableRow,
     firstTrack: firstTrack,
@@ -919,6 +901,12 @@ function canonicalJson(value) {
 //   adapt(r, ref) optional: turns the reply into what CollectionView shows
 //   claims(item)  optional: takes over items of another type (checked first)
 //   ttlMs         optional: how long the Store's copy counts as fresh (5 min)
+//   view          optional: a name that keeps this kind's pages apart from
+//                 another kind's on the same method and params (S1's about
+//                 page reads the artist method)
+//   subtitle(p)   optional: the header subtitle of a page p (S1)
+//   partial       optional: the page shows only a sample of its songs, so
+//                 playing it reads the whole list (tracksFor; S1 artist)
 // }
 var PAGE_KINDS = {
   album: {
@@ -979,7 +967,7 @@ function pageRef(item, extra) {
   for (k in extra || {}) if (extra[k] !== undefined && extra[k] !== null) params[k] = extra[k]
   return {
     kind: kind, method: spec.method, params: params,
-    key: spec.method + ":" + canonicalJson(params),
+    key: spec.method + (spec.view ? "/" + spec.view : "") + ":" + canonicalJson(params),
     id: spec.id ? spec.id(item) : null
   }
 }
@@ -1434,7 +1422,7 @@ function radioParams(item) {
 // (null for part of a list, or an artist page's few songs).
 function completeTracks(data) {
   if (!data || typeof data !== "object") return null
-  if (data.type === "page") return data.cursor || data.hasMore || data.capped ? null : pageTracks(data)
+  if (data.type === "page") return data.cursor || data.hasMore || data.capped || pagePartial(data.kind) ? null : pageTracks(data)
   if (data.type === "collection") return data.truncated ? null : (data.tracks || [])
   return null
 }
@@ -1446,6 +1434,7 @@ function shareUrl(item) {
   if (kind === "playlist") return MUSIC_URL + "playlist?list=" + _stripVl(item.playlistId)
   if (kind === "artist") return MUSIC_URL + "channel/" + item.channelId
   if (item && (item.type === "profile" || item.type === "channel") && item.channelId) return MUSIC_URL + "channel/" + item.channelId
+  if (item && item.type === "link") return linkUrl(item.url)
   return ""
 }
 
@@ -1687,7 +1676,7 @@ var KEYS = [
   { id: "playPause", group: "Play", caught: ["Space"], title: "play/pause" },
   { id: "playNext", group: "Play", keys: ["n"], title: "play next (a song, album or playlist)" },
   { id: "addToQueue", group: "Play", keys: ["a"], title: "add to queue" },
-  { id: "radio", group: "Play", keys: ["R"], title: "start radio from the row or the current song" },
+  { id: "radio", group: "Play", keys: ["R"], title: "start radio from the row, the artist page or the current song" },
   { id: "shuffle", group: "Play", keys: ["s"], title: "shuffle" },
   { id: "repeat", group: "Play", keys: ["r"], title: "repeat" },
   { id: "like", group: "Song", keys: ["L"], title: "like" },
@@ -1818,5 +1807,160 @@ if (typeof module !== "undefined") {
     keyHelp: keyHelp,
     keysReadme: keysReadme,
     keysComment: keysComment
+  })
+}
+
+// ==== artist (S1) ==========================================================================
+// Artist pages are sectioned pages (the worker's `artist` method): every
+// shelf of the web page in its served order, each ending in its See all.
+// An artist's albums, singles and shows open as `artistAlbums` (the whole
+// list, about 100 a page with Load more, and the served sort orders), and
+// the header's About as an `about` page built from the artist page itself.
+// Shuffle plays YouTube's shuffle mix and Radio (or R) its radio mix; Play
+// and Queue all read the artist's whole songs playlist (tracksFor), not the
+// few songs shown.
+
+PAGE_KINDS.artist.partial = true
+PAGE_KINDS.artist.subtitle = function(page) { return artistSubtitle(page) }
+
+// See all of an artist's albums, singles or shows (MPAD... + params).
+// Its orders' `index` is the served option title, sent back as `order`.
+PAGE_KINDS.artistAlbums = {
+  method: "artistAlbums", title: "Releases", round: false,
+  params: function(t) { return t.browseId && t.params ? { browseId: t.browseId, params: t.params } : null },
+  id: function(t) { return t.browseId }
+}
+
+// The artist's description and links: the artist page (the worker's disk
+// copy answers at once) shown another way.
+PAGE_KINDS.about = {
+  method: "artist", view: "about", title: "About", round: true,
+  params: function(t) { return t.channelId ? { channelId: t.channelId } : null },
+  id: function(t) { return t.channelId },
+  adapt: function(result) { return aboutPage(result) }
+}
+
+// A discography page needs its params; without them (and channel + params,
+// MPLA + params) the endpoint falls through to a browse page.
+ROUTES.push({ prefix: "MPAD", when: function(ep) { return !!ep.params },
+  target: function(ep, id) { return { type: "artistAlbums", browseId: id, params: ep.params, title: ep.title || "" } } })
+
+function pagePartial(kind) {
+  return Object.prototype.hasOwnProperty.call(PAGE_KINDS, kind) && PAGE_KINDS[kind].partial === true
+}
+
+// The header subtitle of a page: its kind's own (an artist's audience),
+// else the page's.
+function pageSubtitle(ref, page) {
+  var spec = pageKind(ref)
+  if (spec && typeof spec.subtitle === "function" && page && page.type === "page") return String(spec.subtitle(page) || "")
+  return page && page.subtitle ? String(page.subtitle) : ""
+}
+
+function artistHeader(page) {
+  return page && page.type === "page" && page.kind === "artist" && page.header ? page.header : null
+}
+
+// "205M monthly listeners, 5.46M subscribers".
+function artistSubtitle(page) {
+  var header = artistHeader(page) || {}
+  var parts = []
+  if (header.monthlyListeners) parts.push(header.monthlyListeners + " monthly listeners")
+  if (header.subscribers) parts.push(header.subscribers + " subscribers")
+  return parts.length ? parts.join(", ") : "Artist"
+}
+
+// What the header's Shuffle plays: YouTube's shuffle mix (RDAO...), as a
+// mix item for Service.playItem. Null without one.
+function artistShuffleItem(page) {
+  var header = artistHeader(page)
+  if (!header || !header.shuffleId) return null
+  return { type: "playlist", playlistId: header.shuffleId, title: page.title || "" }
+}
+
+// What the header's Radio starts: the artist's radio mix (RDEM...), as a
+// mix item for Service.startRadio. Null without one.
+function artistRadioItem(page) {
+  var header = artistHeader(page)
+  if (!header || !header.radioId) return null
+  return { type: "playlist", playlistId: header.radioId, title: page.title || "" }
+}
+
+// The description links of an artist page, once each: { url, text }.
+function _artistLinks(header) {
+  var seen = {}
+  var out = []
+  var runs = header && header.descriptionRuns ? header.descriptionRuns : []
+  for (var i = 0; i < runs.length; i++) {
+    var url = linkUrl(runs[i] && runs[i].url)
+    if (url === "" || seen[url]) continue
+    seen[url] = true
+    out.push({ url: url, text: String(runs[i].text || url) })
+  }
+  return out
+}
+
+function hasAbout(page) {
+  var header = artistHeader(page)
+  return !!header && (!!header.description || _artistLinks(header).length > 0)
+}
+
+// The item the header's About opens (an `about` page).
+function aboutItem(page) {
+  var header = artistHeader(page)
+  if (!header || !header.channelId) return null
+  return { type: "about", channelId: header.channelId, title: page.title || "", thumb: page.thumb || null,
+           thumbLarge: page.thumbLarge || null }
+}
+
+// http(s) URLs only; "" for anything else.
+function linkUrl(url) {
+  var text = String(url || "")
+  return /^https?:\/\/[^\s]+$/i.test(text) ? text : ""
+}
+
+// The about page of an artist page: the description in paragraphs (text
+// rows, which wrap in full and take the cursor so the keyboard can scroll
+// them) and a row per link, which copies it.
+function aboutPage(result) {
+  var header = artistHeader(result) || {}
+  var paragraphs = String(header.description || "").split(/\n\s*\n/).map(function(text) { return text.trim() })
+    .filter(function(text) { return text !== "" })
+  var text = paragraphs.map(function(paragraph) { return { type: "text", title: paragraph } })
+  if (text.length === 0) text.push({ type: "message", title: "No description" })
+  var links = _artistLinks(header).map(function(link) {
+    return { type: "action", id: "link:" + link.url, title: link.url, icon: "󰌷", url: link.url }
+  })
+  return {
+    type: "page", v: 2, kind: "about", id: result && result.id ? result.id : null,
+    title: result && result.title ? result.title : "", subtitle: header.views || null,
+    thumb: result ? result.thumb || null : null, thumbLarge: result ? result.thumbLarge || null : null, round: true,
+    header: {}, sections: [
+      { type: "section", title: null, items: text, more: null, play: null, layout: null, key: "description" },
+      { type: "section", title: "Links", items: links, more: null, play: null, layout: null, key: "links" }
+    ],
+    cursor: null, hasMore: false, orders: [], order: null, message: null
+  }
+}
+
+// M on an artist page: About, the header button's twin. (Play, Shuffle,
+// Queue all and Start radio are the base entries; Shuffle goes to the
+// page's playAll, which plays the shuffle mix.)
+MENU_ACTIONS.push({ id: "about", title: "About", icon: "󰋽",
+  applies: function(item, ctx) { return ctx.page === true && ctx.pageKind === "artist" && ctx.about === true },
+  run: function(env) { if (env.owner && typeof env.owner.openAbout === "function") env.owner.openAbout() } })
+
+if (typeof module !== "undefined") {
+  Object.assign(module.exports, {
+    pagePartial: pagePartial,
+    pageSubtitle: pageSubtitle,
+    artistHeader: artistHeader,
+    artistSubtitle: artistSubtitle,
+    artistShuffleItem: artistShuffleItem,
+    artistRadioItem: artistRadioItem,
+    hasAbout: hasAbout,
+    aboutItem: aboutItem,
+    linkUrl: linkUrl,
+    aboutPage: aboutPage
   })
 }

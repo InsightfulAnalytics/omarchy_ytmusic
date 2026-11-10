@@ -114,13 +114,6 @@ def test_watch_playlist_tracks_use_length_and_thumbnail(load_fixture):
     assert all(isinstance(t["durationSec"], int) and t["thumb"] for t in tracks)
 
 
-def test_artist_page_fixture(load_fixture):
-    page = norm.artist_page("UCtest", load_fixture("artist.json"))
-    assert page["name"]
-    assert page["songs"] and all(s["type"] == "track" for s in page["songs"])
-    assert page["albums"] and all(a["type"] == "album" and a["artists"] for a in page["albums"])
-
-
 def test_song_fixture(load_fixture):
     track = norm.song(load_fixture("song.json"))
     assert set(track) == TRACK_KEYS
@@ -196,7 +189,7 @@ def test_page_section_and_more_shapes():
                            None, "carousel")
     assert section == {"type": "section", "title": "Albums", "items": [{"type": "album"}],
                        "more": {"browseId": "MPADUC1", "params": "p", "pageType": None}, "play": None,
-                       "layout": "carousel"}
+                       "layout": "carousel", "key": None}
     page = norm.page("browse", "FEx", "New releases", sections=[section], cursor="c.T")
     assert page["type"] == "page" and page["v"] == 2 and page["hasMore"] is True and page["round"] is False
     assert set(page) == {"type", "v", "kind", "id", "title", "subtitle", "thumb", "thumbLarge", "round", "header",

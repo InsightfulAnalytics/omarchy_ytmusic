@@ -41,6 +41,7 @@ import subprocess  # noqa: E402
 import threading  # noqa: E402
 import time  # noqa: E402
 
+import ytm_artist as artist  # noqa: E402
 import ytm_auth as auth  # noqa: E402
 import ytm_cache as caches  # noqa: E402
 import ytm_normalize as norm  # noqa: E402
@@ -235,11 +236,6 @@ def m_album(worker, params):
     return norm.collection("album", worker.yt.get_album(browse_id), browse_id)
 
 
-def m_artist(worker, params):
-    channel_id = req_str(params, "channelId")
-    return norm.artist_page(channel_id, worker.yt.get_artist(channel_id))
-
-
 def m_song(worker, params):
     return norm.song(worker.yt.get_song(req_str(params, "videoId")))
 
@@ -372,7 +368,6 @@ CORE_METHODS = {
     "playlist": m_playlist,
     "liked": m_liked,
     "album": m_album,
-    "artist": m_artist,
     "song": m_song,
     "upNext": m_up_next,
     "resolve": m_resolve,
@@ -385,7 +380,7 @@ CORE_METHODS = {
     "removeFromPlaylist": m_remove_from_playlist,
     "deletePlaylist": m_delete_playlist,
 }
-CORE_CACHEABLE = {"libraryPlaylists", "liked", "playlist", "album", "artist", "home", "history"}
+CORE_CACHEABLE = {"libraryPlaylists", "liked", "playlist", "album", "home", "history"}
 CORE_LANES = {"resolve": "streams", "suggestions": "suggest"}
 # The browsePage pages the core edits change: a playlist's own page, the
 # library's playlist pages, and the liked songs pages.
@@ -405,7 +400,6 @@ CORE_MUTATES = {"rate", "createPlaylist", "addToPlaylist", "removeFromPlaylist",
 CORE_RECORDERS = {
     "search": lambda yt, p: yt.search(p["query"], filter=p.get("filter"), limit=p.get("limit", 20)),
     "album": lambda yt, p: yt.get_album(p["browseId"]),
-    "artist": lambda yt, p: yt.get_artist(p["channelId"]),
     "song": lambda yt, p: yt.get_song(p["videoId"]),
     "watch": lambda yt, p: yt.get_watch_playlist(videoId=p["videoId"], limit=p.get("limit", 25), radio=p.get("radio", False)),
     "home": lambda yt, p: yt.get_home(limit=p.get("limit", 3)),
@@ -424,7 +418,7 @@ class _Core:
 
 # Area modules, in a fixed order. A slice that rewrites a core method moves it
 # out of the core tables into its module.
-AREA_MODULES = (pages, play)
+AREA_MODULES = (pages, play, artist)
 
 
 def merge_registries(sources):

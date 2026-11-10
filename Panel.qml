@@ -16,16 +16,17 @@ import "YtmModel.js" as Model
 // Enter play or open · h / l / ← / → seek 10 s on Now, or the page's chips ·
 // Esc leave the field → close the picker or menu → back → close · Space
 // play/pause · n play next (a song, album or playlist) · a add to queue · R
-// start radio from the row or the current song · s shuffle · r repeat · L
-// like · p add to playlist · A go to artist (of the row or the current song)
-// · o go to album · J / K move a queued song down / up · x remove (queue, own
-// playlist, Liked Music, recent search) · m / . the row's menu (or
-// right-click) · M the page's menu (Library: account) · O next sort order on
-// a page that has one · f find, on pages that offer it · ? these keys.
+// start radio from the row, the artist page or the current song · s shuffle ·
+// r repeat · L like · p add to playlist · A go to artist (of the row or the
+// current song) · o go to album · J / K move a queued song down / up · x
+// remove (queue, own playlist, Liked Music, recent search) · m / . the row's
+// menu (or right-click) · M the page's menu (Library: account) · O next sort
+// order on a page that has one · f find, on pages that offer it · ? these
+// keys.
 // Text keys go through Model.keyId to runKey(); Ctrl and Alt chords are
 // ignored. Views offer optional hooks, checked with typeof: horizontal(dx),
 // cycleOrder(), find(), playNext(i) / addToQueue(i), menu(i), pageMenu(),
-// menuChosen(id) and placeAt(i) / indexOfPlace(place).
+// menuChosen(id), placeAt(i) / indexOfPlace(place) and pageRadio().
 Panel {
   id: root
   moduleName: "damir.ytmusic"
@@ -252,11 +253,17 @@ Panel {
   }
 
   // R: radio from the row (a song, album, playlist, artist or mix), else
-  // from the song playing. It replaces the queue, as on the web.
+  // from the page when it has a radio of its own (S1: an artist's mix, via
+  // the view's optional pageRadio() hook), else from the song playing. It
+  // replaces the queue, as on the web.
   function startRadio() {
     if (!service) return
     var item = cursorItem()
-    if (!Model.radioParams(item)) item = service.currentTrack
+    if (!Model.radioParams(item)) {
+      var owner = activeListOwner()
+      if (owner && typeof owner.pageRadio === "function" && owner.pageRadio()) return
+      item = service.currentTrack
+    }
     if (item) service.startRadio(item)
   }
 

@@ -223,12 +223,11 @@ test("flattenSearch groups results under headers", () => {
   assert.deepEqual(Model.flattenSearch({ items: [] }, "albums"), [])
 })
 
-test("artist pages and track rows carry the index a click plays from", () => {
+test("track rows carry the index a click plays from", () => {
+  // Artist pages are sectioned pages now (tests/artist.test.js).
   const songs = [track(id11(1)), track(id11(2))]
-  const rows = Model.flattenArtist({ songs, albums: [{ type: "album" }], singles: [] })
-  assert.deepEqual(rows.map(r => r.header ? r.title : r.trackIndex), ["Top songs", 0, 1, "Albums", undefined])
   assert.deepEqual(Model.trackRows(songs).map(r => r.trackIndex), [0, 1])
-  assert.deepEqual(Model.flattenArtist(null), [])
+  assert.equal(Model.flattenArtist, undefined)
 })
 
 test("firstTrack finds the first playable track row", () => {

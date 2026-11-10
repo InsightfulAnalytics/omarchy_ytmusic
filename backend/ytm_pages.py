@@ -141,6 +141,12 @@ def _unpack(cursor, style):
     return ("ctoken" if style == "reload" else style), cursor
 
 
+def resort(yt, endpoint, body, base, order):
+    """The first page again in the sort option ``order`` (its index in
+    ``sort_options(base)``), from the unsorted response ``base``: one request."""
+    return _send(yt, endpoint, body, get_continuation_string(_reload_token(base, order)))
+
+
 def first_page(yt, endpoint, body, order=None):
     """``(response, http, options, base)``: the first page, re-sorted when
     ``order`` is the index of one of the served sort options. ``base`` is the
@@ -149,8 +155,7 @@ def first_page(yt, endpoint, body, order=None):
     options = sort_options(base)
     if order is None:
         return base, 1, options, base
-    token = _reload_token(base, order)
-    return _send(yt, endpoint, body, get_continuation_string(token)), 2, options, base
+    return resort(yt, endpoint, body, base, order), 2, options, base
 
 
 def fetch(yt, endpoint, body, style, locate, parse, cursor=None, min_items=40, max_http=3, order=None,
@@ -222,7 +227,11 @@ def detect(response):
     if key in ("musicShelfRenderer", "musicPlaylistShelfRenderer"):
         return "shelf", data
     if key == "messageRenderer":
-        return "message", raw.text((data or {}).get("text")) or raw.text((data or {}).get("subtext")) or ""
+        data = data or {}
+        # The text sits in `text`, or under `subtext` (bare or in a messageSubtextRenderer).
+        subtext = data.get("subtext") if isinstance(data.get("subtext"), dict) else {}
+        return "message", raw.text(data.get("text")) or raw.text(subtext) \
+            or raw.text(nav(subtext, ["messageSubtextRenderer", "text"], True)) or ""
     return "sections", found
 
 

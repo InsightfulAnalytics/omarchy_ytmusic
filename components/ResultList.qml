@@ -6,7 +6,7 @@ import "../YtmModel.js" as Model
 
 // A flat list of result rows ({ header, title } or { item, trackIndex }):
 // section headers, tracks, collections, and the line rows of pages (See all,
-// Load more, action, message). Owns its keyboard cursor, and keeps it and
+// Load more, action, message, and text: a paragraph shown in full). Owns its keyboard cursor, and keeps it and
 // the scroll position on the same rows by key when the rows change (an
 // append, a background refresh, a removal), unless `listKey` changed.
 ListView {
@@ -219,7 +219,7 @@ ListView {
     sourceComponent: kind === "header" ? headerComponent
       : kind === "track" ? trackComponent
       : kind === "query" ? queryComponent
-      : kind === "more" || kind === "loadMore" || kind === "action" || kind === "message" ? lineComponent
+      : kind === "more" || kind === "loadMore" || kind === "action" || kind === "message" || kind === "text" ? lineComponent
       : collectionComponent
 
     Component {
@@ -328,8 +328,10 @@ ListView {
     }
 
     // See all, Load more and action rows (selectable, in the query-row
-    // layout; an action row may show its key as a hint on the right), and
-    // message rows (plain text, never selected).
+    // layout; an action row may show its key as a hint on the right),
+    // message rows (plain text, never selected) and text rows (a paragraph
+    // in full, without an icon; the cursor rests on it so the keyboard can
+    // scroll through, but it does nothing).
     Component {
       id: lineComponent
 
@@ -337,6 +339,7 @@ ListView {
         id: lineRow
         readonly property var line: row.modelData.item
         readonly property bool selectable: line.type !== "message"
+        readonly property bool isText: line.type === "text"
         readonly property bool highlighted: selectable && row.index === root.cursorIndex
 
         implicitHeight: Math.max(Style.space(32), lineLabel.implicitHeight + Style.space(12))
@@ -350,12 +353,12 @@ ListView {
 
         HoverHandler {
           id: lineHover
-          enabled: lineRow.selectable
+          enabled: lineRow.selectable && !lineRow.isText
         }
 
         MouseArea {
           anchors.fill: parent
-          enabled: lineRow.selectable
+          enabled: lineRow.selectable && !lineRow.isText
           cursorShape: Qt.PointingHandCursor
           onClicked: root.activated(row.index)
         }
@@ -365,6 +368,7 @@ ListView {
           anchors.left: parent.left
           anchors.leftMargin: Style.space(10)
           anchors.verticalCenter: parent.verticalCenter
+          visible: !lineRow.isText
           textFormat: Text.PlainText
           text: root.lineIcon(lineRow.line)
           color: Qt.darker(root.foreground, 1.4)
@@ -387,7 +391,7 @@ ListView {
 
         Text {
           id: lineLabel
-          anchors.left: lineIcon.right
+          anchors.left: lineIcon.visible ? lineIcon.right : parent.left
           anchors.leftMargin: Style.space(10)
           anchors.right: lineHint.visible ? lineHint.left : parent.right
           anchors.rightMargin: Style.space(8)
@@ -397,9 +401,9 @@ ListView {
           color: lineRow.selectable ? root.foreground : Qt.darker(root.foreground, 1.4)
           font.family: root.fontFamily
           font.pixelSize: lineRow.selectable ? Style.font.body : Style.font.bodySmall
-          wrapMode: lineRow.selectable ? Text.NoWrap : Text.Wrap
-          maximumLineCount: lineRow.selectable ? 1 : 4
-          elide: Text.ElideRight
+          wrapMode: lineRow.selectable && !lineRow.isText ? Text.NoWrap : Text.Wrap
+          maximumLineCount: lineRow.isText ? 1000 : lineRow.selectable ? 1 : 4
+          elide: lineRow.isText ? Text.ElideNone : Text.ElideRight
         }
       }
     }

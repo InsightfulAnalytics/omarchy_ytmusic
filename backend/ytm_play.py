@@ -16,6 +16,7 @@
 Area module (see AREA_MODULES in ytm.py).
 """
 
+import ytm_artist as artist
 import ytm_normalize as norm
 from ytm_proto import WorkerError, choice, opt_int, req_str
 
@@ -67,25 +68,14 @@ def _mix(worker, mix_id, limit=MIX_TRACKS):
     return _reply(data.get("playlistId") or mix_id, items, len(items), True)
 
 
-def _artist_page(worker, channel_id, needs):
-    """The artist's normalized page: the disk-cached copy when it holds the
-    id ``needs`` (copies cached before it was read lack it), else a fresh one."""
-    try:
-        hit = worker.cache().get("artist", {"channelId": channel_id})
-    except Exception:  # noqa: BLE001 - an unreadable cache is a miss
-        hit = None
-    if hit is not None and isinstance(hit[0], dict) and hit[0].get(needs):
-        return hit[0]
-    return norm.artist_page(channel_id, worker.yt.get_artist(channel_id))
-
-
 def _artist(worker, channel_id, limit):
-    page = _artist_page(worker, channel_id, "songsPlaylistId")
-    songs_id = page.get("songsPlaylistId")
+    # The disk-cached artist page when it names the songs playlist (S1).
+    page = artist.cached_or_fetch(worker, channel_id, "songsPlaylistId")
+    songs_id = page["header"].get("songsPlaylistId")
     if songs_id:
         return _playlist(worker, _strip_vl(songs_id), limit=limit)
     # No "See all" on the songs shelf: the page's own songs are all there is.
-    items = page.get("songs") or []
+    items = artist.songs(page)
     return _reply(None, items, len(items), True)
 
 
@@ -148,7 +138,7 @@ def m_radio(worker, params):
     elif key == "mixId":
         data = worker.yt.get_watch_playlist(playlistId=_strip_vl(value), limit=limit)
     elif key == "channelId":
-        radio_id = _artist_page(worker, value, "radioId").get("radioId")
+        radio_id = artist.cached_or_fetch(worker, value, "radioId")["header"].get("radioId")
         if not radio_id:
             raise WorkerError("NOT_FOUND", "This artist has no radio")
         data = worker.yt.get_watch_playlist(playlistId=radio_id, limit=limit)

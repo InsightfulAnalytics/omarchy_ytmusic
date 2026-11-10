@@ -430,28 +430,6 @@ def artist_radio_id(data):
     return radio_id
 
 
-def artist_page(channel_id, data):
-    name = data.get("name") or ""
-    page_artists = [{"name": name, "id": channel_id}] if name else []
-    thumb, thumb_large = thumbs(data.get("thumbnails"))
-    songs = data.get("songs") or {}
-    return {
-        "type": "artistPage",
-        "channelId": channel_id,
-        "name": name,
-        "subtitle": data.get("monthlyListeners") or data.get("subscribers"),
-        "thumb": thumb,
-        "thumbLarge": thumb_large,
-        "songs": normalize_list(songs.get("results"), track, "artist song"),
-        "albums": normalize_list((data.get("albums") or {}).get("results"), lambda a: album(a, page_artists), "artist album"),
-        "singles": normalize_list((data.get("singles") or {}).get("results"), lambda a: album(a, page_artists), "artist single"),
-        "songsPlaylistId": songs.get("browseId"),
-        # YouTube's own mixes for the artist's Radio and Shuffle (RDEM / RDAO).
-        "radioId": artist_radio_id(data),
-        "shuffleId": data.get("shuffleId"),
-    }
-
-
 def song(data):
     """A track from ``get_song`` (player response ``videoDetails``)."""
     details = data.get("videoDetails") or {}
@@ -480,9 +458,11 @@ def account(info):
 # ``hasMore`` stays true on a disk-cached first page whose cursor was stripped.
 
 
-def section(title, items, more=None, play=None, layout=None):
+def section(title, items, more=None, play=None, layout=None, key=None):
     """One shelf: ``more`` is its See all endpoint ``{browseId, params, pageType}``,
-    ``play`` its Play all endpoint ``{videoId, playlistId, params}``."""
+    ``play`` its Play all endpoint ``{videoId, playlistId, params}``, ``key``
+    what the shelf holds when the method knows it (an artist page's
+    ``songs``, ``albums``, ...; never read from its title)."""
     return {
         "type": "section",
         "title": title,
@@ -490,6 +470,7 @@ def section(title, items, more=None, play=None, layout=None):
         "more": more,
         "play": play,
         "layout": layout,
+        "key": key,
     }
 
 

@@ -107,8 +107,9 @@ test("routeEndpoint defaults", () => {
     { type: "browse", browseId: "UC1", params: "p", title: "Videos" })
   assert.deepEqual(Model.routeEndpoint({ browseId: "MPLAUC1", params: "p" }),
     { type: "browse", browseId: "MPLAUC1", params: "p", title: "" })
+  // S1 routes an artist's discography (MPAD + params) to artistAlbums.
   assert.deepEqual(Model.routeEndpoint({ browseId: "MPADUC1", params: "albums", title: "Albums" }),
-    { type: "browse", browseId: "MPADUC1", params: "albums", title: "Albums" })
+    { type: "artistAlbums", browseId: "MPADUC1", params: "albums", title: "Albums" })
   assert.deepEqual(Model.routeEndpoint({ browseId: "FEmusic_new_releases_albums" }),
     { type: "browse", browseId: "FEmusic_new_releases_albums", params: null, title: "" })
   assert.equal(Model.routeEndpoint({}), null)
@@ -163,7 +164,7 @@ test("pageRows: headers, items with per-section trackIndex, See all, message and
   assert.equal(rows[4].sectionIndex, 0)
   assert.deepEqual(rows[4].item.endpoint, { browseId: "VLPL1", params: null, pageType: null })
   assert.deepEqual(Model.moreTarget(rows[4].item), { type: "playlist", playlistId: "PL1", title: "Songs" })
-  assert.deepEqual(Model.moreTarget(rows[9].item), { type: "browse", browseId: "MPADUC1", params: "x", title: "Only more" })
+  assert.deepEqual(Model.moreTarget(rows[9].item), { type: "artistAlbums", browseId: "MPADUC1", params: "x", title: "Only more" })
   assert.deepEqual(Model.sectionTracks(p, 0).map(t => t.videoId), ["a", "b"])
   assert.deepEqual(Model.sectionTracks(p, 9), [])
   assert.deepEqual(Model.pageTracks(p).map(t => t.videoId), ["a", "b", "c"])

@@ -94,13 +94,14 @@ def test_radio_from_an_artist_uses_its_radio_mix_cached_or_fresh(tmp_path):
 
 
 def test_artist_radio_id_falls_back_to_the_shuffle_mix_suffix():
+    import ytm_artist as artist
     import ytm_normalize as norm
 
     assert norm.artist_radio_id({"radioId": "RDEMa", "shuffleId": "RDAOb"}) == "RDEMa"
     assert norm.artist_radio_id({"radioId": None, "shuffleId": "RDAOk8x"}) == "RDEMk8x"
     assert norm.artist_radio_id({"shuffleId": None}) is None
-    page = norm.artist_page("UCr", {"name": "R", "shuffleId": "RDAOk8x"})
-    assert (page["radioId"], page["shuffleId"]) == ("RDEMk8x", "RDAOk8x")
+    header = artist.build("UCr", {"name": "R", "shuffleId": "RDAOk8x"})["header"]
+    assert (header["radioId"], header["shuffleId"]) == ("RDEMk8x", "RDAOk8x")
     # A cached page without the id is read again.
     worker, fake = worker_with(get_artist={"name": "R", "shuffleId": "RDAOk8x"}, get_watch_playlist=WATCH)
     worker.cache().put("artist", {"channelId": "UCr"}, {"type": "artistPage", "radioId": None})

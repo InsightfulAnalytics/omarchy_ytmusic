@@ -3,12 +3,13 @@ import qs.Commons
 import qs.Ui
 import "../YtmModel.js" as Model
 
-// Any page opened from a row: album, playlist, Liked Music, History, artist,
-// and sectioned pages (the worker's `page` shape, such as a See all list).
-// Header with Play, Shuffle and Queue all, sort chips when the page has
-// orders, then its rows. One instance shows every entry of the panel's
-// stack in turn; `entry` is the stack wrapper { item, view }, and `view` is
-// what viewState() saved when another page was pushed on top.
+// Any page opened from a row: album, playlist, Liked Music, History, and
+// sectioned pages (the worker's `page` shape: an artist, a See all list).
+// Header with Play, Shuffle and Queue all (an artist adds Radio and About),
+// sort chips when the page has orders, then its rows. One instance shows
+// every entry of the panel's stack in turn; `entry` is the stack wrapper
+// { item, view }, and `view` is what viewState() saved when another page
+// was pushed on top.
 Item {
   id: root
 
@@ -20,7 +21,8 @@ Item {
   // Model.pageRef(target, { order }): set by open() and setOrder() only, so
   // a load always pairs the target with its order.
   property var ref: null
-  // The sort order asked for (an index of page.orders), null for the page's own.
+  // The sort order asked for (an `index` of page.orders: a position, or an
+  // artistAlbums option title), null for the page's own.
   property var order: null
   property var page: null
   property bool loading: false
@@ -46,14 +48,13 @@ Item {
   readonly property bool isHistory: !!ref && ref.kind === "history"
   readonly property bool editable: !!page && page.editable === true
   readonly property bool round: Model.pageRound(ref, page)
-  readonly property var tracks: !page ? [] : isPage ? Model.pageTracks(page)
-    : isArtist ? (page.songs || []) : (page.tracks || [])
-  readonly property var rows: !page ? [] : isPage ? Model.pageRows(page) : isArtist ? Model.flattenArtist(page)
+  readonly property var tracks: !page ? [] : isPage ? Model.pageTracks(page) : (page.tracks || [])
+  readonly property var rows: !page ? [] : isPage ? Model.pageRows(page)
     : isHistory ? Model.historyRows(tracks) : Model.trackRows(tracks)
   // The page shows part of its list (Liked Music past 200 songs, a page with
   // more to load, an artist's top songs): Play, Shuffle and Queue all then
   // read the whole list (Service.playItem), at most 500 queued.
-  readonly property bool incomplete: !!page && (page.truncated === true || isArtist
+  readonly property bool incomplete: !!page && (page.truncated === true || Model.pagePartial(ref ? ref.kind : "")
     || (isPage && (!!page.cursor || page.hasMore === true)))
   readonly property var orders: page && Array.isArray(page.orders) ? page.orders : []
   readonly property var currentOrder: order !== null ? order : (page && page.order !== undefined ? page.order : null)
@@ -62,9 +63,12 @@ Item {
   readonly property string title: (page && (page.title || page.name)) || (target && (target.title || target.name))
     || Model.pageKindTitle(ref)
   readonly property string subtitle: !page ? Model.itemSubtitle(target)
-    : isPage ? String(page.subtitle || "")
-    : isArtist ? (page.subtitle || "Artist")
+    : isPage ? Model.pageSubtitle(ref, page)
     : String(page.subtitle || "") + (page.truncated ? " • showing " + tracks.length : "")
+  // Artist (S1): YouTube's shuffle and radio mixes, and the About page.
+  readonly property var shuffleItem: isArtist ? Model.artistShuffleItem(page) : null
+  readonly property var radioItem: isArtist ? Model.artistRadioItem(page) : null
+  readonly property bool hasAbout: isArtist && Model.hasAbout(page)
 
   signal openRequested(var item)
   // The page itself went away (playlist deleted).
@@ -98,9 +102,14 @@ Item {
   // fresh: skip the memory and disk caches (see Store.loadCollection). The
   // page shown stays until the reply replaces it, keeping the cursor.
   function load(fresh) {
-    if (!store) return
-    var key = refKey
+    // Loading before store is read: the first read evaluates its binding,
+    // and onStoreChanged would load the page a second time.
     loading = true
+    if (!store) {
+      loading = false
+      return
+    }
+    var key = refKey
     store.loadCollection(ref, function(reply) {
       if (root.refKey !== key) return
       root.loading = false
@@ -245,6 +254,8 @@ Item {
   // Action rows: one that names a target opens it; slices handle their ids here.
   function runAction(item) {
     if (item.target) root.openRequested(item.target)
+    // About (S1): a description link row copies its URL.
+    else if (item.url && service) service.copyLink({ type: "link", url: item.url })
   }
 
   function activate(index) {
@@ -254,7 +265,7 @@ Item {
     if (item.type === "more") root.openRequested(Model.moreTarget(item))
     else if (item.type === "loadMore") loadMore(true)
     else if (item.type === "action") runAction(item)
-    else if (item.type === "message") return
+    else if (item.type === "message" || item.type === "text") return
     else if (row.trackIndex !== undefined)
       service.playCollection(isPage ? Model.sectionTracks(page, row.sectionIndex) : tracks, row.trackIndex, false)
     else root.openRequested(item)
@@ -298,15 +309,39 @@ Item {
   // go to artist) and Delete on your own playlist.
   function pageMenu() {
     return { item: pageItem(), owner: root, index: -1, title: title, subtitle: subtitle,
-             ctx: { page: true, pageKind: ref ? ref.kind : "", owned: editable, hasTracks: tracks.length > 0 } }
+             ctx: { page: true, pageKind: ref ? ref.kind : "", owned: editable, hasTracks: tracks.length > 0,
+                    about: hasAbout } }
   }
 
   // Play, Shuffle, Queue all (mode now, shuffle, queue; next from the menu).
+  // An artist's Shuffle plays YouTube's shuffle mix, as on the web.
   function playAll(mode) {
     if (!service) return
     var item = pageItem()
-    if (incomplete && Model.tracksForParams(item)) service.playItem(item, mode)
+    if (mode === "shuffle" && shuffleItem) service.playItem(shuffleItem, "now")
+    else if (incomplete && Model.tracksForParams(item)) service.playItem(item, mode)
     else service.playTracks(tracks, mode, { playlistId: page ? page.playlistId || null : null, title: title, radio: false }, title)
+  }
+
+  // ---- artist (S1) -------------------------------------------------------------------
+
+  // Radio: the artist's radio mix (the page item's when the page has none).
+  function startArtistRadio() {
+    if (service) service.startRadio(radioItem || pageItem())
+  }
+
+  // Panel's R when the cursor row has no radio (no row, a See all row): the
+  // artist's radio on an artist page. False elsewhere, so R falls back to
+  // the song playing.
+  function pageRadio() {
+    if (!isArtist) return false
+    startArtistRadio()
+    return true
+  }
+
+  function openAbout() {
+    var item = Model.aboutItem(page)
+    if (item) root.openRequested(item)
   }
 
   Row {
@@ -357,9 +392,10 @@ Item {
       Flow {
         width: parent.width
         spacing: Style.space(4)
-        visible: root.tracks.length > 0
+        visible: root.tracks.length > 0 || root.isArtist
 
         Button {
+          visible: root.tracks.length > 0
           iconText: "󰐊"
           text: "Play"
           tooltipText: root.incomplete ? "Plays all of it, not only what is shown (at most 500 songs)" : ""
@@ -369,14 +405,25 @@ Item {
         }
 
         Button {
+          visible: root.tracks.length > 0 || !!root.shuffleItem
           text: "Shuffle"
-          tooltipText: "Turn shuffle on and play in random order"
+          tooltipText: root.shuffleItem ? "Play the artist's shuffle mix" : "Turn shuffle on and play in random order"
           foreground: root.foreground
           fontSize: Style.font.caption
           onClicked: root.playAll("shuffle")
         }
 
         Button {
+          visible: root.isArtist
+          text: "Radio"
+          tooltipText: "Start the artist's radio"
+          foreground: root.foreground
+          fontSize: Style.font.caption
+          onClicked: root.startArtistRadio()
+        }
+
+        Button {
+          visible: root.tracks.length > 0
           text: "Queue all"
           tooltipText: "Add to the queue (" + Model.keyHint("pageMenu") + " has more)"
           foreground: root.foreground
@@ -392,6 +439,15 @@ Item {
           foreground: confirming ? Color.urgent : root.foreground
           fontSize: Style.font.caption
           onClicked: root.deletePlaylist()
+        }
+
+        Button {
+          visible: root.hasAbout
+          text: "About"
+          tooltipText: "Description and links (" + Model.keyHint("pageMenu") + " has every action)"
+          foreground: root.foreground
+          fontSize: Style.font.caption
+          onClicked: root.openAbout()
         }
       }
     }
