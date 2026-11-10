@@ -169,7 +169,8 @@ test("taste: marks, the Add row, find, and the note", () => {
 
 test("taste: Library's account menu opens it; its page menu adds and unmarks", () => {
   const library = { page: true, pageKind: "library", signedIn: true }
-  assert.deepEqual(ids(null, library), ["tasteProfile", "signOut"])
+  // S15's Record plays in history sits between it and Sign out.
+  assert.deepEqual(ids(null, library), ["tasteProfile", "recordHistory", "signOut"])
   assert.ok(!ids(null, { ...library, signedIn: false }).includes("tasteProfile"))
   const pushed = []
   action(null, library, "tasteProfile").run({ item: null, ctx: library, index: -1, panel: { push: i => pushed.push(i) } })

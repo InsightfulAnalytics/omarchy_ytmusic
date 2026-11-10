@@ -27,14 +27,14 @@ import "YtmModel.js" as Model
 // artist (of the row, the album page or the current song) · o go to album · J
 // / K move a queued song, or a song of your own playlist, down / up · i add
 // the suggestion under the cursor to your playlist · x remove (queue, own
-// playlist, Liked Music, recent search) · m / . the row's menu (or
-// right-click) · M the page's menu (Library: account) · O next sort order on
-// a page that has one (Charts: the country) · f find in a page's songs
-// (album, playlist, Liked Music, History) or the suggested artists · e edit
-// your playlist: details, order, voting, collaborators · ? these keys · y
-// cycle the pane under the song: Queue, Lyrics, Related · t cycle the queue
-// tuner chip: All, Discover, Popular and the rest · [ / ] playback speed down
-// / up (0.5x to 2x, kept apart for episodes).
+// playlist, Liked Music, recent search; History: press twice) · m / . the
+// row's menu (or right-click) · M the page's menu (Library: account) · O next
+// sort order on a page that has one (Charts: the country) · f find in a
+// page's songs (album, playlist, Liked Music, History) or the suggested
+// artists · e edit your playlist: details, order, voting, collaborators · ?
+// these keys · y cycle the pane under the song: Queue, Lyrics, Related · t
+// cycle the queue tuner chip: All, Discover, Popular and the rest · [ / ]
+// playback speed down / up (0.5x to 2x, kept apart for episodes).
 // Text keys go through Model.keyId to runKey(); Ctrl and Alt chords are
 // ignored. Views offer optional hooks, checked with typeof: horizontal(dx),
 // cycleOrder(), find(), playNext(i) / addToQueue(i), menu(i), pageMenu(),

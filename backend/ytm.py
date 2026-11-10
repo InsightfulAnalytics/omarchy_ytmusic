@@ -49,6 +49,7 @@ import ytm_collections as collections  # noqa: E402
 import ytm_edit as edit  # noqa: E402
 import ytm_explore as explore  # noqa: E402
 import ytm_feedback as feedback  # noqa: E402
+import ytm_history as history  # noqa: E402
 import ytm_home as home  # noqa: E402
 import ytm_library as library  # noqa: E402
 import ytm_normalize as norm  # noqa: E402
@@ -338,7 +339,7 @@ class _Core:
 
 # Area modules, in a fixed order. A slice that rewrites a core method moves it
 # out of the core tables into its module.
-AREA_MODULES = (pages, play, now, artist, library, collections, actions, home, explore, search, edit, feedback)
+AREA_MODULES = (pages, play, now, artist, library, collections, actions, home, explore, search, edit, feedback, history)
 
 
 def merge_registries(sources):

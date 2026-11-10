@@ -1515,6 +1515,286 @@ Item {
     onTriggered: root._loadLevelsScript()
   }
 
+  // ---- history (S15) -------------------------------------------------------------------
+  // Plays go to YouTube Music history while prefs.recordHistory is on. It is
+  // off until you turn it on (Library's account row or its M menu); while it
+  // is off, the first play of 10 s, signed in, shows a one-time notice saying
+  // how. Each play of an entry (a start-file, or a repeat-one loop) is
+  // checked against mpv's time-pos once Model.REPORT_AFTER_SEC should have
+  // played, by one timer that runs only while that play is uncounted and
+  // playing (a time-pos observer would wake the shell every second). A
+  // counted play joins pendingPlays (pending-plays.json), sent with the
+  // worker's reportPlays on its report lane when Model.flushDue says so (the
+  // worker is up for other work, 5 wait, or the oldest waited 15 min) and
+  // whenever a panel opens, so no worker starts for one song. An unknown
+  // result drops the batch: a missing play beats a double count. Turning
+  // recording off, signing out or another account drops what waits.
+  readonly property bool recordHistory: prefs.recordHistory === true
+  readonly property string playStatePath: cacheDir + "/pending-plays.json"
+  property var pendingPlays: []
+  property bool historyNoticeShown: false
+  property bool _playStateRead: false
+  // The play being watched: { key, entryId, startedAt }, or null.
+  property var _play: null
+  property int _playSerial: 0
+  // The plays already counted (the current one at most): key -> true.
+  property var _counted: ({})
+  property int _playCheckMs: 10300
+  property bool _reporting: false
+  property string _historyAccount: ""
+  // Plays are watched while recording, and until the one-time notice was shown.
+  readonly property bool _watchPlays: prefsLoaded && _playStateRead && signedIn && (recordHistory || !historyNoticeShown)
+
+  function setRecordHistory(on) {
+    var value = on === true
+    if (!prefsLoaded || value === recordHistory) return false
+    setPref("recordHistory", value)
+    _setHistoryNoticeShown()
+    if (!value) _setPendingPlays([])
+    var notice = Model.recordHistoryNotice(value)
+    notify(notice.title, notice.body)
+    return true
+  }
+
+  // mpv's events: a file starts (a new play), or playback restarts (after a
+  // seek, or a repeat-one loop).
+  function _historyEvent(message) {
+    if (message.event === "start-file") _startPlay(message.playlist_entry_id)
+    else if (message.event === "playback-restart") _playRestarted()
+  }
+
+  function _startPlay(entryId) {
+    if (entryId === undefined || entryId === null) {
+      _play = null
+      return
+    }
+    _playSerial++
+    _play = { key: Model.playKey(entryId, _playSerial), entryId: entryId, startedAt: Date.now() }
+    _counted = ({})
+    _playCheckMs = Model.playCheckMs(0, speed)
+    if (playCheck.running) playCheck.restart()
+  }
+
+  // Repeat one loops the file without a new start-file: a restart near 0 s
+  // is a new play (Model.loopRestart).
+  function _playRestarted() {
+    if (repeatMode !== "one" || !mpv.up) return
+    var play = _play
+    mpv.command(["get_property", "time-pos"], function(reply) {
+      if (root._play !== play || !reply || reply.error !== "success") return
+      var entryId = play ? play.entryId : (root.currentEntry ? root.currentEntry.entryId : null)
+      var played = play ? Date.now() - play.startedAt : Model.LOOP_MIN_MS
+      if (entryId !== null && entryId !== undefined && Model.loopRestart(root.repeatMode, reply.data, played))
+        root._startPlay(entryId)
+    })
+  }
+
+  // The timer's look at time-pos: the play is counted (recording), or the
+  // one-time notice shows (not recording); else look again when 10 s will
+  // have played.
+  function _checkPlay() {
+    var play = _play
+    if (!play || !mpv.up) return
+    mpv.command(["get_property", "time-pos"], function(reply) {
+      if (root._play !== play || root._counted[play.key] === true) return
+      var pos = reply && reply.error === "success" ? reply.data : null
+      var entry = Model.entryById(root.queue, play.entryId)
+      var candidate = { key: play.key, videoId: entry ? entry.videoId : "" }
+      var on = root.recordHistory && root.signedIn
+      if (Model.shouldReport(candidate, pos, root._counted, on)) root._countPlay(play, candidate.videoId)
+      else if (!root.recordHistory && root.signedIn && Model.shouldReport(candidate, pos, root._counted, true)) root._noticeOnce(play)
+      // Not a YouTube entry (a file mpv was given elsewhere): never counted.
+      else if (entry && !candidate.videoId && typeof pos === "number" && pos >= Model.REPORT_AFTER_SEC) root._markCounted(play)
+      else root._playCheckMs = Model.playCheckMs(pos, root.speed)
+    })
+  }
+
+  function _markCounted(play) {
+    var next = ({})
+    next[play.key] = true
+    _counted = next
+  }
+
+  function _countPlay(play, videoId) {
+    _markCounted(play)
+    _setPendingPlays(Model.withPendingPlay(pendingPlays, videoId, Date.now()))
+    flushPlays(false)
+  }
+
+  function _noticeOnce(play) {
+    _markCounted(play)
+    if (historyNoticeShown) return
+    _setHistoryNoticeShown()
+    var notice = Model.historyNotice()
+    notifyOnce("history-notice", notice.title, notice.body)
+  }
+
+  function _historyGone() {
+    _play = null
+    _counted = ({})
+  }
+
+  // Sends what waits when Model.flushDue says so; `force` (a panel opened)
+  // also sends plays waiting after a passing failure. One call at a time, at
+  // most Model.REPORT_CALL_MAX plays; the rest follow while the worker is up.
+  function flushPlays(force) {
+    if (_reporting || !_playStateRead || !prefsLoaded) return false
+    // Off (however it was turned off): nothing waits to be sent.
+    if (!recordHistory) {
+      if (pendingPlays.length > 0) _setPendingPlays([])
+      return false
+    }
+    if (!signedIn) return false
+    var now = Date.now()
+    var pending = Model.prunePending(pendingPlays, now)
+    if (pending.length !== pendingPlays.length) _setPendingPlays(pending)
+    var due = force === true || Model.flushDue(pending, now, workerState === "ready")
+    var batch = due ? Model.reportBatch(pending, now, force === true) : []
+    if (batch.length === 0) {
+      _armReportTimer()
+      return false
+    }
+    _reporting = true
+    reportTimer.stop()
+    // Marked as out before it goes, at once on disk: a reload mid-call
+    // drops the batch rather than sending it again.
+    _setPendingPlays(Model.markSent(pending, batch))
+    _writePlayState()
+    backend.request("reportPlays", { videoIds: batch.map(function(play) { return play.videoId }) }, function(reply) {
+      root._reporting = false
+      var after = Model.afterReport(root.pendingPlays, batch, reply, Date.now())
+      root._setPendingPlays(after.pending)
+      if (after.reported > 0) storeItem.forgetCollection("history")
+      // The next batch follows, unless YouTube throttled or the network
+      // failed: then what waits goes with the next trigger.
+      if (reply.ok && after.waiting === 0) Qt.callLater(root.flushPlays)
+      // After a report the panel did not ask for, the worker goes soon.
+      root.releaseWorkerIfIdle()
+    }, Model.reportTimeoutMs(batch.length), noRetry)
+    return true
+  }
+
+  // Armed only while a flush could send (Connections below re-arm it when
+  // that changes: prefs read late, or the session back).
+  function _armReportTimer() {
+    var at = recordHistory && prefsLoaded && signedIn ? Model.nextFlushAt(pendingPlays, Date.now()) : 0
+    if (at === 0) {
+      reportTimer.stop()
+      return
+    }
+    reportTimer.interval = Math.max(1000, at - Date.now())
+    reportTimer.restart()
+  }
+
+  function _setPendingPlays(list) {
+    pendingPlays = list
+    _savePlayState()
+    _armReportTimer()
+  }
+
+  function _setHistoryNoticeShown() {
+    if (historyNoticeShown) return
+    historyNoticeShown = true
+    _savePlayState()
+  }
+
+  // Nothing is written before the file was read (a write would lose what it holds).
+  function _savePlayState() {
+    if (_playStateRead) playStateSave.restart()
+  }
+
+  function _writePlayState() {
+    if (_playStateRead) playStateFile.setText(Model.playStateText({ plays: pendingPlays, notice: historyNoticeShown }, Date.now()))
+  }
+
+  function _applyPlayState(text) {
+    var saved = Model.parsePlayState(text, Date.now())
+    pendingPlays = Model.prunePending(saved.plays.concat(pendingPlays), Date.now())
+    historyNoticeShown = saved.notice || historyNoticeShown
+    _playStateRead = true
+    _armReportTimer()
+  }
+
+  // A History row's Remove from history (CollectionView puts the row back
+  // on a definite failure; callback(reply) is its).
+  function removeFromHistory(track, callback) {
+    var params = Model.removeHistoryParams(track)
+    if (!signedIn || !params) return false
+    backend.request("removeHistory", params, function(reply) {
+      if (reply.ok) {
+        storeItem.forgetCollection("history")
+        root.notify("Removed from history", Model.mediaTitle(track))
+      } else if (root.unsure(reply)) {
+        root.refreshUnsure([{ kind: "history", id: "history" }], Model.mediaTitle(track))
+      } else {
+        root.failAction("Not removed from history", reply.error.message)
+      }
+      if (callback) callback(reply)
+    }, 30000, noRetry)
+    return true
+  }
+
+  // What waits belongs to the session it was played under: S16's account
+  // switch calls this (an account.json change does it below).
+  function dropPendingPlays() {
+    _setPendingPlays([])
+  }
+
+  // The worker came up for other work: what waits goes with it.
+  onWorkerStateChanged: if (workerState === "ready") Qt.callLater(root.flushPlays)
+
+  onAccountChanged: {
+    var who = account ? String(account.handle || account.name || "signed in") : ""
+    // Signed out, or another account: what waits was played under the old one.
+    if (_historyAccount !== "" && who !== _historyAccount) dropPendingPlays()
+    _historyAccount = who
+  }
+
+  FileView {
+    id: playStateFile
+    path: root.playStatePath
+    atomicWrites: true
+    watchChanges: false
+    printErrors: false
+    onLoaded: root._applyPlayState(text())
+    onLoadFailed: root._applyPlayState("")
+  }
+
+  Timer {
+    id: playStateSave
+    interval: 500
+    onTriggered: root._writePlayState()
+  }
+
+  // Runs only while the play is uncounted and playing (see _checkPlay).
+  Timer {
+    id: playCheck
+    interval: root._playCheckMs
+    repeat: true
+    running: root._watchPlays && root.hasMedia && !root.paused && !!root._play && root._counted[root._play.key] !== true
+    onTriggered: root._checkPlay()
+  }
+
+  // When the oldest play waiting comes due by time alone (15 min).
+  Timer {
+    id: reportTimer
+    onTriggered: root.flushPlays(false)
+  }
+
+  // player.json read after pending-plays.json, recording turned on, or the
+  // session back: the timer starts again (and stops while a flush could not
+  // send). Recording turned off however (setPref, player.json edited): what
+  // waits goes now.
+  Connections {
+    target: root
+    function onRecordHistoryChanged() {
+      if (!root.recordHistory && root.prefsLoaded && root.pendingPlays.length > 0) root.dropPendingPlays()
+      else root._armReportTimer()
+    }
+    function onPrefsLoadedChanged() { root._armReportTimer() }
+    function onSignedInChanged() { root._armReportTimer() }
+  }
+
   // ---- playlists ---------------------------------------------------------------------
 
   // S13: opts { description, privacy, sourcePlaylistId (a copy of that
@@ -2268,6 +2548,7 @@ Item {
       speculated = 0
       checkTools()
       backend.request("warmStreams", ({}))
+      flushPlays(true)  // S15: plays waiting for history go now
     }
   }
 
@@ -2366,6 +2647,7 @@ Item {
   }
 
   function onMpvEvent(message) {
+    _historyEvent(message)  // S15
     if (message.event === "start-file") {
       buffering = true
       position = 0
@@ -2468,6 +2750,7 @@ Item {
     _loopPlaylist = false
     _playerGone()  // S12
     _playbackGone()  // S17
+    _historyGone()  // S15
   }
 
   function statusJson() {
@@ -2516,6 +2799,8 @@ Item {
           ? streams[currentTrack.videoId].gain : null
       },
       lastError: lastError,
+      // S15: plays recorded in YouTube Music history.
+      history: { record: recordHistory, pending: pendingPlays.length, reporting: _reporting, noticeShown: historyNoticeShown },
       streams: {
         fresh: Object.keys(Model.pruneStreams(streams, nowSec(), 50)),
         resolving: resolvingCount,
@@ -2779,6 +3064,7 @@ Item {
     function shuffle(): string { return root.toggleShuffle() ? (root.shuffle ? "on" : "off") : "busy" }
     function repeat(): string { root.cycleRepeat(); return root.repeatPref }
     function autoplay(): string { root.toggleAutoplay(); return root.autoplay ? "on" : "off" }
+    function recordPlays(): string { root.setRecordHistory(!root.recordHistory); return root.recordHistory ? "on" : "off" }  // S15
     function search(query: string): string { return root.showSearch(query) ? "ok" : "unhandled" }
     function like(): string { return root.setLike(root.currentTrack, true) ? "ok" : "unhandled" }
     function unlike(): string { return root.setLike(root.currentTrack, false) ? "ok" : "unhandled" }

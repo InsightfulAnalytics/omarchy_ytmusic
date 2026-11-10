@@ -5106,3 +5106,381 @@ if (typeof module !== "undefined") {
     tasteRows: tasteRows
   })
 }
+
+// ==== history (S15) =========================================================================
+// Plays recorded in YouTube Music history, as the web records them, and
+// entries removed from it. Recording is prefs.recordHistory, off until you
+// turn it on (Library's account row or its M menu); while it is off, the
+// first play of REPORT_AFTER_SEC shows a one-time notice saying how. Each
+// play of a queue entry (a start-file, or a repeat-one loop: loopRestart)
+// counts once it has played REPORT_AFTER_SEC by mpv's time-pos
+// (shouldReport), and joins the pending plays. They go to the worker's
+// reportPlays in one call when the worker is up for other work anyway,
+// when REPORT_COUNT are waiting or the oldest has waited REPORT_WAIT_MS
+// (flushDue), and when a panel opens, so the worker is never started for
+// one song. They are kept in pending-plays.json (PENDING_MAX, none older
+// than PENDING_TTL_MS). An unknown outcome drops the batch: a missing play
+// beats one counted twice (afterReport). History rows carry S3's
+// historyToken: x pressed twice, or the row menu, removes one at once and
+// puts it back when YouTube says no.
+
+var REPORT_AFTER_SEC = 10
+var REPORT_COUNT = 5
+var REPORT_WAIT_MS = 15 * 60 * 1000
+// After a passing failure (offline, rate limited) a play waits this long.
+var REPORT_RETRY_MS = 15 * 60 * 1000
+// Plays per reportPlays call (two requests each).
+var REPORT_CALL_MAX = 20
+var PENDING_MAX = 200
+var PENDING_TTL_MS = 24 * 3600 * 1000
+// A repeat-one loop is a restart near the start this long after the play began.
+var LOOP_START_SEC = 1.5
+var LOOP_MIN_MS = 2000
+var PLAY_STATE_VERSION = 1
+var _VIDEO_ID = /^[A-Za-z0-9_-]{11}$/
+
+// One play of a queue entry: mpv's entry id and the shell's count of plays
+// started (every start-file and every loop counts one up), so a song played
+// again, or looped, is a new play.
+function playKey(entryId, serial) {
+  return String(entryId) + ":" + String(serial || 0)
+}
+
+function _reportedHas(reported, key) {
+  if (!reported) return false
+  if (Array.isArray(reported)) return reported.indexOf(key) >= 0
+  return reported[key] === true
+}
+
+// This play goes to history now: `on` (recording, signed in), the entry
+// ({ key, videoId }) is a YouTube video that has played REPORT_AFTER_SEC,
+// and `reported` (keys, as a map or a list) does not hold this play yet.
+function shouldReport(entry, timePos, reported, on) {
+  if (on !== true || !entry || !entry.key || !_VIDEO_ID.test(String(entry.videoId || ""))) return false
+  return typeof timePos === "number" && isFinite(timePos) && timePos >= REPORT_AFTER_SEC && !_reportedHas(reported, entry.key)
+}
+
+// A playback-restart that is a repeat-one loop: loop-file on, back near the
+// start, and the play began at least LOOP_MIN_MS ago (the restart that
+// follows a file's own start comes sooner). A seek to the very start while
+// repeating one song counts as a loop too.
+function loopRestart(repeatMode, timePos, playedMs) {
+  return repeatMode === "one" && typeof timePos === "number" && isFinite(timePos) && timePos < LOOP_START_SEC
+    && Number(playedMs) >= LOOP_MIN_MS
+}
+
+// When to read time-pos next (ms): once REPORT_AFTER_SEC will have played
+// at `speed`, plus a moment; between 1 and 15 s.
+function playCheckMs(timePos, speed) {
+  var pos = typeof timePos === "number" && isFinite(timePos) && timePos > 0 ? timePos : 0
+  var rate = typeof speed === "number" && isFinite(speed) && speed > 0 ? Math.max(0.25, speed) : 1
+  var ms = Math.round(Math.max(0, REPORT_AFTER_SEC - pos) / rate * 1000) + 300
+  return Math.max(1000, Math.min(15000, ms))
+}
+
+// ---- pending plays ------------------------------------------------------------------------
+// A pending play is { videoId, at (ms since the epoch), retryAt?, sent? },
+// oldest first. `sent` marks the batch a reportPlays call has out (written
+// to the file before the call): never in another batch, and dropped when
+// the file is read again, since a reload or crash mid-call left its outcome
+// unknown.
+
+function _pendingPlay(play, now) {
+  if (!play || typeof play !== "object" || !_VIDEO_ID.test(String(play.videoId || ""))) return null
+  if (typeof play.at !== "number" || !isFinite(play.at) || now - play.at >= PENDING_TTL_MS || play.at > now + 60000) return null
+  var out = { videoId: String(play.videoId), at: play.at }
+  if (typeof play.retryAt === "number" && isFinite(play.retryAt) && play.retryAt > now) out.retryAt = play.retryAt
+  if (play.sent === true) out.sent = true
+  return out
+}
+
+// Valid plays younger than PENDING_TTL_MS, at most PENDING_MAX (the newest).
+function prunePending(pending, now) {
+  var out = []
+  var list = Array.isArray(pending) ? pending : []
+  for (var i = 0; i < list.length; i++) {
+    var play = _pendingPlay(list[i], now)
+    if (play) out.push(play)
+  }
+  return out.length > PENDING_MAX ? out.slice(out.length - PENDING_MAX) : out
+}
+
+function withPendingPlay(pending, videoId, now) {
+  return prunePending((Array.isArray(pending) ? pending : []).concat([{ videoId: videoId, at: now }]), now)
+}
+
+// A pending play's identity (the same song played twice is two plays).
+function pendingKey(play) {
+  return play ? String(play.videoId) + "@" + String(play.at) : ""
+}
+
+// The plays neither out in a call nor waiting after a passing failure.
+function readyPlays(pending, now) {
+  return _unsent(pending).filter(function(play) {
+    return !(typeof play.retryAt === "number" && play.retryAt > now)
+  })
+}
+
+function _unsent(pending) {
+  return (Array.isArray(pending) ? pending : []).filter(function(play) { return !!play && play.sent !== true })
+}
+
+// The pending plays with `batch` marked as out in a call.
+function markSent(pending, batch) {
+  var keys = {}
+  for (var i = 0; i < (batch || []).length; i++) keys[pendingKey(batch[i])] = true
+  return (Array.isArray(pending) ? pending : []).map(function(play) {
+    if (!keys[pendingKey(play)]) return play
+    var out = {}
+    for (var key in play) out[key] = play[key]
+    out.sent = true
+    return out
+  })
+}
+
+// Time to send the pending plays: some are ready, and the worker is up
+// anyway (`workerUp`), or REPORT_COUNT are ready, or the oldest ready one
+// has waited REPORT_WAIT_MS. (Opening a panel sends them regardless.)
+function flushDue(pending, now, workerUp) {
+  var ready = readyPlays(prunePending(pending, now), now)
+  if (ready.length === 0) return false
+  if (workerUp === true || ready.length >= REPORT_COUNT) return true
+  var oldest = ready[0].at
+  for (var i = 1; i < ready.length; i++) oldest = Math.min(oldest, ready[i].at)
+  return now - oldest >= REPORT_WAIT_MS
+}
+
+// When time alone makes a flush due (ms since the epoch), 0 with nothing pending.
+function nextFlushAt(pending, now) {
+  var list = _unsent(prunePending(pending, now))
+  var next = 0
+  for (var i = 0; i < list.length; i++) {
+    var due = Math.max(list[i].at + REPORT_WAIT_MS, list[i].retryAt || 0)
+    if (next === 0 || due < next) next = due
+  }
+  return next
+}
+
+// What one reportPlays call sends: the oldest ready plays (`force`, as when
+// a panel opens: the waiting ones too), at most REPORT_CALL_MAX.
+function reportBatch(pending, now, force) {
+  var list = prunePending(pending, now)
+  return (force === true ? _unsent(list) : readyPlays(list, now)).slice(0, REPORT_CALL_MAX)
+}
+
+// The shell's timeout for a call of `count` plays (a player request and a ping each).
+function reportTimeoutMs(count) {
+  return 15000 + 4000 * Math.max(1, Number(count) || 1)
+}
+
+var _PASSING = ["NETWORK", "RATE_LIMITED", "TIMEOUT", "WORKER_EXITED"]
+
+// The pending plays after the reportPlays reply for `batch` (matched by
+// pendingKey: plays added meanwhile stay). A play YouTube took goes, and so
+// does one that failed for good; a passing failure (a result's retry, or a
+// call that failed offline before anything was sent) waits REPORT_RETRY_MS.
+// An unknown outcome (the worker stopped or timed out mid-call) drops the
+// batch, as does any other failed call. Signed out or expired: every
+// pending play goes (they were made under that session). `waiting` counts
+// the batch's plays that wait after a passing failure: the shell sends no
+// next batch then (it would meet the same throttle or outage).
+// { pending, reported, dropped, waiting }
+function afterReport(pending, batch, reply, now) {
+  var list = Array.isArray(pending) ? pending : []
+  var sent = Array.isArray(batch) ? batch : []
+  var outcome = {}
+  var reported = 0
+  var dropped = 0
+  var waiting = 0
+  var i
+  if (reply && reply.ok) {
+    var results = reply.result && Array.isArray(reply.result.results) ? reply.result.results : []
+    for (i = 0; i < sent.length; i++) {
+      var result = results[i]
+      var same = !!result && result.videoId === sent[i].videoId
+      if (same && result.ok === true) reported++
+      else if (same && result.retry === true) waiting++
+      else dropped++
+      outcome[pendingKey(sent[i])] = same && result.ok !== true && result.retry === true ? "retry" : "done"
+    }
+  } else {
+    var error = reply && reply.error ? reply.error : {}
+    var unknown = !!reply && (reply.unknown === true || error.unknown === true)
+    if (!unknown && (error.code === "AUTH_REQUIRED" || error.code === "AUTH_EXPIRED"))
+      return { pending: [], reported: 0, dropped: list.length, waiting: 0 }
+    var later = !unknown && _PASSING.indexOf(error.code) >= 0
+    for (i = 0; i < sent.length; i++) outcome[pendingKey(sent[i])] = later ? "retry" : "done"
+    if (later) waiting = sent.length
+    else dropped = sent.length
+  }
+  var next = []
+  for (i = 0; i < list.length; i++) {
+    var what = outcome[pendingKey(list[i])]
+    if (what === "done") continue
+    if (what === "retry") next.push({ videoId: list[i].videoId, at: list[i].at, retryAt: now + REPORT_RETRY_MS })
+    else next.push(list[i])
+  }
+  return { pending: prunePending(next, now), reported: reported, dropped: dropped, waiting: waiting }
+}
+
+// pending-plays.json: { version, plays, notice } (notice: the one-time
+// notice about recording was shown).
+function parsePlayState(text, now) {
+  var saved = null
+  try {
+    saved = JSON.parse(text)
+  } catch (e) {
+    saved = null
+  }
+  var ok = !!saved && typeof saved === "object" && saved.version === PLAY_STATE_VERSION
+  // A batch the last run had out: its outcome is unknown, so it goes.
+  return { plays: ok ? _unsent(prunePending(saved.plays, now)) : [], notice: ok && saved.notice === true }
+}
+
+function playStateText(state, now) {
+  var s = state || {}
+  return JSON.stringify({ version: PLAY_STATE_VERSION, plays: prunePending(s.plays, now), notice: s.notice === true }) + "\n"
+}
+
+// ---- notices --------------------------------------------------------------------------------
+
+function historyNotice() {
+  return { title: "Plays are not added to your YouTube Music history",
+           body: "To add songs played for 10 s or more, as the web does: Library, " + keyHint("pageMenu")
+             + ", Record plays in history." }
+}
+
+function recordHistoryNotice(on) {
+  return on
+    ? { title: "Recording plays in your history",
+        body: "Songs played for 10 s or more go to YouTube Music history. Library, " + keyHint("pageMenu")
+          + " turns it off." }
+    : { title: "Plays are no longer recorded", body: "Songs you play stay out of YouTube Music history." }
+}
+
+// The first press's prompt (x, or a click on the row's remove button).
+function removeHistoryPrompt(click) {
+  return click ? "Click again to remove from history" : "Press " + keyHint("remove") + " again to remove from history"
+}
+
+// ---- History rows ----------------------------------------------------------------------------
+
+// A History row's token (S3; fresh pages only, a disk copy has none), or "".
+function historyTokenOf(track) {
+  var token = track && track.type === "track" ? track.historyToken : null
+  return typeof token === "string" && token !== "" ? token : ""
+}
+
+function removeHistoryParams(track) {
+  var token = historyTokenOf(track)
+  return token ? { tokens: [token] } : null
+}
+
+function _sameHistoryEntry(a, b) {
+  var ta = historyTokenOf(a)
+  var tb = historyTokenOf(b)
+  if (ta !== "" || tb !== "") return ta === tb
+  return !!a && !!b && a.videoId === b.videoId && String(a.played || "") === String(b.played || "")
+}
+
+// Where the History page holds `track` (by its token), or -1.
+function historyEntryIndex(page, track) {
+  var tracks = page && Array.isArray(page.tracks) ? page.tracks : []
+  for (var i = 0; i < tracks.length; i++) if (_sameHistoryEntry(tracks[i], track)) return i
+  return -1
+}
+
+function _historyWithTracks(page, tracks) {
+  var next = {}
+  for (var key in page) next[key] = page[key]
+  next.tracks = tracks
+  next.trackCount = tracks.length
+  next.subtitle = tracks.length + " songs"
+  return next
+}
+
+// The History page without one entry; the same page when it is not there.
+function withoutHistoryEntry(page, track) {
+  var at = historyEntryIndex(page, track)
+  if (at < 0) return page
+  return _historyWithTracks(page, page.tracks.slice(0, at).concat(page.tracks.slice(at + 1)))
+}
+
+// The entry back at `index` (YouTube said no); the same page when it holds
+// it already (a reload brought it back).
+function withHistoryEntry(page, track, index) {
+  if (!page || !track || historyEntryIndex(page, track) >= 0) return page
+  var tracks = Array.isArray(page.tracks) ? page.tracks : []
+  var at = Math.max(0, Math.min(tracks.length, Number(index) >= 0 ? Number(index) : 0))
+  return _historyWithTracks(page, tracks.slice(0, at).concat([track], tracks.slice(at)))
+}
+
+// ---- menu entries and keys -------------------------------------------------------------------
+
+// History rows: Remove from history (choose again within 4 s), the x twin.
+// S16 sets ctx.canRemoveHistory false for a brand account (YouTube does
+// not remove history entries there).
+_insertAfter(MENU_ACTIONS, "remove", [
+  { id: "removeHistory", title: "Remove from history", icon: "󰅖", key: "remove",
+    confirm: "Really remove from history? Choose again",
+    applies: function(item, ctx) {
+      return ctx.signedIn === true && ctx.page !== true && ctx.pageKind === "history" && historyTokenOf(item) !== ""
+        && ctx.canRemoveHistory !== false
+    },
+    run: function(env) {
+      if (env.index >= 0 && env.owner && typeof env.owner.removeFromHistory === "function") env.owner.removeFromHistory(env.index, true)
+    } }
+])
+
+// Library (M), before Sign out: Record plays in history, on and off
+// (ctx.recordHistory from LibraryView.pageMenu).
+;(function() {
+  var at = MENU_ACTIONS.length
+  for (var i = 0; i < MENU_ACTIONS.length; i++) if (MENU_ACTIONS[i].id === "signOut") at = i
+  MENU_ACTIONS.splice(at, 0, {
+    id: "recordHistory",
+    title: function(item, ctx) { return ctx.recordHistory === true ? "Stop recording plays in history" : "Record plays in history" },
+    icon: "󰋚",
+    applies: function(item, ctx) { return ctx.page === true && ctx.pageKind === "library" && ctx.signedIn === true },
+    run: function(env) { env.service.setRecordHistory(env.ctx.recordHistory !== true) } })
+})()
+
+_keyEntry("remove").title = "remove (queue, own playlist, Liked Music, recent search; History: press twice)"
+
+if (typeof module !== "undefined") {
+  Object.assign(module.exports, {
+    REPORT_AFTER_SEC: REPORT_AFTER_SEC,
+    REPORT_COUNT: REPORT_COUNT,
+    REPORT_WAIT_MS: REPORT_WAIT_MS,
+    REPORT_RETRY_MS: REPORT_RETRY_MS,
+    REPORT_CALL_MAX: REPORT_CALL_MAX,
+    PENDING_MAX: PENDING_MAX,
+    PENDING_TTL_MS: PENDING_TTL_MS,
+    LOOP_START_SEC: LOOP_START_SEC,
+    LOOP_MIN_MS: LOOP_MIN_MS,
+    playKey: playKey,
+    shouldReport: shouldReport,
+    loopRestart: loopRestart,
+    playCheckMs: playCheckMs,
+    prunePending: prunePending,
+    withPendingPlay: withPendingPlay,
+    pendingKey: pendingKey,
+    readyPlays: readyPlays,
+    markSent: markSent,
+    flushDue: flushDue,
+    nextFlushAt: nextFlushAt,
+    reportBatch: reportBatch,
+    reportTimeoutMs: reportTimeoutMs,
+    afterReport: afterReport,
+    parsePlayState: parsePlayState,
+    playStateText: playStateText,
+    historyNotice: historyNotice,
+    recordHistoryNotice: recordHistoryNotice,
+    removeHistoryPrompt: removeHistoryPrompt,
+    historyTokenOf: historyTokenOf,
+    removeHistoryParams: removeHistoryParams,
+    historyEntryIndex: historyEntryIndex,
+    withoutHistoryEntry: withoutHistoryEntry,
+    withHistoryEntry: withHistoryEntry
+  })
+}
