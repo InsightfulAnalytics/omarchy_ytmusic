@@ -213,7 +213,8 @@ function _bool(fallback) {
 
 function _speed(value) {
   var n = Number(value)
-  return typeof value === "number" && isFinite(n) && n >= 0.5 && n <= 2 ? n : 1
+  // S17: on the 0.25 step grid (speedStep, the speed chooser).
+  return typeof value === "number" && isFinite(n) && n >= 0.5 && n <= 2 ? Math.round(n * 4) / 4 : 1
 }
 
 // key -> rule(value): the value when valid, else the default (rule(undefined)
@@ -2374,5 +2375,178 @@ if (typeof module !== "undefined") {
     switchVersionCommands: switchVersionCommands,
     parseQueueState: parseQueueState,
     queueStateText: queueStateText
+  })
+}
+
+// ==== playback (S17) =======================================================================
+// Speed and loudness, the mpv way. Speed is mpv's `speed`, SPEED_MIN to
+// SPEED_MAX in SPEED_STEP steps ([ and ], or the Now page menu), remembered
+// per kind of entry in prefs.speed { music, episode } and applied whenever
+// the kind of the entry playing changes, so an episode keeps its own speed.
+// Loudness is prefs.normalize: with "youtube" the worker answers each
+// resolved song's loudnessDb (its `normalize` setting, workerSettings), the
+// stream keeps it as `gain` (loudnessGain: turned down only, as on the web)
+// and mpv/ytm-levels.lua sets it as that file's own volume-gain when it
+// loads; "dynamic" runs mpv's dynaudnorm filter (ytm-levels.lua too); "off"
+// neither. The shell tells mpv the mode in user-data/ytm/normalize.
+
+var SPEED_MIN = 0.5
+var SPEED_MAX = 2
+var SPEED_STEP = 0.25
+var SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2]
+var NORMALIZE_MODES = ["off", "youtube", "dynamic"]
+
+// "episode" for a podcast episode, else "music" (songs and videos).
+function speedKind(track) {
+  return track && track.kind === "episode" ? "episode" : "music"
+}
+
+// A speed on the step grid within the bounds; 1 for anything not a number.
+function clampSpeed(value) {
+  var n = Number(value)
+  if (typeof value !== "number" || !isFinite(n)) return 1
+  return Math.min(SPEED_MAX, Math.max(SPEED_MIN, Math.round(n / SPEED_STEP) * SPEED_STEP))
+}
+
+// One step up (`delta` > 0) or down from `speed`, within the bounds; a speed
+// between steps (set over MPRIS) goes to the step on that side.
+function speedStep(speed, delta) {
+  var n = Number(speed)
+  if (typeof speed !== "number" || !isFinite(n) || n <= 0) n = 1
+  var steps = n / SPEED_STEP
+  var next = delta > 0 ? (Math.floor(steps + 1e-6) + 1) * SPEED_STEP
+    : delta < 0 ? (Math.ceil(steps - 1e-6) - 1) * SPEED_STEP
+    : clampSpeed(n)
+  return Math.min(SPEED_MAX, Math.max(SPEED_MIN, next))
+}
+
+// The saved speed for a kind ("music" or "episode") of prefs.speed.
+function speedFor(speeds, kind) {
+  var value = speeds && typeof speeds === "object" ? speeds[kind === "episode" ? "episode" : "music"] : undefined
+  return typeof value === "number" && value >= SPEED_MIN && value <= SPEED_MAX ? value : 1
+}
+
+// prefs.speed with `kind`'s speed set to `value` (copy on write).
+function withSpeed(speeds, kind, value) {
+  var episode = kind === "episode"
+  return { music: episode ? speedFor(speeds, "music") : clampSpeed(value),
+           episode: episode ? clampSpeed(value) : speedFor(speeds, "episode") }
+}
+
+// The Now badge: "1.5x", "" at normal speed.
+function speedLabel(speed) {
+  var n = Number(speed)
+  if (typeof speed !== "number" || !isFinite(n) || Math.abs(n - 1) < 0.001) return ""
+  return String(Math.round(n * 100) / 100) + "x"
+}
+
+function speedTitle(speed) {
+  return speedLabel(speed) || "Normal"
+}
+
+// ItemMenu chooser rows for the speeds; the one playing is ticked.
+function speedChoices(speed) {
+  return SPEEDS.map(function(value) {
+    var current = typeof speed === "number" && Math.abs(speed - value) < 0.001
+    return { id: "speed" + value, title: speedTitle(value), icon: current ? "󰄬" : "󰓅", value: value }
+  })
+}
+
+function normalizeMode(value) {
+  return NORMALIZE_MODES.indexOf(value) >= 0 ? value : "off"
+}
+
+function normalizeTitle(mode) {
+  var m = normalizeMode(mode)
+  return m === "youtube" ? "YouTube" : m === "dynamic" ? "Dynamic" : "Off"
+}
+
+// ItemMenu chooser rows for the loudness modes; the one on is ticked.
+function normalizeChoices(mode) {
+  var on = normalizeMode(mode)
+  var about = { off: "Off (the music as it comes)", youtube: "YouTube (loud songs turned down, like the web)",
+                dynamic: "Dynamic (evens out quiet and loud parts)" }
+  return NORMALIZE_MODES.map(function(m) {
+    return { id: "normalize-" + m, title: about[m], icon: m === on ? "󰄬" : "󰺢", value: m }
+  })
+}
+
+// The volume-gain (dB) for YouTube's loudnessDb: songs above YouTube's target
+// are turned down by that much, quieter ones are left alone (never boosted).
+// null when there is no loudness.
+function loudnessGain(loudnessDb) {
+  var n = Number(loudnessDb)
+  if (typeof loudnessDb !== "number" || !isFinite(n)) return null
+  return n > 0 ? -Math.round(n * 100) / 100 : 0
+}
+
+// A stream as the shell keeps it (and mpv reads it): { url, expires }, plus
+// `gain` (a number, or null when YouTube gave none) when the worker was asked
+// for the loudness; without that key nobody asked.
+function streamEntry(stream) {
+  var entry = { url: stream ? stream.url : "", expires: stream ? stream.expires : 0 }
+  if (stream && stream.loudnessDb !== undefined) entry.gain = loudnessGain(stream.loudnessDb)
+  return entry
+}
+
+function streamHasLoudness(entry) {
+  return !!entry && entry.gain !== undefined
+}
+
+// Only the streams resolved with their loudness (the same object when that
+// is all of them): turning YouTube levelling on forgets the others, so
+// they are resolved again, with it.
+function streamsWithLoudness(streams) {
+  var out = {}
+  var dropped = false
+  for (var id in streams || {}) {
+    if (streamHasLoudness(streams[id])) out[id] = streams[id]
+    else dropped = true
+  }
+  return dropped ? out : streams
+}
+
+// The worker's settings from the prefs (Backend.configureParams); S16 adds
+// location and quality here.
+function workerSettings(prefs) {
+  return { normalize: normalizeMode(prefs && prefs.normalize) }
+}
+
+// The Now page menu (M): Playback speed and Loudness, each a chooser
+// (ctx.speed and ctx.normalize from Panel.nowMenu).
+MENU_ACTIONS.push({ id: "speed", title: function(item, ctx) { return "Playback speed (" + speedTitle(ctx.speed) + ")" },
+  icon: "󰓅", key: "speed",
+  applies: function(item, ctx) { return ctx.page === true && ctx.pageKind === "now" },
+  run: function(env) { env.panel.openSpeedChooser() } })
+MENU_ACTIONS.push({ id: "loudness", title: function(item, ctx) { return "Loudness (" + normalizeTitle(ctx.normalize) + ")" },
+  icon: "󰺢",
+  applies: function(item, ctx) { return ctx.page === true && ctx.pageKind === "now" },
+  run: function(env) { env.panel.openLoudnessChooser() } })
+
+KEYS.push({ id: "speed", group: "Now", keys: ["[", "]"], title: "playback speed down / up (0.5x to 2x, kept apart for episodes)" })
+
+if (typeof module !== "undefined") {
+  Object.assign(module.exports, {
+    SPEED_MIN: SPEED_MIN,
+    SPEED_MAX: SPEED_MAX,
+    SPEED_STEP: SPEED_STEP,
+    SPEEDS: SPEEDS,
+    NORMALIZE_MODES: NORMALIZE_MODES,
+    speedKind: speedKind,
+    clampSpeed: clampSpeed,
+    speedStep: speedStep,
+    speedFor: speedFor,
+    withSpeed: withSpeed,
+    speedLabel: speedLabel,
+    speedTitle: speedTitle,
+    speedChoices: speedChoices,
+    normalizeMode: normalizeMode,
+    normalizeTitle: normalizeTitle,
+    normalizeChoices: normalizeChoices,
+    loudnessGain: loudnessGain,
+    streamEntry: streamEntry,
+    streamHasLoudness: streamHasLoudness,
+    streamsWithLoudness: streamsWithLoudness,
+    workerSettings: workerSettings
   })
 }

@@ -96,12 +96,13 @@ follow symlinks) and run `scripts/test.sh`.
 | Bar icon | Left click: open/close the panel · Middle click: play/pause · Right click: switch icon ⇄ now-playing text · Wheel: previous/next track |
 | `SUPER + M` | Open/close the panel (`omarchy-shell shell toggle damir.ytmusic`, bound in `~/.config/hypr/bindings.lua`) |
 | Panel tabs | **Now** (playing + queue, like, add to playlist, Resume; an artist, the album or the cover opens its page; the queue header's pane chip, or `y`, switches the area below to **Lyrics**, time-synced with the line being sung highlighted when YouTube has them, or **Related**, the web's Related tab as a page), **Search** (field, filters, grouped results), **Library** (account, Liked Music, History, your and saved playlists, new playlist) and **Home** (your shelves); albums, playlists and artists open as pages with Play / Shuffle / Queue all (a page that shows part of its list, such as Liked Music past 200 songs, plays all of it); your own playlists can remove songs and be deleted (a second click within 4 s confirms) |
-| Menus | Every row has a menu (`m`, `.`, right-click or its ⋮ button), like the web's three-dot menu: Play, Shuffle, Play next, Add to queue, Start radio, Add to playlist, Go to artist (a chooser when a song has several) or album, View credits (a song's performers, writers and producers as a page), Copy link (a music.youtube.com link, through `wl-copy`), Remove, and for the song playing Play video version or Play song version. `n` / `a` queue a whole album, playlist or mix from any list, and `R` starts radio from the row or the song playing; radio replaces the queue, as on the web (from the song playing, that song plays on). At most 500 songs of one list go into the queue, with a notice. `M` opens the page's own menu: the header buttons' twins on a page, the account on Library (Sign out), Autoplay, Clear and Tune the queue on Now, Refresh on Home. `?` lists every key; Enter on one runs it. |
+| Menus | Every row has a menu (`m`, `.`, right-click or its ⋮ button), like the web's three-dot menu: Play, Shuffle, Play next, Add to queue, Start radio, Add to playlist, Go to artist (a chooser when a song has several) or album, View credits (a song's performers, writers and producers as a page), Copy link (a music.youtube.com link, through `wl-copy`), Remove, and for the song playing Play video version or Play song version. `n` / `a` queue a whole album, playlist or mix from any list, and `R` starts radio from the row or the song playing; radio replaces the queue, as on the web (from the song playing, that song plays on). At most 500 songs of one list go into the queue, with a notice. `M` opens the page's own menu: the header buttons' twins on a page, the account on Library (Sign out), Autoplay, Clear, Tune the queue, Playback speed and Loudness on Now, Refresh on Home. `?` lists every key; Enter on one runs it. |
 | Resume | After mpv has quit (idle timeout, logout, reboot) play/pause — middle click, media keys, `omarchy-shell ytmusic resume` or the Resume button — restores the queue, the track and its position. The snapshot is `~/.cache/omarchy-ytmusic/session.json`, saved after queue changes, on pause and every 30 s while playing. |
 | Search | Results appear as you type. An empty field lists your recent searches (`x` forgets one); while typing, matching recent searches and YouTube Music's suggestions show above the results; click one, or `Tab` / `Shift+Tab` to put it in the field. A search is remembered only when it led somewhere (Enter, a result played, opened or queued, or an entry chosen from a result's menu), in `~/.cache/omarchy-ytmusic/searches.json`. |
 | Shuffle / repeat | Buttons around the transport (or `s` / `r`). Shuffle mixes the songs after the current one and turning it off puts them back in their order (songs added meanwhile keep their places); with shuffle on, a clicked song plays first and the rest of its album or playlist follows shuffled, and a page's **Shuffle** button turns it on. Repeat cycles off → queue → this song (mpv's `loop-playlist` / `loop-file`, so MPRIS sees it too). Both are remembered in `~/.cache/omarchy-ytmusic/player.json`. |
 | Autoplay | On by default (**Autoplay** in the queue header, IPC `autoplay`): like the web's Up next, the queue never runs dry. Five seconds into a song with 3 or fewer songs after it, up to 10 more are appended as radio for whatever plays: an album or playlist goes on as its radio, a radio as it is, a single song as its own mix (songs before videos, nothing this queue already holds or played). If every pick is a repeat it tries the song's own radio once, then says "Autoplay found nothing new". The queue header shows **Playing from** (the album, playlist or radio) and one **Tune** chip (`t`, or a click, cycles All, Discover, Popular, Deep cuts and the rest; the Now page menu `M` lists them all): a chip replaces only the songs autoplay added, never yours, and songs you add go before autoplay's. For the song playing, its menu offers **Play video version** or **Play song version** when YouTube has the other one. Played songs more than 50 behind the current one leave the queue, so it stays small however long it runs; which entries autoplay added is kept in `~/.cache/omarchy-ytmusic/queue.json`. Off while repeat is on. |
-| Panel keys | `1-4` switch tab: Now, Search, Library, Home · `/` search · `j` / `k` / `↑` / `↓` move · `g` first row · `G` last row (loads more) · `Enter` play or open · `h` / `l` / `←` / `→` seek 10 s on Now, or the page's chips · `Esc` leave the field → close the picker or menu → back → close · `Space` play/pause · `n` play next (a song, album or playlist) · `a` add to queue · `R` start radio from the row or the current song · `s` shuffle · `r` repeat · `L` like · `p` add to playlist · `A` go to artist (of the row or the current song) · `o` go to album · `J` / `K` move a queued song down / up · `x` remove (queue, own playlist, Liked Music, recent search) · `m` / `.` the row's menu (or right-click) · `M` the page's menu (Library: account) · `O` next sort order on a page that has one · `f` find, on pages that offer it · `?` these keys · `y` cycle the pane under the song: Queue, Lyrics, Related · `t` cycle the queue tuner chip: All, Discover, Popular and the rest. Shortcuts are off while typing, and Ctrl or Alt chords do nothing. Back returns to the row and scroll position you left. |
+| Speed / loudness | `[` / `]` (any tab) or **Playback speed** in the Now page menu (`M`) play at 0.5x to 2x in steps of 0.25; Now shows a small **1.5x** badge (click it for the speeds) while it is not 1x. Music and podcast episodes keep separate speeds, applied whenever the kind of entry playing changes. **Loudness** in the same menu: **Off** (as the music comes), **YouTube** (like the web player: a song YouTube measures louder than its target is turned down by that much, never boosted; one more request per resolved song) or **Dynamic** (mpv's `dynaudnorm`, which evens out loud and quiet passages and so changes the music's dynamics). Both are remembered in `player.json`. A player started before `mpv/ytm-levels.lua` existed has it loaded by the shell (mpv's `load-script`). |
+| Panel keys | `1-4` switch tab: Now, Search, Library, Home · `/` search · `j` / `k` / `↑` / `↓` move · `g` first row · `G` last row (loads more) · `Enter` play or open · `h` / `l` / `←` / `→` seek 10 s on Now, or the page's chips · `Esc` leave the field → close the picker or menu → back → close · `Space` play/pause · `n` play next (a song, album or playlist) · `a` add to queue · `R` start radio from the row or the current song · `s` shuffle · `r` repeat · `L` like · `p` add to playlist · `A` go to artist (of the row or the current song) · `o` go to album · `J` / `K` move a queued song down / up · `x` remove (queue, own playlist, Liked Music, recent search) · `m` / `.` the row's menu (or right-click) · `M` the page's menu (Library: account) · `O` next sort order on a page that has one · `f` find, on pages that offer it · `?` these keys · `y` cycle the pane under the song: Queue, Lyrics, Related · `t` cycle the queue tuner chip: All, Discover, Popular and the rest · `[` / `]` playback speed down / up (0.5x to 2x, kept apart for episodes). Shortcuts are off while typing, and Ctrl or Alt chords do nothing. Back returns to the row and scroll position you left. |
 | IPC | `search "query"` (opens the panel on the results) · `shuffle` / `repeat` / `autoplay` (toggle or cycle, print the new state) · `like` / `unlike` / `toggleLike` (current track) · `signIn` / `signOut` / `reloadAuth` |
 
 ### Signing in
@@ -158,6 +159,8 @@ after it closes.
 | `components/` | `NowPlayingView`, `QueueView` (with the pane chip), `LyricsView`, `RelatedView`, `SearchView`, `LibraryView`, `HomeView`, `CollectionView`, `PlaylistPicker`, `ItemMenu` (row menu, chooser, key help), `SignInCard`, `ResultList`, `TrackRow`, `CollectionRow`, `CoverArt`, `ConfirmGate` |
 | `bin/ytm-mpv` | Starts/stops the detached mpv player (systemd user unit) |
 | `mpv/ytm-idle.lua` | Quits mpv after it has idled or been paused too long |
+| `mpv/ytm-streams.lua` | Plays the streams the worker resolved ahead of time (`user-data/ytm/streams`), falling back to yt-dlp |
+| `mpv/ytm-levels.lua` | Loudness levelling (`user-data/ytm/normalize`): YouTube's per-song gain as each file's own `volume-gain`, or the `dynaudnorm` filter |
 | `backend/ytm.py` | ytmusicapi worker (`serve`) and CLI; PEP 723 script run with `uv`; merges the area modules' method tables |
 | `backend/ytm_proto.py` | `WorkerError` and parameter helpers shared by the worker and its area modules |
 | `backend/ytm_pages.py` | Continuation paging (`fetch`) and the generic See all reader (`browsePage`) |
@@ -167,7 +170,7 @@ after it closes.
 | `backend/ytm_normalize.py` | Turns ytmusicapi responses into stable Track/Album/Playlist/Artist/Collection/Page shapes |
 | `backend/ytm_auth.py` | Session files and sign-in (Chromium cookie import, pasted headers); the signed-out client |
 | `backend/ytm_cache.py` | Response cache (schema-prefixed, cursor-free) and cover thumbnails |
-| `backend/ytm_streams.py` | Stream URLs through in-process yt-dlp (signed out, or with the account) |
+| `backend/ytm_streams.py` | Stream URLs through in-process yt-dlp (signed out, or with the account), with YouTube's loudness for levelling |
 | `bin/ytm` | CLI wrapper (`uv run --script backend/ytm.py`, no bytecode) |
 | `scripts/test.sh` | Fixture secrets check + node + pytest, without caches |
 | `scripts/mem.sh` | PSS report: shell, mpv unit, worker |
@@ -334,7 +337,9 @@ need an update), `INTERNAL`.
   changes the client rebuilds it and clears the cache. The client settings
   the cache was made with are recorded beside it (`data/client-settings`)
   and a new worker starts with them, so the configure after a restart that
-  repeats them neither rebuilds the client nor clears the cache.
+  repeats them neither rebuilds the client nor clears the cache. Settings
+  today: `normalize` (`off`, `youtube`, `dynamic`; the shell's loudness
+  levelling, see `resolve`).
 - **`tracksFor({kind, id, limit?})`** reads every track of a collection,
   for playing or queueing it from any list: `kind` is `album`
   (`get_album`), `playlist` (`get_playlist`), `liked`, `mix` (the watch
@@ -401,6 +406,13 @@ need an update), `INTERNAL`.
   unless given.
 - **`resolve({videoId, account?})`** says which yt-dlp instance it used
   (`account: true|false`); without a saved session it is always signed out.
+  While the `normalize` setting is `youtube` the reply also carries
+  `loudnessDb`: `playerConfig.audioConfig.loudnessDb` of the song's player
+  response (dB above YouTube Music's loudness target; one request through the
+  account client, the `player` request ytmusicapi's `get_song` sends, whose
+  reply drops `playerConfig`), kept per video for the worker's lifetime (500,
+  least recently used out). `null` when YouTube gives none or the request
+  fails; that never fails the resolve.
 - **Fixtures.** `bin/ytm record` always uses a signed-out client and drops
   token, continuation, cursor, jct, feedback and onBehalfOfUser keys.
 
@@ -461,6 +473,19 @@ call and reports `AUTH_EXPIRED` if that lookup fails.
   URLs in `on_load`. Measured: next track 0.5 s (was ~2.2 s), play by search
   2.0 s warm / 3.8 s cold. After background-only resolving the worker is
   released after 20 s; opening the panel starts it and loads yt-dlp early.
+- **Speed and loudness (S17).** Speed is mpv's global `speed`, set by the
+  service whenever the kind of entry playing (music or podcast episode)
+  changes, so each kind keeps its own. Levelling has to work per file,
+  although the queue is loaded long before its streams (and their loudness)
+  are resolved, so it is not a `loadfile` option: the service keeps each
+  stream's `gain` (from `resolve`'s `loudnessDb`: `-max(0, loudnessDb)`) in
+  `user-data/ytm/streams`, and `mpv/ytm-levels.lua` sets it as
+  `file-local-options/volume-gain` in `on_load` (so it ends with the file),
+  and again when the mode or the playing song's stream changes. Measured
+  (signed in, 2026-11-10): Metallica's "The Day That Never Comes" +3.49 dB
+  (turned down 3.49 dB), "Bangarang" +2.27, "Karma Police" -1.43 and "High
+  and Dry" -5.53 (left alone); the extra `player` request takes 0.23 to
+  0.43 s on the streams lane, 0 for a song asked before.
 - **Likely picks.** While a panel is open, the stream of what you'll
   probably play next — a search's first song, the row under the keyboard
   cursor or the pointer after 350 ms — is resolved in the background (one at

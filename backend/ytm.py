@@ -256,8 +256,10 @@ def m_resolve(worker, params):
     if account is not None and not isinstance(account, bool):
         raise WorkerError("BAD_REQUEST", "'account' must be true or false")
     worker.wait_for_warm()
+    # S17: the song's loudness too, while the shell levels by YouTube's.
+    loudness = {"loudness_from": worker.yt} if worker.settings.get("normalize") == "youtube" else {}
     try:
-        return worker.resolver().resolve(video_id, account=account)
+        return worker.resolver().resolve(video_id, account=account, **loudness)
     except streams.StreamError as exc:
         raise WorkerError(exc.code, exc.message, exc.retryable) from exc
 
@@ -403,6 +405,7 @@ class _Core:
     INVALIDATES = CORE_INVALIDATES
     RECORDERS = CORE_RECORDERS
     MUTATES = CORE_MUTATES
+    SETTINGS = streams.SETTINGS  # S17: normalize (resolve's loudness)
 
 
 # Area modules, in a fixed order. A slice that rewrites a core method moves it

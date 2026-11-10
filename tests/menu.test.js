@@ -75,7 +75,8 @@ test("menuActions follow ctx: signed out hides account entries; page, queue and 
   assert.deepEqual(ids(Model.menuActions({ type: "browse", browseId: "X" }, { page: true, hasTracks: true })),
     ["play", "shuffle", "playNext", "addToQueue"])
   assert.deepEqual(ids(Model.menuActions(null, { page: true, pageKind: "home" })), ["refresh"])
-  assert.deepEqual(ids(Model.menuActions(null, { page: true, pageKind: "now", queueLength: 1, autoplay: true })), ["autoplay"])
+  assert.deepEqual(ids(Model.menuActions(null, { page: true, pageKind: "now", queueLength: 1, autoplay: true })),
+    ["autoplay", "speed", "loudness"])  // S17: Playback speed and Loudness
   const now = Model.menuActions(song, { page: true, pageKind: "now", isCurrent: true, queueLength: 5, autoplay: false })
   assert.ok(ids(now).includes("clearQueue") && ids(now).includes("radio"))
   assert.equal(now.find(a => a.id === "autoplay").title, "Turn autoplay on")

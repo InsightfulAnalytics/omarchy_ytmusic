@@ -217,7 +217,7 @@ Item {
 
   function addStream(videoId, stream) {
     var next = Model.pruneStreams(streams, nowSec(), 50)
-    next[videoId] = { url: stream.url, expires: stream.expires }
+    next[videoId] = Model.streamEntry(stream)  // S17: with its loudness gain when asked for
     streams = next
     pushStreams()
   }
@@ -1346,6 +1346,135 @@ Item {
     onTriggered: root._trimSettle()
   }
 
+  // ---- playback (S17) ------------------------------------------------------------------
+  // Speed is mpv's `speed`, 0.5x to 2x in steps of 0.25 ([ and ], the Now
+  // page menu), remembered per kind of entry in prefs.speed { music,
+  // episode } and applied whenever the kind of the entry playing (or its
+  // saved speed) changes, so an episode keeps its own speed after music.
+  // Loudness is prefs.normalize: "youtube" has the worker answer each
+  // resolved song's loudness (its `normalize` setting), kept with the
+  // stream as its gain, which mpv/ytm-levels.lua sets as that file's own
+  // volume-gain when it loads; "dynamic" runs mpv's dynaudnorm filter (the
+  // same script); "off" neither. mpv learns the mode from
+  // user-data/ytm/normalize.
+  // mpv's speed (mirrored; 1 for a new player).
+  property real speed: 1
+  readonly property string speedKind: currentTrack ? Model.speedKind(currentTrack) : ""
+  readonly property string normalize: Model.normalizeMode(prefs.normalize)
+  // "<kind>:<speed>" the song playing wants; "" without a song or before the
+  // prefs are read. Applied once per change, so a speed set elsewhere (MPRIS)
+  // stays until the kind changes.
+  readonly property string speedWanted: prefsLoaded && speedKind !== ""
+    ? speedKind + ":" + Model.speedFor(prefs.speed, speedKind) : ""
+  property string _speedApplied: ""
+  // The kind [ / ] and the speed chooser set: the entry playing's, music
+  // when nothing plays (mpv may still hold the speed of an episode that ended).
+  readonly property string speedEditKind: speedKind !== "" ? speedKind : "music"
+  // That kind's speed as its next play gets it: mpv's while mpv holds what
+  // was applied for it (a speed set elsewhere included), else the saved one,
+  // which a play applies. [ / ], the Now page menu and the chooser's tick go
+  // by it, so they agree with what is saved; the badge shows mpv's `speed`.
+  readonly property real speedShown: mpv.up
+    && _speedApplied === speedEditKind + ":" + Model.speedFor(prefs.speed, speedEditKind)
+    ? speed : Model.speedFor(prefs.speed, speedEditKind)
+  // The mode mpv gets; "" before the prefs are read.
+  readonly property string levelsMode: prefsLoaded ? normalize : ""
+  // A string, so the worker is configured again only when a setting changed.
+  readonly property string workerSettingsText: JSON.stringify(Model.workerSettings(prefs))
+
+  onSpeedWantedChanged: _applySpeed()
+  onLevelsModeChanged: _applyLevels()
+
+  function _applySpeed() {
+    if (speedWanted === "" || speedWanted === _speedApplied || !mpv.up) return
+    _speedApplied = speedWanted
+    _setMpvSpeed(Model.speedFor(prefs.speed, speedKind))
+  }
+
+  function _setMpvSpeed(value) {
+    speed = value
+    mpv.command(["set_property", "speed", value])
+  }
+
+  // [ / ] (delta 1 / -1): one step, kept for the kind of entry playing.
+  function stepSpeed(delta) {
+    return setSpeed(Model.speedStep(speedShown, delta))
+  }
+
+  // Kept for the kind playing (music when nothing plays) and applied now;
+  // a player that is down is not started for it.
+  function setSpeed(value) {
+    var next = Model.clampSpeed(value)
+    setPref("speed", Model.withSpeed(prefs.speed, speedEditKind, next))
+    if (speedKind === "") {
+      // Nothing playing: mpv keeps the last entry's speed. A song's takes
+      // the new one now, so the next song keeps it; an episode's stays for
+      // the next episode, and the next song applies the saved one.
+      if (!mpv.up || _speedApplied.indexOf("music:") !== 0) return true
+      _speedApplied = "music:" + Model.speedFor(prefs.speed, "music")
+    }
+    // The pref may have held it already while mpv's speed differs (MPRIS).
+    if (mpv.up && Math.abs(speed - next) > 0.001) _setMpvSpeed(next)
+    return true
+  }
+
+  function setNormalize(mode) {
+    var next = Model.normalizeMode(mode)
+    setPref("normalize", next)
+    // After the bindings above have sent the worker its new setting.
+    if (next === "youtube") Qt.callLater(root._levelStreams)
+    return true
+  }
+
+  function _applyLevels() {
+    if (levelsMode !== "" && mpv.up) mpv.command(["set_property", "user-data/ytm/normalize", levelsMode])
+  }
+
+  // YouTube levelling just turned on: streams resolved without their
+  // loudness are forgotten, and the song playing and the next one are
+  // resolved again (with it), so they are levelled too.
+  function _levelStreams() {
+    if (normalize !== "youtube") return
+    var kept = Model.streamsWithLoudness(streams)
+    if (kept !== streams) {
+      streams = kept
+      pushStreams()
+    }
+    var track = currentTrack
+    if (hasMedia && track && track.videoId && !Model.streamHasLoudness(streams[track.videoId])) resolveStream(track.videoId)
+    preResolveUpcoming()
+  }
+
+  function _playbackReady() {
+    _applyLevels()
+    _applySpeed()
+    levelsCheck.restart()
+  }
+
+  // A new player starts at 1x.
+  function _playbackGone() {
+    speed = 1
+    _speedApplied = ""
+    levelsCheck.stop()
+  }
+
+  // mpv outlives plugin updates: a player started before mpv/ytm-levels.lua
+  // existed gets it loaded. The script marks itself in user-data/ytm/levels;
+  // asked a moment after connecting, so a player that is starting has run it.
+  function _loadLevelsScript() {
+    if (!mpv.up) return
+    mpv.command(["get_property", "user-data/ytm/levels"], function(reply) {
+      if (!mpv.up || (reply && reply.error === "success" && reply.data === true)) return
+      mpv.command(["load-script", root.rootDir + "/mpv/ytm-levels.lua"])
+    })
+  }
+
+  Timer {
+    id: levelsCheck
+    interval: 2000
+    onTriggered: root._loadLevelsScript()
+  }
+
   // ---- playlists ---------------------------------------------------------------------
 
   function createPlaylist(title, tracks, callback) {
@@ -1566,6 +1695,7 @@ Item {
     else if (name === "paused-for-cache") buffering = value === true
     else if (name === "loop-file") _loopFile = value
     else if (name === "loop-playlist") _loopPlaylist = value
+    else if (name === "speed") { if (typeof value === "number") speed = value }  // S17
     else if (name === "user-data/ytm/stale" && Array.isArray(value) && value.length > 0) {
       // mpv/ytm-streams.lua dropped streams that failed to play.
       dropStreams(value)
@@ -1604,6 +1734,7 @@ Item {
   function onMpvReady() {
     applyRepeat()
     _readMpvPid()  // S12
+    _playbackReady()  // S17
     mpv.command(["get_property", "user-data/ytm/order"], function(reply) {
       root.shuffleOrder = reply && reply.error === "success" && Array.isArray(reply.data) ? reply.data : []
     })
@@ -1674,6 +1805,7 @@ Item {
     _loopFile = false
     _loopPlaylist = false
     _playerGone()  // S12
+    _playbackGone()  // S17
   }
 
   function statusJson() {
@@ -1712,7 +1844,14 @@ Item {
         tuner: tuner ? tuner.title : null,
         autoEntries: queue.filter(function(entry) { return entry.origin === "auto" }).length,
         seen: _seen.length,
-        autoplayNote: autoplayNote
+        autoplayNote: autoplayNote,
+        // S17
+        speed: speed,
+        speedKind: speedKind,
+        normalize: normalize,
+        // The song playing's YouTube gain in dB (mpv applies it while normalize is youtube).
+        gain: currentTrack && streams[currentTrack.videoId] && typeof streams[currentTrack.videoId].gain === "number"
+          ? streams[currentTrack.videoId].gain : null
       },
       lastError: lastError,
       streams: {
@@ -1795,7 +1934,8 @@ Item {
     socketPath: Quickshell.env("XDG_RUNTIME_DIR") + "/omarchy-ytmusic/mpv.sock"
     controlScript: root.rootDir + "/bin/ytm-mpv"
     startVolume: root.volume
-    observedProperties: ["pause", "idle-active", "playlist-pos", "playlist-count", "media-title", "duration", "volume", "paused-for-cache", "loop-file", "loop-playlist", "user-data/ytm/stale"]
+    observedProperties: ["pause", "idle-active", "playlist-pos", "playlist-count", "media-title", "duration", "volume", "paused-for-cache", "loop-file", "loop-playlist", "user-data/ytm/stale",
+      "speed"]  // S17
 
     onPropertyUpdated: (name, value) => root.onMpvProperty(name, value)
     onEvent: message => root.onMpvEvent(message)
@@ -1806,6 +1946,9 @@ Item {
   Backend {
     id: backend
     launcher: root.rootDir + "/bin/ytm"
+    // S17: the worker's settings (Model.workerSettings; S16 adds its keys
+    // there), once the prefs are read.
+    configureParams: root.prefsLoaded ? JSON.parse(root.workerSettingsText) : null
   }
 
   // Search results and opened collections, shared by every panel.

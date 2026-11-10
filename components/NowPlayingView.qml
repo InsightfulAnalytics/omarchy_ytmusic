@@ -1,5 +1,6 @@
 import QtQuick
 import qs.Commons
+import qs.Commons as Commons
 import qs.Ui
 import "../YtmModel.js" as Model
 
@@ -20,6 +21,8 @@ Column {
   readonly property bool accountActions: !!service && service.signedIn && hasMedia
 
   readonly property bool albumLinked: !!track && !!track.album && !!track.album.id
+  // S17: "1.5x" while the speed is not 1x ([ and ]); "" at normal speed.
+  readonly property string speedLabel: service && hasMedia ? Model.speedLabel(service.speed) : ""
 
   signal addToPlaylistRequested()
   // The song's menu (the button by Add to playlist).
@@ -27,6 +30,8 @@ Column {
   // An artist ({ name, id }) or the track's album was clicked.
   signal artistRequested(var artist)
   signal albumRequested(var track)
+  // The speed badge was clicked (S17): the speed chooser.
+  signal speedRequested()
 
   spacing: Style.space(10)
 
@@ -223,6 +228,37 @@ Column {
         color: Qt.darker(root.foreground, 1.4)
         font.family: root.fontFamily
         font.pixelSize: Style.font.caption
+      }
+
+      // S17: the playback speed, when it is not 1x.
+      Rectangle {
+        id: speedBadge
+        anchors.centerIn: parent
+        visible: root.speedLabel !== ""
+        width: speedText.implicitWidth + Style.space(10)
+        height: parent.height
+        radius: height / 2
+        color: Qt.rgba(Commons.Color.accent.r, Commons.Color.accent.g, Commons.Color.accent.b, speedHover.hovered ? 0.3 : 0.18)
+
+        Text {
+          id: speedText
+          anchors.centerIn: parent
+          textFormat: Text.PlainText
+          text: root.speedLabel
+          color: Commons.Color.accent
+          font.family: root.fontFamily
+          font.pixelSize: Style.font.caption
+          font.bold: true
+        }
+
+        HoverHandler {
+          id: speedHover
+          cursorShape: Qt.PointingHandCursor
+        }
+
+        TapHandler {
+          onTapped: root.speedRequested()
+        }
       }
     }
   }

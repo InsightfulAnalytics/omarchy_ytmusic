@@ -24,7 +24,8 @@ import "YtmModel.js" as Model
 // right-click) · M the page's menu (Library: account) · O next sort order on
 // a page that has one · f find, on pages that offer it · ? these keys · y
 // cycle the pane under the song: Queue, Lyrics, Related · t cycle the queue
-// tuner chip: All, Discover, Popular and the rest.
+// tuner chip: All, Discover, Popular and the rest · [ / ] playback speed down
+// / up (0.5x to 2x, kept apart for episodes).
 // Text keys go through Model.keyId to runKey(); Ctrl and Alt chords are
 // ignored. Views offer optional hooks, checked with typeof: horizontal(dx),
 // cycleOrder(), find(), playNext(i) / addToQueue(i), menu(i), pageMenu(),
@@ -336,6 +337,9 @@ Panel {
       // S12: the tuner chooser (Tune the queue).
       ctx.tunerChips = service.tunerChips.length
       ctx.tunerTitle = service.tunerTitle
+      // S17: Playback speed and Loudness.
+      ctx.speed = service.speedShown
+      ctx.normalize = service.normalize
     }
     ctx.counterpart = track ? service.counterpartOf(track) : null  // S12: song / video version
     return { item: track, ctx: ctx, owner: queueView, index: -1,
@@ -351,6 +355,31 @@ Panel {
     if (chips.length === 0) return
     itemMenu.openChooser("Tune the queue", "Replaces the songs autoplay added; yours stay",
       Model.tunerChoices(chips, service.tuner), function(choice) { root.service.chooseTuner(choice.value) })
+    keyCatcher.forceActiveFocus()
+  }
+
+  // ---- playback (S17) -----------------------------------------------------------------
+  // [ and ] step the speed (any tab); the Now page menu's Playback speed and
+  // Loudness, and the speed badge on Now, open their choosers.
+  function speedKey(text) {
+    if (!service) return
+    if (text === "]") service.stepSpeed(1)
+    else if (text === "[") service.stepSpeed(-1)
+    else openSpeedChooser()  // Enter on the key's help row
+  }
+
+  function openSpeedChooser() {
+    if (!service) return
+    var episode = service.speedKind === "episode"
+    itemMenu.openChooser("Playback speed", episode ? "For podcast episodes; music keeps its own" : "For music; podcast episodes keep their own",
+      Model.speedChoices(service.speedShown), function(choice) { root.service.setSpeed(choice.value) })
+    keyCatcher.forceActiveFocus()
+  }
+
+  function openLoudnessChooser() {
+    if (!service) return
+    itemMenu.openChooser("Loudness", "Evens out the volume between songs",
+      Model.normalizeChoices(service.normalize), function(choice) { root.service.setNormalize(choice.value) })
     keyCatcher.forceActiveFocus()
   }
 
@@ -406,6 +435,7 @@ Panel {
     else if (id === "queueMove") { if (root.queueShown && (text === "J" || text === "K")) queueView.moveSelected(text === "J" ? 1 : -1) }
     else if (id === "nowPane") { if (root.tab === "now" && !root.page) queueView.cyclePane() }
     else if (id === "tune") { if (root.queueShown) queueView.cycleTuner() }
+    else if (id === "speed") speedKey(text)
     else if (id === "top") jumpCursor(false)
     else if (id === "bottom") jumpCursor(true)
     else if (id === "order") ownerHook("cycleOrder")
@@ -644,6 +674,7 @@ Panel {
             onArtistRequested: function(artist) { root.openArtist(artist) }
             onAlbumRequested: function(track) { root.goAlbum(track) }
             onMenuRequested: root.openItemMenu(root.nowMenu(false))
+            onSpeedRequested: root.openSpeedChooser()
           }
 
           PanelSeparator {
