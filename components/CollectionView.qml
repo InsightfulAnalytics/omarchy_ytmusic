@@ -273,6 +273,7 @@ Item {
   // Replies only touch the page if it is still the one edited: this view
   // shows every page of the panel's stack in turn.
   function remove(index) {
+    if (isHistory) return removeFromHistory(index, false, false)  // S15: x twice
     var row = resultList.rowAt(index)
     if (!row || row.item.type !== "track" || !service) return
     var track = row.item
@@ -519,6 +520,38 @@ Item {
     if (!service || !shows(requested) || !(service.unsure(reply) || Model.staleToken(reply))) return false
     load(true)
     return true
+  }
+
+  // ---- history (S15) ----------------------------------------------------------------
+
+  // History rows: x pressed twice within 4 s (ConfirmGate), the row's
+  // remove button clicked twice (`click`), or the row menu's Remove from
+  // history (`confirmed`) removes the entry through its historyToken. The
+  // row goes at once and comes back when YouTube says no; an unknown
+  // outcome, or a token YouTube did not take, reads History again.
+  function removeFromHistory(index, confirmed, click) {
+    var row = resultList.rowAt(index)
+    if (!isHistory || !row || row.item.type !== "track" || !service) return false
+    var track = row.item
+    var token = Model.historyTokenOf(track)
+    if (!signedIn || token === "") {
+      service.failAction("Not removed from history", !signedIn ? "Sign in to use your library"
+        : loading || refreshing ? "History is still loading; try again in a moment" : "Open History again, then remove it")
+      return false
+    }
+    if (confirmed !== true && !gate.arm("history:" + token)) {
+      service.notify(Model.removeHistoryPrompt(click === true), Model.mediaTitle(track))
+      return false
+    }
+    var requested = ref
+    var at = Model.historyEntryIndex(page, track)
+    var sent = service.removeFromHistory(track, function(reply) {
+      if (reply.ok || !root || !root.shows(requested)) return
+      if (!service.unsure(reply)) root.page = Model.withHistoryEntry(root.page, track, at)
+      if (service.unsure(reply) || Model.staleToken(reply)) root.load(true)
+    })
+    if (sent) page = Model.withoutHistoryEntry(page, track)
+    return sent
   }
 
   // ---- explore (S6) -----------------------------------------------------------------
@@ -827,8 +860,9 @@ Item {
     owner: root
     // Not refKey: Load all reloads the same list (S3).
     listKey: root.listId
-    removable: root.editable || root.isLiked
-    removeTooltip: root.isLiked ? "Remove from Liked Music" : "Remove from playlist"
+    removable: root.editable || root.isLiked || (root.isHistory && root.signedIn)
+    removeTooltip: root.isHistory ? "Remove from history (press twice)"  // S15
+      : root.isLiked ? "Remove from Liked Music" : "Remove from playlist"
     numbered: !!root.ref && root.ref.kind === "album"
     // G stops on Load all: the page's shelves come after it.
     endIndex: Model.loadAllIndex(root.rows)
@@ -840,7 +874,10 @@ Item {
     onActivated: function(index) { root.activate(index) }
     onPlayNextRequested: function(index) { root.playNext(index) }
     onAddToQueueRequested: function(index) { root.addToQueue(index) }
-    onRemoveRequested: function(index) { root.remove(index) }
+    onRemoveRequested: function(index) {
+      if (root.isHistory) root.removeFromHistory(index, false, true)  // S15: a click, twice
+      else root.remove(index)
+    }
     onRowsUpdated: root._applyPending()
     // After a failure only an explicit Load more tries again.
     onNearEnd: if (root.page && root.page.cursor && !root.loadingMore && !root.loading && root.moreError === "")

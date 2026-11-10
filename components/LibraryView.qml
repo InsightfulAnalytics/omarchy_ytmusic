@@ -40,6 +40,9 @@ Item {
   readonly property var rows: store ? Model.libraryRows(chip, list, store.playlists) : []
   readonly property alias results: resultList
   readonly property bool inputFocused: nameField.activeFocus
+  // S15: plays go to YouTube Music history (the account row's button and
+  // the M menu turn it on and off).
+  readonly property bool recordHistory: !!service && service.recordHistory === true
 
   signal openRequested(var item)
   signal leftField()
@@ -110,10 +113,11 @@ Item {
                              owner: root, index: index })
   }
 
-  // M: the account row's menu (Sign out; later slices add Your channel,
-  // Improve recommendations, Record plays, Account, Quality, Location).
+  // M: the account row's menu (Record plays in history (S15), Sign out;
+  // later slices add Your channel, Improve recommendations, Account,
+  // Quality, Location).
   function pageMenu() {
-    return { item: null, ctx: { page: true, pageKind: "library" }, owner: root, index: -1,
+    return { item: null, ctx: { page: true, pageKind: "library", recordHistory: root.recordHistory }, owner: root, index: -1,
              title: root.signedIn ? (root.account && root.account.name ? root.account.name : "Signed in") : "Not signed in",
              subtitle: root.signedIn && root.account && root.account.handle ? root.account.handle : "" }
   }
@@ -194,7 +198,7 @@ Item {
 
       Column {
         anchors.verticalCenter: parent.verticalCenter
-        width: parent.width - photo.width - signOut.width - parent.spacing * 2
+        width: parent.width - photo.width - recordPlays.width - signOut.width - parent.spacing * 3
         spacing: Style.space(1)
 
         Text {
@@ -218,6 +222,23 @@ Item {
           font.pixelSize: Style.font.caption
           elide: Text.ElideRight
         }
+      }
+
+      // S15: whether plays go to YouTube Music history, in sight; a click
+      // turns it on or off.
+      Button {
+        id: recordPlays
+        anchors.verticalCenter: parent.verticalCenter
+        iconText: "󰋚"
+        text: root.recordHistory ? "Recording plays" : "Record plays"
+        selected: root.recordHistory
+        tooltipText: (root.recordHistory
+          ? "Songs played for 10 s or more go to your YouTube Music history; click to stop"
+          : "Add songs played for 10 s or more to your YouTube Music history, as the web does")
+          + " (also in the " + Model.keyHint("pageMenu") + " menu)"
+        foreground: root.foreground
+        fontSize: Style.font.caption
+        onClicked: root.service.setRecordHistory(!root.recordHistory)
       }
 
       Button {

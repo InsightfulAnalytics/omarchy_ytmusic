@@ -24,13 +24,13 @@ import "YtmModel.js" as Model
 // the row's song (again to undo) or the one playing, which skips · p add to
 // playlist · A go to artist (of the row, the album page or the current song)
 // · o go to album · J / K move a queued song down / up · x remove (queue, own
-// playlist, Liked Music, recent search) · m / . the row's menu (or
-// right-click) · M the page's menu (Library: account) · O next sort order on
-// a page that has one (Charts: the country) · f find in a page's songs
-// (album, playlist, Liked Music, History) · ? these keys · y cycle the pane
-// under the song: Queue, Lyrics, Related · t cycle the queue tuner chip: All,
-// Discover, Popular and the rest · [ / ] playback speed down / up (0.5x to
-// 2x, kept apart for episodes).
+// playlist, Liked Music, recent search; History: press twice) · m / . the
+// row's menu (or right-click) · M the page's menu (Library: account) · O next
+// sort order on a page that has one (Charts: the country) · f find in a
+// page's songs (album, playlist, Liked Music, History) · ? these keys · y
+// cycle the pane under the song: Queue, Lyrics, Related · t cycle the queue
+// tuner chip: All, Discover, Popular and the rest · [ / ] playback speed down
+// / up (0.5x to 2x, kept apart for episodes).
 // Text keys go through Model.keyId to runKey(); Ctrl and Alt chords are
 // ignored. Views offer optional hooks, checked with typeof: horizontal(dx),
 // cycleOrder(), find(), playNext(i) / addToQueue(i), menu(i), pageMenu(),
