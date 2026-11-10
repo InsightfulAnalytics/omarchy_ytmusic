@@ -186,3 +186,24 @@ def test_cursor_is_none_at_the_end():
 def test_unknown_style_is_rejected():
     with pytest.raises(ValueError):
         pages.fetch(FakeClient(), "browse", BODY, "pages", locate_grid, parse)
+
+
+def test_detect_reads_a_message_in_any_of_its_served_shapes():
+    def page(message):
+        return {"contents": {"singleColumnBrowseResultsRenderer": {"tabs": [{"tabRenderer": {"content": {
+            "sectionListRenderer": {"contents": [{"itemSectionRenderer": {"contents": [
+                {"messageRenderer": message}]}}]}}}}]}}}
+
+    runs = {"runs": [{"text": "Something went wrong"}]}
+    for message in ({"text": runs}, {"subtext": runs}, {"subtext": {"messageSubtextRenderer": {"text": runs}}}):
+        assert pages.detect(page(message)) == ("message", "Something went wrong")
+    assert pages.detect(page({})) == ("message", "")
+
+
+def test_resort_sends_the_chosen_options_reload_token():
+    base = browse_grid(entries(0, 3), header=sort_header("R0", "R1"))
+    yt = FakeClient({"x": 1})
+    assert pages.resort(yt, "browse", BODY, base, 1) == {"x": 1}
+    assert yt.requests == [("browse", BODY, get_continuation_string("R1"))]
+    with pytest.raises(WorkerError):
+        pages.resort(yt, "browse", BODY, base, 2)

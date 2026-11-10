@@ -15,6 +15,7 @@ from ytmusicapi import YTMusic
 from ytmusicapi.exceptions import YTMusicServerError
 
 import ytm
+import ytm_cache as caches
 import ytm_now as now
 import ytm_raw as raw
 
@@ -106,7 +107,12 @@ def test_now_context_reads_everything_from_one_next_request(load_fixture):
     items = context["items"]
     assert KARMA not in [t["videoId"] for t in items] and len(items) == 5
     assert all(t["type"] == "track" and t["counterpart"] is None for t in items)
-    assert "cursor" not in str(context).lower() and "token" not in str(context).lower()
+    # S3's feedback-token fields (ytm_cache.TOKEN_KEYS) are part of every
+    # track by design (the disk cache and the shell's queue drop them); this
+    # signed-out fixture fills none, and nothing else token-like is there.
+    assert all(t[key] is None for t in items for key in caches.TOKEN_KEYS)
+    bare = str(caches.strip_tokens(context)).lower()
+    assert "cursor" not in bare and "token" not in bare
 
 
 def test_now_context_of_the_video_twin(load_fixture):
@@ -383,8 +389,10 @@ def test_registry():
     assert not (set(now.METHODS) & ytm.MUTATES)
 
 
+# Lane A's recordings (S1, S3) too: `bin/ytm record` scrubs every one alike.
 @pytest.mark.parametrize("name", ["watch_raw.json", "related.json", "credits.json", "lyrics_timed.json",
-                                  "lyrics_plain.json", "queue_raw.json"])
+                                  "lyrics_plain.json", "queue_raw.json", "album.json", "artist.json",
+                                  "artist_raw_rows.json", "artist_albums.json", "playlist_related.json"])
 def test_fixtures_hold_no_tokens(load_fixture, name):
     text = str(load_fixture(name)).lower()
     for part in ("token", "continuation", "cursor", "feedback", "onbehalfofuser", "clicktrackingparams"):
@@ -443,7 +451,11 @@ def test_up_next_without_a_context_is_the_songs_radio(load_fixture):
     items = result["items"]
     assert len(items) == 5 and KARMA not in [t["videoId"] for t in items]
     assert all(t["type"] == "track" and "counterpart" in t for t in items)
-    assert "token" not in str(result).lower() and "feedback" not in str(result).lower()
+    # S3's token fields (ytm_cache.TOKEN_KEYS) are empty here; nothing else
+    # token-like is in the reply.
+    assert all(t[key] is None for t in items for key in caches.TOKEN_KEYS)
+    bare = str(caches.strip_tokens(result)).lower()
+    assert "token" not in bare and "feedback" not in bare
 
 
 def test_up_next_drops_the_song_and_its_twin_and_keeps_counterparts(load_fixture):

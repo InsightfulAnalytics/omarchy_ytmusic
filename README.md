@@ -40,8 +40,8 @@ ytmusicapi and yt-dlp, which can break when YouTube changes something
 - 🔎 **Search** as you type, with suggestions and your recent searches
 - 🎶 **Queue** with shuffle, repeat and autoplay (similar songs when it runs out)
 - 🎤 **Lyrics**, time-synced where YouTube has them, **Related** and song credits for what's playing
-- 📚 **Your library**: playlists (create, add, remove, delete), likes and Liked Music, History, Home
-- 👤 **Artist and album pages**, one click from what's playing
+- 📚 **Your library**: playlists (create, add, remove, delete), songs (with Shuffle all), albums, artists, subscriptions and recent activity, each in YouTube's sort orders; likes and Liked Music, History, Home
+- 👤 **Artist and album pages**, one click from what's playing: every shelf of an artist's page (top songs, albums, singles, videos, live performances, playlists, related artists) with See all, Shuffle, Radio and About
 - ⏯️ **Media keys and OSD** over MPRIS; the bar shows an icon or scrolling now-playing text
 - ⚡ **Fast starts**: streams are looked up ahead, pages and covers come from a disk cache
 - 🪶 **Light**: no browser; ~75 MiB while playing, nothing when idle; resumes where you stopped
@@ -95,14 +95,14 @@ follow symlinks) and run `scripts/test.sh`.
 |---|---|
 | Bar icon | Left click: open/close the panel · Middle click: play/pause · Right click: switch icon ⇄ now-playing text · Wheel: previous/next track |
 | `SUPER + M` | Open/close the panel (`omarchy-shell shell toggle damir.ytmusic`, bound in `~/.config/hypr/bindings.lua`) |
-| Panel tabs | **Now** (playing + queue, like, add to playlist, Resume; an artist, the album or the cover opens its page; the queue header's pane chip, or `y`, switches the area below to **Lyrics**, time-synced with the line being sung highlighted when YouTube has them, or **Related**, the web's Related tab as a page), **Search** (field, filters, grouped results), **Library** (account, Liked Music, History, your and saved playlists, new playlist) and **Home** (your shelves); albums, playlists and artists open as pages with Play / Shuffle / Queue all (a page that shows part of its list, such as Liked Music past 200 songs, plays all of it); your own playlists can remove songs and be deleted (a second click within 4 s confirms) |
-| Menus | Every row has a menu (`m`, `.`, right-click or its ⋮ button), like the web's three-dot menu: Play, Shuffle, Play next, Add to queue, Start radio, Add to playlist, Go to artist (a chooser when a song has several) or album, View credits (a song's performers, writers and producers as a page), Copy link (a music.youtube.com link, through `wl-copy`), Remove, and for the song playing Play video version or Play song version. `n` / `a` queue a whole album, playlist or mix from any list, and `R` starts radio from the row or the song playing; radio replaces the queue, as on the web (from the song playing, that song plays on). At most 500 songs of one list go into the queue, with a notice. `M` opens the page's own menu: the header buttons' twins on a page, the account on Library (Sign out), Autoplay, Clear, Tune the queue, Playback speed and Loudness on Now, Refresh on Home. `?` lists every key; Enter on one runs it. |
+| Panel tabs | **Now** (playing + queue, like, add to playlist, Resume; an artist, the album or the cover opens its page; the queue header's pane chip, or `y`, switches the area below to **Lyrics**, time-synced with the line being sung highlighted when YouTube has them, or **Related**, the web's Related tab as a page), **Search** (field, filters, grouped results), **Library** (account, new playlist, and chips switched with `h` / `l`: **Playlists** with Liked Music, History, Recent activity and your and saved playlists; **Songs** with Shuffle all (YouTube's shuffle of the whole library); **Albums**; **Artists** with Subscriptions. `O` or the sort button cycles a chip's sort order, named in its first heading; the chip and each order are remembered, and YouTube saves the order on your account as the web does. Long lists load about 50 at a time) and **Home** (your shelves); albums, playlists, mixes and artists open as pages with Play / Shuffle / Queue all (a page that shows part of its list, such as Liked Music past 200 songs or an artist's five top songs, plays all of it). An album or playlist header has its byline (album type, artists and year, or the playlist's author; names are links, and `A` with no row selected opens the album's artist), details (privacy of your own playlist, songs, duration, views, year, and how many songs are unavailable) and two lines of the description, with an **About** row for the rest; songs marked explicit carry a small boxed E. A playlist or Liked Music longer than its first read (200 to 300 songs) ends in **Load all N songs**, which reloads the whole list (up to 5000) with the cursor kept; `f` filters the page's songs by title, artist or album, ignoring case and accents (it loads the whole list first; Down goes to the matches, Esc clears it). An album lists its track numbers and then Other versions and the served recommendations, a playlist its related playlists, and a mix (My Supermix and the like) its first 50 songs; your own playlists can remove songs and be deleted (a second click within 4 s confirms). Sectioned pages end each section in a selectable **See all** row and long lists in **Load more**, which also loads by itself when the cursor nears the end. An artist's page has every shelf of the web page in its order, from Top songs to Fans might also like (and From your library when signed in); See all opens the whole list (all albums or singles, with the served sort orders as chips), and the header adds **Radio** (the artist's radio mix) and **About** (description and links; Enter on a link copies it), while **Shuffle** plays YouTube's shuffle mix of the artist |
+| Menus | Every row has a menu (`m`, `.`, right-click or its ⋮ button), like the web's three-dot menu: Play, Shuffle, Play next, Add to queue, Start radio, Add to playlist, Go to artist (a chooser when a song has several) or album, View credits (a song's performers, writers and producers as a page), Copy link (a music.youtube.com link, through `wl-copy`), Remove, and for the song playing Play video version or Play song version. `n` / `a` queue a whole album, playlist or mix from any list, and `R` starts radio from the row, else from the artist page you are on, else from the song playing; radio replaces the queue, as on the web (from the song playing, that song plays on). At most 500 songs of one list go into the queue, with a notice. `M` opens the page's own menu: the header buttons' twins on a page (an artist's adds About; an album or playlist adds Load all, Find and About), the account on Library (Sign out), Autoplay, Clear, Tune the queue, Playback speed and Loudness on Now, Refresh on Home. `?` lists every key; Enter on one runs it. |
 | Resume | After mpv has quit (idle timeout, logout, reboot) play/pause — middle click, media keys, `omarchy-shell ytmusic resume` or the Resume button — restores the queue, the track and its position. The snapshot is `~/.cache/omarchy-ytmusic/session.json`, saved after queue changes, on pause and every 30 s while playing. |
 | Search | Results appear as you type. An empty field lists your recent searches (`x` forgets one); while typing, matching recent searches and YouTube Music's suggestions show above the results; click one, or `Tab` / `Shift+Tab` to put it in the field. A search is remembered only when it led somewhere (Enter, a result played, opened or queued, or an entry chosen from a result's menu), in `~/.cache/omarchy-ytmusic/searches.json`. |
-| Shuffle / repeat | Buttons around the transport (or `s` / `r`). Shuffle mixes the songs after the current one and turning it off puts them back in their order (songs added meanwhile keep their places); with shuffle on, a clicked song plays first and the rest of its album or playlist follows shuffled, and a page's **Shuffle** button turns it on. Repeat cycles off → queue → this song (mpv's `loop-playlist` / `loop-file`, so MPRIS sees it too). Both are remembered in `~/.cache/omarchy-ytmusic/player.json`. |
+| Shuffle / repeat | Buttons around the transport (or `s` / `r`). Shuffle mixes the songs after the current one and turning it off puts them back in their order (songs added meanwhile keep their places); with shuffle on, a clicked song plays first and the rest of its album or playlist follows shuffled, and a page's **Shuffle** button turns it on (an artist's plays YouTube's shuffle mix instead). Repeat cycles off → queue → this song (mpv's `loop-playlist` / `loop-file`, so MPRIS sees it too). Both are remembered in `~/.cache/omarchy-ytmusic/player.json`. |
 | Autoplay | On by default (**Autoplay** in the queue header, IPC `autoplay`): like the web's Up next, the queue never runs dry. Five seconds into a song with 3 or fewer songs after it, up to 10 more are appended as radio for whatever plays: an album or playlist goes on as its radio, a radio as it is, a single song as its own mix (songs before videos, nothing this queue already holds or played). If every pick is a repeat it tries the song's own radio once, then says "Autoplay found nothing new". The queue header shows **Playing from** (the album, playlist or radio) and one **Tune** chip (`t`, or a click, cycles All, Discover, Popular, Deep cuts and the rest; the Now page menu `M` lists them all): a chip replaces only the songs autoplay added, never yours, and songs you add go before autoplay's. For the song playing, its menu offers **Play video version** or **Play song version** when YouTube has the other one. Played songs more than 50 behind the current one leave the queue, so it stays small however long it runs; which entries autoplay added is kept in `~/.cache/omarchy-ytmusic/queue.json`. Off while repeat is on. |
 | Speed / loudness | `[` / `]` (any tab) or **Playback speed** in the Now page menu (`M`) play at 0.5x to 2x in steps of 0.25; Now shows a small **1.5x** badge (click it for the speeds) while it is not 1x. Music and podcast episodes keep separate speeds, applied whenever the kind of entry playing changes. **Loudness** in the same menu: **Off** (as the music comes), **YouTube** (like the web player: a song YouTube measures louder than its target is turned down by that much, never boosted; one more request per resolved song) or **Dynamic** (mpv's `dynaudnorm`, which evens out loud and quiet passages and so changes the music's dynamics). Both are remembered in `player.json`. A player started before `mpv/ytm-levels.lua` existed has it loaded by the shell (mpv's `load-script`). |
-| Panel keys | `1-4` switch tab: Now, Search, Library, Home · `/` search · `j` / `k` / `↑` / `↓` move · `g` first row · `G` last row (loads more) · `Enter` play or open · `h` / `l` / `←` / `→` seek 10 s on Now, or the page's chips · `Esc` leave the field → close the picker or menu → back → close · `Space` play/pause · `n` play next (a song, album or playlist) · `a` add to queue · `R` start radio from the row or the current song · `s` shuffle · `r` repeat · `L` like · `p` add to playlist · `A` go to artist (of the row or the current song) · `o` go to album · `J` / `K` move a queued song down / up · `x` remove (queue, own playlist, Liked Music, recent search) · `m` / `.` the row's menu (or right-click) · `M` the page's menu (Library: account) · `O` next sort order on a page that has one · `f` find, on pages that offer it · `?` these keys · `y` cycle the pane under the song: Queue, Lyrics, Related · `t` cycle the queue tuner chip: All, Discover, Popular and the rest · `[` / `]` playback speed down / up (0.5x to 2x, kept apart for episodes). Shortcuts are off while typing, and Ctrl or Alt chords do nothing. Back returns to the row and scroll position you left. |
+| Panel keys | `1-4` switch tab: Now, Search, Library, Home · `/` search · `j` / `k` / `↑` / `↓` move · `g` first row · `G` last row (loads more), or a long list's Load all row · `Enter` play or open · `h` / `l` / `←` / `→` seek 10 s on Now, or the page's chips · `Esc` leave the field → close the picker or menu → clear the filter → back → close · `Space` play/pause · `n` play next (a song, album or playlist) · `a` add to queue · `R` start radio from the row, the artist page or the current song · `s` shuffle · `r` repeat · `L` like · `p` add to playlist · `A` go to artist (of the row, the album page or the current song) · `o` go to album · `J` / `K` move a queued song down / up · `x` remove (queue, own playlist, Liked Music, recent search) · `m` / `.` the row's menu (or right-click) · `M` the page's menu (Library: account) · `O` next sort order on a page that has one · `f` find in a page's songs (album, playlist, Liked Music, History) · `?` these keys · `y` cycle the pane under the song: Queue, Lyrics, Related · `t` cycle the queue tuner chip: All, Discover, Popular and the rest · `[` / `]` playback speed down / up (0.5x to 2x, kept apart for episodes). Shortcuts are off while typing, and Ctrl or Alt chords do nothing. Back returns to the row and scroll position you left. |
 | IPC | `search "query"` (opens the panel on the results) · `shuffle` / `repeat` / `autoplay` (toggle or cycle, print the new state) · `like` / `unlike` / `toggleLike` (current track) · `signIn` / `signOut` / `reloadAuth` |
 
 ### Signing in
@@ -155,8 +155,8 @@ after it closes.
 | `YtmModel.js` | Pure helpers (queue commands, queue model, formatting, prefs, page kinds and See all routes, page rows, cursor keeping, the menu registry and the key table); shared with Node tests |
 | `BarWidget.qml` | Bar icon / now-playing, one per monitor; loads and unloads the panel |
 | `Panel.qml` | The dropdown (Omarchy `KeyboardPanel`): now playing + queue, keyboard control |
-| `Store.qml` | Last searches and recently opened pages (8, 5 min, at most 3000 items each, swept every minute), the songs' now contexts (20, 10 min) and lyrics (the 20 last shown, 30 min), shared by all panels and kept across panel unloads |
-| `components/` | `NowPlayingView`, `QueueView` (with the pane chip), `LyricsView`, `RelatedView`, `SearchView`, `LibraryView`, `HomeView`, `CollectionView`, `PlaylistPicker`, `ItemMenu` (row menu, chooser, key help), `SignInCard`, `ResultList`, `TrackRow`, `CollectionRow`, `CoverArt`, `ConfirmGate` |
+| `Store.qml` | Last searches, recently opened pages (8, 5 min, at most 3000 items each), the Library chips' lists (5 min, at most 2000 items each), the songs' now contexts (20, 10 min) and lyrics (the 20 last shown, 30 min), swept every minute, shared by all panels and kept across panel unloads |
+| `components/` | `NowPlayingView`, `QueueView` (with the pane chip), `LyricsView`, `RelatedView`, `SearchView`, `LibraryView`, `HomeView`, `CollectionView`, `PlaylistPicker`, `ItemMenu` (row menu, chooser, key help), `SignInCard`, `ResultList`, `TrackRow`, `CollectionRow`, `CoverArt`, `ConfirmGate`, `ExplicitBadge` |
 | `bin/ytm-mpv` | Starts/stops the detached mpv player (systemd user unit) |
 | `mpv/ytm-idle.lua` | Quits mpv after it has idled or been paused too long |
 | `mpv/ytm-streams.lua` | Plays the streams the worker resolved ahead of time (`user-data/ytm/streams`), falling back to yt-dlp |
@@ -166,6 +166,9 @@ after it closes.
 | `backend/ytm_pages.py` | Continuation paging (`fetch`) and the generic See all reader (`browsePage`) |
 | `backend/ytm_play.py` | Whole collections as track lists (`tracksFor`), Start radio (`radio`), album pages from audio playlists (`albumBrowseId`) |
 | `backend/ytm_now.py` | The song playing's context in one request (`nowContext`, `likeStatus`), autoplay's lists (`upNext`, `queueFrom` for a tuner chip), lyrics (synced through the signed-out client), Related and song credits |
+| `backend/ytm_library.py` | The library's playlists, songs, albums, artists, subscriptions and recent activity a page at a time, with their sort orders; Shuffle all |
+| `backend/ytm_artist.py` | Artist pages from `get_artist` plus its raw rows (`artist`), discographies a page at a time with their sort orders (`artistAlbums`) |
+| `backend/ytm_collections.py` | Albums, playlists, mixes, Liked Music and History (`album`, `playlist`, `liked`, `history`): first reads and whole reads, headers, related shelves |
 | `backend/ytm_raw.py` | Raw responses beside ytmusicapi's: per-thread capture, rows with See all/Play all endpoints, items by page type, HTTP counts |
 | `backend/ytm_normalize.py` | Turns ytmusicapi responses into stable Track/Album/Playlist/Artist/Collection/Page shapes |
 | `backend/ytm_auth.py` | Session files and sign-in (Chromium cookie import, pasted headers); the signed-out client |
@@ -201,10 +204,13 @@ bin/ytm auth                      # sign in: import the session from a Chromium 
 bin/ytm auth --paste              # fallback: paste request headers of a /browse call
 bin/ytm whoami | logout
 bin/ytm search daft punk --filter songs
-bin/ytm call libraryPlaylists '{"limit": 5}'
+bin/ytm call libraryAlbums '{}'                   # first page of your albums (cursor for more)
 bin/ytm call album '{"browseId": "MPREb_yXhSI4FCUo6", "cache": "prefer"}' --reply   # whole reply: cached, http, ms
 YTM_DEBUG=1 bin/ytm call browsePage '{"browseId": "FEmusic_new_releases_albums"}'   # logs method, outcome, http, ms
+bin/ytm call artistAlbums '{"browseId": "MPADUC...", "params": "...", "order": "Recency"}'  # an artist's whole album list
 bin/ytm record artist '{"channelId": "UC..."}' tests/fixtures/artist.json            # signed out, scrubbed
+bin/ytm record playlist '{"playlistId": "PL...", "limit": 100, "related": true}' tests/fixtures/playlist_related.json
+bin/ytm call playlist '{"playlistId": "PL...", "limit": "all"}'                     # every song (up to 5000)
 bin/ytm selftest --online
 scripts/test.sh
 ```
@@ -252,9 +258,12 @@ The shell runs `bin/ytm serve` and talks JSON lines over stdin/stdout. The
 worker exits on stdin EOF, or after 180 s without requests once no lane is
 busy. Requests are answered in order, except those of methods that run on a
 lane (a background thread per lane, one request at a time): `resolve`
-(streams), `suggestions` (suggest), `browsePage`, `nowContext`, `lyrics`,
-`related`, `credits`, `upNext` and `queueFrom` (pages) and `tracksFor` (tracks); `upload` and
-`report` are reserved. A lane never
+(streams), `suggestions` (suggest), `browsePage`, `artistAlbums`, the
+library lists `libraryPlaylists`, `librarySongs`, `libraryAlbums`,
+`libraryArtists`, `librarySubscriptions` and `libraryLanding`, `playlist`,
+`liked`, `nowContext`, `lyrics`, `related`, `credits`, `upNext` and
+`queueFrom` (pages) and `tracksFor` (tracks); `upload` and `report` are
+reserved. A lane never
 waits for, or delays, the requests around it, and a `"cache": "prefer"`
 request for a laned method is answered from disk before it reaches its lane.
 
@@ -266,11 +275,12 @@ request for a laned method is answered from disk before it reaches its lane.
 ```
 
 Methods: `ping`, `hello`, `reloadAuth`, `verifyAuth`, `configure`, `search`,
-`suggestions`, `home`, `history`, `libraryPlaylists`, `playlist`, `liked`,
-`album`, `artist`, `song`, `browsePage`, `tracksFor`, `radio`,
-`albumBrowseId`, `nowContext`, `lyrics`, `related`, `credits`, `upNext`
-(autoplay), `queueFrom`, `resolve`, `warmStreams`, `cacheThumbs`, `likeStatus`, `rate`,
-`createPlaylist`,
+`suggestions`, `home`, `history`, `libraryPlaylists`, `librarySongs`,
+`libraryAlbums`, `libraryArtists`, `librarySubscriptions`, `libraryLanding`,
+`playlist`, `liked`, `album`, `artist`, `artistAlbums`, `song`, `browsePage`,
+`tracksFor`, `radio`, `albumBrowseId`, `nowContext`, `lyrics`, `related`,
+`credits`, `upNext` (autoplay), `queueFrom`, `resolve`, `warmStreams`,
+`cacheThumbs`, `likeStatus`, `rate`, `createPlaylist`,
 `addToPlaylist`, `removeFromPlaylist`, `deletePlaylist`, `shutdown`. Error
 codes: `AUTH_REQUIRED`, `AUTH_EXPIRED`, `BAD_REQUEST`, `NOT_FOUND`, `NETWORK`,
 `RATE_LIMITED` (retryable), `UPSTREAM` (unexpected response; ytmusicapi may
@@ -296,7 +306,8 @@ need an update), `INTERNAL`.
   a method marks with `worker.skip_store()` (plain lyrics after a failed
   synced request). A playlist edit
   also drops the `browsePage` of `VL<playlistId>` and of the library's
-  playlist pages; a rating drops those of `VLLM` and `FEmusic_liked_videos`.
+  playlist pages, and `libraryLanding`; a rating drops those of `VLLM` and
+  `FEmusic_liked_videos`, and `librarySongs`.
 - **Edits.** Methods in `MUTATES` (also sent in the `ready` event) are never
   re-sent after a worker exit. The shell sends them with `retry: false`; a
   worker exit or a timeout then fails them with `"unknown": true` in the
@@ -309,21 +320,25 @@ need an update), `INTERNAL`.
   request with a cursor is never cached.
 - **Sort orders.** A page with a sort menu lists it as `orders`
   (`[{index, title, selected}]`, titles exactly as served) and the current
-  one as `order`; send `order: <index>` to re-sort. An order the page does not
+  one as `order`; send `order: <index>` to re-sort. (`artistAlbums` takes the
+  option's title: its `index` is the title.) An order the page does not
   offer is `BAD_REQUEST`. On library pages (`FEmusic_liked_*`,
   `FEmusic_library_*`) YouTube saves the choice on the account: later
   requests without `order`, `libraryPlaylists` and the web app all get the
   new order. So such a request is a settings change, and the worker drops
-  the cached copies of that page (in every order) and of `libraryPlaylists`.
+  the cached copies of that page (in every order) and of the library
+  method that reads it (`libraryPlaylists`, `librarySongs`, ...).
   Other pages, such as an artist's discography, are re-sorted for that reply
   only.
 - **Page shape** (`browsePage` and later destinations):
   `{type: "page", v: 2, kind, id, title, subtitle, thumb, thumbLarge, round,
   header, sections, cursor, hasMore, orders, order, message}`, where each
-  section is `{type: "section", title, items, more, play, layout}`: `more` is
+  section is `{type: "section", title, items, more, play, layout, key}`: `more` is
   its See all endpoint `{browseId, params, pageType}`, `play` its Play all
   endpoint `{videoId, playlistId, params}`, `layout` one of `carousel`,
-  `shelf`, `grid`, `description`. Items are the usual normalized shapes plus
+  `shelf`, `grid`, `description`, and `key` what the section holds when the
+  method knows it (an artist page's `songs`, `albums`, `singles`, `shows`,
+  `videos`, `playlists`, `related`, `episodes`, `podcasts`; else null). Items are the usual normalized shapes plus
   `podcast`, `profile`, `channel` and tracks of kind `episode`. The reply to
   a cursor request holds only the new sections (for a grid or shelf page, one
   section whose items continue the last one). `message` is the text of an
@@ -331,6 +346,52 @@ need an update), `INTERNAL`.
 - **`browsePage({browseId, params?, cursor?, order?})`** reads any browse
   endpoint: a grid gives one section of items, a music shelf one section of
   tracks, carousels one section each, a message an empty page.
+- **`artist({channelId})`** is a page of kind `artist` (one request): every
+  row of the web page in its order and with its title, including the ones
+  ytmusicapi drops (Live performances, Featured on, Playlists by, From your
+  library). Rows ytmusicapi parsed carry their `key`, matched by See all
+  endpoint or items, never by title; other rows are generic sections, and a
+  row that cannot be read is left out. When ytmusicapi cannot read the page
+  (a carousel without a header), the same response is parsed again without
+  it. `header`: `channelId` (asked for), `subscribeId` (what subscribing
+  takes), `subscribed`, `subscribers`, `monthlyListeners`, `views`,
+  `description`, `descriptionRuns` (`{text, url?}`; YouTube's redirect
+  links are unwrapped), `shuffleId`, `radioId`, `songsPlaylistId`.
+- **`artistAlbums({browseId, params, order?, artist?, cursor?})`** is an
+  artist's list of albums, singles or shows (the `MPAD...` See all of those
+  shelves): one grid section, every item credited to the artist (`artist`,
+  else the page header's name). A page is about 100 releases, one request
+  (two when sorted); a longer list (Bach's singles run past 3000) continues
+  with `cursor`. `orders` are the served sort options with the title as
+  `index`; `order` is one of those titles, matched ignoring case (another is
+  `BAD_REQUEST` "This list cannot be sorted"). A list YouTube cannot show
+  comes back as an empty page with its `message`.
+- **Library** (`libraryPlaylists`, `librarySongs`, `libraryAlbums`,
+  `libraryArtists`, `librarySubscriptions`, `libraryLanding`; all
+  `{order?, cursor?}`, signed in, on the pages lane). Every one but
+  `libraryPlaylists` is a page with one section, about 50 items and at most
+  3 requests per call, the rest through `cursor`. `order` is `a_to_z`,
+  `z_to_a` or `recently_added` (sent as ytmusicapi's order params, one
+  request), or `menu:<n>` for a served option that is none of those (the
+  landing's Recent activity and Recently played, the artists' Most songs;
+  applied with its reload token, two requests). `orders` list the served
+  options with those ids as `index` and their titles as served; each option
+  is matched to its id by the params inside its reload token, never by its
+  title. A `menu:<n>` the page does not serve is `BAD_REQUEST`. The first
+  page is cached under its order; an ordered one also drops the cached
+  `browsePage` of that page, since YouTube saves the order.
+  `libraryPlaylists({order?})` returns every playlist,
+  `{items, orders, order}` (without an order through
+  `get_library_playlists(limit=None)`), each with the served `description`
+  and `special` (`liked` for Liked Music, `episodes` for Episodes for later).
+  `librarySongs`' first page has `header.shuffleId`, YouTube's shuffle of
+  the whole library (Shuffle all), which `tracksFor` reads (its first 50
+  songs, two requests; autoplay carries on).
+  Library artists have their channel id (MPLA stripped), the row's subtitle
+  ("149 songs") and the artist's `shuffleId` and `radioId` mixes, which
+  their menu's Shuffle and Start radio play. Subscriptions to a user channel
+  are `profile` items. The landing mixes playlists, albums, artists and
+  profiles.
 - **`configure(settings)`** is sent first after every worker start (the
   shell's `Backend.configureParams`). Each key is validated by the module
   that owns it; unknown keys are ignored and listed in `ignored`. A key that
@@ -340,17 +401,48 @@ need an update), `INTERNAL`.
   repeats them neither rebuilds the client nor clears the cache. Settings
   today: `normalize` (`off`, `youtube`, `dynamic`; the shell's loudness
   levelling, see `resolve`).
+- **Collections** (`playlist({playlistId, limit?, related?})`,
+  `liked({limit?})`, `album({browseId})`, `history({limit?})`; playlist and
+  liked on the pages lane). A collection is `{type: "collection", kind, id,
+  playlistId, title, subtitle, owned, editable, trackCount, truncated,
+  capped, unavailable, thumb, thumbLarge, header, tracks, sections}`.
+  `limit` is 200 by default (ytmusicapi reads 100 songs a request, so the
+  first read holds 200 to 300) or `"all"`: every song, up to 5000 (about
+  50 requests; the shell waits 120 s). `truncated` is true when YouTube
+  left a continuation after the last songs read (more songs to load);
+  `capped` when an `"all"` read stopped at 5000. `unavailable` is
+  `trackCount` less the songs read on a whole list (songs YouTube no longer
+  plays), else null. `header`: `description`, `privacy` (your own
+  playlists), `year`, `views`, `duration`, `durationSec`, `author`
+  `{name, id}`, `collaborators` (text), and on an album `type`, `artists`
+  `[{name, id}]`, `likeStatus`, `audioPlaylistId`, `explicit`. `sections`
+  (the page shape's sections, `layout: "carousel"`): an album's
+  `otherVersions` and `releases` (served titles, such as Releases for
+  you), a playlist's `related` with `related: true` (one more request, two
+  on your own playlist). A mix id (`RD...` other than `RDCLAK` and `RDPN`)
+  given to `playlist` is read as its watch playlist: kind `mix`, its first
+  50 songs, titled as the queue names it. Tracks add `explicit`,
+  `trackNumber` (album), `inLibrary`, `pinned`, `voteStatus`
+  (`{votes, status}` on collaborative playlists) and the feedback tokens
+  `libraryTokens` `{add, remove}`, `listenAgainTokens` `{pin, unpin}` and
+  `historyToken` (History), which the shell keeps out of the queue.
+  `history` returns `{items}`, the last 200 songs (all YouTube serves),
+  each with `played` (Today, Yesterday, ...). The cache key holds `limit`
+  and `related`; a playlist edit drops every read of it.
 - **`tracksFor({kind, id, limit?})`** reads every track of a collection,
   for playing or queueing it from any list: `kind` is `album`
   (`get_album`), `playlist` (`get_playlist`), `liked`, `mix` (the watch
   playlist, 50 songs) or `artist` (its songs playlist, from the cached
   artist page when there is one). The id decides first: an `RD...` id other
   than `RDCLAK` and `RDPN` is a mix, `LM` is Liked Music, an album without
-  an `MPRE` id is its audio playlist. At most `limit` tracks (5000 by
-  default and at most; a playlist is read only that far):
+  an `MPRE` id is its audio playlist, and an `MLCT...` id (`librarySongs`'
+  `header.shuffleId`) is the library's server shuffle. At most `limit`
+  tracks (5000 by default and at most; a playlist is read only that far):
   `{playlistId, items, complete, total}`, `complete` false when there is
-  more. Play, Play next and Add to queue ask for 500, the queue's cap;
-  Shuffle reads up to 5000.
+  more. The library shuffle is the exception: its first 50 songs at most,
+  in two requests, always `complete: true` with `total: null`. Play, Play
+  next and Add to queue ask for 500, the queue's cap; Shuffle reads up to
+  5000.
 - **`radio({videoId} | {playlistId} | {mixId} | {browseId} | {channelId},
   limit?)`** is Start radio (50 songs by default, at most 200): a song's
   radio (without the song itself), a playlist's or album audio playlist's

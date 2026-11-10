@@ -16,6 +16,8 @@
 Area module (see AREA_MODULES in ytm.py).
 """
 
+import ytm_artist as artist
+import ytm_library as library
 import ytm_normalize as norm
 import ytm_now as now
 import ytm_raw as raw
@@ -69,25 +71,14 @@ def _mix(worker, mix_id, limit=MIX_TRACKS):
     return _reply(data.get("playlistId") or mix_id, items, len(items), True)
 
 
-def _artist_page(worker, channel_id, needs):
-    """The artist's normalized page: the disk-cached copy when it holds the
-    id ``needs`` (copies cached before it was read lack it), else a fresh one."""
-    try:
-        hit = worker.cache().get("artist", {"channelId": channel_id})
-    except Exception:  # noqa: BLE001 - an unreadable cache is a miss
-        hit = None
-    if hit is not None and isinstance(hit[0], dict) and hit[0].get(needs):
-        return hit[0]
-    return norm.artist_page(channel_id, worker.yt.get_artist(channel_id))
-
-
 def _artist(worker, channel_id, limit):
-    page = _artist_page(worker, channel_id, "songsPlaylistId")
-    songs_id = page.get("songsPlaylistId")
+    # The disk-cached artist page when it names the songs playlist (S1).
+    page = artist.cached_or_fetch(worker, channel_id, "songsPlaylistId")
+    songs_id = page["header"].get("songsPlaylistId")
     if songs_id:
         return _playlist(worker, _strip_vl(songs_id), limit=limit)
     # No "See all" on the songs shelf: the page's own songs are all there is.
-    items = page.get("songs") or []
+    items = artist.songs(page)
     return _reply(None, items, len(items), True)
 
 
@@ -96,7 +87,9 @@ def route(kind, collection_id):
 
     The id decides before the kind does: a mix (RD..., not RDCLAK or RDPN)
     plays through the watch playlist, Liked Music is LM, an album without an
-    MPRE id is its audio playlist, and any other playlist id is a playlist.
+    MPRE id is its audio playlist, an MLCT... id (librarySongs'
+    header.shuffleId) is the library's server shuffle (its first 50 songs in
+    two requests, always complete), and any other playlist id is a playlist.
     """
     if kind == "liked" or collection_id in ("LM", "VLLM"):
         return "liked", "LM"
@@ -107,6 +100,9 @@ def route(kind, collection_id):
     playlist_id = _strip_vl(collection_id)
     if norm.is_mix(playlist_id):
         return "mix", playlist_id
+    # S2: Shuffle all of the library's songs (librarySongs header.shuffleId).
+    if library.is_shuffle(playlist_id):
+        return "libraryShuffle", playlist_id
     return "playlist", playlist_id
 
 
@@ -128,6 +124,8 @@ def m_tracks_for(worker, params):
         return _cut(_artist(worker, target, limit), limit)
     if reader == "mix":
         return _cut(_mix(worker, target), limit)
+    if reader == "libraryShuffle":
+        return library.shuffle_tracks(worker, target, limit)
     return _playlist(worker, target, limit=limit)
 
 
@@ -159,7 +157,7 @@ def _radio(worker, params):
     elif key == "mixId":
         data = worker.yt.get_watch_playlist(playlistId=_strip_vl(value), limit=limit)
     elif key == "channelId":
-        radio_id = _artist_page(worker, value, "radioId").get("radioId")
+        radio_id = artist.cached_or_fetch(worker, value, "radioId")["header"].get("radioId")
         if not radio_id:
             raise WorkerError("NOT_FOUND", "This artist has no radio")
         data = worker.yt.get_watch_playlist(playlistId=radio_id, limit=limit)

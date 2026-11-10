@@ -454,23 +454,6 @@ function trackRows(tracks) {
   return rows
 }
 
-function flattenArtist(page) {
-  var rows = []
-  if (!page) return rows
-  var songs = page.songs || []
-  if (songs.length) {
-    rows.push({ header: true, title: "Top songs" })
-    for (var i = 0; i < songs.length; i++) rows.push({ item: songs[i], trackIndex: i })
-  }
-  var groups = [["Albums", page.albums || []], ["Singles", page.singles || []]]
-  for (var g = 0; g < groups.length; g++) {
-    if (!groups[g][1].length) continue
-    rows.push({ header: true, title: groups[g][0] })
-    for (var j = 0; j < groups[g][1].length; j++) rows.push({ item: groups[g][1][j] })
-  }
-  return rows
-}
-
 // The first playable track among result rows (a fresh search's likely pick).
 function firstTrack(rows) {
   for (var i = 0; i < (rows || []).length; i++) {
@@ -480,9 +463,9 @@ function firstTrack(rows) {
   return null
 }
 
-// Next row a keyboard cursor may rest on (headers, message and text rows
-// are skipped). From -1, moving down lands on the first row; at either end the
-// cursor stays put.
+// Next row a keyboard cursor may rest on (headers, message rows and text
+// rows other than paragraphs are skipped). From -1, moving down lands on the
+// first row; at either end the cursor stays put.
 function nextSelectable(rows, index, delta) {
   var count = (rows || []).length
   var step = delta < 0 ? -1 : 1
@@ -493,8 +476,14 @@ function nextSelectable(rows, index, delta) {
   return index
 }
 
+// A text row ({type: "text", title, icon?}) is read-only page content, such
+// as a credited name or About the artist (S11): the cursor skips it. A text
+// row with `paragraph: true` (a description's paragraph: an artist's About
+// page, a collection's About rows) takes the cursor so the keyboard can
+// scroll through a long text; Enter and the menu do nothing there.
 function selectableRow(row) {
-  return !!row && !row.header && !!row.item && row.item.type !== "message" && row.item.type !== "text"
+  if (!row || row.header || !row.item || row.item.type === "message") return false
+  return row.item.type !== "text" || row.item.paragraph === true
 }
 
 function joinParts(parts) {
@@ -505,11 +494,12 @@ function itemSubtitle(item) {
   if (!item) return ""
   if (item.type === "track") return joinParts([item.artistText, item.kind === "video" ? "Video" : ""])
   if (item.type === "album") return joinParts([item.albumType, item.artistText, item.year])
-  if (item.type === "playlist") return joinParts([item.author, item.count ? item.count + " songs" : ""])
+  if (item.type === "playlist")
+    return joinParts([item.author, item.count ? item.count + " songs" : ""]) || (item.description ? String(item.description) : "")
   if (item.type === "artist") return item.subtitle ? item.subtitle : "Artist"
   if (item.type === "liked") return "Songs you liked"
   if (item.type === "history") return "Recently played"
-  return ""
+  return item.subtitle ? String(item.subtitle) : ""
 }
 
 // Home: a header per shelf; tracks carry their index among the shelf's
@@ -609,26 +599,7 @@ function ownedPlaylists(playlists) {
   return (playlists || []).filter(function(p) { return p.owned && !isSpecialPlaylist(p) })
 }
 
-// The Library list: Liked Music and History, then your playlists, then saved ones.
-function libraryRows(playlists) {
-  var rows = [
-    { item: { type: "liked", title: "Liked Music", thumb: null } },
-    { item: { type: "history", title: "History", thumb: null } }
-  ]
-  var owned = []
-  var saved = []
-  for (var i = 0; i < (playlists || []).length; i++) {
-    var p = playlists[i]
-    if (isSpecialPlaylist(p)) continue
-    if (p.owned) owned.push(p)
-    else saved.push(p)
-  }
-  if (owned.length) rows.push({ header: true, title: "Your playlists" })
-  for (var j = 0; j < owned.length; j++) rows.push({ item: owned[j] })
-  if (saved.length) rows.push({ header: true, title: "Saved playlists" })
-  for (var k = 0; k < saved.length; k++) rows.push({ item: saved[k] })
-  return rows
-}
+// libraryRows(chip, data, playlists), the Library list: see the library (S2) section.
 
 // Remove one track from a loaded collection (by setVideoId when it has one,
 // since a playlist may hold the same song twice).
@@ -858,7 +829,6 @@ if (typeof module !== "undefined") {
     queueAllCommands: queueAllCommands,
     flattenSearch: flattenSearch,
     trackRows: trackRows,
-    flattenArtist: flattenArtist,
     nextSelectable: nextSelectable,
     selectableRow: selectableRow,
     firstTrack: firstTrack,
@@ -921,6 +891,12 @@ function canonicalJson(value) {
 //   adapt(r, ref) optional: turns the reply into what CollectionView shows
 //   claims(item)  optional: takes over items of another type (checked first)
 //   ttlMs         optional: how long the Store's copy counts as fresh (5 min)
+//   view          optional: a name that keeps this kind's pages apart from
+//                 another kind's on the same method and params (S1's about
+//                 page reads the artist method)
+//   subtitle(p)   optional: the header subtitle of a page p (S1)
+//   partial       optional: the page shows only a sample of its songs, so
+//                 playing it reads the whole list (tracksFor; S1 artist)
 // }
 var PAGE_KINDS = {
   album: {
@@ -981,7 +957,7 @@ function pageRef(item, extra) {
   for (k in extra || {}) if (extra[k] !== undefined && extra[k] !== null) params[k] = extra[k]
   return {
     kind: kind, method: spec.method, params: params,
-    key: spec.method + ":" + canonicalJson(params),
+    key: spec.method + (spec.view ? "/" + spec.view : "") + ":" + canonicalJson(params),
     id: spec.id ? spec.id(item) : null
   }
 }
@@ -1428,7 +1404,7 @@ function radioParams(item) {
   if (kind === "album") return item.playlistId ? { playlistId: _stripVl(item.playlistId) } : { browseId: item.browseId }
   if (kind === "playlist") return { playlistId: _stripVl(item.playlistId) }
   if (kind === "mix") return { mixId: _stripVl(item.playlistId) }
-  if (kind === "artist") return { channelId: item.channelId }
+  if (kind === "artist") return item.radioId ? { mixId: item.radioId } : { channelId: item.channelId }
   return null
 }
 
@@ -1436,7 +1412,7 @@ function radioParams(item) {
 // (null for part of a list, or an artist page's few songs).
 function completeTracks(data) {
   if (!data || typeof data !== "object") return null
-  if (data.type === "page") return data.cursor || data.hasMore || data.capped ? null : pageTracks(data)
+  if (data.type === "page") return data.cursor || data.hasMore || data.capped || pagePartial(data.kind) ? null : pageTracks(data)
   if (data.type === "collection") return data.truncated ? null : (data.tracks || [])
   return null
 }
@@ -1448,6 +1424,7 @@ function shareUrl(item) {
   if (kind === "playlist") return MUSIC_URL + "playlist?list=" + _stripVl(item.playlistId)
   if (kind === "artist") return MUSIC_URL + "channel/" + item.channelId
   if (item && (item.type === "profile" || item.type === "channel") && item.channelId) return MUSIC_URL + "channel/" + item.channelId
+  if (item && item.type === "link") return linkUrl(item.url)
   return ""
 }
 
@@ -1578,7 +1555,12 @@ var MENU_ACTIONS = [
     } },
   { id: "shuffle", title: "Shuffle", icon: "󰒝",
     applies: function(item, ctx) { return _kindIn(_SHUFFLES)(item) || _pagePlays(ctx) },
-    run: _playMode("shuffle") },
+    run: function(env) {
+      // An artist row that carries YouTube's shuffle mix (S2: library artists) plays it.
+      var mix = env.ctx && env.ctx.page ? null : artistMix(env.item, "shuffleId")
+      if (mix) env.service.playItem(mix, "now")
+      else _playMode("shuffle")(env)
+    } },
   { id: "playNext", title: "Play next", icon: "󰒭", key: "playNext",
     applies: function(item, ctx) { return (_kindIn(_PLAYS)(item) || _pagePlays(ctx)) && !ctx.isCurrent && ctx.pageKind !== "queue" },
     run: _playMode("next") },
@@ -1682,26 +1664,26 @@ var KEYS = [
   { id: "search", group: "Move", keys: ["/"], title: "search" },
   { id: "move", group: "Move", caught: ["j", "k", "↑", "↓"], title: "move" },
   { id: "top", group: "Move", keys: ["g"], title: "first row" },
-  { id: "bottom", group: "Move", keys: ["G"], title: "last row (loads more)" },
+  { id: "bottom", group: "Move", keys: ["G"], title: "last row (loads more), or a long list's Load all row" },
   { id: "open", group: "Move", caught: ["Enter"], title: "play or open" },
   { id: "horizontal", group: "Move", caught: ["h", "l", "←", "→"], title: "seek 10 s on Now, or the page's chips" },
-  { id: "back", group: "Move", caught: ["Esc"], title: "leave the field → close the picker or menu → back → close" },
+  { id: "back", group: "Move", caught: ["Esc"], title: "leave the field → close the picker or menu → clear the filter → back → close" },
   { id: "playPause", group: "Play", caught: ["Space"], title: "play/pause" },
   { id: "playNext", group: "Play", keys: ["n"], title: "play next (a song, album or playlist)" },
   { id: "addToQueue", group: "Play", keys: ["a"], title: "add to queue" },
-  { id: "radio", group: "Play", keys: ["R"], title: "start radio from the row or the current song" },
+  { id: "radio", group: "Play", keys: ["R"], title: "start radio from the row, the artist page or the current song" },
   { id: "shuffle", group: "Play", keys: ["s"], title: "shuffle" },
   { id: "repeat", group: "Play", keys: ["r"], title: "repeat" },
   { id: "like", group: "Song", keys: ["L"], title: "like" },
   { id: "addToPlaylist", group: "Song", keys: ["p"], title: "add to playlist" },
-  { id: "artist", group: "Song", keys: ["A"], title: "go to artist (of the row or the current song)" },
+  { id: "artist", group: "Song", keys: ["A"], title: "go to artist (of the row, the album page or the current song)" },
   { id: "album", group: "Song", keys: ["o"], title: "go to album" },
   { id: "queueMove", group: "Song", keys: ["J", "K"], title: "move a queued song down / up" },
   { id: "remove", group: "Song", caught: ["x"], title: "remove (queue, own playlist, Liked Music, recent search)" },
   { id: "menu", group: "Menus", keys: ["m", "."], title: "the row's menu (or right-click)" },
   { id: "pageMenu", group: "Menus", keys: ["M"], title: "the page's menu (Library: account)" },
   { id: "order", group: "Menus", keys: ["O"], title: "next sort order on a page that has one" },
-  { id: "find", group: "Menus", keys: ["f"], title: "find, on pages that offer it" },
+  { id: "find", group: "Menus", keys: ["f"], title: "find in a page's songs (album, playlist, Liked Music, History)" },
   { id: "help", group: "Menus", keys: ["?"], title: "these keys" }
 ]
 
@@ -1820,6 +1802,725 @@ if (typeof module !== "undefined") {
     keyHelp: keyHelp,
     keysReadme: keysReadme,
     keysComment: keysComment
+  })
+}
+
+// ==== artist (S1) ==========================================================================
+// Artist pages are sectioned pages (the worker's `artist` method): every
+// shelf of the web page in its served order, each ending in its See all.
+// An artist's albums, singles and shows open as `artistAlbums` (the whole
+// list, about 100 a page with Load more, and the served sort orders), and
+// the header's About as an `about` page built from the artist page itself.
+// Shuffle plays YouTube's shuffle mix and Radio (or R) its radio mix; Play
+// and Queue all read the artist's whole songs playlist (tracksFor), not the
+// few songs shown.
+
+PAGE_KINDS.artist.partial = true
+PAGE_KINDS.artist.subtitle = function(page) { return artistSubtitle(page) }
+
+// See all of an artist's albums, singles or shows (MPAD... + params).
+// Its orders' `index` is the served option title, sent back as `order`.
+PAGE_KINDS.artistAlbums = {
+  method: "artistAlbums", title: "Releases", round: false,
+  params: function(t) { return t.browseId && t.params ? { browseId: t.browseId, params: t.params } : null },
+  id: function(t) { return t.browseId }
+}
+
+// The artist's description and links: the artist page (the worker's disk
+// copy answers at once) shown another way.
+PAGE_KINDS.about = {
+  method: "artist", view: "about", title: "About", round: true,
+  params: function(t) { return t.channelId ? { channelId: t.channelId } : null },
+  id: function(t) { return t.channelId },
+  adapt: function(result) { return aboutPage(result) }
+}
+
+// A discography page needs its params; without them (and channel + params,
+// MPLA + params) the endpoint falls through to a browse page.
+ROUTES.push({ prefix: "MPAD", when: function(ep) { return !!ep.params },
+  target: function(ep, id) { return { type: "artistAlbums", browseId: id, params: ep.params, title: ep.title || "" } } })
+
+function pagePartial(kind) {
+  return Object.prototype.hasOwnProperty.call(PAGE_KINDS, kind) && PAGE_KINDS[kind].partial === true
+}
+
+// The header subtitle of a page: its kind's own (an artist's audience),
+// else the page's.
+function pageSubtitle(ref, page) {
+  var spec = pageKind(ref)
+  if (spec && typeof spec.subtitle === "function" && page && page.type === "page") return String(spec.subtitle(page) || "")
+  return page && page.subtitle ? String(page.subtitle) : ""
+}
+
+function artistHeader(page) {
+  return page && page.type === "page" && page.kind === "artist" && page.header ? page.header : null
+}
+
+// "205M monthly listeners, 5.46M subscribers".
+function artistSubtitle(page) {
+  var header = artistHeader(page) || {}
+  var parts = []
+  if (header.monthlyListeners) parts.push(header.monthlyListeners + " monthly listeners")
+  if (header.subscribers) parts.push(header.subscribers + " subscribers")
+  return parts.length ? parts.join(", ") : "Artist"
+}
+
+// What the header's Shuffle plays: YouTube's shuffle mix (RDAO...), as a
+// mix item for Service.playItem. Null without one.
+function artistShuffleItem(page) {
+  var header = artistHeader(page)
+  if (!header || !header.shuffleId) return null
+  return { type: "playlist", playlistId: header.shuffleId, title: page.title || "" }
+}
+
+// What the header's Radio starts: the artist's radio mix (RDEM...), as a
+// mix item for Service.startRadio. Null without one.
+function artistRadioItem(page) {
+  var header = artistHeader(page)
+  if (!header || !header.radioId) return null
+  return { type: "playlist", playlistId: header.radioId, title: page.title || "" }
+}
+
+// The description links of an artist page, once each: { url, text }.
+function _artistLinks(header) {
+  var seen = {}
+  var out = []
+  var runs = header && header.descriptionRuns ? header.descriptionRuns : []
+  for (var i = 0; i < runs.length; i++) {
+    var url = linkUrl(runs[i] && runs[i].url)
+    if (url === "" || seen[url]) continue
+    seen[url] = true
+    out.push({ url: url, text: String(runs[i].text || url) })
+  }
+  return out
+}
+
+function hasAbout(page) {
+  var header = artistHeader(page)
+  return !!header && (!!header.description || _artistLinks(header).length > 0)
+}
+
+// The item the header's About opens (an `about` page).
+function aboutItem(page) {
+  var header = artistHeader(page)
+  if (!header || !header.channelId) return null
+  return { type: "about", channelId: header.channelId, title: page.title || "", thumb: page.thumb || null,
+           thumbLarge: page.thumbLarge || null }
+}
+
+// http(s) URLs only; "" for anything else.
+function linkUrl(url) {
+  var text = String(url || "")
+  return /^https?:\/\/[^\s]+$/i.test(text) ? text : ""
+}
+
+// The about page of an artist page: the description in paragraphs (text
+// rows, which wrap in full and take the cursor so the keyboard can scroll
+// them) and a row per link, which copies it.
+function aboutPage(result) {
+  var header = artistHeader(result) || {}
+  var paragraphs = String(header.description || "").split(/\n\s*\n/).map(function(text) { return text.trim() })
+    .filter(function(text) { return text !== "" })
+  var text = paragraphs.map(function(paragraph) { return { type: "text", title: paragraph, paragraph: true } })
+  if (text.length === 0) text.push({ type: "message", title: "No description" })
+  var links = _artistLinks(header).map(function(link) {
+    return { type: "action", id: "link:" + link.url, title: link.url, icon: "󰌷", url: link.url }
+  })
+  return {
+    type: "page", v: 2, kind: "about", id: result && result.id ? result.id : null,
+    title: result && result.title ? result.title : "", subtitle: header.views || null,
+    thumb: result ? result.thumb || null : null, thumbLarge: result ? result.thumbLarge || null : null, round: true,
+    header: {}, sections: [
+      { type: "section", title: null, items: text, more: null, play: null, layout: null, key: "description" },
+      { type: "section", title: "Links", items: links, more: null, play: null, layout: null, key: "links" }
+    ],
+    cursor: null, hasMore: false, orders: [], order: null, message: null
+  }
+}
+
+// M on an artist page: About, the header button's twin. (Play, Shuffle,
+// Queue all and Start radio are the base entries; Shuffle goes to the
+// page's playAll, which plays the shuffle mix.)
+MENU_ACTIONS.push({ id: "about", title: "About", icon: "󰋽",
+  applies: function(item, ctx) { return ctx.page === true && ctx.pageKind === "artist" && ctx.about === true },
+  run: function(env) { if (env.owner && typeof env.owner.openAbout === "function") env.owner.openAbout() } })
+
+if (typeof module !== "undefined") {
+  Object.assign(module.exports, {
+    pagePartial: pagePartial,
+    pageSubtitle: pageSubtitle,
+    artistHeader: artistHeader,
+    artistSubtitle: artistSubtitle,
+    artistShuffleItem: artistShuffleItem,
+    artistRadioItem: artistRadioItem,
+    hasAbout: hasAbout,
+    aboutItem: aboutItem,
+    linkUrl: linkUrl,
+    aboutPage: aboutPage
+  })
+}
+
+// ==== library (S2) ==========================================================================
+// The Library tab's chips: Playlists (the default), Songs, Albums and
+// Artists (S8 and S10 push Podcasts and Uploads), switched with h / l and
+// kept in prefs.libraryChip. A chip's list is its worker method's, fetched
+// only once the chip is shown and read about 50 at a time (Store's
+// loadLibraryList / loadLibraryMore). O cycles a chip's sort orders, kept
+// per chip in prefs.libraryOrders as the worker's ids: a_to_z, z_to_a,
+// recently_added, or menu:<n> for an option only the served menu has (Most
+// songs). Recent activity (the library landing) and Subscriptions open as
+// pages, their orders shown as chips there.
+
+var LIBRARY_CHIPS = [
+  { key: "playlists", title: "Playlists", method: "libraryPlaylists" },
+  { key: "songs", title: "Songs", method: "librarySongs" },
+  { key: "albums", title: "Albums", method: "libraryAlbums" },
+  { key: "artists", title: "Artists", method: "libraryArtists" }
+]
+// The Songs chip's first row: YouTube's shuffle of the whole library.
+var LIBRARY_SHUFFLE = "library:shuffle"
+var LIBRARY_SONGS_TITLE = "Library songs"
+
+function libraryChipSpec(key) {
+  for (var i = 0; i < LIBRARY_CHIPS.length; i++) if (LIBRARY_CHIPS[i].key === key) return LIBRARY_CHIPS[i]
+  return null
+}
+
+// A chip that exists (a saved one a newer plugin added may not).
+function libraryChip(key) {
+  return libraryChipSpec(key) ? key : LIBRARY_CHIPS[0].key
+}
+
+// h / l: the chip before or after, wrapping around.
+function nextLibraryChip(key, delta) {
+  var at = 0
+  for (var i = 0; i < LIBRARY_CHIPS.length; i++) if (LIBRARY_CHIPS[i].key === key) at = i
+  var n = LIBRARY_CHIPS.length
+  return LIBRARY_CHIPS[((at + (delta < 0 ? -1 : 1)) % n + n) % n].key
+}
+
+// prefs.libraryOrders[chip], or null for the order YouTube has saved.
+function libraryOrderOf(orders, chip) {
+  var value = orders && typeof orders === "object" ? orders[chip] : undefined
+  return value === undefined || value === null ? null : value
+}
+
+// A copy of prefs.libraryOrders with chip's order set (null removes it).
+function withLibraryOrder(orders, chip, order) {
+  var next = {}
+  for (var key in orders || {}) next[key] = orders[key]
+  if (order === null || order === undefined) delete next[chip]
+  else next[chip] = order
+  return normalizePref("libraryOrders", next)
+}
+
+function sameOrder(a, b) {
+  return canonicalJson(a === undefined ? null : a) === canonicalJson(b === undefined ? null : b)
+}
+
+function _orderAt(orders, current) {
+  var at = -1
+  for (var i = 0; i < orders.length; i++) if (sameOrder(orders[i].index, current)) at = i
+  if (at < 0) for (var j = 0; j < orders.length; j++) if (orders[j].selected) at = j
+  return at
+}
+
+// O: the order after `current` among `orders` ({ index, title, selected }),
+// wrapping around; null when there is nothing to cycle.
+function nextOrder(orders, current) {
+  var list = orders && typeof orders.length === "number" ? orders : []
+  if (list.length < 2) return null
+  return list[(_orderAt(list, current) + 1) % list.length].index
+}
+
+// The served title of the order a list is in ("" when unknown).
+function orderTitle(orders, current) {
+  var list = orders && typeof orders.length === "number" ? orders : []
+  var at = _orderAt(list, current)
+  return at >= 0 ? String(list[at].title || "") : ""
+}
+
+// A worker reply (a page, or libraryPlaylists' { items }) as the flat list
+// the Store keeps for a chip.
+function libraryList(result) {
+  var r = result && typeof result === "object" ? result : {}
+  var items = []
+  if (r.items && typeof r.items.length === "number") items = _validItems(r.items)
+  for (var s = 0; r.sections && s < r.sections.length; s++) items = items.concat(_validItems((r.sections[s] || {}).items))
+  return {
+    items: items, cursor: r.cursor || null, hasMore: !!(r.cursor || r.hasMore), capped: false,
+    orders: r.orders && typeof r.orders.length === "number" ? r.orders : [],
+    current: r.order === undefined ? null : r.order,
+    header: r.header && typeof r.header === "object" ? r.header : {},
+    message: r.message ? String(r.message) : null
+  }
+}
+
+// `list` with the next cursor page's items appended (Model.appendPage: no
+// repeated album, artist or playlist, at most `max` items).
+function appendLibraryList(list, next, max) {
+  var merged = appendPage({ items: list.items || [], cursor: list.cursor || null },
+                          { items: (next && next.items) || [], cursor: next ? next.cursor || null : null }, max)
+  var out = {}
+  for (var key in list) out[key] = list[key]
+  out.items = merged.items
+  out.cursor = merged.cursor
+  out.hasMore = merged.hasMore
+  out.capped = merged.capped === true
+  return out
+}
+
+// The songs a list holds, in the order trackIndex counts them.
+function libraryTracks(list) {
+  return ((list && list.items) || []).filter(function(item) { return item && item.type === "track" })
+}
+
+// Shuffle all on the Songs chip: the server shuffle as a playable item
+// (tracksFor reads it; the worker routes its id).
+function libraryShuffleItem(list) {
+  var id = list && list.header ? list.header.shuffleId : null
+  return id ? { type: "playlist", playlistId: String(id), title: LIBRARY_SONGS_TITLE } : null
+}
+
+// YouTube's shuffle (shuffleId) or radio (radioId) mix of an artist row
+// (library artists and subscriptions carry both), as a mix item; else null.
+function artistMix(item, key) {
+  if (!item || item.type !== "artist" || !item[key]) return null
+  return { type: "playlist", playlistId: String(item[key]), title: String(item.name || item.title || "") }
+}
+
+var _LIBRARY_ENTRIES = {
+  landing: { type: "libraryLanding", title: "Recent activity", subtitle: "What you played and saved lately", thumb: null },
+  subscriptions: { type: "librarySubscriptions", title: "Subscriptions", subtitle: "Artists you subscribe to", thumb: null }
+}
+
+function _entry(name) {
+  var out = {}
+  for (var key in _LIBRARY_ENTRIES[name]) out[key] = _LIBRARY_ENTRIES[name][key]
+  return out
+}
+
+// The Library list for a chip. `data` is the chip's list (libraryList's
+// shape; for Playlists only its orders and current), `playlists` the
+// library's playlists. Playlists: Liked Music, History and Recent activity,
+// then your playlists and saved ones (Liked Music and Episodes for later
+// have rows of their own). Songs: Shuffle all, then the songs (Enter plays
+// the loaded ones from there). Artists: Subscriptions, then the artists.
+// The first heading names the order ("Albums, A to Z"); a list with more
+// ends in Load more.
+function libraryRows(chip, data, playlists) {
+  var list = data || {}
+  var label = orderTitle(list.orders, list.current)
+  var titled = false
+  var rows = []
+  function heading(title) {
+    var text = !titled && label ? title + ", " + label : title
+    titled = true
+    rows.push({ header: true, title: text })
+  }
+  if (chip === "playlists") {
+    rows.push({ item: { type: "liked", title: "Liked Music", thumb: null } },
+              { item: { type: "history", title: "History", thumb: null } },
+              { item: _entry("landing") })
+    var owned = []
+    var saved = []
+    for (var i = 0; i < (playlists || []).length; i++) {
+      var p = playlists[i]
+      if (isSpecialPlaylist(p)) continue
+      if (p.owned) owned.push(p)
+      else saved.push(p)
+    }
+    if (owned.length) heading("Your playlists")
+    for (var j = 0; j < owned.length; j++) rows.push({ item: owned[j] })
+    if (saved.length) heading("Saved playlists")
+    for (var k = 0; k < saved.length; k++) rows.push({ item: saved[k] })
+    return rows
+  }
+  var spec = libraryChipSpec(chip)
+  var items = _validItems(list.items)
+  if (chip === "artists") rows.push({ item: _entry("subscriptions") })
+  if (chip === "songs" && libraryShuffleItem(list))
+    rows.push({ item: { type: "action", id: LIBRARY_SHUFFLE, title: "Shuffle all", icon: "󰒝" } })
+  if (items.length) heading(spec ? spec.title : chip)
+  var trackIndex = 0
+  for (var n = 0; n < items.length; n++) {
+    var row = { item: items[n] }
+    if (items[n].type === "track") row.trackIndex = trackIndex++
+    rows.push(row)
+  }
+  if (list.message) rows.push({ item: { type: "message", title: String(list.message) } })
+  if (list.capped) rows.push({ item: { type: "message", title: "Showing the first " + items.length } })
+  else if (list.cursor || list.hasMore) rows.push({ item: { type: "loadMore", title: "Load more" } })
+  return rows
+}
+
+// Recent activity: the library landing grid (playlists, albums, artists),
+// in its served orders (Recent activity, Recently saved, Recently played).
+PAGE_KINDS.libraryLanding = {
+  method: "libraryLanding", title: "Recent activity", round: false,
+  params: function() { return {} },
+  id: function() { return "landing" }
+}
+
+// The artists you subscribe to.
+PAGE_KINDS.librarySubscriptions = {
+  method: "librarySubscriptions", title: "Subscriptions", round: false,
+  params: function() { return {} },
+  id: function() { return "subscriptions" }
+}
+
+// Liked Music listed as a playlist (Recent activity, Home) opens as Liked Music.
+PAGE_KINDS.liked.claims = function(item) {
+  return item.type === "playlist" && _stripVl(item.playlistId) === "LM"
+}
+
+// A user channel (Recent activity, Subscriptions) opens as its browse page
+// until S9 gives profiles a page of their own.
+if (!PAGE_KINDS.profile) {
+  PAGE_KINDS.profile = {
+    method: "browsePage", title: "Profile", round: true,
+    params: function(t) { return t.channelId ? { browseId: t.channelId } : null },
+    id: function(t) { return t.channelId }
+  }
+}
+
+if (typeof module !== "undefined") {
+  Object.assign(module.exports, {
+    LIBRARY_CHIPS: LIBRARY_CHIPS,
+    LIBRARY_SHUFFLE: LIBRARY_SHUFFLE,
+    libraryChipSpec: libraryChipSpec,
+    libraryChip: libraryChip,
+    nextLibraryChip: nextLibraryChip,
+    libraryOrderOf: libraryOrderOf,
+    withLibraryOrder: withLibraryOrder,
+    sameOrder: sameOrder,
+    nextOrder: nextOrder,
+    orderTitle: orderTitle,
+    libraryList: libraryList,
+    appendLibraryList: appendLibraryList,
+    libraryTracks: libraryTracks,
+    libraryShuffleItem: libraryShuffleItem,
+    artistMix: artistMix
+  })
+}
+
+// ==== collections (S3) ======================================================================
+// Albums, playlists, mixes, Liked Music and History (the worker's
+// `collection` shape). A playlist or Liked Music first shows 200 to 300
+// songs; when it has more (`truncated`), its songs end in a selectable
+// "Load all N songs" row that reloads it with limit "all" (every song, up
+// to 5000) and keeps the cursor. Under the songs come the page's shelves
+// (an album's other versions and recommendations, a playlist's related
+// playlists). The header shows the byline (album artists and a playlist's
+// author as links), the details and two lines of the description; an
+// About row at the top shows all of it. f filters the songs (title,
+// artists, album; case and accents ignored). A mix (RD..., not RDCLAK or
+// RDPN) opens as the watch playlist it plays.
+
+// Playlists come with their related playlists; History with all YouTube
+// serves (200).
+PAGE_KINDS.playlist.params = function(t) { return t.playlistId ? { playlistId: t.playlistId, related: true } : null }
+PAGE_KINDS.history.params = function() { return { limit: 200 } }
+
+PAGE_KINDS.mix = {
+  method: "playlist", title: "Mix", round: false,
+  claims: function(item) { return item.type === "playlist" && isMixId(item.playlistId) },
+  params: function(t) { return t.playlistId ? { playlistId: _stripVl(t.playlistId) } : null },
+  id: function(t) { return _stripVl(t.playlistId) }
+}
+
+var LOAD_ALL_ID = "loadAll"
+var COLLECTION_ABOUT_ID = "collection:about"
+// Track fields that carry account-bound tokens: kept in memory for the row
+// menus, never in what the shell saves or prints (Service.remember).
+var TOKEN_KEYS = ["libraryTokens", "listenAgainTokens", "historyToken"]
+
+// The params a page is asked with beyond its kind's own: its sort order
+// and, once Load all was chosen, limit "all". Null when neither.
+function pageExtra(order, all) {
+  var extra = null
+  if (order !== null && order !== undefined) extra = { order: order }
+  if (all === true) {
+    extra = extra || {}
+    extra.limit = "all"
+  }
+  return extra
+}
+
+function isCollection(page) {
+  return !!page && page.type === "collection"
+}
+
+// "1,126"
+function groupedCount(n) {
+  return String(Math.max(0, Math.floor(Number(n) || 0))).replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+}
+
+function songsText(n) {
+  return Number(n) === 1 ? "1 song" : groupedCount(n) + " songs"
+}
+
+// The page has more songs than it shows and Load all can bring them.
+function canLoadAll(page) {
+  return isCollection(page) && page.truncated === true && page.capped !== true
+}
+
+// The page can be filtered with f: a page of songs.
+function canFind(page) {
+  return isCollection(page) && (page.tracks || []).length > 0
+}
+
+function loadAllTitle(page) {
+  return "Load all " + (page && page.trackCount ? songsText(page.trackCount) : "songs")
+}
+
+function collectionHeader(page) {
+  return isCollection(page) && page.header && typeof page.header === "object" ? page.header : {}
+}
+
+function collectionDescription(page) {
+  var text = collectionHeader(page).description
+  return typeof text === "string" ? text.trim() : ""
+}
+
+// The header's second line as parts { text, item? }: an album's type,
+// artists (each with a page is a link) and year; a playlist's author (a
+// link to their channel) or its collaborators; "Mix" for a mix.
+function collectionByline(page) {
+  if (!isCollection(page)) return []
+  var header = collectionHeader(page)
+  var groups = []
+  if (page.kind === "album") {
+    if (header.type) groups.push([{ text: String(header.type) }])
+    var names = []
+    var list = header.artists && typeof header.artists.length === "number" ? header.artists : []
+    for (var i = 0; i < list.length; i++) {
+      if (!list[i] || !list[i].name) continue
+      if (names.length) names.push({ text: ", " })
+      names.push(list[i].id ? { text: String(list[i].name), item: { type: "artist", channelId: list[i].id, name: list[i].name, thumb: null } }
+                            : { text: String(list[i].name) })
+    }
+    if (names.length) groups.push(names)
+    if (header.year) groups.push([{ text: String(header.year) }])
+  } else if (page.kind === "playlist") {
+    var author = header.author
+    if (header.collaborators) groups.push([{ text: String(header.collaborators) }])
+    else if (author && author.name)
+      groups.push([String(author.id || "").indexOf("UC") === 0
+        ? { text: String(author.name), item: { type: "profile", channelId: author.id, name: author.name } }
+        : { text: String(author.name) }])
+  } else if (page.kind === "mix") {
+    groups.push([{ text: "Mix" }])
+  }
+  var parts = []
+  for (var g = 0; g < groups.length; g++) {
+    if (g > 0) parts.push({ text: " • " })
+    parts = parts.concat(groups[g])
+  }
+  return parts
+}
+
+// The header's details: your playlist's privacy, the song count, length,
+// views and year, how many songs are unavailable, and how many are shown
+// while there are more.
+function collectionMeta(page, shown) {
+  if (!isCollection(page)) return ""
+  var header = collectionHeader(page)
+  var privacy = header.privacy ? String(header.privacy).charAt(0) + String(header.privacy).slice(1).toLowerCase() : ""
+  var playlist = page.kind === "playlist"
+  return joinParts([
+    privacy,
+    page.trackCount ? songsText(page.trackCount) : "",
+    header.duration || "",
+    playlist && header.views ? groupedCount(header.views) + (header.views === 1 ? " view" : " views") : "",
+    playlist ? header.year || "" : "",
+    page.unavailable > 0 ? groupedCount(page.unavailable) + " unavailable" : "",
+    page.truncated === true ? "showing " + groupedCount(shown === undefined ? (page.tracks || []).length : shown) : ""
+  ])
+}
+
+// ---- find --------------------------------------------------------------------------------
+
+// Lower case without accents ("Beyoncé" finds "beyonce").
+function foldText(text) {
+  var s = String(text === undefined || text === null ? "" : text).toLowerCase()
+  if (typeof s.normalize === "function") s = s.normalize("NFD").replace(/[̀-ͯ]/g, "")
+  return s
+}
+
+function _findText(track) {
+  if (!track || typeof track !== "object") return ""
+  var artists = track.artistText || ""
+  if (!artists && track.artists && typeof track.artists.length === "number")
+    artists = Array.prototype.map.call(track.artists, function(a) { return a && a.name ? a.name : "" }).join(" ")
+  return foldText([track.title || "", artists, track.album && track.album.name ? track.album.name : ""].join("\n"))
+}
+
+// Indexes of the tracks every word of `text` matches (title, artists or
+// album), in order; every index for an empty text.
+function _findIndexes(tracks, text) {
+  var list = tracks || []
+  var words = foldText(text).split(/\s+/).filter(function(w) { return w !== "" })
+  var out = []
+  for (var i = 0; i < list.length; i++) {
+    var hay = words.length ? _findText(list[i]) : ""
+    var all = true
+    for (var w = 0; w < words.length && all; w++) all = hay.indexOf(words[w]) >= 0
+    if (all) out.push(i)
+  }
+  return out
+}
+
+function filterTracks(tracks, text) {
+  var list = tracks || []
+  return _findIndexes(list, text).map(function(i) { return list[i] })
+}
+
+// The songs matching `text` as rows; trackIndex still points into the
+// whole list, so Enter plays the page from that song. History keeps its
+// groups. A message row when nothing matches.
+function findRows(tracks, text, grouped) {
+  var list = tracks || []
+  var rows = []
+  var group = null
+  var hits = _findIndexes(list, text)
+  for (var h = 0; h < hits.length; h++) {
+    var i = hits[h]
+    if (grouped) {
+      var label = list[i].played || "Earlier"
+      if (label !== group) {
+        rows.push({ header: true, title: label })
+        group = label
+      }
+    }
+    rows.push({ item: list[i], trackIndex: i })
+  }
+  if (rows.length === 0) rows.push({ item: { type: "message", title: "No songs match \"" + String(text).trim() + "\"" } })
+  return rows
+}
+
+// ---- rows ----------------------------------------------------------------------------------
+
+// The description in paragraphs (one per line).
+function descriptionParagraphs(text) {
+  return String(text || "").split(/\n+/).map(function(p) { return p.trim() }).filter(function(p) { return p !== "" })
+}
+
+// The About row is shown (and M offers About): the header cut the
+// description short (opts.about) and no filter is on (opts.find).
+function showsAbout(page, opts) {
+  var o = opts || {}
+  return o.about === true && String(o.find || "").trim() === "" && collectionDescription(page) !== ""
+}
+
+// A collection page as rows. opts: { history (group by played), find (the
+// filter's text), about (the header cut the description short: an About
+// row shows it), aboutOpen }. While finding, only the matching songs.
+// Otherwise the songs, Load all while there are more ("Showing the first
+// N" once a whole read stopped at its cap), then the page's shelves
+// (pageRows: a header, the items, See all).
+function collectionRows(page, opts) {
+  var o = opts || {}
+  var rows = []
+  if (!page) return rows
+  var tracks = page.tracks || []
+  var finding = String(o.find || "").trim() !== ""
+  var description = collectionDescription(page)
+  if (showsAbout(page, o)) {
+    rows.push({ item: { type: "action", id: COLLECTION_ABOUT_ID, title: o.aboutOpen ? "Hide the description" : "About",
+                        icon: "󰋽" } })
+    if (o.aboutOpen) {
+      var paragraphs = descriptionParagraphs(description)
+      for (var p = 0; p < paragraphs.length; p++) {
+        rows.push({ item: { type: "text", title: paragraphs[p], paragraph: true } })
+      }
+    }
+  }
+  if (finding) return rows.concat(findRows(tracks, o.find, o.history === true))
+  rows = rows.concat(o.history === true ? historyRows(tracks) : trackRows(tracks))
+  if (canLoadAll(page)) {
+    rows.push({ item: { type: "loadMore", id: LOAD_ALL_ID, title: loadAllTitle(page),
+                        busyTitle: "Loading all " + (page.trackCount ? songsText(page.trackCount) : "songs") + "…" } })
+  } else if (page.capped === true) {
+    rows.push({ item: { type: "message", title: "Showing the first " + songsText(tracks.length) + " of "
+                                              + groupedCount(page.trackCount) } })
+  }
+  var shelves = pageRows({ sections: page.sections || [] })
+  for (var s = 0; s < shelves.length; s++) {
+    // Enter on a shelf's row opens it; trackIndex is for the page's songs.
+    if (shelves[s].trackIndex !== undefined) delete shelves[s].trackIndex
+    rows.push(shelves[s])
+  }
+  return rows
+}
+
+// Where the Load all row is in `rows` (-1 when there is none): G stops
+// there, since the page's shelves come after it.
+function loadAllIndex(rows) {
+  var list = rows || []
+  for (var i = 0; i < list.length; i++) {
+    var item = list[i] && list[i].item
+    if (item && item.type === "loadMore" && item.id === LOAD_ALL_ID) return i
+  }
+  return -1
+}
+
+// The first artist of an album page with a page of their own (A with no
+// song selected), as an item to open; null elsewhere.
+function pageArtistItem(page) {
+  if (!isCollection(page) || page.kind !== "album") return null
+  var artists = linkedArtists({ artists: collectionHeader(page).artists })
+  return artists.length ? { type: "artist", channelId: artists[0].id, name: artists[0].name, thumb: null } : null
+}
+
+// A track without its token fields (what the queue keeps and saves).
+function withoutTokens(track) {
+  if (!track || typeof track !== "object") return track
+  var has = false
+  for (var t = 0; t < TOKEN_KEYS.length; t++) if (track[TOKEN_KEYS[t]] !== undefined) has = true
+  if (!has) return track
+  var out = {}
+  for (var key in track) if (TOKEN_KEYS.indexOf(key) < 0) out[key] = track[key]
+  return out
+}
+
+// M on a collection page: the twins of Load all, the About row and f.
+MENU_ACTIONS.push(
+  { id: "loadAll", title: function(item, ctx) { return ctx.loadAllTitle || "Load all songs" }, icon: "󰅀",
+    applies: function(item, ctx) { return ctx.page === true && ctx.canLoadAll === true },
+    run: function(env) { if (env.owner && typeof env.owner.loadAll === "function") env.owner.loadAll() } },
+  { id: "find", title: "Find in this list", icon: "󰍉", key: "find",
+    applies: function(item, ctx) { return ctx.page === true && ctx.canFind === true },
+    run: function(env) { if (env.owner && typeof env.owner.find === "function") env.owner.find() } },
+  { id: "collectionAbout", title: function(item, ctx) { return ctx.aboutOpen ? "Hide the description" : "About" }, icon: "󰋽",
+    applies: function(item, ctx) { return ctx.page === true && ctx.description === true },
+    run: function(env) { if (env.owner && typeof env.owner.toggleAbout === "function") env.owner.toggleAbout() } })
+
+if (typeof module !== "undefined") {
+  Object.assign(module.exports, {
+    LOAD_ALL_ID: LOAD_ALL_ID,
+    COLLECTION_ABOUT_ID: COLLECTION_ABOUT_ID,
+    TOKEN_KEYS: TOKEN_KEYS,
+    pageExtra: pageExtra,
+    isCollection: isCollection,
+    groupedCount: groupedCount,
+    songsText: songsText,
+    canLoadAll: canLoadAll,
+    canFind: canFind,
+    loadAllTitle: loadAllTitle,
+    collectionHeader: collectionHeader,
+    collectionDescription: collectionDescription,
+    collectionByline: collectionByline,
+    collectionMeta: collectionMeta,
+    foldText: foldText,
+    filterTracks: filterTracks,
+    findRows: findRows,
+    descriptionParagraphs: descriptionParagraphs,
+    showsAbout: showsAbout,
+    collectionRows: collectionRows,
+    loadAllIndex: loadAllIndex,
+    pageArtistItem: pageArtistItem,
+    withoutTokens: withoutTokens
   })
 }
 

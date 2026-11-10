@@ -1,7 +1,10 @@
 import ytm_normalize as norm
 
 TRACK_KEYS = {"type", "videoId", "title", "artists", "artistText", "album", "durationSec", "thumb",
-              "thumbLarge", "explicit", "likeStatus", "setVideoId", "available", "kind", "played"}
+              "thumbLarge", "explicit", "likeStatus", "setVideoId", "available", "kind", "played",
+              # S3: what later slices' row menus act on
+              "trackNumber", "inLibrary", "libraryTokens", "pinned", "listenAgainTokens", "historyToken",
+              "voteStatus"}
 
 
 def test_parse_duration():
@@ -114,13 +117,6 @@ def test_watch_playlist_tracks_use_length_and_thumbnail(load_fixture):
     assert all(isinstance(t["durationSec"], int) and t["thumb"] for t in tracks)
 
 
-def test_artist_page_fixture(load_fixture):
-    page = norm.artist_page("UCtest", load_fixture("artist.json"))
-    assert page["name"]
-    assert page["songs"] and all(s["type"] == "track" for s in page["songs"])
-    assert page["albums"] and all(a["type"] == "album" and a["artists"] for a in page["albums"])
-
-
 def test_song_fixture(load_fixture):
     track = norm.song(load_fixture("song.json"))
     assert set(track) == TRACK_KEYS
@@ -139,11 +135,24 @@ def test_playlist_collection_keeps_set_video_ids():
             {"videoId": "b", "title": "B", "setVideoId": "S2", "duration": "2:00", "isAvailable": False},
         ],
     }
-    col = norm.collection("playlist", data, "PLx")
-    assert col["editable"] and col["owned"] and col["truncated"]
+    col = norm.collection("playlist", data, "PLx", limit=2)
+    assert col["editable"] and col["owned"] and col["truncated"] and col["unavailable"] is None
     assert col["subtitle"] == "Me • 3 songs"
     assert [t["setVideoId"] for t in col["tracks"]] == ["S1", "S2"]
     assert col["tracks"][1]["available"] is False
+
+
+def test_explicit_is_kept_for_tracks_and_albums():
+    assert norm.track({"videoId": "v", "isExplicit": True})["explicit"] is True
+    assert norm.track({"videoId": "v"})["explicit"] is False
+    assert norm.album({"browseId": "MPREb_1", "title": "A", "isExplicit": True})["explicit"] is True
+    assert norm.album({"browseId": "MPREb_1", "title": "A"})["explicit"] is False
+
+
+def test_playlist_keeps_its_served_description():
+    assert norm.playlist({"playlistId": "PL1", "description": "Playlist • YouTube Music"})["description"] == \
+        "Playlist • YouTube Music"
+    assert norm.playlist({"playlistId": "PL1"})["description"] is None
 
 
 def test_liked_collection_is_not_editable():
@@ -196,7 +205,7 @@ def test_page_section_and_more_shapes():
                            None, "carousel")
     assert section == {"type": "section", "title": "Albums", "items": [{"type": "album"}],
                        "more": {"browseId": "MPADUC1", "params": "p", "pageType": None}, "play": None,
-                       "layout": "carousel"}
+                       "layout": "carousel", "key": None}
     page = norm.page("browse", "FEx", "New releases", sections=[section], cursor="c.T")
     assert page["type"] == "page" and page["v"] == 2 and page["hasMore"] is True and page["round"] is False
     assert set(page) == {"type", "v", "kind", "id", "title", "subtitle", "thumb", "thumbLarge", "round", "header",

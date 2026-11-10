@@ -39,10 +39,11 @@ test("pageRef: method + canonical params, so albums, singles and orders never co
 test("pageRef: the existing kinds keep their methods and params", () => {
   const cases = [
     [{ type: "album", browseId: "MPREb_1" }, "album", { browseId: "MPREb_1" }, "MPREb_1"],
-    [{ type: "playlist", playlistId: "PL1" }, "playlist", { playlistId: "PL1" }, "PL1"],
+    // S3: playlists come with their related playlists, History with all 200.
+    [{ type: "playlist", playlistId: "PL1" }, "playlist", { playlistId: "PL1", related: true }, "PL1"],
     [{ type: "artist", channelId: "UC1" }, "artist", { channelId: "UC1" }, "UC1"],
     [{ type: "liked", title: "Liked Music" }, "liked", {}, "LM"],
-    [{ type: "history", title: "History" }, "history", { limit: 100 }, "history"],
+    [{ type: "history", title: "History" }, "history", { limit: 200 }, "history"],
   ]
   for (const [item, method, params, id] of cases) {
     const ref = Model.pageRef(item)
@@ -107,8 +108,9 @@ test("routeEndpoint defaults", () => {
     { type: "browse", browseId: "UC1", params: "p", title: "Videos" })
   assert.deepEqual(Model.routeEndpoint({ browseId: "MPLAUC1", params: "p" }),
     { type: "browse", browseId: "MPLAUC1", params: "p", title: "" })
+  // S1 routes an artist's discography (MPAD + params) to artistAlbums.
   assert.deepEqual(Model.routeEndpoint({ browseId: "MPADUC1", params: "albums", title: "Albums" }),
-    { type: "browse", browseId: "MPADUC1", params: "albums", title: "Albums" })
+    { type: "artistAlbums", browseId: "MPADUC1", params: "albums", title: "Albums" })
   assert.deepEqual(Model.routeEndpoint({ browseId: "FEmusic_new_releases_albums" }),
     { type: "browse", browseId: "FEmusic_new_releases_albums", params: null, title: "" })
   assert.equal(Model.routeEndpoint({}), null)
@@ -163,7 +165,7 @@ test("pageRows: headers, items with per-section trackIndex, See all, message and
   assert.equal(rows[4].sectionIndex, 0)
   assert.deepEqual(rows[4].item.endpoint, { browseId: "VLPL1", params: null, pageType: null })
   assert.deepEqual(Model.moreTarget(rows[4].item), { type: "playlist", playlistId: "PL1", title: "Songs" })
-  assert.deepEqual(Model.moreTarget(rows[9].item), { type: "browse", browseId: "MPADUC1", params: "x", title: "Only more" })
+  assert.deepEqual(Model.moreTarget(rows[9].item), { type: "artistAlbums", browseId: "MPADUC1", params: "x", title: "Only more" })
   assert.deepEqual(Model.sectionTracks(p, 0).map(t => t.videoId), ["a", "b"])
   assert.deepEqual(Model.sectionTracks(p, 9), [])
   assert.deepEqual(Model.pageTracks(p).map(t => t.videoId), ["a", "b", "c"])

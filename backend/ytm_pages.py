@@ -101,6 +101,10 @@ def _reload_token(response, order):
     raise WorkerError("UPSTREAM", "That sort option cannot be loaded")
 
 
+# The reload token of a served option (S2 reads which order it re-sorts by).
+reload_token = _reload_token
+
+
 # ---- fetching ------------------------------------------------------------------------
 
 
@@ -141,6 +145,12 @@ def _unpack(cursor, style):
     return ("ctoken" if style == "reload" else style), cursor
 
 
+def resort(yt, endpoint, body, base, order):
+    """The first page again in the sort option ``order`` (its index in
+    ``sort_options(base)``), from the unsorted response ``base``: one request."""
+    return _send(yt, endpoint, body, get_continuation_string(_reload_token(base, order)))
+
+
 def first_page(yt, endpoint, body, order=None):
     """``(response, http, options, base)``: the first page, re-sorted when
     ``order`` is the index of one of the served sort options. ``base`` is the
@@ -149,8 +159,7 @@ def first_page(yt, endpoint, body, order=None):
     options = sort_options(base)
     if order is None:
         return base, 1, options, base
-    token = _reload_token(base, order)
-    return _send(yt, endpoint, body, get_continuation_string(token)), 2, options, base
+    return resort(yt, endpoint, body, base, order), 2, options, base
 
 
 def fetch(yt, endpoint, body, style, locate, parse, cursor=None, min_items=40, max_http=3, order=None,
@@ -222,7 +231,11 @@ def detect(response):
     if key in ("musicShelfRenderer", "musicPlaylistShelfRenderer"):
         return "shelf", data
     if key == "messageRenderer":
-        return "message", raw.text((data or {}).get("text")) or raw.text((data or {}).get("subtext")) or ""
+        data = data or {}
+        # The text sits in `text`, or under `subtext` (bare or in a messageSubtextRenderer).
+        subtext = data.get("subtext") if isinstance(data.get("subtext"), dict) else {}
+        return "message", raw.text(data.get("text")) or raw.text(subtext) \
+            or raw.text(nav(subtext, ["messageSubtextRenderer", "text"], True)) or ""
     return "sections", found
 
 
@@ -270,7 +283,13 @@ def _header(response):
 # changes what every later request (and the web app) gets without an order.
 SAVED_ORDER_PREFIXES = ("FEmusic_liked_", "FEmusic_library_")
 # Cached methods that read one of those pages without an order.
-ORDER_DEPENDENTS = {"FEmusic_liked_playlists": ("libraryPlaylists",)}
+ORDER_DEPENDENTS = {"FEmusic_liked_playlists": ("libraryPlaylists",),
+                    # S2: the library lists (ytm_library) read their pages in the saved order too.
+                    "FEmusic_liked_videos": ("librarySongs",),
+                    "FEmusic_liked_albums": ("libraryAlbums",),
+                    "FEmusic_library_corpus_track_artists": ("libraryArtists",),
+                    "FEmusic_library_corpus_artists": ("librarySubscriptions",),
+                    "FEmusic_library_landing": ("libraryLanding",)}
 
 
 def saves_order(browse_id):

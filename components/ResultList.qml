@@ -6,7 +6,7 @@ import "../YtmModel.js" as Model
 
 // A flat list of result rows ({ header, title } or { item, trackIndex }):
 // section headers, tracks, collections, and the line rows of pages (See all,
-// Load more, action, message). Owns its keyboard cursor, and keeps it and
+// Load more, action, message, and text: page content shown in full). Owns its keyboard cursor, and keeps it and
 // the scroll position on the same rows by key when the rows change (an
 // append, a background refresh, a removal), unless `listKey` changed.
 ListView {
@@ -21,6 +21,11 @@ ListView {
   property int cursorIndex: -1
   // Track rows get a remove action (playlist pages, Liked Music).
   property bool removable: false
+  // S3: track rows show their album track number instead of the cover (album pages).
+  property bool numbered: false
+  // S3: the row G lands on instead of the last one (a collection's Load
+  // all row, which its shelves follow); -1 for the last row.
+  property int endIndex: -1
   property string removeTooltip: "Remove"
   // The Load more row's state, set by the owner.
   property bool moreBusy: false
@@ -61,8 +66,10 @@ ListView {
   }
 
   function toBottom() {
-    cursorIndex = Model.nextSelectable(_shown, -1, -1)
-    positionViewAtEnd()
+    var end = endIndex >= 0 && endIndex < _shown.length && Model.selectableRow(_shown[endIndex]) ? endIndex : -1
+    cursorIndex = end >= 0 ? end : Model.nextSelectable(_shown, -1, -1)
+    if (end >= 0) positionViewAtIndex(end, ListView.Contain)
+    else positionViewAtEnd()
     if (_shown.length > 0) root.nearEnd()
   }
 
@@ -192,7 +199,7 @@ ListView {
 
   function lineText(item) {
     if (item.type === "loadMore") {
-      if (root.moreBusy) return "Loading more…"
+      if (root.moreBusy) return item.busyTitle ? String(item.busyTitle) : "Loading more…"
       if (root.moreError !== "") return "Couldn't load more: " + root.moreError
     }
     return String(item.title || "")
@@ -249,6 +256,7 @@ ListView {
         showRemove: root.removable
         showMenu: root.hasMenu
         removeTooltip: root.removeTooltip
+        number: root.numbered && row.modelData.item.trackNumber > 0 ? row.modelData.item.trackNumber : 0
         onActivated: root.activated(row.index)
         onPlayNextRequested: root.playNextRequested(row.index)
         onAddToQueueRequested: root.addToQueueRequested(row.index)
@@ -328,18 +336,21 @@ ListView {
     }
 
     // See all, Load more and action rows (selectable, in the query-row
-    // layout; an action row may show its key as a hint on the right), and
-    // message and text rows (plain text, never selected; a text row is page
-    // content, such as a credited name or About the artist, shown in full:
-    // the list scrolls over it, and G shows its end).
+    // layout; an action row may show its key as a hint on the right),
+    // message rows (plain text, never selected) and text rows (page content
+    // shown in full, without a line cap: a credited name or About the artist
+    // with its icon, never selected, so the list scrolls over it and G shows
+    // its end; or a description's paragraph, without an icon, which the
+    // cursor rests on so the keyboard can scroll through, but which does
+    // nothing).
     Component {
       id: lineComponent
 
       Item {
         id: lineRow
         readonly property var line: row.modelData.item
-        readonly property bool selectable: line.type !== "message" && line.type !== "text"
-        readonly property bool content: line.type === "text"
+        readonly property bool isText: line.type === "text"
+        readonly property bool selectable: line.type !== "message" && (!isText || line.paragraph === true)
         readonly property bool highlighted: selectable && row.index === root.cursorIndex
 
         implicitHeight: Math.max(Style.space(32), lineLabel.implicitHeight + Style.space(12))
@@ -353,12 +364,12 @@ ListView {
 
         HoverHandler {
           id: lineHover
-          enabled: lineRow.selectable
+          enabled: lineRow.selectable && !lineRow.isText
         }
 
         MouseArea {
           anchors.fill: parent
-          enabled: lineRow.selectable
+          enabled: lineRow.selectable && !lineRow.isText
           cursorShape: Qt.PointingHandCursor
           onClicked: root.activated(row.index)
         }
@@ -368,6 +379,7 @@ ListView {
           anchors.left: parent.left
           anchors.leftMargin: Style.space(10)
           anchors.verticalCenter: parent.verticalCenter
+          visible: !lineRow.isText || !!lineRow.line.icon
           textFormat: Text.PlainText
           text: root.lineIcon(lineRow.line)
           color: Qt.darker(root.foreground, 1.4)
@@ -390,20 +402,20 @@ ListView {
 
         Text {
           id: lineLabel
-          anchors.left: lineIcon.right
+          anchors.left: lineIcon.visible ? lineIcon.right : parent.left
           anchors.leftMargin: Style.space(10)
           anchors.right: lineHint.visible ? lineHint.left : parent.right
           anchors.rightMargin: Style.space(8)
           anchors.verticalCenter: parent.verticalCenter
           textFormat: Text.PlainText
           text: root.lineText(lineRow.line)
-          color: lineRow.selectable || lineRow.content ? root.foreground : Qt.darker(root.foreground, 1.4)
+          color: lineRow.selectable || lineRow.isText ? root.foreground : Qt.darker(root.foreground, 1.4)
           font.family: root.fontFamily
-          font.pixelSize: lineRow.selectable || lineRow.content ? Style.font.body : Style.font.bodySmall
-          wrapMode: lineRow.selectable ? Text.NoWrap : Text.Wrap
+          font.pixelSize: lineRow.selectable || lineRow.isText ? Style.font.body : Style.font.bodySmall
+          wrapMode: lineRow.selectable && !lineRow.isText ? Text.NoWrap : Text.Wrap
           // undefined resets the cap: a text row has none.
-          maximumLineCount: lineRow.selectable ? 1 : lineRow.content ? undefined : 4
-          elide: Text.ElideRight
+          maximumLineCount: lineRow.isText ? undefined : lineRow.selectable ? 1 : 4
+          elide: lineRow.isText ? Text.ElideNone : Text.ElideRight
         }
       }
     }

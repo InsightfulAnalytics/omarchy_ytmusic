@@ -245,9 +245,9 @@ Item {
     }
     if (fresh) {
       params.cache = "refresh"
-      worker.request(ref.method, params, handle, 30000)
+      worker.request(ref.method, params, handle, loadTimeout(ref))
     } else {
-      _cachedThenFresh(ref.method, params, handle, function(on) { root._setRefreshing(ref.key, on) })
+      _cachedThenFresh(ref.method, params, handle, function(on) { root._setRefreshing(ref.key, on) }, loadTimeout(ref))
     }
   }
 
@@ -295,6 +295,16 @@ Item {
     }, 60000)
   }
 
+  // ---- collections (S3) ------------------------------------------------------------
+  // A whole read (limit "all": every song of a playlist or Liked Music, up
+  // to 5000, about 50 requests on the worker's pages lane) gets 120 s; any
+  // other page 30 s. (History asks for 200: Model's PAGE_KINDS.history.)
+  readonly property int wholeTimeoutMs: 120000
+
+  function loadTimeout(ref) {
+    return ref && ref.params && ref.params.limit === "all" ? wholeTimeoutMs : 30000
+  }
+
   // ---- menu (F3) ------------------------------------------------------------------
   // The collection held for ref, whatever its age (null when none): a whole
   // album or playlist plays from a row without asking the worker again
@@ -334,8 +344,9 @@ Item {
   // Ask with cache "prefer"; if that came from disk, follow up with a refresh.
   // `pending(true)` runs before the disk copy is handled when that refresh
   // follows, `pending(false)` once it has answered (after handling it, if
-  // it worked).
-  function _cachedThenFresh(method, params, handle, pending) {
+  // it worked). `timeoutMs` (default 30 s) applies to each request.
+  function _cachedThenFresh(method, params, handle, pending, timeoutMs) {
+    var wait = timeoutMs > 0 ? timeoutMs : 30000
     var first = ({})
     for (var k in params) first[k] = params[k]
     first.cache = "prefer"
@@ -350,8 +361,8 @@ Item {
       worker.request(method, fresh, function(update) {
         if (update.ok) handle(update)
         if (pending) pending(false)
-      }, 30000)
-    }, 30000)
+      }, wait)
+    }, wait)
   }
 
   // Drops every cached page of that kind and id (all its sort orders), as
@@ -398,9 +409,11 @@ Item {
 
   // ---- sweep (F2) -------------------------------------------------------------------
   // Every minute while anything is cached: drop collections past their TTL
-  // or unseen for 10 min, and searches past theirs. A slice with its own
-  // keyed cache adds it here and to sweepWanted.
-  readonly property bool sweepWanted: collectionCount > 0 || searchCacheSize > 0
+  // or unseen for 10 min, searches past theirs, library lists (S2) unseen
+  // for 10 min, and the now contexts and lyrics (S11) of songs other than
+  // the one playing. A slice with its own keyed cache adds it here and to
+  // sweepWanted.
+  readonly property bool sweepWanted: collectionCount > 0 || searchCacheSize > 0 || libraryListCount > 0
     || nowSweepWanted
 
   function sweep(now) {
@@ -421,6 +434,7 @@ Item {
       else searches[q] = _searches[q]
     }
     if (droppedSearches) _searches = searches
+    _sweepLibraryLists(t)
     _sweepNow(t)
   }
 
@@ -432,35 +446,265 @@ Item {
   }
 
   // ---- library ------------------------------------------------------------------
+  // Every playlist in the library (the Playlists chip and the playlist
+  // picker), in the Playlists chip's order (S2: playlistOrders are the
+  // served ones, playlistOrder the one they came in).
   readonly property int libraryTtlMs: 5 * 60 * 1000
   property var playlists: []
   property bool libraryLoading: false
   property string libraryError: ""
   property real libraryAt: 0
+  property var playlistOrders: []
+  property var playlistOrder: null
+  // The order asked for (null: the one YouTube has saved).
+  property var playlistsRequested: null
+  // The order the held playlists were asked in.
+  property var _playlistsAsked: null
+  property int _librarySeq: 0
 
   // force: skip both the memory and the disk cache (after an edit).
   function loadLibrary(force) {
-    if (libraryLoading) return
-    if (!force && libraryAt > 0 && Date.now() - libraryAt < libraryTtlMs) return
+    // S2: Recent activity lists playlists too (the worker drops its copy
+    // with the same edits).
+    if (force) forgetCollection("libraryLanding")
+    _loadPlaylists(force, libraryOrder("playlists"))
+  }
+
+  function _loadPlaylists(force, order) {
+    var same = Model.sameOrder(order, playlistsRequested)
+    if (!force && same && libraryLoading) return
+    if (!force && same && libraryAt > 0 && Date.now() - libraryAt < libraryTtlMs) return
+    var seq = ++_librarySeq
+    playlistsRequested = order
     libraryLoading = true
     libraryError = ""
+    var params = order !== null ? { order: order } : {}
     var handle = function(reply) {
+      // A newer load (another order, an edit's refresh) replaced this one.
+      if (seq !== root._librarySeq) return
       root.libraryLoading = false
       if (!reply.ok) {
-        if (root.playlists.length === 0) root.libraryError = reply.error.message
+        if (root.playlists.length === 0) {
+          root.libraryError = reply.error.message
+        } else if (!Model.sameOrder(order, root._playlistsAsked)) {
+          // A new order failed over playlists held in another: name theirs
+          // again and say why. prefs keep the new order, so the next load
+          // asks for it again.
+          root.playlistsRequested = root._playlistsAsked
+          root.libraryError = reply.error.message
+        }
         return
       }
       root.libraryError = ""
+      root._playlistsAsked = order
       root.playlists = reply.result.items || []
+      root.playlistOrders = reply.result.orders || []
+      root.playlistOrder = reply.result.order !== undefined ? reply.result.order : null
       root.libraryAt = Date.now()
       root.requestThumbs(Model.collectThumbs(root.playlists))
     }
-    if (force) worker.request("libraryPlaylists", { limit: 200, cache: "refresh" }, handle, 30000)
-    else _cachedThenFresh("libraryPlaylists", { limit: 200 }, handle)
+    if (force) {
+      params.cache = "refresh"
+      worker.request("libraryPlaylists", params, handle, 30000)
+    } else {
+      _cachedThenFresh("libraryPlaylists", params, handle)
+    }
   }
 
   function invalidateLibrary() {
     libraryAt = 0
+  }
+
+  // ---- library (S2) ----------------------------------------------------------------
+  // The Library tab's chip lists other than Playlists (that one is
+  // `playlists` above): chip -> { items, cursor, hasMore, capped, order,
+  // orders, current, header, message, loading, error, at, seenAt, seq,
+  // loadingMore, moreError, moreWanted, refreshing }. `order` is the order
+  // asked for (null: the one YouTube has saved), `current` the one the
+  // items came in. A chip's list is fetched when it is shown
+  // (loadLibraryList: the first page from disk, then fresh; within 5 min
+  // the held list is reused) and grows a cursor page at a time
+  // (loadLibraryMore), at most maxLibraryItems. A refresh replaces the whole
+  // list; a Load more reply from before it is dropped. Orders come from
+  // prefs.libraryOrders (Service binds libraryOrders); setLibraryOrder asks
+  // Service to save the new one (libraryOrderChosen) and reloads in it. The
+  // sweep drops a list unseen for 10 min, except the one shown
+  // (libraryShown, set by LibraryView) and one still loading.
+  readonly property int libraryListTtlMs: 5 * 60 * 1000
+  readonly property int maxLibraryItems: 2000
+  property var libraryLists: ({})
+  property var libraryOrders: ({})
+  property string libraryShown: ""
+  property int _listSeq: 0
+  readonly property int libraryListCount: Object.keys(libraryLists).length
+
+  signal libraryOrderChosen(string chip, var order)
+
+  // The order a chip's list is asked in (prefs), or null.
+  function libraryOrder(chip) {
+    return Model.libraryOrderOf(libraryOrders, chip)
+  }
+
+  // The order a chip's list was asked in last (what the view shows).
+  function requestedOrder(chip) {
+    if (chip === "playlists") return playlistsRequested
+    var entry = libraryLists[chip]
+    return entry ? entry.order : libraryOrder(chip)
+  }
+
+  function _setList(chip, entry) {
+    var next = _copy(libraryLists)
+    next[chip] = entry
+    libraryLists = next
+  }
+
+  // The chip's list with `fields` changed (a new object, so bindings follow).
+  function _patchList(chip, fields) {
+    var entry = libraryLists[chip]
+    if (!entry) return
+    var next = _copy(entry)
+    for (var key in fields) next[key] = fields[key]
+    _setList(chip, next)
+  }
+
+  // force: skip the memory and disk copies (Load more on a disk copy, a
+  // retry). A list held in another order starts over, empty.
+  function loadLibraryList(chip, force) {
+    _loadList(chip, libraryOrder(chip), force)
+  }
+
+  function _loadList(chip, order, force) {
+    if (chip === "playlists") {
+      _loadPlaylists(force, order)
+      return
+    }
+    var spec = Model.libraryChipSpec(chip)
+    if (!spec || !worker) return
+    var entry = libraryLists[chip] || null
+    var now = Date.now()
+    var same = !!entry && Model.sameOrder(entry.order, order)
+    if (!force && same && entry.loading) return
+    if (!force && same && entry.at > 0 && now - entry.at < libraryListTtlMs && entry.error === "") {
+      _patchList(chip, { seenAt: now })
+      return
+    }
+    var seq = ++_listSeq
+    var keep = same && entry.items.length > 0
+    _setList(chip, {
+      items: keep ? entry.items : [], cursor: keep ? entry.cursor : null, hasMore: keep ? entry.hasMore : false,
+      capped: keep ? entry.capped : false, order: order, orders: entry ? entry.orders : [],
+      current: same ? entry.current : order, header: keep ? entry.header : {}, message: keep ? entry.message : null,
+      loading: true, error: "", at: keep ? entry.at : 0, seenAt: now, seq: seq, loadingMore: false, moreError: "",
+      moreWanted: same && entry.moreWanted === true, refreshing: false
+    })
+    var params = order !== null ? { order: order } : {}
+    var handle = function(reply) {
+      var current = root.libraryLists[chip]
+      if (!current || current.seq !== seq) return
+      if (!reply.ok) {
+        // A Load more pressed meanwhile goes on from the held cursor.
+        var more = current.moreWanted === true && !!current.cursor
+        root._patchList(chip, { loading: false, moreWanted: false,
+                                error: current.items.length === 0 ? reply.error.message : "" })
+        if (more) root.loadLibraryMore(chip, false)
+        return
+      }
+      var list = Model.libraryList(reply.result)
+      var wanted = current.moreWanted === true && !reply.cached
+      var fields = { loading: false, error: "", moreError: "", at: Date.now(), seenAt: Date.now() }
+      for (var key in list) fields[key] = list[key]
+      if (wanted) fields.moreWanted = false
+      root._patchList(chip, fields)
+      root.requestThumbs(Model.collectThumbs(list.items))
+      if (wanted) root.loadLibraryMore(chip, false)
+    }
+    // A list already shown is newer than its disk copy: straight to YouTube.
+    if (force || keep) {
+      params.cache = "refresh"
+      worker.request(spec.method, params, handle, 30000)
+    } else {
+      _cachedThenFresh(spec.method, params, handle, function(on) {
+        var current = root.libraryLists[chip]
+        if (!current || current.seq !== seq) return
+        // The refresh ended without a page for us (it failed): a Load more
+        // pressed on the disk copy is spent.
+        root._patchList(chip, on ? { refreshing: true } : { refreshing: false, moreWanted: false })
+      })
+    }
+  }
+
+  // The next cursor page of a chip's list. explicit: Load more was pressed
+  // (on a disk copy, which has no cursor, that refreshes the list, or waits
+  // for the refresh on its way, and then loads more); nearEnd and G pass
+  // false and never refresh. While a refresh of a held list is on its way,
+  // Load more waits for it too: it brings a new cursor (YouTube hands out a
+  // new one with every first page), so a page read from the old one would
+  // be dropped.
+  function loadLibraryMore(chip, explicit) {
+    var entry = libraryLists[chip]
+    var spec = Model.libraryChipSpec(chip)
+    if (!entry || !spec || chip === "playlists" || entry.loadingMore || entry.capped || !worker) return
+    if (entry.loading) {
+      if (explicit && (entry.cursor || entry.hasMore)) _patchList(chip, { moreWanted: true })
+      return
+    }
+    if (!entry.cursor) {
+      if (!explicit || !entry.hasMore) return
+      if (!entry.refreshing) _loadList(chip, entry.order, true)
+      _patchList(chip, { moreWanted: true })
+      return
+    }
+    var seq = entry.seq
+    var cursor = entry.cursor
+    _patchList(chip, { loadingMore: true, moreError: "", seenAt: Date.now() })
+    var params = entry.order !== null ? { order: entry.order } : {}
+    params.cursor = cursor
+    params.cache = "bypass"
+    worker.request(spec.method, params, function(reply) {
+      var current = root.libraryLists[chip]
+      // A refresh replaced the list meanwhile: its own state stands. Under
+      // the same seq (its fresh page landed with a new cursor) this page is
+      // not the next one, but Load more is free again.
+      if (!current || current.seq !== seq || current.cursor !== cursor) {
+        if (current && current.seq === seq && current.loadingMore) root._patchList(chip, { loadingMore: false })
+        return
+      }
+      if (!reply.ok) {
+        root._patchList(chip, { loadingMore: false, moreError: reply.error.message })
+        return
+      }
+      var next = Model.libraryList(reply.result)
+      var merged = Model.appendLibraryList(current, next, root.maxLibraryItems)
+      root._patchList(chip, { items: merged.items, cursor: merged.cursor, hasMore: merged.hasMore,
+                              capped: merged.capped, loadingMore: false, seenAt: Date.now() })
+      root.requestThumbs(Model.collectThumbs(next.items))
+    }, 60000)
+  }
+
+  // O on a chip: Service saves the order (prefs.libraryOrders), the list
+  // reloads in it. null goes back to the order YouTube has saved.
+  function setLibraryOrder(chip, order) {
+    var value = order === undefined ? null : order
+    libraryOrderChosen(chip, value)
+    _loadList(chip, value, false)
+  }
+
+  // chip -> items held (status).
+  function libraryListSizes() {
+    var out = ({})
+    for (var chip in libraryLists) out[chip] = (libraryLists[chip].items || []).length
+    return out
+  }
+
+  function _sweepLibraryLists(t) {
+    var next = null
+    for (var chip in libraryLists) {
+      var entry = libraryLists[chip]
+      if (chip === libraryShown || entry.loading || entry.loadingMore || t - entry.seenAt < unseenMs) continue
+      if (!next) next = _copy(libraryLists)
+      delete next[chip]
+    }
+    if (next) libraryLists = next
   }
 
   // ---- likes (videoId -> "LIKE" | "INDIFFERENT" | "DISLIKE") -----------------------
@@ -626,6 +870,14 @@ Item {
     playlists = []
     libraryAt = 0
     libraryError = ""
+    libraryLoading = false
+    playlistOrders = []
+    playlistOrder = null
+    playlistsRequested = null
+    _playlistsAsked = null
+    _librarySeq++
+    libraryLists = ({})
+    _listSeq++
     shelves = []
     homeAt = 0
     homeError = ""

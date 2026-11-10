@@ -22,8 +22,8 @@ def test_duplicate_method_names_across_modules_raise():
     b = module("ytm_b", METHODS={"thing": noop})
     with pytest.raises(ValueError, match="thing"):
         ytm.merge_registries([a, b])
-    with pytest.raises(ValueError, match="'album'"):
-        ytm.merge_registries([ytm._Core, module("ytm_album", METHODS={"album": noop})])
+    with pytest.raises(ValueError, match="'search'"):
+        ytm.merge_registries([ytm._Core, module("ytm_search", METHODS={"search": noop})])
 
 
 def test_duplicate_recorders_and_settings_raise():

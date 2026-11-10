@@ -41,8 +41,11 @@ import subprocess  # noqa: E402
 import threading  # noqa: E402
 import time  # noqa: E402
 
+import ytm_artist as artist  # noqa: E402
 import ytm_auth as auth  # noqa: E402
 import ytm_cache as caches  # noqa: E402
+import ytm_collections as collections  # noqa: E402
+import ytm_library as library  # noqa: E402
 import ytm_normalize as norm  # noqa: E402
 import ytm_now as now  # noqa: E402
 import ytm_pages as pages  # noqa: E402
@@ -207,38 +210,7 @@ def m_home(worker, params):
     return {"shelves": norm.home(worker.yt.get_home(limit=opt_int(params, "limit", 6, high=20)))}
 
 
-def m_history(worker, params):
-    worker.require_auth()
-    limit = opt_int(params, "limit", 100, high=200)
-    return {"items": norm.normalize_list(worker.yt.get_history()[:limit], norm.track, "history item")}
-
-
-def m_library_playlists(worker, params):
-    worker.require_auth()
-    items = worker.yt.get_library_playlists(limit=opt_int(params, "limit", 100, high=500))
-    return {"items": norm.normalize_list(items, norm.playlist, "library playlist")}
-
-
-def m_playlist(worker, params):
-    playlist_id = req_str(params, "playlistId")
-    data = worker.yt.get_playlist(playlist_id, limit=opt_int(params, "limit", 200, high=5000))
-    return norm.collection("playlist", data, playlist_id)
-
-
-def m_liked(worker, params):
-    worker.require_auth()
-    data = worker.yt.get_liked_songs(limit=opt_int(params, "limit", 200, high=5000))
-    return norm.collection("liked", data, "LM")
-
-
-def m_album(worker, params):
-    browse_id = req_str(params, "browseId")
-    return norm.collection("album", worker.yt.get_album(browse_id), browse_id)
-
-
-def m_artist(worker, params):
-    channel_id = req_str(params, "channelId")
-    return norm.artist_page(channel_id, worker.yt.get_artist(channel_id))
+# history, playlist, liked and album: ytm_collections (S3).
 
 
 def m_song(worker, params):
@@ -354,12 +326,6 @@ CORE_METHODS = {
     "search": m_search,
     "suggestions": m_suggestions,
     "home": m_home,
-    "history": m_history,
-    "libraryPlaylists": m_library_playlists,
-    "playlist": m_playlist,
-    "liked": m_liked,
-    "album": m_album,
-    "artist": m_artist,
     "song": m_song,
     "resolve": m_resolve,
     "warmStreams": m_warm_streams,
@@ -370,31 +336,31 @@ CORE_METHODS = {
     "removeFromPlaylist": m_remove_from_playlist,
     "deletePlaylist": m_delete_playlist,
 }
-CORE_CACHEABLE = {"libraryPlaylists", "liked", "playlist", "album", "artist", "home", "history"}
+CORE_CACHEABLE = {"home"}
 CORE_LANES = {"resolve": "streams", "suggestions": "suggest"}
 # The browsePage pages the core edits change: a playlist's own page, the
 # library's playlist pages, and the liked songs pages.
 _PLAYLIST_PAGE = ("browsePage", Prefixed("VL", "playlistId"), "browseId")
 _LIBRARY_PAGES = ("browsePage", Fixed("FEmusic_liked_playlists", "FEmusic_library_landing"), "browseId")
 _LIKED_PAGES = ("browsePage", Fixed("VLLM", "FEmusic_liked_videos"), "browseId")
+# S2 (ytm_library): the landing's recent activity shows playlists, and a
+# rating can change the library's songs.
+_LANDING = ("libraryLanding", None, None)
 _PLAYLIST_EDIT = [("playlist", "playlistId", "playlistId"), ("libraryPlaylists", None, None), _PLAYLIST_PAGE,
-                  _LIBRARY_PAGES]
+                  _LIBRARY_PAGES, _LANDING]
 CORE_INVALIDATES = {
-    "rate": [("liked", None, None), _LIKED_PAGES],
+    "rate": [("liked", None, None), _LIKED_PAGES, ("librarySongs", None, None)],
     "addToPlaylist": _PLAYLIST_EDIT,
     "removeFromPlaylist": _PLAYLIST_EDIT,
-    "createPlaylist": [("libraryPlaylists", None, None), _LIBRARY_PAGES],
+    "createPlaylist": [("libraryPlaylists", None, None), _LIBRARY_PAGES, _LANDING],
     "deletePlaylist": _PLAYLIST_EDIT,
 }
 CORE_MUTATES = {"rate", "createPlaylist", "addToPlaylist", "removeFromPlaylist", "deletePlaylist"}
 CORE_RECORDERS = {
     "search": lambda yt, p: yt.search(p["query"], filter=p.get("filter"), limit=p.get("limit", 20)),
-    "album": lambda yt, p: yt.get_album(p["browseId"]),
-    "artist": lambda yt, p: yt.get_artist(p["channelId"]),
     "song": lambda yt, p: yt.get_song(p["videoId"]),
     "watch": lambda yt, p: yt.get_watch_playlist(videoId=p["videoId"], limit=p.get("limit", 25), radio=p.get("radio", False)),
     "home": lambda yt, p: yt.get_home(limit=p.get("limit", 3)),
-    "playlist": lambda yt, p: yt.get_playlist(p["playlistId"], limit=p.get("limit", 100)),
 }
 
 
@@ -410,7 +376,7 @@ class _Core:
 
 # Area modules, in a fixed order. A slice that rewrites a core method moves it
 # out of the core tables into its module.
-AREA_MODULES = (pages, play, now)
+AREA_MODULES = (pages, play, now, artist, library, collections)
 
 
 def merge_registries(sources):
