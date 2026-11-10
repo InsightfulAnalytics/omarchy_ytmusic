@@ -184,10 +184,10 @@ def home_key(item):
 def test_a_row_that_raises_is_an_empty_entry(monkeypatch):
     real = raw.parse_row
 
-    def parse_row(row):
+    def parse_row(row, **kwargs):  # S14: Home passes extra= (raw.feedback_fields)
         if "boom" in row:
             raise KeyError("x")
-        return real(row)
+        return real(row, **kwargs)
 
     monkeypatch.setattr(raw, "parse_row", parse_row)
     rows = [carousel("A", [album(1)]), {"boom": {}}, carousel("B", [album(2)])]

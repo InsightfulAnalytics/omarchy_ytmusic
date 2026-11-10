@@ -257,13 +257,14 @@ def row_parts(key, data):
     return None, None, [], None
 
 
-def parse_row(row):
+def parse_row(row, extra=None):
     """One sectionList row as ``{title, items, more, play, layout}``.
 
     Call it once per row and keep the result even when ``items`` is empty, so
     rows stay aligned with the response (ytmusicapi's parse_mixed_content skips
     rows without contents). ``more`` is the See all endpoint, ``play`` the
     header's Play all endpoint. Unknown renderers give an empty row.
+    ``extra`` is passed on to ``items`` (S14: Home's menu tokens).
     """
     out = {"title": None, "items": [], "more": None, "play": None, "layout": None}
     if not isinstance(row, dict) or not row:
@@ -271,7 +272,7 @@ def parse_row(row):
     key, data = next(iter(row.items()))
     if key == "itemSectionRenderer":
         inner = (data or {}).get("contents") or []
-        return parse_row(inner[0]) if len(inner) == 1 else out
+        return parse_row(inner[0], extra) if len(inner) == 1 else out
     if not isinstance(data, dict):
         return out
     layout, title, endpoints, contents = row_parts(key, data)
@@ -279,12 +280,15 @@ def parse_row(row):
     for endpoint in endpoints:
         out["more"] = out["more"] or browse_endpoint(endpoint)
         out["play"] = out["play"] or watch_endpoint(endpoint)
-    out["items"] = items(contents)
+    out["items"] = items(contents, extra)
     return out
 
 
-def items(contents):
-    """Normalized items of a contents/items list; unknown or malformed ones are dropped."""
+def items(contents, extra=None):
+    """Normalized items of a contents/items list; unknown or malformed ones are dropped.
+    ``extra(content, item)`` (optional) returns the item with more of its
+    raw renderer read (S14: ``feedback_fields``); when that fails, the item
+    is kept as it was read."""
     out = []
     for content in contents or []:
         try:
@@ -292,6 +296,11 @@ def items(contents):
         except (KeyError, TypeError, ValueError, IndexError, AttributeError) as exc:
             norm.log(f"skipped malformed item: {type(exc).__name__}")
             continue
+        if value is not None and extra is not None:
+            try:
+                value = extra(content, value)
+            except (KeyError, TypeError, ValueError, IndexError, AttributeError) as exc:
+                norm.log(f"item menu unreadable: {type(exc).__name__}")
         if value is not None:
             out.append(value)
     return out
@@ -482,3 +491,150 @@ def menu_token(menu, icons):
             if token:
                 return token
     return None
+
+
+# ---- Listen again pins and recommendation feedback (S14) ---------------------------
+# Matched by icon, never by text. KEEP is "Pin to Listen again", a toggle:
+# isToggled when the item is pinned, its default endpoint pins and its
+# toggled one unpins. KEEP_OFF is the same toggle served on an item that is
+# pinned (Listen again's own cards, your pinned playlist's header): its
+# default endpoint unpins. NOT_INTERESTED is "Not interested", and
+# REMOVE_CIRCLE "Don't recommend artist" (or "channel", on podcasts); both
+# only on Home's cards. Either opens the web's "Removed from Home" toast,
+# whose Undo button carries its own feedback token (read by structure):
+# sent the same way, it takes the feedback back. Every token is
+# account-bound: the disk cache drops them (ytm_cache), so does the
+# recorder's scrub.
+
+PIN_ICONS = ("KEEP", "KEEP_OFF")
+NOT_INTERESTED_ICONS = ("NOT_INTERESTED",)
+# The plan named REMOVE; the live feed serves REMOVE_CIRCLE.
+DONT_RECOMMEND_ICONS = ("REMOVE_CIRCLE", "REMOVE")
+
+
+def _menu_items(menu):
+    if isinstance(menu, dict) and "menu" in menu:
+        menu = menu["menu"]
+    if isinstance(menu, dict):
+        menu = (menu.get("menuRenderer") or menu).get("items")
+    return menu if isinstance(menu, list) else []
+
+
+def _entry_icon(renderer):
+    return nav(renderer, ["icon", "iconType"], True) or nav(renderer, ["defaultIcon", "iconType"], True)
+
+
+def menu_entry(menu, icons):
+    """The renderer of the first entry of ``menu`` (as ``menu_token`` takes
+    it) whose icon is one of ``icons``, or None."""
+    wanted = {icons} if isinstance(icons, str) else set(icons)
+    for entry in _menu_items(menu):
+        if not isinstance(entry, dict):
+            continue
+        renderer = next((entry[k] for k in _MENU_RENDERERS if isinstance(entry.get(k), dict)), None)
+        if renderer is not None and _entry_icon(renderer) in wanted:
+            return renderer
+    return None
+
+
+def _feedback_token(renderer, key):
+    token = nav(renderer, [key, "feedbackEndpoint", "feedbackToken"], True)
+    return token if isinstance(token, str) and token else None
+
+
+def pin_state(menu):
+    """``{pinned, listenAgainTokens: {pin, unpin}}`` of a menu's Listen again
+    toggle, or None when it has none (or no token)."""
+    entry = menu_entry(menu, PIN_ICONS)
+    if entry is None:
+        return None
+    default = _feedback_token(entry, "defaultServiceEndpoint") or _feedback_token(entry, "serviceEndpoint")
+    toggled = _feedback_token(entry, "toggledServiceEndpoint")
+    toggled_on = entry.get("isToggled") is True
+    if _entry_icon(entry) == "KEEP":
+        pinned, pin, unpin = toggled_on, default, toggled
+    else:
+        pinned, pin, unpin = not toggled_on, toggled, default
+    if not pin and not unpin:
+        return None
+    return {"pinned": pinned, "listenAgainTokens": {"pin": pin, "unpin": unpin}}
+
+
+# Where an album's or playlist's header sits (your own playlist's inside
+# an editable header); an artist's is the response's own header.
+_TAB_HEADER = ["contents", "twoColumnBrowseResultsRenderer", "tabs", 0, "tabRenderer", "content",
+               "sectionListRenderer", "contents", 0]
+
+
+def header_menu(response):
+    """The menu of a page's header (``{"menuRenderer": ...}`` or a renderer's
+    ``menu``), or None: an artist's header carries it, an album's or
+    playlist's has it among its buttons."""
+    if not isinstance(response, dict):
+        return None
+    top = response.get("header")
+    data = next(iter(top.values()), None) if isinstance(top, dict) and top else None
+    if isinstance(data, dict) and isinstance(data.get("menu"), dict):
+        return data["menu"]
+    header = nav(response, _TAB_HEADER, True)
+    if isinstance(header, dict) and isinstance(header.get("musicEditablePlaylistDetailHeaderRenderer"), dict):
+        header = header["musicEditablePlaylistDetailHeaderRenderer"].get("header")
+    data = header.get("musicResponsiveHeaderRenderer") if isinstance(header, dict) else None
+    for button in (data.get("buttons") if isinstance(data, dict) else None) or []:
+        if isinstance(button, dict) and isinstance(button.get("menuRenderer"), dict):
+            return button
+    return None
+
+
+def header_pin(response):
+    """``pin_state`` of a page header's menu: an album's, a playlist's or an artist's."""
+    return pin_state(header_menu(response))
+
+
+# Where a feedback entry's toast keeps its Undo token, under each of
+# serviceEndpoint.feedbackEndpoint.actions.
+_UNDO_PATH = ("openPopupAction", "popup", "notificationActionRenderer", "actionButton", "buttonRenderer",
+              "command", "feedbackEndpoint", "feedbackToken")
+
+
+def _undo_token(renderer):
+    """The Undo token of the toast a feedback entry opens, or None."""
+    actions = nav(renderer, ["serviceEndpoint", "feedbackEndpoint", "actions"], True) if renderer else None
+    for action in actions if isinstance(actions, list) else []:
+        value = action
+        for key in _UNDO_PATH:
+            value = value.get(key) if isinstance(value, dict) else None
+        if isinstance(value, str) and value:
+            return value
+    return None
+
+
+def item_feedback(menu):
+    """``{notInterested, dontRecommend, notInterestedUndo, dontRecommendUndo}``
+    tokens of a Home card's menu (None where it has none), or None when it
+    has neither entry. An Undo token only comes with its entry's."""
+    not_interested = menu_entry(menu, NOT_INTERESTED_ICONS)
+    dont_recommend = menu_entry(menu, DONT_RECOMMEND_ICONS)
+    out = {"notInterested": _feedback_token(not_interested, "serviceEndpoint") if not_interested else None,
+           "dontRecommend": _feedback_token(dont_recommend, "serviceEndpoint") if dont_recommend else None}
+    out["notInterestedUndo"] = _undo_token(not_interested) if out["notInterested"] else None
+    out["dontRecommendUndo"] = _undo_token(dont_recommend) if out["dontRecommend"] else None
+    return out if out["notInterested"] or out["dontRecommend"] else None
+
+
+def feedback_fields(content, value):
+    """``items``'s ``extra`` for Home: ``value`` (the item read from
+    ``content``) with ``pinned`` and ``listenAgainTokens`` when its menu has
+    the Listen again toggle, and ``feedback`` when it has Not interested or
+    Don't recommend. An item whose menu has neither comes back as it is."""
+    data = next(iter(content.values()), None) if isinstance(content, dict) and len(content) == 1 else None
+    menu = data.get("menu") if isinstance(data, dict) else None
+    if not isinstance(menu, dict) or not isinstance(value, dict):
+        return value
+    pin = pin_state(menu)
+    if pin is not None:
+        value = dict(value, **pin)
+    feedback = item_feedback(menu)
+    if feedback is not None:
+        value = dict(value, feedback=feedback)
+    return value

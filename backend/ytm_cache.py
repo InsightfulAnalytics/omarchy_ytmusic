@@ -63,20 +63,24 @@ def strip_cursors(result):
 # Feedback tokens a track carries (S3: ytm_normalize.track); account-bound,
 # so a copy on disk drops them and the fresh read that follows brings them.
 TOKEN_KEYS = ("libraryTokens", "listenAgainTokens", "historyToken")
+# S14: a Home card's Not interested / Don't recommend tokens (not a track
+# key, so tracks need not carry it; stripped the same way).
+FEEDBACK_KEYS = ("feedback",)
+_STRIPPED = TOKEN_KEYS + FEEDBACK_KEYS
 
 
 def strip_tokens(value):
-    """A copy of ``value`` without TOKEN_KEYS at any depth (the same object
-    when it holds none)."""
+    """A copy of ``value`` without TOKEN_KEYS (and FEEDBACK_KEYS) at any
+    depth (the same object when it holds none)."""
     if isinstance(value, list):
         out = [strip_tokens(v) for v in value]
         return value if all(a is b for a, b in zip(out, value)) else out
     if not isinstance(value, dict):
         return value
-    changed = any(k in value for k in TOKEN_KEYS)
+    changed = any(k in value for k in _STRIPPED)
     out = {}
     for k, v in value.items():
-        if k in TOKEN_KEYS:
+        if k in _STRIPPED:
             continue
         stripped = strip_tokens(v)
         changed = changed or stripped is not v

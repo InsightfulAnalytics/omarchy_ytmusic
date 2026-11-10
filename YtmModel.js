@@ -1662,7 +1662,7 @@ var KEYS = [
   { id: "menu", group: "Menus", keys: ["m", "."], title: "the row's menu (or right-click)" },
   { id: "pageMenu", group: "Menus", keys: ["M"], title: "the page's menu (Library: account)" },
   { id: "order", group: "Menus", keys: ["O"], title: "next sort order on a page that has one" },
-  { id: "find", group: "Menus", keys: ["f"], title: "find in a page's songs (album, playlist, Liked Music, History)" },
+  { id: "find", group: "Menus", keys: ["f"], title: "find in a page's songs (album, playlist, Liked Music, History) or the suggested artists" },
   { id: "help", group: "Menus", keys: ["?"], title: "these keys" }
 ]
 
@@ -4173,5 +4173,409 @@ if (typeof module !== "undefined") {
     pickerAddOptions: pickerAddOptions,
     duplicatePrompt: duplicatePrompt,
     pickerAfterReply: pickerAfterReply
+  })
+}
+
+// ==== recommendations (S14) ================================================================
+// The web's recommendation controls, through the worker's feedback and
+// setTasteProfile:
+// - Pin to / Unpin from Listen again on songs (S3's listenAgainTokens),
+//   Home's cards (albums, playlists, artists, podcasts: the tokens their
+//   menu came with) and on the page menu (M) of an album, playlist, Liked
+//   Music or artist (the header's pin, withPagePin). YouTube may ignore an
+//   unpin; the notice says so.
+// - Not interested and Don't recommend artist (or channel) on Home's cards:
+//   a second press within 4 s, then the card leaves Home at once and comes
+//   back when YouTube says no (withoutHomeItem / withHomeItems). Like the
+//   web's "Removed from Home" toast, Home's menu (M) then offers Undo for
+//   a while (HOME_UNDO_MS): the card's own Undo token puts it back.
+// - The taste builder: Library's account menu (M) opens "Add artists you
+//   like", a page of YouTube's suggestions. f finds, Enter marks or
+//   unmarks an artist here, and the "Add N artists" row sends the marked
+//   ones after a second press. Adding is all the API does: the page says
+//   so, as YouTube does not say which artists were picked before.
+// What is pinned lives in the Store ("recommendations (S14)"), keyed by
+// pinKey; Service.fillMenuState puts it in a menu's ctx as `pinned`.
+
+// The shell keeps a Home card's feedback tokens out of what it saves, as
+// it does a song's (withoutTokens).
+TOKEN_KEYS.push("feedback")
+
+var PIN_ICON = "󰐃"
+var LISTEN_AGAIN_ID = "FEmusic_listen_again"
+var TASTE_ADD_ID = "taste:add"
+var TASTE_ARTIST_PREFIX = "taste:artist:"
+var TASTE_TITLE = "Add artists you like"
+var TASTE_NOTE = "Marked artists are added to what YouTube recommends from. Adding is all this can do:"
+  + " YouTube does not say which artists you picked before, and taking one out is done on the web."
+// The most one add sends (the worker's TASTE_MAX), above every suggestion
+// list seen (889 names).
+var TASTE_ADD_MAX = 1000
+// How long Home's menu offers Undo after a Not interested or Don't recommend.
+var HOME_UNDO_MS = 120000
+
+// ---- Listen again pins ------------------------------------------------------------------
+
+// Where the Store keeps an item's pin: its kind and id ("" when it has none).
+function pinKey(item) {
+  if (!item || typeof item !== "object") return ""
+  var kind = menuKind(item)
+  if (kind === "track") return "track:" + item.videoId
+  if (kind === "album") return "album:" + (item.browseId || _stripVl(item.playlistId))
+  if (kind === "playlist" || kind === "mix") return "playlist:" + _stripVl(item.playlistId)
+  if (kind === "liked") return "playlist:LM"
+  if (kind === "artist") return "artist:" + item.channelId
+  var id = item.browseId || item.channelId || item.videoId
+  return item.type && id ? String(item.type) + ":" + String(id) : ""
+}
+
+// The item's Listen again tokens ({ pin, unpin }), or null. Rows from a
+// disk copy and songs in the queue have none.
+function pinTokens(item) {
+  var tokens = item && typeof item === "object" ? item.listenAgainTokens : null
+  return tokens && typeof tokens === "object" && (tokens.pin || tokens.unpin) ? tokens : null
+}
+
+// Pinned now: an edit made here (`map`, by pinKey), else what the item
+// says (its row, or its page header's pin).
+function pinnedState(item, map) {
+  var key = pinKey(item)
+  var known = key ? stateOf(map, key) : null
+  return known !== null ? known : !!item && typeof item === "object" && item.pinned === true
+}
+
+// A menu's ctx.pinned when filled (Service.fillMenuState), else the item's own.
+function _pinnedIn(item, ctx) {
+  return ctx && ctx.pinned !== undefined && ctx.pinned !== null ? ctx.pinned === true : pinnedState(item, null)
+}
+
+// The menu offers Pin when the item is not pinned and has the pin token,
+// Unpin when it is and has the unpin token.
+function canPin(item, pinned) {
+  var tokens = pinTokens(item)
+  if (!tokens) return false
+  return pinned === true ? !!tokens.unpin : !!tokens.pin
+}
+
+// A page header's pin (album, playlist, Liked Music, artist): { pinned,
+// listenAgainTokens } (a disk copy has no tokens), or null.
+function pagePin(page) {
+  var pin = page && page.header && typeof page.header === "object" ? page.header.pin : null
+  return pin && typeof pin === "object" ? pin : null
+}
+
+// The page item (CollectionView.pageItem, a copy) with its header's pin,
+// so the page menu's entry pins the page itself. A disk copy's header has
+// no tokens: the item keeps the ones it was opened with (a Home card's).
+function withPagePin(item, page) {
+  var pin = pagePin(page)
+  if (!item || !pin) return item
+  item.pinned = pin.pinned === true
+  if (pinTokens(pin)) item.listenAgainTokens = pin.listenAgainTokens
+  return item
+}
+
+// The page a row's or a page menu's token came from, which the worker
+// then drops from its cache: an album, a playlist (Liked Music is LM), an
+// artist; null for anything else (Home's cards, Search, the queue).
+function pinSource(ref) {
+  var kind = ref ? ref.kind : ""
+  var params = ref && ref.params ? ref.params : {}
+  if (kind === "album" && params.browseId) return { browseId: String(params.browseId) }
+  if (kind === "playlist" && params.playlistId) return { playlistId: _stripVl(params.playlistId) }
+  if (kind === "liked") return { playlistId: "LM" }
+  if (kind === "artist" && params.channelId) return { channelId: String(params.channelId) }
+  return null
+}
+
+// The worker's feedback params: one token, and the page it came from.
+function feedbackParams(token, source) {
+  var params = { tokens: [String(token)] }
+  var from = source || {}
+  for (var i = 0; i < 3; i++) {
+    var key = ["browseId", "playlistId", "channelId"][i]
+    if (from[key]) params[key] = String(from[key])
+  }
+  return params
+}
+
+// ---- Home: Not interested, Don't recommend ----------------------------------------------
+
+// A Home card's { notInterested, dontRecommend } tokens, or null.
+function homeFeedback(item) {
+  var feedback = item && typeof item === "object" ? item.feedback : null
+  return feedback && typeof feedback === "object" && (feedback.notInterested || feedback.dontRecommend) ? feedback : null
+}
+
+// which: "notInterested" | "dontRecommend"; "" when the card has none.
+function homeFeedbackToken(item, which) {
+  var feedback = homeFeedback(item)
+  return feedback && feedback[which] ? String(feedback[which]) : ""
+}
+
+// The token that takes `which` back (the toast's Undo); "" when none.
+function homeUndoToken(item, which) {
+  return which === "notInterested" || which === "dontRecommend" ? homeFeedbackToken(item, which + "Undo") : ""
+}
+
+// Home's menu entry title for the Undo the Store holds (its card's title).
+function homeUndoTitle(title) {
+  return title ? "Undo: put " + title + " back on Home" : "Undo: put it back on Home"
+}
+
+// As the web titles it: a podcast's or an episode's is the channel's.
+function dontRecommendTitle(item) {
+  var type = item && typeof item === "object" ? item.type : ""
+  return type === "podcast" || type === "episode" ? "Don't recommend channel" : "Don't recommend artist"
+}
+
+// Home's shelves without every card that is `item` (by itemKey):
+// { shelves, removed: [{ shelf, index, item }] }; the same shelves array
+// when nothing matched.
+function withoutHomeItem(shelves, item) {
+  var list = shelves || []
+  var key = itemKey(item)
+  var removed = []
+  if (!key) return { shelves: list, removed: removed }
+  var out = list.map(function(shelf, s) {
+    var items = shelf && shelf.items && typeof shelf.items.length === "number" ? shelf.items : null
+    if (!items) return shelf
+    var kept = []
+    for (var i = 0; i < items.length; i++) {
+      if (itemKey(items[i]) === key) removed.push({ shelf: s, index: i, item: items[i] })
+      else kept.push(items[i])
+    }
+    if (kept.length === items.length) return shelf
+    var copy = {}
+    for (var k in shelf) copy[k] = shelf[k]
+    copy.items = kept
+    return copy
+  })
+  return { shelves: removed.length ? out : list, removed: removed }
+}
+
+// The cards `removed` took out, back where they were (on a shelf that is
+// still there and does not hold them again).
+function withHomeItems(shelves, removed) {
+  var out = (shelves || []).slice()
+  var back = (removed || []).slice().sort(function(a, b) { return a.shelf - b.shelf || a.index - b.index })
+  for (var i = 0; i < back.length; i++) {
+    var shelf = out[back[i].shelf]
+    if (!shelf || !shelf.items) continue
+    var items = Array.prototype.slice.call(shelf.items)
+    var key = itemKey(back[i].item)
+    if (items.some(function(it) { return itemKey(it) === key && it !== back[i].item })) continue
+    if (items.indexOf(back[i].item) >= 0) continue
+    items.splice(Math.min(back[i].index, items.length), 0, back[i].item)
+    var copy = {}
+    for (var k in shelf) copy[k] = shelf[k]
+    copy.items = items
+    out[back[i].shelf] = copy
+  }
+  return out
+}
+
+// ---- the taste builder ------------------------------------------------------------------
+
+// What Library's account menu opens (a new object each time).
+function tasteItem() {
+  return { type: "taste", title: TASTE_TITLE }
+}
+
+PAGE_KINDS.taste = {
+  method: "tasteProfile", title: TASTE_TITLE, round: false,
+  params: function() { return {} },
+  id: function() { return "taste" },
+  adapt: function(result) { return tastePage(result) }
+}
+
+// The worker's { artists: [{ name }] } as the page CollectionView shows:
+// the names in served order, once each.
+function tastePage(result) {
+  var names = []
+  var seen = {}
+  var list = result && result.artists && typeof result.artists.length === "number" ? result.artists : []
+  for (var i = 0; i < list.length; i++) {
+    var name = list[i] && list[i].name ? String(list[i].name) : ""
+    if (name === "" || seen["a:" + name]) continue
+    seen["a:" + name] = true
+    names.push(name)
+  }
+  return { type: "taste", kind: "taste", id: "taste", title: TASTE_TITLE,
+           subtitle: names.length === 1 ? "1 suggested artist" : groupedCount(names.length) + " suggested artists",
+           artists: names }
+}
+
+// Marks are a map of "a:" + name (a name may be any text, "constructor" too).
+function isTasteMarked(marked, name) {
+  return !!marked && marked["a:" + name] === true
+}
+
+// Marking `name` is allowed: an unmark always, a mark while fewer than
+// TASTE_ADD_MAX of the page's names are marked.
+function canTasteMark(page, marked, name) {
+  return isTasteMarked(marked, name) || tasteMarked(page, marked).length < TASTE_ADD_MAX
+}
+
+function toggleTasteMark(marked, name) {
+  var next = {}
+  for (var k in marked || {}) next[k] = marked[k]
+  if (next["a:" + name] === true) delete next["a:" + name]
+  else next["a:" + name] = true
+  return next
+}
+
+// The marked names still on the page, in its order.
+function tasteMarked(page, marked) {
+  var names = page && page.artists ? page.artists : []
+  return names.filter(function(name) { return isTasteMarked(marked, name) })
+}
+
+// The name an artist row's action id names ("" for any other id).
+function tasteNameOf(id) {
+  var text = String(id || "")
+  return text.indexOf(TASTE_ARTIST_PREFIX) === 0 ? text.slice(TASTE_ARTIST_PREFIX.length) : ""
+}
+
+function isTasteAction(id) {
+  return id === TASTE_ADD_ID || tasteNameOf(id) !== ""
+}
+
+// Where Down or Enter in the find field goes on the taste page: the first
+// artist shown (never the Add row above them), or -1.
+function firstTasteArtist(rows) {
+  var list = rows || []
+  for (var i = 0; i < list.length; i++) if (list[i] && list[i].item && tasteNameOf(list[i].item.id) !== "") return i
+  return -1
+}
+
+function _artistsText(n) {
+  return n === 1 ? "1 artist" : groupedCount(n) + " artists"
+}
+
+// opts: { armed (the first press was made), sending }.
+function tasteAddTitle(count, opts) {
+  var o = opts || {}
+  if (o.sending) return "Adding " + _artistsText(count) + "…"
+  if (!(count > 0)) return "Add artists: mark the ones you like with Enter first"
+  if (o.armed) return "Really add " + _artistsText(count) + "? They can't be taken out here. Enter again"
+  return "Add " + _artistsText(count)
+}
+
+// The taste page's rows: the Add row, the note, then the suggestions (the
+// ones every word of opts.find matches), each an action row that Enter
+// marks or unmarks. opts: { marked, find, armed, sending }.
+function tasteRows(page, opts) {
+  var o = opts || {}
+  var names = page && page.artists ? page.artists : []
+  var count = tasteMarked(page, o.marked).length
+  var rows = [
+    { item: { type: "action", id: TASTE_ADD_ID, title: tasteAddTitle(count, o), icon: "󰐕",
+              hint: count > 0 && !o.sending ? groupedCount(count) + " marked" : "" } },
+    { item: { type: "message", title: TASTE_NOTE } }
+  ]
+  var words = foldText(o.find || "").split(/\s+/).filter(function(w) { return w !== "" })
+  var shown = 0
+  for (var i = 0; i < names.length; i++) {
+    var folded = foldText(names[i])
+    if (words.length && !words.every(function(w) { return folded.indexOf(w) >= 0 })) continue
+    var on = isTasteMarked(o.marked, names[i])
+    rows.push({ item: { type: "action", id: TASTE_ARTIST_PREFIX + names[i], title: names[i], icon: on ? "󰄲" : "󰄱",
+                        hint: on ? "marked" : "" } })
+    shown++
+  }
+  if (names.length === 0) rows.push({ item: { type: "message", title: "YouTube has no suggestions right now" } })
+  else if (shown === 0) rows.push({ item: { type: "message", title: "No suggested artist matches" } })
+  return rows
+}
+
+// ---- menu entries -------------------------------------------------------------------------
+
+var _RECOMMENDATION_ACTIONS = [
+  { id: "pin", title: function(item, ctx) { return _pinnedIn(item, ctx) ? "Unpin from Listen again" : "Pin to Listen again" },
+    icon: PIN_ICON,
+    applies: function(item, ctx) { return ctx.signedIn === true && canPin(item, _pinnedIn(item, ctx)) },
+    run: function(env) {
+      env.service.setPinned(env.item, !_pinnedIn(env.item, env.ctx), editCallbackOf(env.owner), env.ctx.pinSource || null)
+    } },
+  // Home's cards only (their tokens are Home's); Home's menu has the Undo.
+  { id: "notInterested", title: "Not interested", icon: "󰜺", confirm: "Really not interested? Choose again",
+    applies: function(item, ctx) {
+      return ctx.signedIn === true && ctx.pageKind === "home" && ctx.page !== true && homeFeedbackToken(item, "notInterested") !== ""
+    },
+    run: function(env) { env.service.homeFeedback(env.item, "notInterested") } },
+  { id: "dontRecommend", title: function(item) { return dontRecommendTitle(item) }, icon: "󰍶",
+    confirm: "Really stop recommending it? Choose again",
+    applies: function(item, ctx) {
+      return ctx.signedIn === true && ctx.pageKind === "home" && ctx.page !== true && homeFeedbackToken(item, "dontRecommend") !== ""
+    },
+    run: function(env) { env.service.homeFeedback(env.item, "dontRecommend") } }
+]
+
+// After Copy link, as in the web's menus.
+_insertAfter(MENU_ACTIONS, "share", _RECOMMENDATION_ACTIONS)
+
+// Home (M): the last Not interested or Don't recommend's Undo (ctx.homeUndo
+// is its card's title, from Store.homeUndoTitle), first: before Refresh.
+MENU_ACTIONS.splice(Math.max(0, MENU_ACTIONS.indexOf(menuAction("refresh"))), 0,
+  { id: "homeUndo", title: function(item, ctx) { return homeUndoTitle(ctx.homeUndo) }, icon: "󰕌",
+    applies: function(item, ctx) {
+      return ctx.page === true && ctx.pageKind === "home" && ctx.signedIn === true && typeof ctx.homeUndo === "string"
+    },
+    run: function(env) { env.service.undoHomeFeedback() } })
+
+// Library (M): the account row's taste builder, before Sign out.
+_insertAfter(MENU_ACTIONS, "refresh", [
+  { id: "tasteProfile", title: TASTE_TITLE, icon: "󰢙",
+    applies: function(item, ctx) { return ctx.page === true && ctx.pageKind === "library" && ctx.signedIn === true },
+    run: function(env) { env.panel.push(tasteItem()) } }
+])
+
+// The taste page (M): the Add row's twin and unmarking (f is S3's find).
+MENU_ACTIONS.push(
+  { id: "tasteAdd", title: function(item, ctx) { return tasteAddTitle(ctx.tasteMarked, {}) }, icon: "󰐕",
+    confirm: "Really add them? They can't be taken out here. Choose again",
+    applies: function(item, ctx) { return ctx.page === true && ctx.pageKind === "taste" && ctx.tasteMarked > 0 },
+    run: function(env) { if (env.owner && typeof env.owner.addTaste === "function") env.owner.addTaste(true) } },
+  { id: "tasteClear", title: "Unmark every artist", icon: "󰄱",
+    applies: function(item, ctx) { return ctx.page === true && ctx.pageKind === "taste" && ctx.tasteMarked > 0 },
+    run: function(env) { if (env.owner && typeof env.owner.clearTaste === "function") env.owner.clearTaste() } })
+
+if (typeof module !== "undefined") {
+  Object.assign(module.exports, {
+    PIN_ICON: PIN_ICON,
+    LISTEN_AGAIN_ID: LISTEN_AGAIN_ID,
+    TASTE_ADD_ID: TASTE_ADD_ID,
+    TASTE_ARTIST_PREFIX: TASTE_ARTIST_PREFIX,
+    TASTE_TITLE: TASTE_TITLE,
+    TASTE_NOTE: TASTE_NOTE,
+    TASTE_ADD_MAX: TASTE_ADD_MAX,
+    HOME_UNDO_MS: HOME_UNDO_MS,
+    pinKey: pinKey,
+    pinTokens: pinTokens,
+    pinnedState: pinnedState,
+    canPin: canPin,
+    pagePin: pagePin,
+    withPagePin: withPagePin,
+    pinSource: pinSource,
+    feedbackParams: feedbackParams,
+    homeFeedback: homeFeedback,
+    homeFeedbackToken: homeFeedbackToken,
+    homeUndoToken: homeUndoToken,
+    homeUndoTitle: homeUndoTitle,
+    dontRecommendTitle: dontRecommendTitle,
+    withoutHomeItem: withoutHomeItem,
+    withHomeItems: withHomeItems,
+    tasteItem: tasteItem,
+    tastePage: tastePage,
+    isTasteMarked: isTasteMarked,
+    canTasteMark: canTasteMark,
+    toggleTasteMark: toggleTasteMark,
+    tasteMarked: tasteMarked,
+    tasteNameOf: tasteNameOf,
+    isTasteAction: isTasteAction,
+    firstTasteArtist: firstTasteArtist,
+    tasteAddTitle: tasteAddTitle,
+    tasteRows: tasteRows
   })
 }

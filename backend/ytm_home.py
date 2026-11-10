@@ -11,7 +11,10 @@
   chips are read from the section list's header, as served. Returns
   ``{shelves, chips, cursor, hasMore}``; shelves have the page section
   shape (``norm.section``), plus ``strapline`` when the web shows a line
-  above the title (SIMILAR TO above an artist's name). When the first page
+  above the title (SIMILAR TO above an artist's name). Signed in, a card
+  carries what its menu offers (S14): ``pinned`` and ``listenAgainTokens``
+  (Pin to / Unpin from Listen again) and ``feedback {notInterested,
+  dontRecommend}`` (ytm_feedback sends them). When the first page
   cannot be read at all (no rows, or none it could parse), All falls back
   to ``get_home`` (shelves without See all or Play all, no chips); a chip
   fails instead, since get_home has no chips.
@@ -106,7 +109,9 @@ def parse_rows(contents):
     out = []
     for row in contents or []:
         try:
-            parsed = raw.parse_row(row)
+            # S14: each card keeps its Listen again pin and its Not
+            # interested / Don't recommend tokens (raw.feedback_fields).
+            parsed = raw.parse_row(row, extra=raw.feedback_fields)
             parsed["strapline"] = strapline(row)
         except (KeyError, TypeError, ValueError, IndexError, AttributeError) as exc:
             norm.log(f"skipped a home row: {type(exc).__name__}")

@@ -23,6 +23,12 @@ import "../YtmModel.js" as Model
 // by date or votes asks for Manual order first); Suggestions follow the
 // songs (i adds the one under the cursor, Enter plays it, a Refresh row
 // asks again). Rows show net votes when voting is on.
+//
+// Recommendations (S14): the page menu (M) of an album, playlist, Liked
+// Music or artist pins it to Listen again (its header's pin); the taste
+// page ("Add artists you like", from Library's account menu) lists
+// YouTube's suggested artists: f finds, Enter marks or unmarks one here,
+// and the Add row sends the marked ones after a second press.
 Item {
   id: root
 
@@ -74,6 +80,12 @@ Item {
   property var _pendingMove: null
   property int _movesPending: 0
   property bool _moveFailed: false
+  // ---- recommendations (S14)
+  // The taste page's marked artists (Model.toggleTasteMark's map), and the
+  // add on its way.
+  property var tasteMarks: ({})
+  property bool tasteSending: false
+  property int _tasteSeq: 0
 
   readonly property var store: service ? service.store : null
   readonly property color foreground: bar ? bar.foreground : Color.foreground
@@ -85,12 +97,16 @@ Item {
   readonly property bool isArtist: !!ref && ref.kind === "artist"
   readonly property bool isLiked: !!ref && ref.kind === "liked"
   readonly property bool isHistory: !!ref && ref.kind === "history"
+  readonly property bool isTaste: !!ref && ref.kind === "taste"  // S14
   readonly property bool editable: !!page && page.editable === true
   readonly property bool round: Model.pageRound(ref, page)
   readonly property var tracks: !page ? [] : isPage ? Model.pageTracks(page) : (page.tracks || [])
   // One binding (S13's Suggestions included), so Back's place is looked up
   // in the whole list, never in a half-updated one.
   readonly property var rows: !page ? [] : isPage ? Model.pageRows(page)
+    // S14: the taste page's Add row and suggested artists.
+    : isTaste ? Model.tasteRows(page, { marked: tasteMarks, find: findText, armed: gate.armed(Model.TASTE_ADD_ID),
+                                        sending: tasteSending })
     : _withSuggestions(Model.collectionRows(page, { history: isHistory, find: findText, about: descriptionText.truncated,
                                                     aboutOpen: aboutOpen }))
   // The page shows part of its list (Liked Music past 200 songs, a page with
@@ -173,6 +189,7 @@ Item {
     _moreWanted = false
     gate.reset()
     _resetEdits(view ? view.edits : null)  // S13
+    _resetTaste()  // S14
     _pendingView = view ? (view.list || null) : null
     if (entry) load(false)
   }
@@ -346,6 +363,8 @@ Item {
     else if (item.id === Model.COLLECTION_ABOUT_ID) toggleAbout()
     // S13: Refresh suggestions.
     else if (item.id === Model.SUGGESTIONS_REFRESH_ID) loadSuggestions()
+    // S14: the taste page's Add row, or an artist to mark or unmark.
+    else if (Model.isTasteAction(item.id)) tasteAction(item.id)
     // About (S1): a description link row copies its URL.
     else if (item.url && service) service.copyLink({ type: "link", url: item.url })
   }
@@ -386,7 +405,8 @@ Item {
     var removable = row.item.type === "track" && (editable || isLiked) && !suggestion
     root.itemMenuRequested({ item: row.item, owner: root, index: index,
       ctx: { pageKind: ref ? ref.kind : "", owned: editable, removable: removable, suggestion: suggestion,
-             removeTitle: isLiked ? "Remove from Liked Music" : "Remove from playlist" } })
+             removeTitle: isLiked ? "Remove from Liked Music" : "Remove from playlist",
+             pinSource: Model.pinSource(ref) } })  // S14: the page a song's pin token came from
   }
 
   // The page as an item for its own menu: the opened item, completed from
@@ -401,7 +421,8 @@ Item {
     // S3: an album opened from a link knows its artists from the page (Go to artist).
     if (ref && ref.kind === "album" && Model.linkedArtists(item).length === 0)
       item.artists = Model.collectionHeader(page).artists || []
-    return item
+    // S14: the header's Listen again pin (the page menu's Pin / Unpin).
+    return Model.withPagePin(item, page)
   }
 
   // M: the header buttons' twins, then what the item offers (radio, share,
@@ -410,12 +431,14 @@ Item {
     return { item: pageItem(), owner: root, index: -1, title: title, subtitle: subtitle,
              ctx: { page: true, pageKind: ref ? ref.kind : "", owned: editable, hasTracks: tracks.length > 0,
                     about: hasAbout, canLoadAll: canLoadAll && !loading, loadAllTitle: Model.loadAllTitle(page),
-                    canFind: Model.canFind(page), aboutOpen: aboutOpen,
+                    canFind: Model.canFind(page) || isTaste, aboutOpen: aboutOpen,
                     // The About row is there to show or hide.
                     description: Model.showsAbout(page, { find: findText, about: descriptionText.truncated }),
                     // S4: the header's Save and Subscribe (none until the page has loaded).
                     saved: pageSaved, subscribed: pageSubscribed,
-                    canSavePage: canSavePage, canSubscribePage: canSubscribePage } }
+                    canSavePage: canSavePage, canSubscribePage: canSubscribePage,
+                    // S14: the page's pin token's source, and the taste page's marks.
+                    pinSource: Model.pinSource(ref), tasteMarked: isTaste ? Model.tasteMarked(page, tasteMarks).length : 0 } }
   }
 
   // Play, Shuffle, Queue all (mode now, shuffle, queue; next from the menu).
@@ -470,7 +493,7 @@ Item {
   // f (Panel's find hook): the filter field over the page's songs. A page
   // that shows part of its list loads all of it first.
   function find() {
-    if (!Model.canFind(page)) return false
+    if (!Model.canFind(page) && !isTaste) return false  // S14: the taste page finds artists
     if (canLoadAll) loadAll()
     findOpen = true
     findField.forceActiveFocus()
@@ -769,6 +792,77 @@ Item {
     return true
   }
 
+  // ---- recommendations (S14) -------------------------------------------------------
+
+  function _resetTaste() {
+    _tasteSeq++
+    tasteMarks = ({})
+    tasteSending = false
+  }
+
+  function tasteAction(id) {
+    if (id === Model.TASTE_ADD_ID) addTaste(false)
+    else toggleTaste(Model.tasteNameOf(id))
+  }
+
+  // Enter on an artist: marked here only, until the Add row sends them
+  // (at most Model.TASTE_ADD_MAX at once). A change of marks asks the Add
+  // row's question again.
+  function toggleTaste(name) {
+    if (!isTaste || tasteSending || name === "") return
+    if (!Model.canTasteMark(page, tasteMarks, name)) {
+      if (service) service.failAction("At most " + Model.groupedCount(Model.TASTE_ADD_MAX) + " artists at a time",
+                                      "Add the marked ones first, then mark more")
+      return
+    }
+    gate.reset()
+    tasteMarks = Model.toggleTasteMark(tasteMarks, name)
+  }
+
+  // Down or Enter in the find field: the first artist shown, not the Add
+  // row above them (no cursor when none matches).
+  function _toFirstTasteArtist() {
+    var index = Model.firstTasteArtist(rows)
+    resultList.cursorIndex = index
+    if (index >= 0) resultList.positionViewAtIndex(index, ListView.Contain)
+    else resultList.positionViewAtBeginning()
+  }
+
+  function clearTaste() {
+    gate.reset()
+    tasteMarks = ({})
+  }
+
+  // The Add row (a second press within 4 s sends), and the page menu's
+  // twin (`confirmed`: it asked twice already). Taste picks cannot be
+  // taken out through the API. The marks go once YouTube took them, and
+  // the list is read again (its suggestions change); a name it no longer
+  // suggests, or an unknown outcome, reads it again too.
+  function addTaste(confirmed) {
+    if (!service || !isTaste || tasteSending) return false
+    var names = Model.tasteMarked(page, tasteMarks)
+    if (names.length === 0) {
+      service.failAction("No artists marked", "Press Enter on the artists you like first")
+      return false
+    }
+    if (confirmed !== true && !gate.arm(Model.TASTE_ADD_ID)) return true
+    gate.reset()
+    var seq = _tasteSeq
+    var requested = ref
+    tasteSending = true
+    var sent = service.setTasteProfile(names, function(reply) {
+      if (!root || root._tasteSeq !== seq) return false
+      root.tasteSending = false
+      if (!root.shows(requested)) return false
+      if (reply.ok) root.tasteMarks = ({})
+      if (!reply.ok && !root.service.unsure(reply) && reply.error.code !== "BAD_REQUEST") return false
+      root.load(true)
+      return true
+    })
+    if (!sent) tasteSending = false
+    return sent
+  }
+
   Row {
     id: header
     width: parent.width
@@ -988,7 +1082,7 @@ Item {
     TextField {
       id: findField
       width: parent.width - stopFind.width - parent.spacing
-      placeholderText: "Find songs by title, artist or album"
+      placeholderText: root.isTaste ? "Find artists" : "Find songs by title, artist or album"
       foreground: root.foreground
       font.family: root.fontFamily
 
@@ -998,7 +1092,8 @@ Item {
           event.accepted = true
         } else if (event.key === Qt.Key_Down || event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
           root.leftField()
-          resultList.toTop()
+          if (root.isTaste) root._toFirstTasteArtist()  // S14
+          else resultList.toTop()
           event.accepted = true
         }
       }

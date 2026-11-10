@@ -1084,6 +1084,86 @@ Item {
     if (_holdsOther(lyricsFailed, nowKeep)) lyricsFailed = _onlyKey(lyricsFailed, nowKeep)
   }
 
+  // ---- recommendations (S14) ---------------------------------------------------------
+  // What is pinned to Listen again by an edit made here (pinKey -> true /
+  // false; forgotten again, null, when its outcome is unknown), over what
+  // rows and page headers say; and Home's cards that Not interested or
+  // Don't recommend took out (dropHomeItem), put back when YouTube says no,
+  // with the last one's Undo (homeUndo). reset() clears the pins and the Undo.
+  property var pinned: ({})
+  // { title, token, dropped, at }: what Home's menu (M) can put back, for
+  // Model.HOME_UNDO_MS after `at`; null when nothing.
+  property var homeUndo: null
+
+  function pinnedState(item) {
+    return Model.pinnedState(item, pinned)
+  }
+
+  // Returns what the key held before (for restorePinned).
+  function setPinned(key, value) {
+    var edit = Model.optimistic(pinned, key, value)
+    pinned = edit.map
+    return edit.previous
+  }
+
+  function restorePinned(previous) {
+    pinned = Model.restoreStates(pinned, previous)
+  }
+
+  // Takes `item`'s cards out of the chosen chip's feed: { chip, seq,
+  // removed } for restoreHomeItems, or null when it holds none.
+  function dropHomeItem(item) {
+    var chip = homeChip
+    var entry = homeFeeds[chip]
+    if (!entry) return null
+    var cut = Model.withoutHomeItem(entry.shelves, item)
+    if (cut.removed.length === 0) return null
+    _patchHome(chip, { shelves: cut.shelves })
+    return { chip: chip, seq: entry.seq, removed: cut.removed }
+  }
+
+  // Back where they were, unless that feed was read again meanwhile (it
+  // shows what YouTube has then). True when they went back.
+  function restoreHomeItems(dropped) {
+    if (!dropped) return false
+    var entry = homeFeeds[dropped.chip]
+    if (!entry || entry.seq !== dropped.seq) return false
+    _patchHome(dropped.chip, { shelves: Model.withHomeItems(entry.shelves, dropped.removed) })
+    return true
+  }
+
+  // The card title Home's menu names for its Undo, or null when there is
+  // none (or it is too old).
+  function homeUndoTitle() {
+    return homeUndo && Date.now() - homeUndo.at < Model.HOME_UNDO_MS ? homeUndo.title : null
+  }
+
+  // The Undo, once: it is gone after this (null when there is none).
+  function takeHomeUndo() {
+    var undo = homeUndoTitle() !== null ? homeUndo : null
+    homeUndo = null
+    return undo
+  }
+
+  // Home changed on YouTube (a pin, a taste pick, a card taken out): every
+  // feed held, but `except`'s, is read again when next shown.
+  function staleHome(except) {
+    var next = null
+    for (var chip in homeFeeds) {
+      if ((except !== undefined && except !== null && chip === except) || homeFeeds[chip].at === 0) continue
+      if (!next) next = _copy(homeFeeds)
+      var entry = _copy(homeFeeds[chip])
+      entry.at = 0
+      next[chip] = entry
+    }
+    if (next) homeFeeds = next
+  }
+
+  function _resetRecommendations() {
+    pinned = ({})
+    homeUndo = null
+  }
+
   // ---- cover thumbnails on disk (url -> local path) ------------------------------
   readonly property int maxThumbs: 2000
   property var thumbs: ({})
@@ -1154,6 +1234,7 @@ Item {
     _resetHome()  // home (S5)
     likes = ({})
     _resetActions()  // S4
+    _resetRecommendations()  // S14
     _nowContexts = ({})
     // A failure may have come from the old session. Pending loads clear
     // themselves (every request is answered, at the latest by its timeout).

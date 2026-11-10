@@ -28,11 +28,11 @@ import "YtmModel.js" as Model
 // playlist, Liked Music, recent search) · m / . the row's menu (or
 // right-click) · M the page's menu (Library: account) · O next sort order on
 // a page that has one · f find in a page's songs (album, playlist, Liked
-// Music, History) · e edit your playlist: details, order, voting,
-// collaborators · ? these keys · y cycle the pane under the song: Queue,
-// Lyrics, Related · t cycle the queue tuner chip: All, Discover, Popular and
-// the rest · [ / ] playback speed down / up (0.5x to 2x, kept apart for
-// episodes).
+// Music, History) or the suggested artists · e edit your playlist: details,
+// order, voting, collaborators · ? these keys · y cycle the pane under the
+// song: Queue, Lyrics, Related · t cycle the queue tuner chip: All, Discover,
+// Popular and the rest · [ / ] playback speed down / up (0.5x to 2x, kept
+// apart for episodes).
 // Text keys go through Model.keyId to runKey(); Ctrl and Alt chords are
 // ignored. Views offer optional hooks, checked with typeof: horizontal(dx),
 // cycleOrder(), find(), playNext(i) / addToQueue(i), menu(i), pageMenu(),

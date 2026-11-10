@@ -1790,6 +1790,7 @@ Item {
     if (ctx.ownItem === undefined) ctx.ownItem = saveContext(item).ownItem
     if (ctx.saved === undefined && Model.SAVE_KINDS.indexOf(kind) >= 0) ctx.saved = savedOf(item)
     if (ctx.subscribed === undefined && Model.canSubscribe(item)) ctx.subscribed = subscribedOf(item)
+    if (ctx.pinned === undefined && Model.pinTokens(item)) ctx.pinned = pinnedOf(item)  // S14: Listen again
     if (kind !== "track") return
     if (ctx.inLibrary === undefined) ctx.inLibrary = inLibraryOf(item)
     if (ctx.liked === undefined) ctx.liked = likeStatusOf(item) === "LIKE"
@@ -2021,6 +2022,179 @@ Item {
 
   function toggleDislike(track) {
     return dislike(track, !dislikedOf(track))
+  }
+
+  // ---- recommendations (S14) -------------------------------------------------------
+  // Pin to / Unpin from Listen again (any item whose row or page header
+  // came with the tokens), Home's Not interested and Don't recommend (the
+  // card leaves Home at once; Home's menu then has Undo), and adding
+  // artists to the taste profile.
+  // Sent with retry: false like every edit; a definite error puts the
+  // change back, an unknown outcome reads again what it touched. A pin
+  // edit's `callback` is the owner's (Model.editCallbackOf): it reloads its
+  // page when the outcome is unknown or the token was stale.
+
+  function pinnedOf(item) {
+    return storeItem.pinnedState(item)
+  }
+
+  // pin: true pins, false unpins. source: Model.pinSource of the page the
+  // token came from (its cached copy is dropped).
+  function setPinned(item, pin, callback, source) {
+    var failTitle = pin ? "Couldn't pin to Listen again" : "Couldn't unpin from Listen again"
+    if (!item || !_signedInFor(failTitle)) return false
+    var tokens = Model.pinTokens(item)
+    var token = tokens ? (pin ? tokens.pin : tokens.unpin) : null
+    if (!token) {
+      failAction(failTitle, "This list has no Listen again control for it; open it again")
+      return false
+    }
+    var title = Model.menuKind(item) === "track" ? Model.mediaTitle(item) : Model.itemTitle(item)
+    var key = Model.pinKey(item)
+    var previous = storeItem.setPinned(key, pin === true)
+    var params = Model.feedbackParams(token, source)
+    backend.request("feedback", params, function(reply) {
+      if (root.unsure(reply)) {
+        storeItem.setPinned(key, null)
+        root._forgetPinned(params)
+        root._editUnsure(root._ownerCallback(callback, reply), title)
+        return
+      }
+      if (!reply.ok) {
+        storeItem.restorePinned(previous)
+        if (!Model.staleToken(reply)) {
+          root.failAction(failTitle, reply.error.message)
+          root._ownerCallback(callback, reply)
+        } else if (root._ownerCallback(callback, reply)) {
+          root.notify("This page is out of date; refreshed", title)
+        } else {
+          root.failAction("This list is out of date", "Open it again to change " + title)
+        }
+        return
+      }
+      root._forgetPinned(params)
+      // YouTube is known to keep some unpinned items in Listen again.
+      root.notify(pin ? "Pinned to Listen again" : "Unpinned from Listen again",
+                  pin ? title : title + ". YouTube may keep showing it there for a while")
+      root._ownerCallback(callback, reply)
+    }, 30000, noRetry)
+    return true
+  }
+
+  // What the worker dropped as well: Home (Listen again) and its See all,
+  // and the page the token came from.
+  function _forgetPinned(params) {
+    storeItem.staleHome()
+    storeItem.forgetCollection("browse", Model.LISTEN_AGAIN_ID)
+    if (params.browseId) storeItem.forgetCollection("album", params.browseId)
+    if (params.playlistId === "LM") storeItem.forgetCollection("liked")
+    else if (params.playlistId) storeItem.forgetCollection("playlist", params.playlistId)
+    if (params.channelId) storeItem.forgetCollection("artist", params.channelId)
+  }
+
+  // which: "notInterested" | "dontRecommend", on a Home card (its tokens
+  // are Home's). The menu asked twice. Once YouTube took it, Home's menu
+  // offers Undo (the card's Undo token, as the web's toast does).
+  function homeFeedback(item, which) {
+    var failTitle = which === "notInterested" ? "Couldn't mark it Not interested" : "Couldn't stop recommending it"
+    if (!item || !_signedInFor(failTitle)) return false
+    var token = Model.homeFeedbackToken(item, which)
+    if (token === "") {
+      failAction(failTitle, "Home is out of date; refresh it")
+      return false
+    }
+    var title = Model.itemTitle(item)
+    var undo = Model.homeUndoToken(item, which)
+    var dropped = storeItem.dropHomeItem(item)
+    backend.request("feedback", Model.feedbackParams(token, null), function(reply) {
+      if (root.unsure(reply)) {
+        // The card's fate is YouTube's: Home shows what it has now.
+        storeItem.loadHome(true)
+        root.notify("Not sure the change applied; refreshed", title)
+        return
+      }
+      if (!reply.ok) {
+        storeItem.restoreHomeItems(dropped)
+        if (Model.staleToken(reply)) {
+          storeItem.loadHome(true)
+          root.failAction("Home is out of date; refreshed", "Choose it again on " + title)
+        } else {
+          root.failAction(failTitle, reply.error.message)
+        }
+        return
+      }
+      storeItem.staleHome(dropped ? dropped.chip : null)
+      if (undo === "") {
+        storeItem.homeUndo = null
+        root.notify("Removed from Home", title)
+        return
+      }
+      storeItem.homeUndo = { title: title, token: undo, dropped: dropped, at: Date.now() }
+      root.notify("Removed from Home", title + ". To undo: Home's menu (" + Model.keyHint("pageMenu") + ")")
+    }, 30000, noRetry)
+    return true
+  }
+
+  // Home's menu (M): the last Not interested or Don't recommend taken back
+  // with its Undo token. The card goes back where it was, or Home is read
+  // again when that feed was read since.
+  function undoHomeFeedback() {
+    var failTitle = "Couldn't undo"
+    if (!_signedInFor(failTitle)) return false
+    var undo = storeItem.takeHomeUndo()
+    if (!undo) {
+      failAction(failTitle, "Nothing to undo on Home now")
+      return false
+    }
+    var dropped = undo.dropped
+    backend.request("feedback", Model.feedbackParams(undo.token, null), function(reply) {
+      if (root.unsure(reply)) {
+        storeItem.loadHome(true)
+        root.notify("Not sure the undo applied; refreshed", undo.title)
+        return
+      }
+      if (!reply.ok) {
+        if (Model.staleToken(reply)) storeItem.loadHome(true)
+        root.failAction(failTitle, Model.staleToken(reply) ? "YouTube no longer takes it back; Home refreshed"
+                                                           : reply.error.message)
+        return
+      }
+      if (storeItem.restoreHomeItems(dropped)) storeItem.staleHome(dropped.chip)
+      else {
+        storeItem.staleHome()
+        storeItem.loadHome(true)
+      }
+      root.notify("Back on Home", undo.title)
+    }, 30000, noRetry)
+    return true
+  }
+
+  // names: as tasteProfile served them. callback(reply) is the taste
+  // page's; it returns true when it read the list again.
+  function setTasteProfile(names, callback) {
+    var failTitle = "Couldn't add the artists"
+    if (!names || names.length === 0 || !_signedInFor(failTitle)) return false
+    var what = names.length === 1 ? names[0] : names.length + " artists"
+    backend.request("setTasteProfile", { artists: names }, function(reply) {
+      if (root.unsure(reply)) {
+        storeItem.staleHome()
+        storeItem.forgetCollection("taste")
+        root._editUnsure(root._ownerCallback(callback, reply), what)
+        return
+      }
+      if (!reply.ok) {
+        // A name no longer suggested (BAD_REQUEST): the list is read again.
+        if (reply.error.code === "BAD_REQUEST") storeItem.forgetCollection("taste")
+        root.failAction(failTitle, reply.error.message)
+        root._ownerCallback(callback, reply)
+        return
+      }
+      storeItem.staleHome()
+      storeItem.forgetCollection("taste")
+      root.notify("Added to your taste", what + ". Home will recommend more like them")
+      root._ownerCallback(callback, reply)
+    }, 30000, noRetry)
+    return true
   }
 
   // Open the panel on the search tab with results for `query`.

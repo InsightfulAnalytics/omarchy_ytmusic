@@ -14,6 +14,9 @@
 - ``album({browseId})``: the songs with their numbers, the header (artists,
   description, likeStatus, audio playlist) and the Other versions and
   recommendations shelves, under their served titles.
+- Album, playlist and Liked Music headers carry ``pin`` (S14): the header
+  menu's Listen again toggle, ``{pinned, listenAgainTokens: {pin, unpin}}``
+  (raw.header_pin), or None.
 - ``history({limit?})``: the last songs played (200, all YouTube serves in
   one request), each with its ``played`` group (Today, Yesterday, ...).
 
@@ -79,12 +82,16 @@ class _Reading:
         self.related_title = None
         # S4: the header's library toggle (saved or not; None when it has none).
         self.saved = None
+        # S14: the header's Listen again pin (raw.header_pin), or None.
+        self.pin = None
 
     def __call__(self, endpoint, response):
         if not isinstance(response, dict):
             return
         if self.saved is None:
             self.saved = actions.library_toggle(response)
+        if self.pin is None:
+            self.pin = raw.header_pin(response)  # S14
         songs = nav(response, PLAYLIST_ITEMS, True) or nav(response, CONTINUATION_ITEMS, True)
         if songs:
             self.more = get_continuation_token(songs) is not None
@@ -125,6 +132,8 @@ def read_list(worker, kind, playlist_id, limit, related=False):
     if kind == "playlist" and reading.saved is not None:
         # S4: a playlist that is not yours says whether it is in the library.
         page["header"]["likeStatus"] = actions.like_status(reading.saved)
+    # S14: Pin to / Unpin from Listen again (the page menu's).
+    page["header"]["pin"] = reading.pin
     if limit is None:
         page["capped"] = page["truncated"]
         if len(page["tracks"]) > MAX_TRACKS:
@@ -210,7 +219,10 @@ def m_album(worker, params):
     saved = actions.library_toggle(cap.first("browse"))
     if saved is not None:
         data = dict(data, likeStatus=actions.like_status(saved))
-    return norm.collection("album", data, browse_id, titles=album_titles(cap.first("browse")))
+    page = norm.collection("album", data, browse_id, titles=album_titles(cap.first("browse")))
+    # S14: Pin to / Unpin from Listen again (the page menu's).
+    page["header"]["pin"] = raw.header_pin(cap.first("browse"))
+    return page
 
 
 def m_history(worker, params):

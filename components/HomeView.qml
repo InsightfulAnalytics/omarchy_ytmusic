@@ -9,7 +9,9 @@ import "../YtmModel.js" as Model
 // albums, playlists, mixes, artists and the rest open as pages. A shelf ends
 // in See all when the web has one and in Play all when it plays as a list
 // (the list YouTube generates for it). The mood chips above (All first)
-// switch with h / l or a click and reload Home for that mood.
+// switch with h / l or a click and reload Home for that mood. A card's
+// menu (S14) has Pin to Listen again, Not interested and Don't recommend
+// artist (a second press; the card leaves at once, and M has its Undo).
 Item {
   id: root
 
@@ -83,15 +85,18 @@ Item {
     if (row && Model.canQueue(row.item) && service) service.playItem(row.item, "queue")
   }
 
+  // S14: a card YouTube offers Not interested or a pin for has a menu even
+  // when nothing else applies to it (a podcast).
   function menu(index) {
     var row = resultList.rowAt(index)
-    if (!row || Model.menuKind(row.item) === "") return
+    if (!row || (Model.menuKind(row.item) === "" && !Model.homeFeedback(row.item) && !Model.pinTokens(row.item))) return
     root.itemMenuRequested({ item: row.item, ctx: { pageKind: "home" }, owner: root, index: index })
   }
 
-  // M: the Refresh button's twin.
+  // M: the Refresh button's twin, and (S14) the last removed card's Undo.
   function pageMenu() {
-    return { item: null, ctx: { page: true, pageKind: "home" }, owner: root, index: -1, title: "Home", subtitle: "" }
+    return { item: null, ctx: { page: true, pageKind: "home", homeUndo: store ? store.homeUndoTitle() : null },
+             owner: root, index: -1, title: "Home", subtitle: "" }
   }
 
   // Once the bindings settle (a sign-in or out empties the Store first).

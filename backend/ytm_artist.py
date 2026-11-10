@@ -8,7 +8,8 @@
   ytmusicapi did parse are matched to its keys (songs, albums, ...) by their
   See all endpoint or by their items, never by title, so a section says what
   it holds (``key``); a row nothing matches is a generic section, and a row
-  that fails to parse is left out.
+  that fails to parse is left out. The header carries ``pin`` (S14): its
+  menu's Listen again toggle (raw.header_pin), or None.
 - ``artistAlbums({browseId, params, order?, artist?, cursor?})`` is an
   artist's list of albums, singles or shows (the See all of those shelves,
   ``MPAD...`` + params), read the way get_artist_albums reads it but a page
@@ -301,7 +302,10 @@ def fetch(worker, channel_id):
     rows = raw.rows(response)
     if data is None or _songs_moved(rows):
         data = reparse(yt, channel_id, response)
-    return build(channel_id, data, rows)
+    page = build(channel_id, data, rows)
+    # S14: Pin to / Unpin from Listen again (the header menu's), or None.
+    page["header"]["pin"] = raw.header_pin(response)
+    return page
 
 
 def cached_or_fetch(worker, channel_id, needs):
