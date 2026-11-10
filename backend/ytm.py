@@ -41,6 +41,7 @@ import subprocess  # noqa: E402
 import threading  # noqa: E402
 import time  # noqa: E402
 
+import ytm_actions as actions  # noqa: E402
 import ytm_artist as artist  # noqa: E402
 import ytm_auth as auth  # noqa: E402
 import ytm_cache as caches  # noqa: E402
@@ -390,7 +391,7 @@ class _Core:
 
 # Area modules, in a fixed order. A slice that rewrites a core method moves it
 # out of the core tables into its module.
-AREA_MODULES = (pages, play, artist, library, collections)
+AREA_MODULES = (pages, play, artist, library, collections, actions)
 
 
 def merge_registries(sources):
@@ -693,8 +694,10 @@ class Worker:
             try:
                 result = method(self, params)
             except Exception as exc:
-                # An edit that may have reached YouTube still makes the cache stale.
-                if name in MUTATES and classify(exc).code not in ("BAD_REQUEST", "AUTH_REQUIRED", "AUTH_EXPIRED"):
+                # An edit that may have reached YouTube still makes the cache stale
+                # (S4: not one that failed before it was sent, ytm_proto.unsent).
+                if name in MUTATES and not getattr(exc, "unsent", False) \
+                        and classify(exc).code not in ("BAD_REQUEST", "AUTH_REQUIRED", "AUTH_EXPIRED"):
                     self._invalidate(name, params)
                 raise
             self._store(name, params, result, guard)

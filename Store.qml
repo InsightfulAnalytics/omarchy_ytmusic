@@ -719,6 +719,105 @@ Item {
     likes = next
   }
 
+  // ---- actions (S4) ------------------------------------------------------------------
+  // What the panel knows of the library beyond the lists it read: albums,
+  // playlists and mixes saved (by playlistId, and an album's browseId too),
+  // channels subscribed to (by the channelId rows and pages use), songs in
+  // the library (by videoId), each a boolean set by an edit made here (at
+  // once, put back when the worker says no) or forgotten again (null:
+  // unknown) when its outcome is unknown; and the songs disliked this
+  // session (YouTube reports a disliked song as INDIFFERENT). The states
+  // themselves (savedState and the others) also read the library's
+  // playlists, albums and subscriptions held here and the page's own
+  // header (fallback). reset() clears them.
+  property var saved: ({})
+  property var subscribed: ({})
+  property var inLibrary: ({})
+  property var disliked: ({})
+
+  // item: an album, playlist or mix; fallback: what its page's header says
+  // (true / false), or undefined.
+  function savedState(item, fallback) {
+    var albums = libraryLists.albums || null
+    return Model.savedState(item, {
+      saved: saved, fallback: fallback, playlists: playlists, playlistsLoaded: libraryAt > 0,
+      albums: albums ? albums.items : [], albumsComplete: !!albums && albums.at > 0 && !albums.cursor && !albums.hasMore
+    })
+  }
+
+  // channelId: the page id rows and pages use; fallback: an artist page's
+  // header.subscribed.
+  function subscribedState(channelId, fallback) {
+    var page = cachedCollection(Model.pageRef({ type: "librarySubscriptions" }))
+    var list = page ? Model.libraryList(page) : null
+    return Model.subscribedState(channelId, {
+      subscribed: subscribed, fallback: fallback, subscriptions: list ? list.items : [],
+      subscriptionsComplete: !!list && !list.cursor && !list.hasMore
+    })
+  }
+
+  function inLibraryState(track) {
+    return Model.inLibraryState(track, { inLibrary: inLibrary })
+  }
+
+  function isDisliked(videoId, fallback) {
+    return Model.dislikedState(videoId, likes, disliked, fallback)
+  }
+
+  // A playlist of the library's that is yours.
+  function ownsPlaylist(playlistId) {
+    var id = String(playlistId || "")
+    for (var i = 0; id !== "" && i < playlists.length; i++) if (playlists[i].playlistId === id) return playlists[i].owned === true
+    return false
+  }
+
+  // The edits: each returns what the keys held before (for restore).
+  function setSaved(keys, value) {
+    var edit = Model.optimistic(saved, keys, value)
+    saved = edit.map
+    return edit.previous
+  }
+
+  function setSubscribed(channelId, value) {
+    var edit = Model.optimistic(subscribed, channelId, value)
+    subscribed = edit.map
+    return edit.previous
+  }
+
+  function setInLibrary(videoId, value) {
+    var edit = Model.optimistic(inLibrary, videoId, value)
+    inLibrary = edit.map
+    return edit.previous
+  }
+
+  // true while disliked here; false or null forgets it.
+  function setDisliked(videoId, value) {
+    var edit = Model.optimistic(disliked, videoId, value === true ? true : null)
+    disliked = edit.map
+    return edit.previous
+  }
+
+  // map: "saved" | "subscribed" | "inLibrary" | "disliked".
+  function restore(map, previous) {
+    if (map === "saved") saved = Model.restoreStates(saved, previous)
+    else if (map === "subscribed") subscribed = Model.restoreStates(subscribed, previous)
+    else if (map === "inLibrary") inLibrary = Model.restoreStates(inLibrary, previous)
+    else if (map === "disliked") disliked = Model.restoreStates(disliked, previous)
+  }
+
+  // A chip's list is out of date (an edit changed it): the next show reads
+  // it again, while what it holds stays shown.
+  function staleLibraryList(chip) {
+    if (libraryLists[chip]) _patchList(chip, { at: 0 })
+  }
+
+  function _resetActions() {
+    saved = ({})
+    subscribed = ({})
+    inLibrary = ({})
+    disliked = ({})
+  }
+
   // ---- cover thumbnails on disk (url -> local path) ------------------------------
   readonly property int maxThumbs: 2000
   property var thumbs: ({})
@@ -790,6 +889,7 @@ Item {
     homeAt = 0
     homeError = ""
     likes = ({})
+    _resetActions()  // S4
   }
 
   // ---- tab requests (IPC "search" opens the panel on the search tab) -----------

@@ -29,6 +29,7 @@ ytmusicapi internals (continuation paths), pinned to 1.12.2.
 from ytmusicapi.continuations import CONTINUATION_ITEMS, get_continuation_token
 from ytmusicapi.navigation import SECTION_LIST_CONTINUATION, nav
 
+import ytm_actions as actions
 import ytm_normalize as norm
 import ytm_raw as raw
 from ytm_proto import opt_bool, opt_int, opt_limit, req_str
@@ -76,10 +77,14 @@ class _Reading:
     def __init__(self):
         self.more = None
         self.related_title = None
+        # S4: the header's library toggle (saved or not; None when it has none).
+        self.saved = None
 
     def __call__(self, endpoint, response):
         if not isinstance(response, dict):
             return
+        if self.saved is None:
+            self.saved = actions.library_toggle(response)
         songs = nav(response, PLAYLIST_ITEMS, True) or nav(response, CONTINUATION_ITEMS, True)
         if songs:
             self.more = get_continuation_token(songs) is not None
@@ -117,6 +122,9 @@ def read_list(worker, kind, playlist_id, limit, related=False):
         data, reading = _read(lambda: worker.yt.get_playlist(playlist_id, limit=asked))
     page = norm.collection(kind, data, playlist_id, limit=asked, more=reading.more,
                            titles={"related": reading.related_title})
+    if kind == "playlist" and reading.saved is not None:
+        # S4: a playlist that is not yours says whether it is in the library.
+        page["header"]["likeStatus"] = actions.like_status(reading.saved)
     if limit is None:
         page["capped"] = page["truncated"]
         if len(page["tracks"]) > MAX_TRACKS:
@@ -197,6 +205,11 @@ def m_album(worker, params):
     browse_id = req_str(params, "browseId")
     with raw.capture(("browse",)) as cap:
         data = worker.yt.get_album(browse_id)
+    # S4: ytmusicapi 1.12.2 reads the header's library button without its
+    # isToggled, so every album came back INDIFFERENT; the raw header decides.
+    saved = actions.library_toggle(cap.first("browse"))
+    if saved is not None:
+        data = dict(data, likeStatus=actions.like_status(saved))
     return norm.collection("album", data, browse_id, titles=album_titles(cap.first("browse")))
 
 

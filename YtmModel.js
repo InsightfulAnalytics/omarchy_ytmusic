@@ -2513,3 +2513,360 @@ if (typeof module !== "undefined") {
     withoutTokens: withoutTokens
   })
 }
+
+// ==== actions (S4) ==========================================================================
+// The web's library toggles on every item: Save to library on albums,
+// playlists and mixes (the worker's rateCollection), Subscribe on artists
+// (subscribe), Save to library on a song through the library tokens its
+// row came with (songLibrary), and Dislike (rate DISLIKE; Remove dislike
+// clears it). S saves or subscribes the cursor row, else the page itself;
+// D dislikes the cursor's song, else the one playing, which then skips.
+// What is saved, subscribed, in the library or disliked lives in the
+// Store (its "actions (S4)" section): an edit changes it at once
+// (optimistic) and puts it back when the worker says no (restoreStates).
+// Service.fillMenuState puts it in a menu's ctx: saved, subscribed,
+// inLibrary, liked, disliked and ownItem (the row is your own playlist).
+
+// What can be saved; what can be subscribed to. S9 pushes "profile" and
+// "channel" to SUBSCRIBE_TYPES (their channelId is the one subscribed to).
+var SAVE_KINDS = ["album", "playlist", "mix"]
+var SUBSCRIBE_TYPES = ["artist"]
+// Rows that are no item: S on one of them acts on the page.
+var _CONTROL_ROWS = ["more", "loadMore", "action", "message", "text"]
+
+// The playlist rate_playlist saves: an album's audio playlist, a playlist
+// or mix id without VL; "" when the item has none.
+function savePlaylistId(item) {
+  if (SAVE_KINDS.indexOf(menuKind(item)) < 0) return ""
+  return _stripVl(item.playlistId || "")
+}
+
+// The Store keys an album, playlist or mix is saved under: its playlist id
+// and, for an album, its browseId (an album row may lack the playlist).
+function saveKeys(item) {
+  var keys = []
+  var id = savePlaylistId(item)
+  if (id) keys.push(id)
+  if (menuKind(item) === "album" && item.browseId) keys.push(String(item.browseId))
+  return keys
+}
+
+// An album, a playlist or a mix that is not yours (nor Liked Music or
+// Episodes for later). ctx.ownItem: the Store knows it as yours; a page
+// menu's ctx.owned is the page's.
+function canSave(item, ctx) {
+  var kind = menuKind(item)
+  if (SAVE_KINDS.indexOf(kind) < 0 || saveKeys(item).length === 0) return false
+  if (kind === "album") return true
+  var c = ctx || {}
+  return !isSpecialPlaylist({ playlistId: savePlaylistId(item) }) && item.owned !== true && c.ownItem !== true
+    && !(c.page === true && c.owned === true)
+}
+
+function canSubscribe(item) {
+  return !!item && typeof item === "object" && SUBSCRIBE_TYPES.indexOf(item.type) >= 0 && !!item.channelId
+}
+
+// A song's library tokens ({ add, remove }, S3), or null. Rows from a disk
+// copy and songs in the queue have none.
+function songTokens(track) {
+  var tokens = track && track.type === "track" ? track.libraryTokens : null
+  return tokens && typeof tokens === "object" && (tokens.add || tokens.remove) ? tokens : null
+}
+
+// The row carries the token that adds the song (add) or removes it.
+function canSaveSong(track, add) {
+  var tokens = songTokens(track)
+  return !!tokens && !!(add ? tokens.add : tokens.remove)
+}
+
+// What S does to an item: "save", "subscribe", "saveSong", or "" (nothing).
+function saveAction(item, ctx) {
+  if (canSave(item, ctx)) return "save"
+  if (canSubscribe(item)) return "subscribe"
+  if (songTokens(item)) return "saveSong"
+  return ""
+}
+
+// Where S acts: "row" (the cursor row's item), "page" (no row has the
+// cursor, or the row is no item: See all, Load more, Load all, About, a
+// text line), or "" (an item with nothing to save: a song without library
+// tokens, Liked Music, your own playlist).
+function saveTarget(rowItem, ctx) {
+  if (!rowItem || typeof rowItem !== "object" || _CONTROL_ROWS.indexOf(rowItem.type) >= 0) return "page"
+  return saveAction(rowItem, ctx) !== "" ? "row" : ""
+}
+
+// ---- worker params ---------------------------------------------------------------------
+
+// The channel ids of an item's linked artists: the artist pages an album
+// save or a song's library edit changes ("From your library").
+function editArtistIds(item) {
+  return linkedArtists(item).map(function(a) { return String(a.id) })
+}
+
+// rateCollection: an album by its page (the worker reads its playlist when
+// the row lacks it) and its artists, anything else by its playlist. Null
+// when neither.
+function rateCollectionParams(item, save) {
+  var playlistId = savePlaylistId(item)
+  var rating = save ? "LIKE" : "INDIFFERENT"
+  if (menuKind(item) === "album" && item.browseId) {
+    var params = { kind: "album", browseId: String(item.browseId), rating: rating }
+    if (playlistId) params.playlistId = playlistId
+    var artistIds = editArtistIds(item)
+    if (artistIds.length > 0) params.artistIds = artistIds
+    return params
+  }
+  return playlistId ? { kind: "playlist", playlistId: playlistId, rating: rating } : null
+}
+
+// subscribe: an artist by its page (the worker reads the channel the page
+// subscribes to unless the item names it: subscribeId); any other channel
+// by its own id.
+function subscribeParams(item, on) {
+  if (!canSubscribe(item)) return null
+  var id = String(item.channelId)
+  var params = { pageChannelId: id, subscribe: on === true }
+  if (item.subscribeId) params.channelId = String(item.subscribeId)
+  else if (item.type !== "artist") params.channelId = id
+  return params
+}
+
+// songLibrary: the token that adds the song (add) or removes it, and the
+// song's artists; null when the row has not got the token.
+function songLibraryParams(track, add) {
+  var tokens = songTokens(track)
+  var token = tokens ? (add ? tokens.add : tokens.remove) : null
+  if (!token) return null
+  var params = { videoId: String(track.videoId), token: String(token) }
+  var artistIds = editArtistIds(track)
+  if (artistIds.length > 0) params.artistIds = artistIds
+  return params
+}
+
+// ---- state: known, optimistic, rolled back ------------------------------------------------
+
+// true, false, or null when `map` does not know `key`.
+function stateOf(map, key) {
+  var value = map && key !== undefined && key !== null ? map[key] : undefined
+  return typeof value === "boolean" ? value : null
+}
+
+function firstState(map, keys) {
+  for (var i = 0; i < (keys || []).length; i++) {
+    var known = stateOf(map, keys[i])
+    if (known !== null) return known
+  }
+  return null
+}
+
+function _keyList(keys) {
+  return keys === undefined || keys === null ? [] : (typeof keys === "object" && typeof keys.length === "number" ? keys : [keys])
+}
+
+// A copy of `map` with every key of `keys` set to `value` (a boolean), or
+// left out (anything else: unknown again).
+function stateWith(map, keys, value) {
+  var next = {}
+  for (var k in map || {}) next[k] = map[k]
+  var list = _keyList(keys)
+  for (var i = 0; i < list.length; i++) {
+    if (typeof value === "boolean") next[list[i]] = value
+    else delete next[list[i]]
+  }
+  return next
+}
+
+// An edit shown before the worker answers: { map, previous }, previous
+// being what each key held (null: nothing), for restoreStates.
+function optimistic(map, keys, value) {
+  var list = _keyList(keys)
+  var previous = {}
+  for (var i = 0; i < list.length; i++) previous[list[i]] = stateOf(map, list[i])
+  return { map: stateWith(map, list, value), previous: previous }
+}
+
+// The rollback of `optimistic`: every key back to what it held.
+function restoreStates(map, previous) {
+  var next = stateWith(map, [], null)
+  for (var key in previous || {}) {
+    if (typeof previous[key] === "boolean") next[key] = previous[key]
+    else delete next[key]
+  }
+  return next
+}
+
+function _listHas(list, keys, fields) {
+  var items = list && typeof list.length === "number" ? list : []
+  for (var i = 0; i < items.length; i++) {
+    for (var f = 0; items[i] && f < fields.length; f++) {
+      var value = items[i][fields[f]]
+      if (value && keys.indexOf(_stripVl(String(value))) >= 0) return true
+    }
+  }
+  return false
+}
+
+// Whether an album, playlist or mix is in the library, as far as the panel
+// knows. sources: { saved (the Store's edits), fallback (the page header's
+// likeStatus as a boolean), playlists (the library's, read whole when
+// playlistsLoaded), albums (the library's read so far; albumsComplete when
+// all) }. An edit made here wins, then the page itself, then the lists; a
+// playlist missing from the whole playlist list is not saved. null:
+// unknown (menus then offer Save).
+function savedState(item, sources) {
+  var s = sources || {}
+  var keys = saveKeys(item)
+  if (keys.length === 0) return null
+  var known = firstState(s.saved, keys)
+  if (known !== null) return known
+  if (typeof s.fallback === "boolean") return s.fallback
+  if (_listHas(s.playlists, keys, ["playlistId"]) || _listHas(s.albums, keys, ["playlistId", "browseId"])) return true
+  if (menuKind(item) === "album") return s.albumsComplete === true ? false : null
+  return s.playlistsLoaded === true ? false : null
+}
+
+// Whether a channel is subscribed to. sources: { subscribed (edits),
+// fallback (an artist page's header.subscribed), subscriptions (the
+// Subscriptions page's items, when held; subscriptionsComplete when all) }.
+function subscribedState(channelId, sources) {
+  var s = sources || {}
+  if (!channelId) return null
+  var known = stateOf(s.subscribed, channelId)
+  if (known !== null) return known
+  if (typeof s.fallback === "boolean") return s.fallback
+  if (_listHas(s.subscriptions, [String(channelId)], ["channelId"])) return true
+  return s.subscriptionsComplete === true ? false : null
+}
+
+// Whether a song is in the library: an edit made here, else what its row
+// said (S3's inLibrary), else null.
+function inLibraryState(track, sources) {
+  var s = sources || {}
+  if (!track || !track.videoId) return null
+  var known = stateOf(s.inLibrary, track.videoId)
+  if (known !== null) return known
+  return typeof track.inLibrary === "boolean" ? track.inLibrary : null
+}
+
+// Whether a song is disliked: the Store's likes first; a song disliked
+// here this session stays disliked when a later check reports it
+// INDIFFERENT (YouTube reports disliked songs so); a like undoes it.
+// `fallback` is the row's own likeStatus.
+function dislikedState(videoId, likes, disliked, fallback) {
+  var known = likes ? likes[videoId] : undefined
+  if (known === "DISLIKE") return true
+  if (known === "LIKE") return false
+  if (disliked && disliked[videoId] === true) return true
+  if (known !== undefined && known !== null) return false
+  return fallback === "DISLIKE"
+}
+
+// ---- after an edit ---------------------------------------------------------------------
+
+// A songLibrary token YouTube would not take: the page it came from is
+// out of date (the shell reloads that page once). The worker marks it
+// (error.stale); any other UPSTREAM error is no stale token.
+function staleToken(reply) {
+  return !!reply && reply.ok === false && !!reply.error && reply.error.stale === true && reply.error.unknown !== true
+}
+
+// The owner's callback for an edit's reply: CollectionView's and
+// LibraryView's editCallback() reload the page or chip shown when the
+// edit's outcome is unknown or a token was stale (they return true when
+// they did). Null for owners without one (Search, Home).
+function editCallbackOf(owner) {
+  return owner && typeof owner.editCallback === "function" ? owner.editCallback() : null
+}
+
+// ---- menu entries and keys -------------------------------------------------------------
+
+// A page menu's library entry is the header button's twin (the view's
+// toggleSave() knows the page: an album's header, an artist's subscribe
+// channel; it says so when it has nothing to do).
+function _pageToggle(env) {
+  if (!env.ctx || env.ctx.page !== true || !env.owner || typeof env.owner.toggleSave !== "function") return false
+  env.owner.toggleSave()
+  return true
+}
+
+// On a page menu whose view says what its header offers (ctx.canSavePage,
+// ctx.canSubscribePage), the entry shows only with the button: none while
+// the page loads or after it failed.
+function _headerOffers(ctx, key) {
+  return ctx.page !== true || ctx[key] === undefined || ctx[key] === true
+}
+
+var _LIBRARY_ACTIONS = [
+  { id: "save", title: function(item, ctx) { return ctx.saved === true ? "Remove from library" : "Save to library" },
+    icon: "󰃅", key: "save",
+    applies: function(item, ctx) { return ctx.signedIn === true && canSave(item, ctx) && _headerOffers(ctx, "canSavePage") },
+    run: function(env) {
+      if (!_pageToggle(env)) env.service.saveItem(env.item, env.ctx.saved !== true, editCallbackOf(env.owner))
+    } },
+  { id: "subscribe", title: function(item, ctx) { return ctx.subscribed === true ? "Unsubscribe" : "Subscribe" },
+    icon: "󰀔", key: "save",
+    applies: function(item, ctx) {
+      return ctx.signedIn === true && canSubscribe(item) && _headerOffers(ctx, "canSubscribePage")
+    },
+    run: function(env) {
+      if (!_pageToggle(env)) env.service.subscribe(env.item, env.ctx.subscribed !== true, editCallbackOf(env.owner))
+    } },
+  { id: "saveSong", title: function(item, ctx) { return ctx.inLibrary === true ? "Remove from library" : "Save to library" },
+    icon: "󰃅", key: "save",
+    applies: function(item, ctx) { return ctx.signedIn === true && canSaveSong(item, ctx.inLibrary !== true) },
+    run: function(env) { env.service.setSongLibrary(env.item, env.ctx.inLibrary !== true, editCallbackOf(env.owner)) } },
+  // Liked Music's own rows have Remove from Liked Music already.
+  { id: "like", title: function(item, ctx) { return ctx.liked === true ? "Remove from Liked Music" : "Add to Liked Music" },
+    icon: "󰋕", key: "like",
+    applies: function(item, ctx) { return ctx.signedIn === true && menuKind(item) === "track" && ctx.pageKind !== "liked" },
+    run: function(env) { env.service.setLike(env.item, env.ctx.liked !== true) } },
+  { id: "dislike", title: function(item, ctx) { return ctx.disliked === true ? "Remove dislike" : "Dislike" },
+    icon: "󰔒", key: "dislike",
+    applies: function(item, ctx) { return ctx.signedIn === true && menuKind(item) === "track" },
+    run: function(env) { env.service.dislike(env.item, env.ctx.disliked !== true) } }
+]
+
+// After Start radio, as in the web's menus; S and D after L in the keys.
+function _insertAfter(list, id, entries) {
+  var at = list.length
+  for (var i = 0; i < list.length; i++) if (list[i].id === id) at = i + 1
+  Array.prototype.splice.apply(list, [at, 0].concat(entries))
+}
+
+_insertAfter(MENU_ACTIONS, "radio", _LIBRARY_ACTIONS)
+_insertAfter(KEYS, "like", [
+  { id: "save", group: "Song", keys: ["S"], title: "save to library or subscribe (the row, else the page)" },
+  { id: "dislike", group: "Song", keys: ["D"], title: "dislike the row's song (again to undo) or the one playing, which skips" }
+])
+
+if (typeof module !== "undefined") {
+  Object.assign(module.exports, {
+    SAVE_KINDS: SAVE_KINDS,
+    SUBSCRIBE_TYPES: SUBSCRIBE_TYPES,
+    savePlaylistId: savePlaylistId,
+    saveKeys: saveKeys,
+    canSave: canSave,
+    canSubscribe: canSubscribe,
+    songTokens: songTokens,
+    canSaveSong: canSaveSong,
+    saveAction: saveAction,
+    saveTarget: saveTarget,
+    rateCollectionParams: rateCollectionParams,
+    subscribeParams: subscribeParams,
+    songLibraryParams: songLibraryParams,
+    editArtistIds: editArtistIds,
+    stateOf: stateOf,
+    firstState: firstState,
+    stateWith: stateWith,
+    optimistic: optimistic,
+    restoreStates: restoreStates,
+    savedState: savedState,
+    subscribedState: subscribedState,
+    inLibraryState: inLibraryState,
+    dislikedState: dislikedState,
+    staleToken: staleToken,
+    editCallbackOf: editCallbackOf
+  })
+}

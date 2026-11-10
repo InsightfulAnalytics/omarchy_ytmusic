@@ -808,6 +808,7 @@ Item {
     var previous = likeStatusOf(track)
     var rating = like ? "LIKE" : "INDIFFERENT"
     storeItem.setLike(track.videoId, rating)
+    storeItem.setDisliked(track.videoId, null)  // S4: a like or unlike ends a dislike
     backend.request("rate", { videoId: track.videoId, rating: rating }, function(reply) {
       if (root.unsure(reply)) {
         root.refreshUnsure([{ kind: "liked", id: "LM" }, { kind: "like", id: track.videoId }], Model.mediaTitle(track))
@@ -913,6 +914,284 @@ Item {
       if (callback) callback(reply)
     }, 30000, noRetry)
     return true
+  }
+
+  // ---- library actions (S4) ---------------------------------------------------------
+  // Save to library (albums, playlists, mixes), Subscribe (artists), a
+  // song's Save to library (through its row's library tokens) and Dislike,
+  // done as setLike does: the Store shows the change at once, a definite
+  // error puts it back, and an unknown outcome (the worker stopped or timed
+  // out after the edit went out) forgets it and refreshes what it touched
+  // ("Not sure the change applied; refreshed"). `callback(reply)` is the
+  // owner's (Model.editCallbackOf): it reloads the page or Library list
+  // shown when the outcome is unknown or a song's token was stale, and
+  // returns true then (_ownerCallback). The Library list shown is read
+  // again after every edit that changed it (_refreshLists).
+
+  readonly property bool currentDisliked: !!currentTrack && storeItem.isDisliked(currentTrack.videoId, currentTrack.likeStatus)
+
+  // fallback: what the item's page says (album or playlist header,
+  // artist header), when it is shown.
+  function savedOf(item, fallback) {
+    return storeItem.savedState(item, fallback)
+  }
+
+  function subscribedOf(item, fallback) {
+    return item ? storeItem.subscribedState(item.channelId, fallback) : null
+  }
+
+  function inLibraryOf(track) {
+    return storeItem.inLibraryState(track)
+  }
+
+  function dislikedOf(track) {
+    return !!track && !!track.videoId && storeItem.isDisliked(track.videoId, track.likeStatus)
+  }
+
+  // What saveAction and the menus need to know beyond the item: whether it
+  // is a playlist of yours.
+  function saveContext(item) {
+    var kind = Model.menuKind(item)
+    return { ownItem: (kind === "playlist" || kind === "mix") && storeItem.ownsPlaylist(Model.savePlaylistId(item)) }
+  }
+
+  // Panel.openItemMenu: the states the library entries' titles follow,
+  // for the keys the view left unset.
+  function fillMenuState(item, ctx) {
+    if (!item || !ctx) return
+    var kind = Model.menuKind(item)
+    if (ctx.ownItem === undefined) ctx.ownItem = saveContext(item).ownItem
+    if (ctx.saved === undefined && Model.SAVE_KINDS.indexOf(kind) >= 0) ctx.saved = savedOf(item)
+    if (ctx.subscribed === undefined && Model.canSubscribe(item)) ctx.subscribed = subscribedOf(item)
+    if (kind !== "track") return
+    if (ctx.inLibrary === undefined) ctx.inLibrary = inLibraryOf(item)
+    if (ctx.liked === undefined) ctx.liked = likeStatusOf(item) === "LIKE"
+    if (ctx.disliked === undefined) ctx.disliked = dislikedOf(item)
+  }
+
+  function _signedInFor(title) {
+    if (signedIn) return true
+    failAction(title, "Sign in to use your library")
+    return false
+  }
+
+  // S: whatever the item offers (Model.saveAction), the other way round.
+  function toggleSaveItem(item, callback) {
+    var action = Model.saveAction(item, saveContext(item))
+    if (action === "save") return saveItem(item, savedOf(item) !== true, callback)
+    if (action === "subscribe") return subscribe(item, subscribedOf(item) !== true, callback)
+    if (action === "saveSong") return setSongLibrary(item, inLibraryOf(item) !== true, callback)
+    return false
+  }
+
+  // An album, playlist or mix into the library (save) or out of it.
+  function saveItem(item, save, callback) {
+    var params = Model.rateCollectionParams(item, save === true)
+    var failTitle = save ? "Couldn't save to your library" : "Couldn't remove from your library"
+    if (!params || !_signedInFor(failTitle)) return false
+    var title = Model.itemTitle(item)
+    var keys = Model.saveKeys(item)
+    var previous = storeItem.setSaved(keys, save === true)
+    var lists = params.kind === "album" ? ["albums", "songs", "artists"] : ["playlists"]
+    backend.request("rateCollection", params, function(reply) {
+      if (root.unsure(reply)) {
+        storeItem.setSaved(keys, null)
+        root._forgetSaved(params)
+        var reloaded = root._ownerCallback(callback, reply)
+        root._editUnsure(root._refreshLists(lists, true, reloaded) || reloaded, title)
+        return
+      }
+      if (!reply.ok) {
+        storeItem.restore("saved", previous)
+        root.failAction(failTitle, reply.error.message)
+        root._ownerCallback(callback, reply)
+        return
+      }
+      root._forgetSaved(params)
+      root._refreshLists(lists, false, false)
+      root.notify(save ? "Saved to library" : "Removed from library", title)
+      root._ownerCallback(callback, reply)
+    }, 30000, noRetry)
+    return true
+  }
+
+  // The worker dropped the same (its INVALIDATES). An album brings its
+  // songs and artists into the library too: its artists' pages change
+  // (From your library).
+  function _forgetSaved(params) {
+    if (params.kind === "album") storeItem.forgetCollection("album", params.browseId)
+    if (params.playlistId) {
+      storeItem.forgetCollection("playlist", params.playlistId)
+      storeItem.forgetCollection("mix", params.playlistId)
+    }
+    storeItem.forgetCollection("libraryLanding")
+    if (params.kind === "album") _forgetArtists(params.artistIds)
+  }
+
+  // The artist pages an album save or a song's library edit changed; every
+  // one when the edit named none (the worker drops the same).
+  function _forgetArtists(ids) {
+    if (!ids || ids.length === 0) storeItem.forgetCollection("artist")
+    else for (var i = 0; i < ids.length; i++) storeItem.forgetCollection("artist", ids[i])
+  }
+
+  // The Library lists ("playlists", "songs", "albums", "artists") an edit
+  // changed. The one shown is read again now, the others when next shown;
+  // after an unknown outcome (unsure) every one held is read again too, as
+  // the saved states come from them. shownDone: the owner's callback has
+  // already read the one shown again. True when this read the one shown.
+  function _refreshLists(chips, unsure, shownDone) {
+    var readShown = false
+    for (var i = 0; i < chips.length; i++) {
+      var chip = chips[i]
+      var shown = storeItem.libraryShown === chip
+      var held = chip === "playlists" ? storeItem.playlists.length > 0 : !!storeItem.libraryLists[chip]
+      if (shown && shownDone) continue
+      if (shown || (unsure && held)) {
+        if (chip === "playlists") storeItem.loadLibrary(true)
+        else storeItem.loadLibraryList(chip, true)
+        readShown = readShown || shown
+      } else if (chip === "playlists") {
+        storeItem.invalidateLibrary()
+      } else {
+        storeItem.staleLibraryList(chip)
+      }
+    }
+    return readShown
+  }
+
+  // The owner's callback (Model.editCallbackOf), if any: true when it read
+  // its page again. Its view may be gone by now (Back while the edit was
+  // on its way), and a throw never stops the reply's own handling.
+  function _ownerCallback(callback, reply) {
+    if (!callback) return false
+    try {
+      return callback(reply) === true
+    } catch (e) {
+      console.warn("ytmusic: edit callback failed: " + e)
+      return false
+    }
+  }
+
+  // The notice after an unknown outcome: "refreshed" only when what is
+  // shown was read again (a page, a Library list). Search and Home rows
+  // are not searched or read again: their item is to be opened again.
+  function _editUnsure(reloaded, title) {
+    if (reloaded) notify("Not sure the change applied; refreshed", title)
+    else notify("Not sure the change applied; open it again to check", title)
+  }
+
+  // Subscribe to an artist (on) or unsubscribe.
+  function subscribe(item, on, callback) {
+    var params = Model.subscribeParams(item, on === true)
+    var failTitle = on ? "Couldn't subscribe" : "Couldn't unsubscribe"
+    if (!params || !_signedInFor(failTitle)) return false
+    var title = Model.itemTitle(item)
+    var channelId = item.channelId
+    var previous = storeItem.setSubscribed(channelId, on === true)
+    backend.request("subscribe", params, function(reply) {
+      if (root.unsure(reply)) {
+        storeItem.setSubscribed(channelId, null)
+        root._forgetSubscribed(channelId)
+        var reloaded = root._ownerCallback(callback, reply)
+        root._editUnsure(root._refreshLists(["artists"], true, reloaded) || reloaded, title)
+        return
+      }
+      if (!reply.ok) {
+        storeItem.restore("subscribed", previous)
+        root.failAction(failTitle, reply.error.message)
+        root._ownerCallback(callback, reply)
+        return
+      }
+      root._forgetSubscribed(channelId)
+      root._refreshLists(["artists"], false, false)
+      root.notify(on ? "Subscribed" : "Unsubscribed", title)
+      root._ownerCallback(callback, reply)
+    }, 30000, noRetry)
+    return true
+  }
+
+  function _forgetSubscribed(channelId) {
+    storeItem.forgetCollection("artist", channelId)
+    storeItem.forgetCollection("librarySubscriptions")
+    storeItem.forgetCollection("libraryLanding")
+  }
+
+  // A song into the library (add) or out of it, with the token its row
+  // came with. YouTube refuses a stale one: the owner reloads its page
+  // (once; the next press uses the new tokens).
+  function setSongLibrary(track, add, callback) {
+    var failTitle = add ? "Couldn't save the song" : "Couldn't remove the song"
+    if (!track || !track.videoId || !_signedInFor(failTitle)) return false
+    var params = Model.songLibraryParams(track, add === true)
+    if (!params) {
+      failAction(failTitle, "This list has no library control for it; open its album")
+      return false
+    }
+    var title = Model.mediaTitle(track)
+    var videoId = track.videoId
+    var previous = storeItem.setInLibrary(videoId, add === true)
+    var lists = ["songs", "albums", "artists"]
+    backend.request("songLibrary", params, function(reply) {
+      if (root.unsure(reply)) {
+        storeItem.setInLibrary(videoId, null)
+        root._forgetArtists(params.artistIds)
+        var reloaded = root._ownerCallback(callback, reply)
+        root._editUnsure(root._refreshLists(lists, true, reloaded) || reloaded, title)
+        return
+      }
+      if (!reply.ok) {
+        storeItem.restore("inLibrary", previous)
+        if (!Model.staleToken(reply)) {
+          root.failAction(failTitle, reply.error.message)
+          root._ownerCallback(callback, reply)
+        } else if (root._ownerCallback(callback, reply)) {
+          root.notify("This page is out of date; refreshed", title)
+        } else {
+          root.failAction("This list is out of date", "Open it again to change " + title)
+        }
+        return
+      }
+      root._forgetArtists(params.artistIds)
+      root._refreshLists(lists, false, false)
+      root.notify(add ? "Saved to library" : "Removed from library", title)
+      root._ownerCallback(callback, reply)
+    }, 30000, noRetry)
+    return true
+  }
+
+  // Dislike a song (on) or remove the dislike. The song playing skips to
+  // the next one at once, as on the web.
+  function dislike(track, on, callback) {
+    var failTitle = on ? "Couldn't dislike the song" : "Couldn't remove the dislike"
+    if (!track || !track.videoId || !_signedInFor(failTitle)) return false
+    var videoId = track.videoId
+    var title = Model.mediaTitle(track)
+    var previousLike = storeItem.likes[videoId]
+    var previous = storeItem.setDisliked(videoId, on === true)
+    storeItem.setLike(videoId, on ? "DISLIKE" : "INDIFFERENT")
+    var current = currentTrack
+    if (on && hasMedia && current && current.videoId === videoId) root.next()
+    backend.request("rate", { videoId: videoId, rating: on ? "DISLIKE" : "INDIFFERENT" }, function(reply) {
+      if (root.unsure(reply)) {
+        // A dislike cannot be read back: what YouTube reports stands.
+        storeItem.setDisliked(videoId, null)
+        root.refreshUnsure([{ kind: "liked", id: "LM" }, { kind: "like", id: videoId }], title)
+      } else if (!reply.ok) {
+        storeItem.restore("disliked", previous)
+        storeItem.setLike(videoId, previousLike)
+        root.failAction(failTitle, reply.error.message)
+      } else {
+        storeItem.forgetCollection("liked", "LM")
+        root.notify(on ? "Disliked" : "Dislike removed", title)
+      }
+      if (callback) callback(reply)
+    }, undefined, noRetry)
+    return true
+  }
+
+  function toggleDislike(track) {
+    return dislike(track, !dislikedOf(track))
   }
 
   // Open the panel on the search tab with results for `query`.
