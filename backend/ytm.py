@@ -227,6 +227,8 @@ def m_resolve(worker, params):
     account = params.get("account")
     if account is not None and not isinstance(account, bool):
         raise WorkerError("BAD_REQUEST", "'account' must be true or false")
+    if account is None and worker.settings.get("streamAccount") is True:
+        account = True
     # S16: the audio quality (the request's own, else the setting); high is
     # the resolver's default format.
     quality = streams.validate_quality(params["quality"]) if "quality" in params else worker.settings.get("quality")
@@ -484,7 +486,9 @@ class Worker:
         # S16: the instance for the audio quality set (high: the default one).
         quality = self.settings.get("quality")
         args = (quality,) if quality not in (None, "high") else ()
-        self._warm_thread = threading.Thread(target=warm, args=args, daemon=True)
+        # The instance lookups will use: the account's while streamAccount is on.
+        kwargs = {"account": True} if self.settings.get("streamAccount") is True else {}
+        self._warm_thread = threading.Thread(target=warm, args=args, kwargs=kwargs, daemon=True)
         self._warm_thread.start()
 
     def wait_for_warm(self):
@@ -566,6 +570,10 @@ class Worker:
         self.verified = False
         self.own_channel, self.own_channel_known = None, False  # S9: the new client's account menu names it
         self.generation += 1
+        # A new session or identity: stream lookups must not keep the old cookies.
+        forget = getattr(self._resolver, "forget_account", None)
+        if forget is not None:
+            forget()
 
     def client_settings(self, settings=None):
         """The CLIENT_SETTINGS part of ``settings`` (default: the stored ones)."""

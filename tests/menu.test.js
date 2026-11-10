@@ -62,7 +62,7 @@ test("menuActions follow ctx: signed out hides account entries; page, queue and 
   // last two signed out too); S15: Record plays in history; all before Sign
   // out.
   assert.deepEqual(ids(Model.menuActions(null, { page: true, pageKind: "library", signedIn: true })),
-    ["tasteProfile", "myChannel", "switchAccount", "audioQuality", "contentLocation", "recordHistory", "signOut"])
+    ["tasteProfile", "myChannel", "switchAccount", "audioQuality", "contentLocation", "recordHistory", "streamAccount", "signOut"])
   assert.deepEqual(ids(Model.menuActions(null, { page: true, pageKind: "library", signedIn: false })),
     ["audioQuality", "contentLocation", "signIn"])
   // A row's menu on Library or Home has no account or page entries.

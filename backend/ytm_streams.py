@@ -133,9 +133,17 @@ class Resolver:
                     self._ydl[key] = self._factory(opts)
             return self._ydl[key]
 
-    def warm(self, quality=None):
+    def forget_account(self):
+        """Drop the instances built with the account's cookies: yt-dlp reads
+        the cookie file once, so after a sign-in or an identity change the
+        next account lookup builds one with the new file."""
+        with self._lock:
+            for key in [key for key in self._ydl if key[0]]:
+                del self._ydl[key]
+
+    def warm(self, quality=None, account=None):
         try:
-            self._client(self.wants_account(), format_for(quality))
+            self._client(self.wants_account(account), format_for(quality))
         except Exception as exc:  # noqa: BLE001 - resolve() reports it properly later
             norm.log(f"could not load yt-dlp: {type(exc).__name__}: {exc}")
 
@@ -289,3 +297,20 @@ def format_for(quality):
 
 
 SETTINGS["quality"] = validate_quality
+
+
+# ---- streaming with the account ----------------------------------------------------
+# The shell's prefs.streamAccount, sent as the worker setting streamAccount:
+# when true, a lookup with no `account` of its own uses the account's cookies
+# (signed out it stays anonymous). YouTube's bot check rarely refuses a
+# signed-in lookup, and with Premium it needs no proof tokens; the cost is
+# that the account, not only the address, is what YouTube sees fetching.
+
+
+def validate_stream_account(value):
+    if not isinstance(value, bool):
+        raise WorkerError("BAD_REQUEST", "'streamAccount' must be true or false")
+    return value
+
+
+SETTINGS["streamAccount"] = validate_stream_account

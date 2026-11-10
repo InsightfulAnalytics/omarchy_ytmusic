@@ -355,7 +355,7 @@ test("prefs v2: every key has a default", () => {
   assert.deepEqual(Model.parsePrefs(""), {
     autoplay: true, shuffle: false, repeat: "off",
     libraryChip: "playlists", chartsCountry: "ZZ", location: "", quality: "high",
-    recordHistory: false, speed: { music: 1, episode: 1 }, normalize: "off", nowPane: "queue",
+    recordHistory: false, speed: { music: 1, episode: 1 }, normalize: "off", nowPane: "queue", streamAccount: false,
   })
   assert.deepEqual(Model.parsePrefs("[1]"), Model.parsePrefs("not json"))
 })

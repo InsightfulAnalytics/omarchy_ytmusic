@@ -247,7 +247,7 @@ test("menus: Remove from history on History rows, confirmed; Record plays on Lib
   // S14's taste builder comes first, then S9's Your channel and S16's account
   // entries; Record plays comes right before Sign out, which stays last.
   assert.deepEqual(ids(offMenu),
-    ["tasteProfile", "myChannel", "switchAccount", "audioQuality", "contentLocation", "recordHistory", "signOut"])
+    ["tasteProfile", "myChannel", "switchAccount", "audioQuality", "contentLocation", "recordHistory", "streamAccount", "signOut"])
   const off = offMenu.find(a => a.id === "recordHistory")
   assert.equal(off.title, "Record plays in history")
   const on = Model.menuActions(null, Object.assign({ recordHistory: true }, library)).find(a => a.id === "recordHistory")

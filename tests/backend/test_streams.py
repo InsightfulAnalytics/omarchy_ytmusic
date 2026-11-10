@@ -155,6 +155,31 @@ def test_worker_passes_the_account_flag():
     assert bad["error"]["code"] == "BAD_REQUEST"
 
 
+def test_stream_account_setting_makes_lookups_use_the_account():
+    worker = ytm.Worker(object(), "none", resolver=FakeResolver({"url": "https://x", "expires": 5}))
+    assert worker.handle({"id": 1, "method": "resolve", "params": {"videoId": "a"}})["result"]["account"] is False
+    assert worker.handle({"id": 2, "method": "configure", "params": {"streamAccount": True}})["ok"]
+    assert worker.handle({"id": 3, "method": "resolve", "params": {"videoId": "a"}})["result"]["account"] is True
+    explicit = worker.handle({"id": 4, "method": "resolve", "params": {"videoId": "a", "account": False}})
+    assert explicit["result"]["account"] is False, "a request's own flag wins"
+    bad = worker.handle({"id": 5, "method": "configure", "params": {"streamAccount": "yes"}})
+    assert not bad["ok"] or "streamAccount" not in bad["result"].get("settings", {})
+
+
+def test_forget_account_drops_only_the_cookie_instances(config_dir, monkeypatch):
+    monkeypatch.delenv("YTM_STREAM_WITH_ACCOUNT", raising=False)
+    config_dir.mkdir(parents=True)
+    (config_dir / "cookies.txt").write_text("# Netscape HTTP Cookie File\n")
+    make = factory(info={"url": "https://x/a?expire=5"})
+    resolver = streams.Resolver(factory=make)
+    resolver.resolve("v")
+    resolver.resolve("v", account=True)
+    resolver.forget_account()
+    resolver.resolve("v")
+    resolver.resolve("v", account=True)
+    assert len(make.made) == 3, "the anonymous instance is kept, the account one built again"
+
+
 # ---- loudness (S17) ---------------------------------------------------------------------
 # With the worker setting normalize "youtube", resolve also answers the song's
 # loudnessDb from its raw player response (one request through the account
