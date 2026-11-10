@@ -1,0 +1,2778 @@
+{
+ "contents": {
+  "tabbedSearchResultsRenderer": {
+   "tabs": [
+    {
+     "tabRenderer": {
+      "title": "YT Music",
+      "selected": true,
+      "content": {
+       "sectionListRenderer": {
+        "contents": [
+         {
+          "musicShelfRenderer": {
+           "title": {
+            "runs": [
+             {
+              "text": "Episodes"
+             }
+            ]
+           },
+           "contents": [
+            {
+             "musicResponsiveListItemRenderer": {
+              "thumbnail": {
+               "musicThumbnailRenderer": {
+                "thumbnail": {
+                 "thumbnails": [
+                  {
+                   "url": "https://i.ytimg.com/vi/pKMAkzZvOq8/sddefault.jpg?sqp=-oaymwElCIAFEOgCIAQqCghQELAEGAAg4ANIWvKriqkDCZoCBggGEB0YJg&rs=AMzJL3nTys-QZcvSPNtk8NyvnqAXapHRSg",
+                   "width": 640,
+                   "height": 360
+                  }
+                 ]
+                },
+                "thumbnailCrop": "MUSIC_THUMBNAIL_CROP_UNSPECIFIED",
+                "thumbnailScale": "MUSIC_THUMBNAIL_SCALE_ASPECT_FIT"
+               }
+              },
+              "overlay": {
+               "musicItemThumbnailOverlayRenderer": {
+                "background": {
+                 "verticalGradient": {
+                  "gradientLayerColors": [
+                   "3422552064",
+                   "3422552064"
+                  ]
+                 }
+                },
+                "content": {
+                 "musicPlayButtonRenderer": {
+                  "playNavigationEndpoint": {
+                   "watchEndpoint": {
+                    "videoId": "pKMAkzZvOq8",
+                    "params": "8gEDmAEI",
+                    "watchEndpointMusicSupportedConfigs": {
+                     "watchEndpointMusicConfig": {
+                      "musicVideoType": "MUSIC_VIDEO_TYPE_PODCAST_EPISODE"
+                     }
+                    }
+                   }
+                  },
+                  "playIcon": {
+                   "iconType": "PLAY_ARROW"
+                  },
+                  "pauseIcon": {
+                   "iconType": "PAUSE"
+                  },
+                  "iconColor": 4294967295,
+                  "backgroundColor": 0,
+                  "activeBackgroundColor": 0,
+                  "loadingIndicatorColor": 14745645,
+                  "playingIcon": {
+                   "iconType": "VOLUME_UP"
+                  },
+                  "iconLoadingColor": 0,
+                  "activeScaleFactor": 1,
+                  "buttonSize": "MUSIC_PLAY_BUTTON_SIZE_SMALL",
+                  "rippleTarget": "MUSIC_PLAY_BUTTON_RIPPLE_TARGET_SELF",
+                  "accessibilityPlayData": {},
+                  "accessibilityPauseData": {}
+                 }
+                },
+                "contentPosition": "MUSIC_ITEM_THUMBNAIL_OVERLAY_CONTENT_POSITION_CENTERED",
+                "displayStyle": "MUSIC_ITEM_THUMBNAIL_OVERLAY_DISPLAY_STYLE_PERSISTENT"
+               }
+              },
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "3.17 Enemies | A Buffy the Vampire Slayer Podcast",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPEDpKMAkzZvOq8",
+                      "browseEndpointContextSupportedConfigs": {
+                       "browseEndpointContextMusicConfig": {
+                        "pageType": "MUSIC_PAGE_TYPE_NON_MUSIC_AUDIO_TRACK_PAGE"
+                       }
+                      }
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Aug 20, 2024"
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "Buffering: A Rewatch Adventure",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPSPPLcUzCcfYvtLfaJDrNH-RgC2cjfLlZP0Ix",
+                      "browseEndpointContextSupportedConfigs": {
+                       "browseEndpointContextMusicConfig": {
+                        "pageType": "MUSIC_PAGE_TYPE_PODCAST_SHOW_DETAIL_PAGE"
+                       }
+                      }
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               }
+              ],
+              "menu": {
+               "menuRenderer": {
+                "items": []
+               }
+              },
+              "playlistItemData": {
+               "videoId": "pKMAkzZvOq8"
+              },
+              "flexColumnDisplayStyle": "MUSIC_RESPONSIVE_LIST_ITEM_FLEX_COLUMN_DISPLAY_STYLE_TWO_LINE_STACK",
+              "itemHeight": "MUSIC_RESPONSIVE_LIST_ITEM_HEIGHT_TALL"
+             }
+            },
+            {
+             "musicResponsiveListItemRenderer": {
+              "thumbnail": {
+               "musicThumbnailRenderer": {
+                "thumbnail": {
+                 "thumbnails": [
+                  {
+                   "url": "https://i.ytimg.com/vi/BVAdAt56-lw/hqdefault.jpg?sqp=-oaymwEWCJADEOEBIAQqCggAEOADGC0guwJIWg&rs=AMzJL3kKb5IRpLuWVf5QINGpAQQBfVyliA",
+                   "width": 400,
+                   "height": 225
+                  }
+                 ]
+                },
+                "thumbnailCrop": "MUSIC_THUMBNAIL_CROP_UNSPECIFIED",
+                "thumbnailScale": "MUSIC_THUMBNAIL_SCALE_ASPECT_FIT"
+               }
+              },
+              "overlay": {
+               "musicItemThumbnailOverlayRenderer": {
+                "background": {
+                 "verticalGradient": {
+                  "gradientLayerColors": [
+                   "3422552064",
+                   "3422552064"
+                  ]
+                 }
+                },
+                "content": {
+                 "musicPlayButtonRenderer": {
+                  "playNavigationEndpoint": {
+                   "watchEndpoint": {
+                    "videoId": "BVAdAt56-lw",
+                    "params": "8gEDmAEI",
+                    "watchEndpointMusicSupportedConfigs": {
+                     "watchEndpointMusicConfig": {
+                      "musicVideoType": "MUSIC_VIDEO_TYPE_PODCAST_EPISODE"
+                     }
+                    }
+                   }
+                  },
+                  "playIcon": {
+                   "iconType": "PLAY_ARROW"
+                  },
+                  "pauseIcon": {
+                   "iconType": "PAUSE"
+                  },
+                  "iconColor": 4294967295,
+                  "backgroundColor": 0,
+                  "activeBackgroundColor": 0,
+                  "loadingIndicatorColor": 14745645,
+                  "playingIcon": {
+                   "iconType": "VOLUME_UP"
+                  },
+                  "iconLoadingColor": 0,
+                  "activeScaleFactor": 1,
+                  "buttonSize": "MUSIC_PLAY_BUTTON_SIZE_SMALL",
+                  "rippleTarget": "MUSIC_PLAY_BUTTON_RIPPLE_TARGET_SELF",
+                  "accessibilityPlayData": {},
+                  "accessibilityPauseData": {}
+                 }
+                },
+                "contentPosition": "MUSIC_ITEM_THUMBNAIL_OVERLAY_CONTENT_POSITION_CENTERED",
+                "displayStyle": "MUSIC_ITEM_THUMBNAIL_OVERLAY_DISPLAY_STYLE_PERSISTENT"
+               }
+              },
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Hrishikesh Hirway from The One AM Radio and Song Exploder - Episode 120",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPEDBVAdAt56-lw",
+                      "browseEndpointContextSupportedConfigs": {
+                       "browseEndpointContextMusicConfig": {
+                        "pageType": "MUSIC_PAGE_TYPE_NON_MUSIC_AUDIO_TRACK_PAGE"
+                       }
+                      }
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Sep 25, 2014"
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "100 Words Or Less: The Podcast",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPSPPLZlnYxj_97QmeLl7NnlXW8PDH_CaR_cgV",
+                      "browseEndpointContextSupportedConfigs": {
+                       "browseEndpointContextMusicConfig": {
+                        "pageType": "MUSIC_PAGE_TYPE_PODCAST_SHOW_DETAIL_PAGE"
+                       }
+                      }
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               }
+              ],
+              "menu": {
+               "menuRenderer": {
+                "items": []
+               }
+              },
+              "playlistItemData": {
+               "videoId": "BVAdAt56-lw"
+              },
+              "flexColumnDisplayStyle": "MUSIC_RESPONSIVE_LIST_ITEM_FLEX_COLUMN_DISPLAY_STYLE_TWO_LINE_STACK",
+              "itemHeight": "MUSIC_RESPONSIVE_LIST_ITEM_HEIGHT_TALL"
+             }
+            },
+            {
+             "musicResponsiveListItemRenderer": {
+              "thumbnail": {
+               "musicThumbnailRenderer": {
+                "thumbnail": {
+                 "thumbnails": [
+                  {
+                   "url": "https://i.ytimg.com/vi/bOxG3tC9u-c/hqdefault.jpg?sqp=-oaymwEWCJADEOEBIAQqCggAEOADGC0guwJIWg&rs=AMzJL3lfXZdAhWr-5r12Ze3AW1wX_s_NPQ",
+                   "width": 400,
+                   "height": 225
+                  }
+                 ]
+                },
+                "thumbnailCrop": "MUSIC_THUMBNAIL_CROP_UNSPECIFIED",
+                "thumbnailScale": "MUSIC_THUMBNAIL_SCALE_ASPECT_FIT"
+               }
+              },
+              "overlay": {
+               "musicItemThumbnailOverlayRenderer": {
+                "background": {
+                 "verticalGradient": {
+                  "gradientLayerColors": [
+                   "3422552064",
+                   "3422552064"
+                  ]
+                 }
+                },
+                "content": {
+                 "musicPlayButtonRenderer": {
+                  "playNavigationEndpoint": {
+                   "watchEndpoint": {
+                    "videoId": "bOxG3tC9u-c",
+                    "params": "8gEDmAEI",
+                    "watchEndpointMusicSupportedConfigs": {
+                     "watchEndpointMusicConfig": {
+                      "musicVideoType": "MUSIC_VIDEO_TYPE_PODCAST_EPISODE"
+                     }
+                    }
+                   }
+                  },
+                  "playIcon": {
+                   "iconType": "PLAY_ARROW"
+                  },
+                  "pauseIcon": {
+                   "iconType": "PAUSE"
+                  },
+                  "iconColor": 4294967295,
+                  "backgroundColor": 0,
+                  "activeBackgroundColor": 0,
+                  "loadingIndicatorColor": 14745645,
+                  "playingIcon": {
+                   "iconType": "VOLUME_UP"
+                  },
+                  "iconLoadingColor": 0,
+                  "activeScaleFactor": 1,
+                  "buttonSize": "MUSIC_PLAY_BUTTON_SIZE_SMALL",
+                  "rippleTarget": "MUSIC_PLAY_BUTTON_RIPPLE_TARGET_SELF",
+                  "accessibilityPlayData": {},
+                  "accessibilityPauseData": {}
+                 }
+                },
+                "contentPosition": "MUSIC_ITEM_THUMBNAIL_OVERLAY_CONTENT_POSITION_CENTERED",
+                "displayStyle": "MUSIC_ITEM_THUMBNAIL_OVERLAY_DISPLAY_STYLE_PERSISTENT"
+               }
+              },
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Almost Famos #142 - Famos Exploded",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPEDbOxG3tC9u-c",
+                      "browseEndpointContextSupportedConfigs": {
+                       "browseEndpointContextMusicConfig": {
+                        "pageType": "MUSIC_PAGE_TYPE_NON_MUSIC_AUDIO_TRACK_PAGE"
+                       }
+                      }
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Apr 27, 2021"
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "The Almost Famos Podcast",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPSPPLRS6m25nWUmBvUMm1eLc4whVoA1VoOrf4",
+                      "browseEndpointContextSupportedConfigs": {
+                       "browseEndpointContextMusicConfig": {
+                        "pageType": "MUSIC_PAGE_TYPE_PODCAST_SHOW_DETAIL_PAGE"
+                       }
+                      }
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               }
+              ],
+              "menu": {
+               "menuRenderer": {
+                "items": []
+               }
+              },
+              "playlistItemData": {
+               "videoId": "bOxG3tC9u-c"
+              },
+              "flexColumnDisplayStyle": "MUSIC_RESPONSIVE_LIST_ITEM_FLEX_COLUMN_DISPLAY_STYLE_TWO_LINE_STACK",
+              "itemHeight": "MUSIC_RESPONSIVE_LIST_ITEM_HEIGHT_TALL"
+             }
+            },
+            {
+             "musicResponsiveListItemRenderer": {
+              "thumbnail": {
+               "musicThumbnailRenderer": {
+                "thumbnail": {
+                 "thumbnails": [
+                  {
+                   "url": "https://i.ytimg.com/vi/X0nRZbBdyHQ/hqdefault.jpg?sqp=-oaymwEWCJADEOEBIAQqCggAEOADGC0guwJIWg&rs=AMzJL3mR-Y0aIpHxMDAN4oktUCI7lEd_qw",
+                   "width": 400,
+                   "height": 225
+                  }
+                 ]
+                },
+                "thumbnailCrop": "MUSIC_THUMBNAIL_CROP_UNSPECIFIED",
+                "thumbnailScale": "MUSIC_THUMBNAIL_SCALE_ASPECT_FIT"
+               }
+              },
+              "overlay": {
+               "musicItemThumbnailOverlayRenderer": {
+                "background": {
+                 "verticalGradient": {
+                  "gradientLayerColors": [
+                   "3422552064",
+                   "3422552064"
+                  ]
+                 }
+                },
+                "content": {
+                 "musicPlayButtonRenderer": {
+                  "playNavigationEndpoint": {
+                   "watchEndpoint": {
+                    "videoId": "X0nRZbBdyHQ",
+                    "params": "8gEDmAEI",
+                    "watchEndpointMusicSupportedConfigs": {
+                     "watchEndpointMusicConfig": {
+                      "musicVideoType": "MUSIC_VIDEO_TYPE_PODCAST_EPISODE"
+                     }
+                    }
+                   }
+                  },
+                  "playIcon": {
+                   "iconType": "PLAY_ARROW"
+                  },
+                  "pauseIcon": {
+                   "iconType": "PAUSE"
+                  },
+                  "iconColor": 4294967295,
+                  "backgroundColor": 0,
+                  "activeBackgroundColor": 0,
+                  "loadingIndicatorColor": 14745645,
+                  "playingIcon": {
+                   "iconType": "VOLUME_UP"
+                  },
+                  "iconLoadingColor": 0,
+                  "activeScaleFactor": 1,
+                  "buttonSize": "MUSIC_PLAY_BUTTON_SIZE_SMALL",
+                  "rippleTarget": "MUSIC_PLAY_BUTTON_RIPPLE_TARGET_SELF",
+                  "accessibilityPlayData": {},
+                  "accessibilityPauseData": {}
+                 }
+                },
+                "contentPosition": "MUSIC_ITEM_THUMBNAIL_OVERLAY_CONTENT_POSITION_CENTERED",
+                "displayStyle": "MUSIC_ITEM_THUMBNAIL_OVERLAY_DISPLAY_STYLE_PERSISTENT"
+               }
+              },
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Almost Famos #136 - I Guess I Got Gassed",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPEDX0nRZbBdyHQ",
+                      "browseEndpointContextSupportedConfigs": {
+                       "browseEndpointContextMusicConfig": {
+                        "pageType": "MUSIC_PAGE_TYPE_NON_MUSIC_AUDIO_TRACK_PAGE"
+                       }
+                      }
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Mar 3, 2021"
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "The Almost Famos Podcast",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPSPPLRS6m25nWUmBvUMm1eLc4whVoA1VoOrf4",
+                      "browseEndpointContextSupportedConfigs": {
+                       "browseEndpointContextMusicConfig": {
+                        "pageType": "MUSIC_PAGE_TYPE_PODCAST_SHOW_DETAIL_PAGE"
+                       }
+                      }
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               }
+              ],
+              "menu": {
+               "menuRenderer": {
+                "items": []
+               }
+              },
+              "playlistItemData": {
+               "videoId": "X0nRZbBdyHQ"
+              },
+              "flexColumnDisplayStyle": "MUSIC_RESPONSIVE_LIST_ITEM_FLEX_COLUMN_DISPLAY_STYLE_TWO_LINE_STACK",
+              "itemHeight": "MUSIC_RESPONSIVE_LIST_ITEM_HEIGHT_TALL"
+             }
+            },
+            {
+             "musicResponsiveListItemRenderer": {
+              "thumbnail": {
+               "musicThumbnailRenderer": {
+                "thumbnail": {
+                 "thumbnails": [
+                  {
+                   "url": "https://i.ytimg.com/vi/2qEI-MQKw-A/hqdefault.jpg?sqp=-oaymwEWCJADEOEBIAQqCggAEOADGC0guwJIWg&rs=AMzJL3mZ0BjgKvKVVMVvE1RQcHLNvkZiow",
+                   "width": 400,
+                   "height": 225
+                  }
+                 ]
+                },
+                "thumbnailCrop": "MUSIC_THUMBNAIL_CROP_UNSPECIFIED",
+                "thumbnailScale": "MUSIC_THUMBNAIL_SCALE_ASPECT_FIT"
+               }
+              },
+              "overlay": {
+               "musicItemThumbnailOverlayRenderer": {
+                "background": {
+                 "verticalGradient": {
+                  "gradientLayerColors": [
+                   "3422552064",
+                   "3422552064"
+                  ]
+                 }
+                },
+                "content": {
+                 "musicPlayButtonRenderer": {
+                  "playNavigationEndpoint": {
+                   "watchEndpoint": {
+                    "videoId": "2qEI-MQKw-A",
+                    "params": "8gEDmAEI",
+                    "watchEndpointMusicSupportedConfigs": {
+                     "watchEndpointMusicConfig": {
+                      "musicVideoType": "MUSIC_VIDEO_TYPE_PODCAST_EPISODE"
+                     }
+                    }
+                   }
+                  },
+                  "playIcon": {
+                   "iconType": "PLAY_ARROW"
+                  },
+                  "pauseIcon": {
+                   "iconType": "PAUSE"
+                  },
+                  "iconColor": 4294967295,
+                  "backgroundColor": 0,
+                  "activeBackgroundColor": 0,
+                  "loadingIndicatorColor": 14745645,
+                  "playingIcon": {
+                   "iconType": "VOLUME_UP"
+                  },
+                  "iconLoadingColor": 0,
+                  "activeScaleFactor": 1,
+                  "buttonSize": "MUSIC_PLAY_BUTTON_SIZE_SMALL",
+                  "rippleTarget": "MUSIC_PLAY_BUTTON_RIPPLE_TARGET_SELF",
+                  "accessibilityPlayData": {},
+                  "accessibilityPauseData": {}
+                 }
+                },
+                "contentPosition": "MUSIC_ITEM_THUMBNAIL_OVERLAY_CONTENT_POSITION_CENTERED",
+                "displayStyle": "MUSIC_ITEM_THUMBNAIL_OVERLAY_DISPLAY_STYLE_PERSISTENT"
+               }
+              },
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Interview with Hrishikesh Hirway",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPED2qEI-MQKw-A",
+                      "browseEndpointContextSupportedConfigs": {
+                       "browseEndpointContextMusicConfig": {
+                        "pageType": "MUSIC_PAGE_TYPE_NON_MUSIC_AUDIO_TRACK_PAGE"
+                       }
+                      }
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Apr 14, 2022"
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "Bringin' it Backwards: Video Interviews with Musicians",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPSPPLZ-OqtNpCqt6xg8ERq-_qsaUBVJC3CRmo",
+                      "browseEndpointContextSupportedConfigs": {
+                       "browseEndpointContextMusicConfig": {
+                        "pageType": "MUSIC_PAGE_TYPE_PODCAST_SHOW_DETAIL_PAGE"
+                       }
+                      }
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               }
+              ],
+              "menu": {
+               "menuRenderer": {
+                "items": []
+               }
+              },
+              "playlistItemData": {
+               "videoId": "2qEI-MQKw-A"
+              },
+              "flexColumnDisplayStyle": "MUSIC_RESPONSIVE_LIST_ITEM_FLEX_COLUMN_DISPLAY_STYLE_TWO_LINE_STACK",
+              "itemHeight": "MUSIC_RESPONSIVE_LIST_ITEM_HEIGHT_TALL"
+             }
+            },
+            {
+             "musicResponsiveListItemRenderer": {
+              "thumbnail": {
+               "musicThumbnailRenderer": {
+                "thumbnail": {
+                 "thumbnails": [
+                  {
+                   "url": "https://i.ytimg.com/vi/tgcxElNp0eQ/hqdefault.jpg?sqp=-oaymwEWCJADEOEBIAQqCggAEOADGC0guwJIWg&rs=AMzJL3ndyJLIBbFYdLg2wxFlyW1DOYKjmg",
+                   "width": 400,
+                   "height": 225
+                  }
+                 ]
+                },
+                "thumbnailCrop": "MUSIC_THUMBNAIL_CROP_UNSPECIFIED",
+                "thumbnailScale": "MUSIC_THUMBNAIL_SCALE_ASPECT_FIT"
+               }
+              },
+              "overlay": {
+               "musicItemThumbnailOverlayRenderer": {
+                "background": {
+                 "verticalGradient": {
+                  "gradientLayerColors": [
+                   "3422552064",
+                   "3422552064"
+                  ]
+                 }
+                },
+                "content": {
+                 "musicPlayButtonRenderer": {
+                  "playNavigationEndpoint": {
+                   "watchEndpoint": {
+                    "videoId": "tgcxElNp0eQ",
+                    "params": "8gEDmAEI",
+                    "watchEndpointMusicSupportedConfigs": {
+                     "watchEndpointMusicConfig": {
+                      "musicVideoType": "MUSIC_VIDEO_TYPE_PODCAST_EPISODE"
+                     }
+                    }
+                   }
+                  },
+                  "playIcon": {
+                   "iconType": "PLAY_ARROW"
+                  },
+                  "pauseIcon": {
+                   "iconType": "PAUSE"
+                  },
+                  "iconColor": 4294967295,
+                  "backgroundColor": 0,
+                  "activeBackgroundColor": 0,
+                  "loadingIndicatorColor": 14745645,
+                  "playingIcon": {
+                   "iconType": "VOLUME_UP"
+                  },
+                  "iconLoadingColor": 0,
+                  "activeScaleFactor": 1,
+                  "buttonSize": "MUSIC_PLAY_BUTTON_SIZE_SMALL",
+                  "rippleTarget": "MUSIC_PLAY_BUTTON_RIPPLE_TARGET_SELF",
+                  "accessibilityPlayData": {},
+                  "accessibilityPauseData": {}
+                 }
+                },
+                "contentPosition": "MUSIC_ITEM_THUMBNAIL_OVERLAY_CONTENT_POSITION_CENTERED",
+                "displayStyle": "MUSIC_ITEM_THUMBNAIL_OVERLAY_DISPLAY_STYLE_PERSISTENT"
+               }
+              },
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "TASTE Podcast 86: Musician and Podcaster Hrishikesh Hirway On Hosting a Call-In Cooking Show",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPEDtgcxElNp0eQ",
+                      "browseEndpointContextSupportedConfigs": {
+                       "browseEndpointContextMusicConfig": {
+                        "pageType": "MUSIC_PAGE_TYPE_NON_MUSIC_AUDIO_TRACK_PAGE"
+                       }
+                      }
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Jan 15, 2023"
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "The TASTE Podcast",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPSPPLN6_FWwChyoRpTByDL_l0Ssnmv70ARENh",
+                      "browseEndpointContextSupportedConfigs": {
+                       "browseEndpointContextMusicConfig": {
+                        "pageType": "MUSIC_PAGE_TYPE_PODCAST_SHOW_DETAIL_PAGE"
+                       }
+                      }
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               }
+              ],
+              "menu": {
+               "menuRenderer": {
+                "items": []
+               }
+              },
+              "playlistItemData": {
+               "videoId": "tgcxElNp0eQ"
+              },
+              "flexColumnDisplayStyle": "MUSIC_RESPONSIVE_LIST_ITEM_FLEX_COLUMN_DISPLAY_STYLE_TWO_LINE_STACK",
+              "itemHeight": "MUSIC_RESPONSIVE_LIST_ITEM_HEIGHT_TALL"
+             }
+            },
+            {
+             "musicResponsiveListItemRenderer": {
+              "thumbnail": {
+               "musicThumbnailRenderer": {
+                "thumbnail": {
+                 "thumbnails": [
+                  {
+                   "url": "https://i.ytimg.com/vi/HJEvodlPBDg/sddefault.jpg?sqp=-oaymwElCIAFEOgCIAQqCghQELAEGAAg4ANIWvKriqkDCZoCBggeECUYJg&rs=AMzJL3kPceTVs5jgfEYZ6eCHzMnkIvL6BA",
+                   "width": 640,
+                   "height": 360
+                  }
+                 ]
+                },
+                "thumbnailCrop": "MUSIC_THUMBNAIL_CROP_UNSPECIFIED",
+                "thumbnailScale": "MUSIC_THUMBNAIL_SCALE_ASPECT_FIT"
+               }
+              },
+              "overlay": {
+               "musicItemThumbnailOverlayRenderer": {
+                "background": {
+                 "verticalGradient": {
+                  "gradientLayerColors": [
+                   "3422552064",
+                   "3422552064"
+                  ]
+                 }
+                },
+                "content": {
+                 "musicPlayButtonRenderer": {
+                  "playNavigationEndpoint": {
+                   "watchEndpoint": {
+                    "videoId": "HJEvodlPBDg",
+                    "params": "8gEDmAEI",
+                    "playerParams": "0gcJCQkB-iE-y48-",
+                    "watchEndpointMusicSupportedConfigs": {
+                     "watchEndpointMusicConfig": {
+                      "musicVideoType": "MUSIC_VIDEO_TYPE_PODCAST_EPISODE"
+                     }
+                    }
+                   }
+                  },
+                  "playIcon": {
+                   "iconType": "PLAY_ARROW"
+                  },
+                  "pauseIcon": {
+                   "iconType": "PAUSE"
+                  },
+                  "iconColor": 4294967295,
+                  "backgroundColor": 0,
+                  "activeBackgroundColor": 0,
+                  "loadingIndicatorColor": 14745645,
+                  "playingIcon": {
+                   "iconType": "VOLUME_UP"
+                  },
+                  "iconLoadingColor": 0,
+                  "activeScaleFactor": 1,
+                  "buttonSize": "MUSIC_PLAY_BUTTON_SIZE_SMALL",
+                  "rippleTarget": "MUSIC_PLAY_BUTTON_RIPPLE_TARGET_SELF",
+                  "accessibilityPlayData": {},
+                  "accessibilityPauseData": {}
+                 }
+                },
+                "contentPosition": "MUSIC_ITEM_THUMBNAIL_OVERLAY_CONTENT_POSITION_CENTERED",
+                "displayStyle": "MUSIC_ITEM_THUMBNAIL_OVERLAY_DISPLAY_STYLE_PERSISTENT"
+               }
+              },
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Behind the Muzyxx",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPEDHJEvodlPBDg",
+                      "browseEndpointContextSupportedConfigs": {
+                       "browseEndpointContextMusicConfig": {
+                        "pageType": "MUSIC_PAGE_TYPE_NON_MUSIC_AUDIO_TRACK_PAGE"
+                       }
+                      }
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Mar 23, 2025"
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "Mission To Zyxx",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPSPPLJCqLSp36z9IjQ12ooSmiKmE_9uCsisQD",
+                      "browseEndpointContextSupportedConfigs": {
+                       "browseEndpointContextMusicConfig": {
+                        "pageType": "MUSIC_PAGE_TYPE_PODCAST_SHOW_DETAIL_PAGE"
+                       }
+                      }
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               }
+              ],
+              "menu": {
+               "menuRenderer": {
+                "items": []
+               }
+              },
+              "playlistItemData": {
+               "videoId": "HJEvodlPBDg"
+              },
+              "flexColumnDisplayStyle": "MUSIC_RESPONSIVE_LIST_ITEM_FLEX_COLUMN_DISPLAY_STYLE_TWO_LINE_STACK",
+              "itemHeight": "MUSIC_RESPONSIVE_LIST_ITEM_HEIGHT_TALL"
+             }
+            },
+            {
+             "musicResponsiveListItemRenderer": {
+              "thumbnail": {
+               "musicThumbnailRenderer": {
+                "thumbnail": {
+                 "thumbnails": [
+                  {
+                   "url": "https://i.ytimg.com/vi/GxTADo7c_GA/sddefault.jpg?sqp=-oaymwElCIAFEOgCIAQqCghQELAEGAAg4ANIWvKriqkDCZoCBggzEB8YDQ&rs=AMzJL3kdXohx8JZ-q_PWk3fpDck48NZ75g",
+                   "width": 640,
+                   "height": 360
+                  }
+                 ]
+                },
+                "thumbnailCrop": "MUSIC_THUMBNAIL_CROP_UNSPECIFIED",
+                "thumbnailScale": "MUSIC_THUMBNAIL_SCALE_ASPECT_FIT"
+               }
+              },
+              "overlay": {
+               "musicItemThumbnailOverlayRenderer": {
+                "background": {
+                 "verticalGradient": {
+                  "gradientLayerColors": [
+                   "3422552064",
+                   "3422552064"
+                  ]
+                 }
+                },
+                "content": {
+                 "musicPlayButtonRenderer": {
+                  "playNavigationEndpoint": {
+                   "watchEndpoint": {
+                    "videoId": "GxTADo7c_GA",
+                    "params": "8gEDmAEI",
+                    "watchEndpointMusicSupportedConfigs": {
+                     "watchEndpointMusicConfig": {
+                      "musicVideoType": "MUSIC_VIDEO_TYPE_PODCAST_EPISODE"
+                     }
+                    }
+                   }
+                  },
+                  "playIcon": {
+                   "iconType": "PLAY_ARROW"
+                  },
+                  "pauseIcon": {
+                   "iconType": "PAUSE"
+                  },
+                  "iconColor": 4294967295,
+                  "backgroundColor": 0,
+                  "activeBackgroundColor": 0,
+                  "loadingIndicatorColor": 14745645,
+                  "playingIcon": {
+                   "iconType": "VOLUME_UP"
+                  },
+                  "iconLoadingColor": 0,
+                  "activeScaleFactor": 1,
+                  "buttonSize": "MUSIC_PLAY_BUTTON_SIZE_SMALL",
+                  "rippleTarget": "MUSIC_PLAY_BUTTON_RIPPLE_TARGET_SELF",
+                  "accessibilityPlayData": {},
+                  "accessibilityPauseData": {}
+                 }
+                },
+                "contentPosition": "MUSIC_ITEM_THUMBNAIL_OVERLAY_CONTENT_POSITION_CENTERED",
+                "displayStyle": "MUSIC_ITEM_THUMBNAIL_OVERLAY_DISPLAY_STYLE_PERSISTENT"
+               }
+              },
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Hrishikesh Hirway",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPEDGxTADo7c_GA",
+                      "browseEndpointContextSupportedConfigs": {
+                       "browseEndpointContextMusicConfig": {
+                        "pageType": "MUSIC_PAGE_TYPE_NON_MUSIC_AUDIO_TRACK_PAGE"
+                       }
+                      }
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Jun 30"
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "Rocker Dog Podcast",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPSPPLTVWYTZYmAQKKlFt0z2j-vsMcoAsYTxt5",
+                      "browseEndpointContextSupportedConfigs": {
+                       "browseEndpointContextMusicConfig": {
+                        "pageType": "MUSIC_PAGE_TYPE_PODCAST_SHOW_DETAIL_PAGE"
+                       }
+                      }
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               }
+              ],
+              "menu": {
+               "menuRenderer": {
+                "items": []
+               }
+              },
+              "playlistItemData": {
+               "videoId": "GxTADo7c_GA"
+              },
+              "flexColumnDisplayStyle": "MUSIC_RESPONSIVE_LIST_ITEM_FLEX_COLUMN_DISPLAY_STYLE_TWO_LINE_STACK",
+              "itemHeight": "MUSIC_RESPONSIVE_LIST_ITEM_HEIGHT_TALL"
+             }
+            },
+            {
+             "musicResponsiveListItemRenderer": {
+              "thumbnail": {
+               "musicThumbnailRenderer": {
+                "thumbnail": {
+                 "thumbnails": [
+                  {
+                   "url": "https://i.ytimg.com/vi/G6HGlzL04rg/hqdefault.jpg?sqp=-oaymwEWCJADEOEBIAQqCggAEOADGC0guwJIWg&rs=AMzJL3mhxWS_GFffGOutnbBECDR73n3c0A",
+                   "width": 400,
+                   "height": 225
+                  }
+                 ]
+                },
+                "thumbnailCrop": "MUSIC_THUMBNAIL_CROP_UNSPECIFIED",
+                "thumbnailScale": "MUSIC_THUMBNAIL_SCALE_ASPECT_FIT"
+               }
+              },
+              "overlay": {
+               "musicItemThumbnailOverlayRenderer": {
+                "background": {
+                 "verticalGradient": {
+                  "gradientLayerColors": [
+                   "3422552064",
+                   "3422552064"
+                  ]
+                 }
+                },
+                "content": {
+                 "musicPlayButtonRenderer": {
+                  "playNavigationEndpoint": {
+                   "watchEndpoint": {
+                    "videoId": "G6HGlzL04rg",
+                    "params": "8gEDmAEI",
+                    "watchEndpointMusicSupportedConfigs": {
+                     "watchEndpointMusicConfig": {
+                      "musicVideoType": "MUSIC_VIDEO_TYPE_PODCAST_EPISODE"
+                     }
+                    }
+                   }
+                  },
+                  "playIcon": {
+                   "iconType": "PLAY_ARROW"
+                  },
+                  "pauseIcon": {
+                   "iconType": "PAUSE"
+                  },
+                  "iconColor": 4294967295,
+                  "backgroundColor": 0,
+                  "activeBackgroundColor": 0,
+                  "loadingIndicatorColor": 14745645,
+                  "playingIcon": {
+                   "iconType": "VOLUME_UP"
+                  },
+                  "iconLoadingColor": 0,
+                  "activeScaleFactor": 1,
+                  "buttonSize": "MUSIC_PLAY_BUTTON_SIZE_SMALL",
+                  "rippleTarget": "MUSIC_PLAY_BUTTON_RIPPLE_TARGET_SELF",
+                  "accessibilityPlayData": {},
+                  "accessibilityPauseData": {}
+                 }
+                },
+                "contentPosition": "MUSIC_ITEM_THUMBNAIL_OVERLAY_CONTENT_POSITION_CENTERED",
+                "displayStyle": "MUSIC_ITEM_THUMBNAIL_OVERLAY_DISPLAY_STYLE_PERSISTENT"
+               }
+              },
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Bumper Episode: The Killers' \"When You Were Young\"",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPEDG6HGlzL04rg",
+                      "browseEndpointContextSupportedConfigs": {
+                       "browseEndpointContextMusicConfig": {
+                        "pageType": "MUSIC_PAGE_TYPE_NON_MUSIC_AUDIO_TRACK_PAGE"
+                       }
+                      }
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Dec 30, 2021"
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "Never 2 Old For YA",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPSPOLFPqfPg91-HwC3bTi8kkRkGyvaQIqFEHYA",
+                      "browseEndpointContextSupportedConfigs": {
+                       "browseEndpointContextMusicConfig": {
+                        "pageType": "MUSIC_PAGE_TYPE_PODCAST_SHOW_DETAIL_PAGE"
+                       }
+                      }
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               }
+              ],
+              "menu": {
+               "menuRenderer": {
+                "items": []
+               }
+              },
+              "playlistItemData": {
+               "videoId": "G6HGlzL04rg"
+              },
+              "flexColumnDisplayStyle": "MUSIC_RESPONSIVE_LIST_ITEM_FLEX_COLUMN_DISPLAY_STYLE_TWO_LINE_STACK",
+              "itemHeight": "MUSIC_RESPONSIVE_LIST_ITEM_HEIGHT_TALL"
+             }
+            },
+            {
+             "musicResponsiveListItemRenderer": {
+              "thumbnail": {
+               "musicThumbnailRenderer": {
+                "thumbnail": {
+                 "thumbnails": [
+                  {
+                   "url": "https://i.ytimg.com/vi/ABVzbxbchSE/hqdefault.jpg?sqp=-oaymwEWCJADEOEBIAQqCggAEOADGC0guwJIWg&rs=AMzJL3mS8s7z6l2z5htWeMm-RibOSihngw",
+                   "width": 400,
+                   "height": 225
+                  }
+                 ]
+                },
+                "thumbnailCrop": "MUSIC_THUMBNAIL_CROP_UNSPECIFIED",
+                "thumbnailScale": "MUSIC_THUMBNAIL_SCALE_ASPECT_FIT"
+               }
+              },
+              "overlay": {
+               "musicItemThumbnailOverlayRenderer": {
+                "background": {
+                 "verticalGradient": {
+                  "gradientLayerColors": [
+                   "3422552064",
+                   "3422552064"
+                  ]
+                 }
+                },
+                "content": {
+                 "musicPlayButtonRenderer": {
+                  "playNavigationEndpoint": {
+                   "watchEndpoint": {
+                    "videoId": "ABVzbxbchSE",
+                    "params": "8gEDmAEI",
+                    "watchEndpointMusicSupportedConfigs": {
+                     "watchEndpointMusicConfig": {
+                      "musicVideoType": "MUSIC_VIDEO_TYPE_PODCAST_EPISODE"
+                     }
+                    }
+                   }
+                  },
+                  "playIcon": {
+                   "iconType": "PLAY_ARROW"
+                  },
+                  "pauseIcon": {
+                   "iconType": "PAUSE"
+                  },
+                  "iconColor": 4294967295,
+                  "backgroundColor": 0,
+                  "activeBackgroundColor": 0,
+                  "loadingIndicatorColor": 14745645,
+                  "playingIcon": {
+                   "iconType": "VOLUME_UP"
+                  },
+                  "iconLoadingColor": 0,
+                  "activeScaleFactor": 1,
+                  "buttonSize": "MUSIC_PLAY_BUTTON_SIZE_SMALL",
+                  "rippleTarget": "MUSIC_PLAY_BUTTON_RIPPLE_TARGET_SELF",
+                  "accessibilityPlayData": {},
+                  "accessibilityPauseData": {}
+                 }
+                },
+                "contentPosition": "MUSIC_ITEM_THUMBNAIL_OVERLAY_CONTENT_POSITION_CENTERED",
+                "displayStyle": "MUSIC_ITEM_THUMBNAIL_OVERLAY_DISPLAY_STYLE_PERSISTENT"
+               }
+              },
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Hrishikesh Hirway on Podcasting, Scoring ‘Companion’, and Working with Sophie Thatcher",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPEDABVzbxbchSE",
+                      "browseEndpointContextSupportedConfigs": {
+                       "browseEndpointContextMusicConfig": {
+                        "pageType": "MUSIC_PAGE_TYPE_NON_MUSIC_AUDIO_TRACK_PAGE"
+                       }
+                      }
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Apr 2, 2025"
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "The Blank Chat | Podcast",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPSPPLdNU9IkRoK5EZIcO5zWfm4bu2RqPlrOUJ",
+                      "browseEndpointContextSupportedConfigs": {
+                       "browseEndpointContextMusicConfig": {
+                        "pageType": "MUSIC_PAGE_TYPE_PODCAST_SHOW_DETAIL_PAGE"
+                       }
+                      }
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               }
+              ],
+              "menu": {
+               "menuRenderer": {
+                "items": []
+               }
+              },
+              "playlistItemData": {
+               "videoId": "ABVzbxbchSE"
+              },
+              "flexColumnDisplayStyle": "MUSIC_RESPONSIVE_LIST_ITEM_FLEX_COLUMN_DISPLAY_STYLE_TWO_LINE_STACK",
+              "itemHeight": "MUSIC_RESPONSIVE_LIST_ITEM_HEIGHT_TALL"
+             }
+            },
+            {
+             "musicResponsiveListItemRenderer": {
+              "thumbnail": {
+               "musicThumbnailRenderer": {
+                "thumbnail": {
+                 "thumbnails": [
+                  {
+                   "url": "https://i.ytimg.com/vi/7wuKP8kl8OY/sddefault.jpg?sqp=-oaymwElCIAFEOgCIAQqCghQELAEGAAg4ANIWvKriqkDCZoCBggGEB0YJg&rs=AMzJL3nBx-uYUY8FnURxLn0O1Fq2SeFgrA",
+                   "width": 640,
+                   "height": 360
+                  }
+                 ]
+                },
+                "thumbnailCrop": "MUSIC_THUMBNAIL_CROP_UNSPECIFIED",
+                "thumbnailScale": "MUSIC_THUMBNAIL_SCALE_ASPECT_FIT"
+               }
+              },
+              "overlay": {
+               "musicItemThumbnailOverlayRenderer": {
+                "background": {
+                 "verticalGradient": {
+                  "gradientLayerColors": [
+                   "3422552064",
+                   "3422552064"
+                  ]
+                 }
+                },
+                "content": {
+                 "musicPlayButtonRenderer": {
+                  "playNavigationEndpoint": {
+                   "watchEndpoint": {
+                    "videoId": "7wuKP8kl8OY",
+                    "params": "8gEDmAEI",
+                    "playerParams": "0gcJCQkB-iE-y48-",
+                    "watchEndpointMusicSupportedConfigs": {
+                     "watchEndpointMusicConfig": {
+                      "musicVideoType": "MUSIC_VIDEO_TYPE_PODCAST_EPISODE"
+                     }
+                    }
+                   }
+                  },
+                  "playIcon": {
+                   "iconType": "PLAY_ARROW"
+                  },
+                  "pauseIcon": {
+                   "iconType": "PAUSE"
+                  },
+                  "iconColor": 4294967295,
+                  "backgroundColor": 0,
+                  "activeBackgroundColor": 0,
+                  "loadingIndicatorColor": 14745645,
+                  "playingIcon": {
+                   "iconType": "VOLUME_UP"
+                  },
+                  "iconLoadingColor": 0,
+                  "activeScaleFactor": 1,
+                  "buttonSize": "MUSIC_PLAY_BUTTON_SIZE_SMALL",
+                  "rippleTarget": "MUSIC_PLAY_BUTTON_RIPPLE_TARGET_SELF",
+                  "accessibilityPlayData": {},
+                  "accessibilityPauseData": {}
+                 }
+                },
+                "contentPosition": "MUSIC_ITEM_THUMBNAIL_OVERLAY_CONTENT_POSITION_CENTERED",
+                "displayStyle": "MUSIC_ITEM_THUMBNAIL_OVERLAY_DISPLAY_STYLE_PERSISTENT"
+               }
+              },
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Song Exploder",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPED7wuKP8kl8OY",
+                      "browseEndpointContextSupportedConfigs": {
+                       "browseEndpointContextMusicConfig": {
+                        "pageType": "MUSIC_PAGE_TYPE_NON_MUSIC_AUDIO_TRACK_PAGE"
+                       }
+                      }
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Dec 1, 2024"
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "Best Podcast",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPSPPLiOuffcwbmYkJSZZdMXBS2-1Mi8fS5FTZ",
+                      "browseEndpointContextSupportedConfigs": {
+                       "browseEndpointContextMusicConfig": {
+                        "pageType": "MUSIC_PAGE_TYPE_PODCAST_SHOW_DETAIL_PAGE"
+                       }
+                      }
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               }
+              ],
+              "menu": {
+               "menuRenderer": {
+                "items": []
+               }
+              },
+              "playlistItemData": {
+               "videoId": "7wuKP8kl8OY"
+              },
+              "flexColumnDisplayStyle": "MUSIC_RESPONSIVE_LIST_ITEM_FLEX_COLUMN_DISPLAY_STYLE_TWO_LINE_STACK",
+              "itemHeight": "MUSIC_RESPONSIVE_LIST_ITEM_HEIGHT_TALL"
+             }
+            },
+            {
+             "musicResponsiveListItemRenderer": {
+              "thumbnail": {
+               "musicThumbnailRenderer": {
+                "thumbnail": {
+                 "thumbnails": [
+                  {
+                   "url": "https://i.ytimg.com/vi/d8SDqTP1gdg/sddefault.jpg?sqp=-oaymwElCIAFEOgCIAQqCghQELAEGAAg4ANIWvKriqkDCZoCBggkEC4YMw&rs=AMzJL3lXoMpqDU2-pLbqs9PwNZ5HPgiWfw",
+                   "width": 640,
+                   "height": 360
+                  }
+                 ]
+                },
+                "thumbnailCrop": "MUSIC_THUMBNAIL_CROP_UNSPECIFIED",
+                "thumbnailScale": "MUSIC_THUMBNAIL_SCALE_ASPECT_FIT"
+               }
+              },
+              "overlay": {
+               "musicItemThumbnailOverlayRenderer": {
+                "background": {
+                 "verticalGradient": {
+                  "gradientLayerColors": [
+                   "3422552064",
+                   "3422552064"
+                  ]
+                 }
+                },
+                "content": {
+                 "musicPlayButtonRenderer": {
+                  "playNavigationEndpoint": {
+                   "watchEndpoint": {
+                    "videoId": "d8SDqTP1gdg",
+                    "params": "8gEDmAEI",
+                    "watchEndpointMusicSupportedConfigs": {
+                     "watchEndpointMusicConfig": {
+                      "musicVideoType": "MUSIC_VIDEO_TYPE_PODCAST_EPISODE"
+                     }
+                    }
+                   }
+                  },
+                  "playIcon": {
+                   "iconType": "PLAY_ARROW"
+                  },
+                  "pauseIcon": {
+                   "iconType": "PAUSE"
+                  },
+                  "iconColor": 4294967295,
+                  "backgroundColor": 0,
+                  "activeBackgroundColor": 0,
+                  "loadingIndicatorColor": 14745645,
+                  "playingIcon": {
+                   "iconType": "VOLUME_UP"
+                  },
+                  "iconLoadingColor": 0,
+                  "activeScaleFactor": 1,
+                  "buttonSize": "MUSIC_PLAY_BUTTON_SIZE_SMALL",
+                  "rippleTarget": "MUSIC_PLAY_BUTTON_RIPPLE_TARGET_SELF",
+                  "accessibilityPlayData": {},
+                  "accessibilityPauseData": {}
+                 }
+                },
+                "contentPosition": "MUSIC_ITEM_THUMBNAIL_OVERLAY_CONTENT_POSITION_CENTERED",
+                "displayStyle": "MUSIC_ITEM_THUMBNAIL_OVERLAY_DISPLAY_STYLE_PERSISTENT"
+               }
+              },
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "HP #028 | Song Exploder’s Hrishikesh Hirway Breaks Down His Own Song",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPEDd8SDqTP1gdg",
+                      "browseEndpointContextSupportedConfigs": {
+                       "browseEndpointContextMusicConfig": {
+                        "pageType": "MUSIC_PAGE_TYPE_NON_MUSIC_AUDIO_TRACK_PAGE"
+                       }
+                      }
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Feb 4"
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "Audio: The Hardest Part",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPSPPLdNUG0WvbWt5UvDPs1w5sthVKB55ZlzKF",
+                      "browseEndpointContextSupportedConfigs": {
+                       "browseEndpointContextMusicConfig": {
+                        "pageType": "MUSIC_PAGE_TYPE_PODCAST_SHOW_DETAIL_PAGE"
+                       }
+                      }
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               }
+              ],
+              "menu": {
+               "menuRenderer": {
+                "items": []
+               }
+              },
+              "playlistItemData": {
+               "videoId": "d8SDqTP1gdg"
+              },
+              "flexColumnDisplayStyle": "MUSIC_RESPONSIVE_LIST_ITEM_FLEX_COLUMN_DISPLAY_STYLE_TWO_LINE_STACK",
+              "itemHeight": "MUSIC_RESPONSIVE_LIST_ITEM_HEIGHT_TALL"
+             }
+            },
+            {
+             "musicResponsiveListItemRenderer": {
+              "thumbnail": {
+               "musicThumbnailRenderer": {
+                "thumbnail": {
+                 "thumbnails": [
+                  {
+                   "url": "https://i.ytimg.com/vi/D-Lh7aRjZ00/hqdefault.jpg?sqp=-oaymwEWCJADEOEBIAQqCggAEOADGC0guwJIWg&rs=AMzJL3mu41c0FfGJZXkXT9Gt8WRF3jeUqg",
+                   "width": 400,
+                   "height": 225
+                  }
+                 ]
+                },
+                "thumbnailCrop": "MUSIC_THUMBNAIL_CROP_UNSPECIFIED",
+                "thumbnailScale": "MUSIC_THUMBNAIL_SCALE_ASPECT_FIT"
+               }
+              },
+              "overlay": {
+               "musicItemThumbnailOverlayRenderer": {
+                "background": {
+                 "verticalGradient": {
+                  "gradientLayerColors": [
+                   "3422552064",
+                   "3422552064"
+                  ]
+                 }
+                },
+                "content": {
+                 "musicPlayButtonRenderer": {
+                  "playNavigationEndpoint": {
+                   "watchEndpoint": {
+                    "videoId": "D-Lh7aRjZ00",
+                    "params": "8gEDmAEI",
+                    "watchEndpointMusicSupportedConfigs": {
+                     "watchEndpointMusicConfig": {
+                      "musicVideoType": "MUSIC_VIDEO_TYPE_PODCAST_EPISODE"
+                     }
+                    }
+                   }
+                  },
+                  "playIcon": {
+                   "iconType": "PLAY_ARROW"
+                  },
+                  "pauseIcon": {
+                   "iconType": "PAUSE"
+                  },
+                  "iconColor": 4294967295,
+                  "backgroundColor": 0,
+                  "activeBackgroundColor": 0,
+                  "loadingIndicatorColor": 14745645,
+                  "playingIcon": {
+                   "iconType": "VOLUME_UP"
+                  },
+                  "iconLoadingColor": 0,
+                  "activeScaleFactor": 1,
+                  "buttonSize": "MUSIC_PLAY_BUTTON_SIZE_SMALL",
+                  "rippleTarget": "MUSIC_PLAY_BUTTON_RIPPLE_TARGET_SELF",
+                  "accessibilityPlayData": {},
+                  "accessibilityPauseData": {}
+                 }
+                },
+                "contentPosition": "MUSIC_ITEM_THUMBNAIL_OVERLAY_CONTENT_POSITION_CENTERED",
+                "displayStyle": "MUSIC_ITEM_THUMBNAIL_OVERLAY_DISPLAY_STYLE_PERSISTENT"
+               }
+              },
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "CoP Podcast S3E6 Song Exploder",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPEDD-Lh7aRjZ00",
+                      "browseEndpointContextSupportedConfigs": {
+                       "browseEndpointContextMusicConfig": {
+                        "pageType": "MUSIC_PAGE_TYPE_NON_MUSIC_AUDIO_TRACK_PAGE"
+                       }
+                      }
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Apr 27, 2025"
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "Coloring Our Podcast",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPSPPLP45jMaYxE3L7zmBXv1h4bmt4PZRULGuh",
+                      "browseEndpointContextSupportedConfigs": {
+                       "browseEndpointContextMusicConfig": {
+                        "pageType": "MUSIC_PAGE_TYPE_PODCAST_SHOW_DETAIL_PAGE"
+                       }
+                      }
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               }
+              ],
+              "menu": {
+               "menuRenderer": {
+                "items": []
+               }
+              },
+              "playlistItemData": {
+               "videoId": "D-Lh7aRjZ00"
+              },
+              "flexColumnDisplayStyle": "MUSIC_RESPONSIVE_LIST_ITEM_FLEX_COLUMN_DISPLAY_STYLE_TWO_LINE_STACK",
+              "itemHeight": "MUSIC_RESPONSIVE_LIST_ITEM_HEIGHT_TALL"
+             }
+            },
+            {
+             "musicResponsiveListItemRenderer": {
+              "thumbnail": {
+               "musicThumbnailRenderer": {
+                "thumbnail": {
+                 "thumbnails": [
+                  {
+                   "url": "https://i.ytimg.com/vi/m-LBPslCjig/hqdefault.jpg?sqp=-oaymwEWCJADEOEBIAQqCggAEOADGC0guwJIWg&rs=AMzJL3mF64Muls6tMKk95DtxBrJgCyx7WA",
+                   "width": 400,
+                   "height": 225
+                  }
+                 ]
+                },
+                "thumbnailCrop": "MUSIC_THUMBNAIL_CROP_UNSPECIFIED",
+                "thumbnailScale": "MUSIC_THUMBNAIL_SCALE_ASPECT_FIT"
+               }
+              },
+              "overlay": {
+               "musicItemThumbnailOverlayRenderer": {
+                "background": {
+                 "verticalGradient": {
+                  "gradientLayerColors": [
+                   "3422552064",
+                   "3422552064"
+                  ]
+                 }
+                },
+                "content": {
+                 "musicPlayButtonRenderer": {
+                  "playNavigationEndpoint": {
+                   "watchEndpoint": {
+                    "videoId": "m-LBPslCjig",
+                    "params": "8gEDmAEI",
+                    "watchEndpointMusicSupportedConfigs": {
+                     "watchEndpointMusicConfig": {
+                      "musicVideoType": "MUSIC_VIDEO_TYPE_PODCAST_EPISODE"
+                     }
+                    }
+                   }
+                  },
+                  "playIcon": {
+                   "iconType": "PLAY_ARROW"
+                  },
+                  "pauseIcon": {
+                   "iconType": "PAUSE"
+                  },
+                  "iconColor": 4294967295,
+                  "backgroundColor": 0,
+                  "activeBackgroundColor": 0,
+                  "loadingIndicatorColor": 14745645,
+                  "playingIcon": {
+                   "iconType": "VOLUME_UP"
+                  },
+                  "iconLoadingColor": 0,
+                  "activeScaleFactor": 1,
+                  "buttonSize": "MUSIC_PLAY_BUTTON_SIZE_SMALL",
+                  "rippleTarget": "MUSIC_PLAY_BUTTON_RIPPLE_TARGET_SELF",
+                  "accessibilityPlayData": {},
+                  "accessibilityPauseData": {}
+                 }
+                },
+                "contentPosition": "MUSIC_ITEM_THUMBNAIL_OVERLAY_CONTENT_POSITION_CENTERED",
+                "displayStyle": "MUSIC_ITEM_THUMBNAIL_OVERLAY_DISPLAY_STYLE_PERSISTENT"
+               }
+              },
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Song Exploder’s Hrishikesh Hirway discusses writing a song in his mothers memory.",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPEDm-LBPslCjig",
+                      "browseEndpointContextSupportedConfigs": {
+                       "browseEndpointContextMusicConfig": {
+                        "pageType": "MUSIC_PAGE_TYPE_NON_MUSIC_AUDIO_TRACK_PAGE"
+                       }
+                      }
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Jun 13, 2024"
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "Audio Only Episodes",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPSPPLUDCuxZeajsteBD4Zc-09ssl-V-hqq3ID",
+                      "browseEndpointContextSupportedConfigs": {
+                       "browseEndpointContextMusicConfig": {
+                        "pageType": "MUSIC_PAGE_TYPE_PODCAST_SHOW_DETAIL_PAGE"
+                       }
+                      }
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               }
+              ],
+              "menu": {
+               "menuRenderer": {
+                "items": []
+               }
+              },
+              "playlistItemData": {
+               "videoId": "m-LBPslCjig"
+              },
+              "flexColumnDisplayStyle": "MUSIC_RESPONSIVE_LIST_ITEM_FLEX_COLUMN_DISPLAY_STYLE_TWO_LINE_STACK",
+              "itemHeight": "MUSIC_RESPONSIVE_LIST_ITEM_HEIGHT_TALL"
+             }
+            },
+            {
+             "musicResponsiveListItemRenderer": {
+              "thumbnail": {
+               "musicThumbnailRenderer": {
+                "thumbnail": {
+                 "thumbnails": [
+                  {
+                   "url": "https://i.ytimg.com/vi/MGAU8Zrec9k/hqdefault.jpg?sqp=-oaymwEWCJADEOEBIAQqCggAEOADGC0guwJIWg&rs=AMzJL3myTEUjYzceePWw0qfSY-pKxBdjdw",
+                   "width": 400,
+                   "height": 225
+                  }
+                 ]
+                },
+                "thumbnailCrop": "MUSIC_THUMBNAIL_CROP_UNSPECIFIED",
+                "thumbnailScale": "MUSIC_THUMBNAIL_SCALE_ASPECT_FIT"
+               }
+              },
+              "overlay": {
+               "musicItemThumbnailOverlayRenderer": {
+                "background": {
+                 "verticalGradient": {
+                  "gradientLayerColors": [
+                   "3422552064",
+                   "3422552064"
+                  ]
+                 }
+                },
+                "content": {
+                 "musicPlayButtonRenderer": {
+                  "playNavigationEndpoint": {
+                   "watchEndpoint": {
+                    "videoId": "MGAU8Zrec9k",
+                    "params": "8gEDmAEI",
+                    "watchEndpointMusicSupportedConfigs": {
+                     "watchEndpointMusicConfig": {
+                      "musicVideoType": "MUSIC_VIDEO_TYPE_PODCAST_EPISODE"
+                     }
+                    }
+                   }
+                  },
+                  "playIcon": {
+                   "iconType": "PLAY_ARROW"
+                  },
+                  "pauseIcon": {
+                   "iconType": "PAUSE"
+                  },
+                  "iconColor": 4294967295,
+                  "backgroundColor": 0,
+                  "activeBackgroundColor": 0,
+                  "loadingIndicatorColor": 14745645,
+                  "playingIcon": {
+                   "iconType": "VOLUME_UP"
+                  },
+                  "iconLoadingColor": 0,
+                  "activeScaleFactor": 1,
+                  "buttonSize": "MUSIC_PLAY_BUTTON_SIZE_SMALL",
+                  "rippleTarget": "MUSIC_PLAY_BUTTON_RIPPLE_TARGET_SELF",
+                  "accessibilityPlayData": {},
+                  "accessibilityPauseData": {}
+                 }
+                },
+                "contentPosition": "MUSIC_ITEM_THUMBNAIL_OVERLAY_CONTENT_POSITION_CENTERED",
+                "displayStyle": "MUSIC_ITEM_THUMBNAIL_OVERLAY_DISPLAY_STYLE_PERSISTENT"
+               }
+              },
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "What Makes Music Tick - Hrishikesh Hirway On Producing Song Exploder",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPEDMGAU8Zrec9k",
+                      "browseEndpointContextSupportedConfigs": {
+                       "browseEndpointContextMusicConfig": {
+                        "pageType": "MUSIC_PAGE_TYPE_NON_MUSIC_AUDIO_TRACK_PAGE"
+                       }
+                      }
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Jan 21, 2022"
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "\"Toure Show\" Clips - Interviewing Successful Figures",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPSPPLRl4XDBfORqjmL9GyJHXTPX4bWWCOlqv8",
+                      "browseEndpointContextSupportedConfigs": {
+                       "browseEndpointContextMusicConfig": {
+                        "pageType": "MUSIC_PAGE_TYPE_PODCAST_SHOW_DETAIL_PAGE"
+                       }
+                      }
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               }
+              ],
+              "menu": {
+               "menuRenderer": {
+                "items": []
+               }
+              },
+              "playlistItemData": {
+               "videoId": "MGAU8Zrec9k"
+              },
+              "flexColumnDisplayStyle": "MUSIC_RESPONSIVE_LIST_ITEM_FLEX_COLUMN_DISPLAY_STYLE_TWO_LINE_STACK",
+              "itemHeight": "MUSIC_RESPONSIVE_LIST_ITEM_HEIGHT_TALL"
+             }
+            },
+            {
+             "musicResponsiveListItemRenderer": {
+              "thumbnail": {
+               "musicThumbnailRenderer": {
+                "thumbnail": {
+                 "thumbnails": [
+                  {
+                   "url": "https://i.ytimg.com/vi/NipcQbGo3ik/sddefault.jpg?sqp=-oaymwElCIAFEOgCIAQqCghQELAEGAAg4ANIWvKriqkDCZoCBggpECIYDQ&rs=AMzJL3nSwC-jkAKdyR408P94VdYqLIFw6A",
+                   "width": 640,
+                   "height": 360
+                  }
+                 ]
+                },
+                "thumbnailCrop": "MUSIC_THUMBNAIL_CROP_UNSPECIFIED",
+                "thumbnailScale": "MUSIC_THUMBNAIL_SCALE_ASPECT_FIT"
+               }
+              },
+              "overlay": {
+               "musicItemThumbnailOverlayRenderer": {
+                "background": {
+                 "verticalGradient": {
+                  "gradientLayerColors": [
+                   "3422552064",
+                   "3422552064"
+                  ]
+                 }
+                },
+                "content": {
+                 "musicPlayButtonRenderer": {
+                  "playNavigationEndpoint": {
+                   "watchEndpoint": {
+                    "videoId": "NipcQbGo3ik",
+                    "params": "8gEDmAEI",
+                    "watchEndpointMusicSupportedConfigs": {
+                     "watchEndpointMusicConfig": {
+                      "musicVideoType": "MUSIC_VIDEO_TYPE_PODCAST_EPISODE"
+                     }
+                    }
+                   }
+                  },
+                  "playIcon": {
+                   "iconType": "PLAY_ARROW"
+                  },
+                  "pauseIcon": {
+                   "iconType": "PAUSE"
+                  },
+                  "iconColor": 4294967295,
+                  "backgroundColor": 0,
+                  "activeBackgroundColor": 0,
+                  "loadingIndicatorColor": 14745645,
+                  "playingIcon": {
+                   "iconType": "VOLUME_UP"
+                  },
+                  "iconLoadingColor": 0,
+                  "activeScaleFactor": 1,
+                  "buttonSize": "MUSIC_PLAY_BUTTON_SIZE_SMALL",
+                  "rippleTarget": "MUSIC_PLAY_BUTTON_RIPPLE_TARGET_SELF",
+                  "accessibilityPlayData": {},
+                  "accessibilityPauseData": {}
+                 }
+                },
+                "contentPosition": "MUSIC_ITEM_THUMBNAIL_OVERLAY_CONTENT_POSITION_CENTERED",
+                "displayStyle": "MUSIC_ITEM_THUMBNAIL_OVERLAY_DISPLAY_STYLE_PERSISTENT"
+               }
+              },
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Hrishikesh Hirway (Song Exploder) / Joe Pug (Working Songwriter) / Shane Told (Lead Singer Syndrome)",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPEDNipcQbGo3ik",
+                      "browseEndpointContextSupportedConfigs": {
+                       "browseEndpointContextMusicConfig": {
+                        "pageType": "MUSIC_PAGE_TYPE_NON_MUSIC_AUDIO_TRACK_PAGE"
+                       }
+                      }
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Aug 10"
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "The Future of What",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPSPPLUjFaDvfu0pE",
+                      "browseEndpointContextSupportedConfigs": {
+                       "browseEndpointContextMusicConfig": {
+                        "pageType": "MUSIC_PAGE_TYPE_PODCAST_SHOW_DETAIL_PAGE"
+                       }
+                      }
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               }
+              ],
+              "menu": {
+               "menuRenderer": {
+                "items": []
+               }
+              },
+              "playlistItemData": {
+               "videoId": "NipcQbGo3ik"
+              },
+              "flexColumnDisplayStyle": "MUSIC_RESPONSIVE_LIST_ITEM_FLEX_COLUMN_DISPLAY_STYLE_TWO_LINE_STACK",
+              "itemHeight": "MUSIC_RESPONSIVE_LIST_ITEM_HEIGHT_TALL"
+             }
+            },
+            {
+             "musicResponsiveListItemRenderer": {
+              "thumbnail": {
+               "musicThumbnailRenderer": {
+                "thumbnail": {
+                 "thumbnails": [
+                  {
+                   "url": "https://i.ytimg.com/vi/a-yitvmhp2M/hqdefault.jpg?sqp=-oaymwEWCJADEOEBIAQqCggAEOADGC0guwJIWg&rs=AMzJL3mVe-VubobAG10ylmsnkgiNneZDGg",
+                   "width": 400,
+                   "height": 225
+                  }
+                 ]
+                },
+                "thumbnailCrop": "MUSIC_THUMBNAIL_CROP_UNSPECIFIED",
+                "thumbnailScale": "MUSIC_THUMBNAIL_SCALE_ASPECT_FIT"
+               }
+              },
+              "overlay": {
+               "musicItemThumbnailOverlayRenderer": {
+                "background": {
+                 "verticalGradient": {
+                  "gradientLayerColors": [
+                   "3422552064",
+                   "3422552064"
+                  ]
+                 }
+                },
+                "content": {
+                 "musicPlayButtonRenderer": {
+                  "playNavigationEndpoint": {
+                   "watchEndpoint": {
+                    "videoId": "a-yitvmhp2M",
+                    "params": "8gEDmAEI",
+                    "watchEndpointMusicSupportedConfigs": {
+                     "watchEndpointMusicConfig": {
+                      "musicVideoType": "MUSIC_VIDEO_TYPE_PODCAST_EPISODE"
+                     }
+                    }
+                   }
+                  },
+                  "playIcon": {
+                   "iconType": "PLAY_ARROW"
+                  },
+                  "pauseIcon": {
+                   "iconType": "PAUSE"
+                  },
+                  "iconColor": 4294967295,
+                  "backgroundColor": 0,
+                  "activeBackgroundColor": 0,
+                  "loadingIndicatorColor": 14745645,
+                  "playingIcon": {
+                   "iconType": "VOLUME_UP"
+                  },
+                  "iconLoadingColor": 0,
+                  "activeScaleFactor": 1,
+                  "buttonSize": "MUSIC_PLAY_BUTTON_SIZE_SMALL",
+                  "rippleTarget": "MUSIC_PLAY_BUTTON_RIPPLE_TARGET_SELF",
+                  "accessibilityPlayData": {},
+                  "accessibilityPauseData": {}
+                 }
+                },
+                "contentPosition": "MUSIC_ITEM_THUMBNAIL_OVERLAY_CONTENT_POSITION_CENTERED",
+                "displayStyle": "MUSIC_ITEM_THUMBNAIL_OVERLAY_DISPLAY_STYLE_PERSISTENT"
+               }
+              },
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Hrishikesh Hirway (Song Exploder): Dadaist art, writer's block, trolling Trebek",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPEDa-yitvmhp2M",
+                      "browseEndpointContextSupportedConfigs": {
+                       "browseEndpointContextMusicConfig": {
+                        "pageType": "MUSIC_PAGE_TYPE_NON_MUSIC_AUDIO_TRACK_PAGE"
+                       }
+                      }
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Mar 4, 2022"
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "Follow Friday Full Episodes",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPSPPLUETNzXANKFzN2UtFsgteCNe-_n5XpWpl",
+                      "browseEndpointContextSupportedConfigs": {
+                       "browseEndpointContextMusicConfig": {
+                        "pageType": "MUSIC_PAGE_TYPE_PODCAST_SHOW_DETAIL_PAGE"
+                       }
+                      }
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               }
+              ],
+              "menu": {
+               "menuRenderer": {
+                "items": []
+               }
+              },
+              "playlistItemData": {
+               "videoId": "a-yitvmhp2M"
+              },
+              "flexColumnDisplayStyle": "MUSIC_RESPONSIVE_LIST_ITEM_FLEX_COLUMN_DISPLAY_STYLE_TWO_LINE_STACK",
+              "itemHeight": "MUSIC_RESPONSIVE_LIST_ITEM_HEIGHT_TALL"
+             }
+            },
+            {
+             "musicResponsiveListItemRenderer": {
+              "thumbnail": {
+               "musicThumbnailRenderer": {
+                "thumbnail": {
+                 "thumbnails": [
+                  {
+                   "url": "https://i.ytimg.com/vi/1mCH8yNkTD4/sddefault.jpg?sqp=-oaymwElCIAFEOgCIAQqCghQELAEGAAg4ANIWvKriqkDCZoCBggzEDMYMw&rs=AMzJL3njI4HNmZ7n1ORvO3Q4qJh4rTES2g",
+                   "width": 640,
+                   "height": 360
+                  }
+                 ]
+                },
+                "thumbnailCrop": "MUSIC_THUMBNAIL_CROP_UNSPECIFIED",
+                "thumbnailScale": "MUSIC_THUMBNAIL_SCALE_ASPECT_FIT"
+               }
+              },
+              "overlay": {
+               "musicItemThumbnailOverlayRenderer": {
+                "background": {
+                 "verticalGradient": {
+                  "gradientLayerColors": [
+                   "3422552064",
+                   "3422552064"
+                  ]
+                 }
+                },
+                "content": {
+                 "musicPlayButtonRenderer": {
+                  "playNavigationEndpoint": {
+                   "watchEndpoint": {
+                    "videoId": "1mCH8yNkTD4",
+                    "params": "8gEDmAEI",
+                    "watchEndpointMusicSupportedConfigs": {
+                     "watchEndpointMusicConfig": {
+                      "musicVideoType": "MUSIC_VIDEO_TYPE_PODCAST_EPISODE"
+                     }
+                    }
+                   }
+                  },
+                  "playIcon": {
+                   "iconType": "PLAY_ARROW"
+                  },
+                  "pauseIcon": {
+                   "iconType": "PAUSE"
+                  },
+                  "iconColor": 4294967295,
+                  "backgroundColor": 0,
+                  "activeBackgroundColor": 0,
+                  "loadingIndicatorColor": 14745645,
+                  "playingIcon": {
+                   "iconType": "VOLUME_UP"
+                  },
+                  "iconLoadingColor": 0,
+                  "activeScaleFactor": 1,
+                  "buttonSize": "MUSIC_PLAY_BUTTON_SIZE_SMALL",
+                  "rippleTarget": "MUSIC_PLAY_BUTTON_RIPPLE_TARGET_SELF",
+                  "accessibilityPlayData": {},
+                  "accessibilityPauseData": {}
+                 }
+                },
+                "contentPosition": "MUSIC_ITEM_THUMBNAIL_OVERLAY_CONTENT_POSITION_CENTERED",
+                "displayStyle": "MUSIC_ITEM_THUMBNAIL_OVERLAY_DISPLAY_STYLE_PERSISTENT"
+               }
+              },
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Song Exploder's Hrishikesh Hirway on Honouring His Family Through Music",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPED1mCH8yNkTD4",
+                      "browseEndpointContextSupportedConfigs": {
+                       "browseEndpointContextMusicConfig": {
+                        "pageType": "MUSIC_PAGE_TYPE_NON_MUSIC_AUDIO_TRACK_PAGE"
+                       }
+                      }
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Sep 30"
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "Audio Only Episodes",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPSPPLUDCuxZeajsteBD4Zc-09ssl-V-hqq3ID",
+                      "browseEndpointContextSupportedConfigs": {
+                       "browseEndpointContextMusicConfig": {
+                        "pageType": "MUSIC_PAGE_TYPE_PODCAST_SHOW_DETAIL_PAGE"
+                       }
+                      }
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               }
+              ],
+              "menu": {
+               "menuRenderer": {
+                "items": []
+               }
+              },
+              "playlistItemData": {
+               "videoId": "1mCH8yNkTD4"
+              },
+              "flexColumnDisplayStyle": "MUSIC_RESPONSIVE_LIST_ITEM_FLEX_COLUMN_DISPLAY_STYLE_TWO_LINE_STACK",
+              "itemHeight": "MUSIC_RESPONSIVE_LIST_ITEM_HEIGHT_TALL"
+             }
+            },
+            {
+             "musicResponsiveListItemRenderer": {
+              "thumbnail": {
+               "musicThumbnailRenderer": {
+                "thumbnail": {
+                 "thumbnails": [
+                  {
+                   "url": "https://i.ytimg.com/vi/TQUCTRfdBNA/sddefault.jpg?sqp=-oaymwElCIAFEOgCIAQqCghQELAEGAAg4ANIWvKriqkDCZoCBggpECQYDA&rs=AMzJL3mrfoGQkxEtw2aPg0JSxdLuQ8scbw",
+                   "width": 640,
+                   "height": 360
+                  }
+                 ]
+                },
+                "thumbnailCrop": "MUSIC_THUMBNAIL_CROP_UNSPECIFIED",
+                "thumbnailScale": "MUSIC_THUMBNAIL_SCALE_ASPECT_FIT"
+               }
+              },
+              "overlay": {
+               "musicItemThumbnailOverlayRenderer": {
+                "background": {
+                 "verticalGradient": {
+                  "gradientLayerColors": [
+                   "3422552064",
+                   "3422552064"
+                  ]
+                 }
+                },
+                "content": {
+                 "musicPlayButtonRenderer": {
+                  "playNavigationEndpoint": {
+                   "watchEndpoint": {
+                    "videoId": "TQUCTRfdBNA",
+                    "params": "8gEDmAEI",
+                    "watchEndpointMusicSupportedConfigs": {
+                     "watchEndpointMusicConfig": {
+                      "musicVideoType": "MUSIC_VIDEO_TYPE_PODCAST_EPISODE"
+                     }
+                    }
+                   }
+                  },
+                  "playIcon": {
+                   "iconType": "PLAY_ARROW"
+                  },
+                  "pauseIcon": {
+                   "iconType": "PAUSE"
+                  },
+                  "iconColor": 4294967295,
+                  "backgroundColor": 0,
+                  "activeBackgroundColor": 0,
+                  "loadingIndicatorColor": 14745645,
+                  "playingIcon": {
+                   "iconType": "VOLUME_UP"
+                  },
+                  "iconLoadingColor": 0,
+                  "activeScaleFactor": 1,
+                  "buttonSize": "MUSIC_PLAY_BUTTON_SIZE_SMALL",
+                  "rippleTarget": "MUSIC_PLAY_BUTTON_RIPPLE_TARGET_SELF",
+                  "accessibilityPlayData": {},
+                  "accessibilityPauseData": {}
+                 }
+                },
+                "contentPosition": "MUSIC_ITEM_THUMBNAIL_OVERLAY_CONTENT_POSITION_CENTERED",
+                "displayStyle": "MUSIC_ITEM_THUMBNAIL_OVERLAY_DISPLAY_STYLE_PERSISTENT"
+               }
+              },
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Ep. 79 - Ferocity, Veracity, and Velocity",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPEDTQUCTRfdBNA",
+                      "browseEndpointContextSupportedConfigs": {
+                       "browseEndpointContextMusicConfig": {
+                        "pageType": "MUSIC_PAGE_TYPE_NON_MUSIC_AUDIO_TRACK_PAGE"
+                       }
+                      }
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Oct 26, 2020"
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "Happy Hour with Dennis and Erik",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPSPPLc7WumE0sHKd8V9LqxtuQ-Fkqh6lC-CFT",
+                      "browseEndpointContextSupportedConfigs": {
+                       "browseEndpointContextMusicConfig": {
+                        "pageType": "MUSIC_PAGE_TYPE_PODCAST_SHOW_DETAIL_PAGE"
+                       }
+                      }
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               }
+              ],
+              "menu": {
+               "menuRenderer": {
+                "items": []
+               }
+              },
+              "playlistItemData": {
+               "videoId": "TQUCTRfdBNA"
+              },
+              "flexColumnDisplayStyle": "MUSIC_RESPONSIVE_LIST_ITEM_FLEX_COLUMN_DISPLAY_STYLE_TWO_LINE_STACK",
+              "itemHeight": "MUSIC_RESPONSIVE_LIST_ITEM_HEIGHT_TALL"
+             }
+            },
+            {
+             "musicResponsiveListItemRenderer": {
+              "thumbnail": {
+               "musicThumbnailRenderer": {
+                "thumbnail": {
+                 "thumbnails": [
+                  {
+                   "url": "https://i.ytimg.com/vi/Ayw5X1kZE5g/hqdefault.jpg?sqp=-oaymwEWCJADEOEBIAQqCggAEOADGC0guwJIWg&rs=AMzJL3mDfSH2EMNn-Ucv0sJOT_ucryCVww",
+                   "width": 400,
+                   "height": 225
+                  }
+                 ]
+                },
+                "thumbnailCrop": "MUSIC_THUMBNAIL_CROP_UNSPECIFIED",
+                "thumbnailScale": "MUSIC_THUMBNAIL_SCALE_ASPECT_FIT"
+               }
+              },
+              "overlay": {
+               "musicItemThumbnailOverlayRenderer": {
+                "background": {
+                 "verticalGradient": {
+                  "gradientLayerColors": [
+                   "3422552064",
+                   "3422552064"
+                  ]
+                 }
+                },
+                "content": {
+                 "musicPlayButtonRenderer": {
+                  "playNavigationEndpoint": {
+                   "watchEndpoint": {
+                    "videoId": "Ayw5X1kZE5g",
+                    "params": "8gEDmAEI",
+                    "watchEndpointMusicSupportedConfigs": {
+                     "watchEndpointMusicConfig": {
+                      "musicVideoType": "MUSIC_VIDEO_TYPE_PODCAST_EPISODE"
+                     }
+                    }
+                   }
+                  },
+                  "playIcon": {
+                   "iconType": "PLAY_ARROW"
+                  },
+                  "pauseIcon": {
+                   "iconType": "PAUSE"
+                  },
+                  "iconColor": 4294967295,
+                  "backgroundColor": 0,
+                  "activeBackgroundColor": 0,
+                  "loadingIndicatorColor": 14745645,
+                  "playingIcon": {
+                   "iconType": "VOLUME_UP"
+                  },
+                  "iconLoadingColor": 0,
+                  "activeScaleFactor": 1,
+                  "buttonSize": "MUSIC_PLAY_BUTTON_SIZE_SMALL",
+                  "rippleTarget": "MUSIC_PLAY_BUTTON_RIPPLE_TARGET_SELF",
+                  "accessibilityPlayData": {},
+                  "accessibilityPauseData": {}
+                 }
+                },
+                "contentPosition": "MUSIC_ITEM_THUMBNAIL_OVERLAY_CONTENT_POSITION_CENTERED",
+                "displayStyle": "MUSIC_ITEM_THUMBNAIL_OVERLAY_DISPLAY_STYLE_PERSISTENT"
+               }
+              },
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "I wrote a theme song for the Helix. The MIDI looks like DNA",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPEDAyw5X1kZE5g",
+                      "browseEndpointContextSupportedConfigs": {
+                       "browseEndpointContextMusicConfig": {
+                        "pageType": "MUSIC_PAGE_TYPE_NON_MUSIC_AUDIO_TRACK_PAGE"
+                       }
+                      }
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Oct 8, 2025"
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "The Double Helix | Podcast",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "MPSPPLRyYtY1Jt_xCtTvlcLNze5oJ7Hqkv__94",
+                      "browseEndpointContextSupportedConfigs": {
+                       "browseEndpointContextMusicConfig": {
+                        "pageType": "MUSIC_PAGE_TYPE_PODCAST_SHOW_DETAIL_PAGE"
+                       }
+                      }
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               }
+              ],
+              "menu": {
+               "menuRenderer": {
+                "items": []
+               }
+              },
+              "playlistItemData": {
+               "videoId": "Ayw5X1kZE5g"
+              },
+              "flexColumnDisplayStyle": "MUSIC_RESPONSIVE_LIST_ITEM_FLEX_COLUMN_DISPLAY_STYLE_TWO_LINE_STACK",
+              "itemHeight": "MUSIC_RESPONSIVE_LIST_ITEM_HEIGHT_TALL"
+             }
+            }
+           ],
+           "shelfDivider": {
+            "musicShelfDividerRenderer": {
+             "hidden": true
+            }
+           }
+          }
+         }
+        ],
+        "header": {
+         "chipCloudRenderer": {
+          "chips": [
+           {
+            "chipCloudChipRenderer": {
+             "style": {
+              "styleType": "STYLE_SECONDARY"
+             },
+             "navigationEndpoint": {
+              "searchEndpoint": {
+               "query": "song exploder"
+              }
+             },
+             "icon": {
+              "iconType": "CLOSE"
+             },
+             "isSelected": false,
+             "uniqueId": "Clear filters"
+            }
+           },
+           {
+            "chipCloudChipRenderer": {
+             "style": {
+              "styleType": "STYLE_DEFAULT"
+             },
+             "text": {
+              "runs": [
+               {
+                "text": "Featured playlists"
+               }
+              ]
+             },
+             "navigationEndpoint": {
+              "searchEndpoint": {
+               "query": "song exploder",
+               "params": "EgeKAQQoADgBagwQDhAKEAMQBBAJEAU%3D"
+              }
+             },
+             "isSelected": false,
+             "uniqueId": "Featured playlists"
+            }
+           },
+           {
+            "chipCloudChipRenderer": {
+             "style": {
+              "styleType": "STYLE_DEFAULT"
+             },
+             "text": {
+              "runs": [
+               {
+                "text": "Community playlists"
+               }
+              ]
+             },
+             "navigationEndpoint": {
+              "searchEndpoint": {
+               "query": "song exploder",
+               "params": "EgeKAQQoAEABagwQDhAKEAMQBBAJEAU%3D"
+              }
+             },
+             "isSelected": false,
+             "uniqueId": "Community playlists"
+            }
+           },
+           {
+            "chipCloudChipRenderer": {
+             "style": {
+              "styleType": "STYLE_DEFAULT"
+             },
+             "text": {
+              "runs": [
+               {
+                "text": "Songs"
+               }
+              ]
+             },
+             "navigationEndpoint": {
+              "searchEndpoint": {
+               "query": "song exploder",
+               "params": "EgWKAQIIAWoMEA4QChADEAQQCRAF"
+              }
+             },
+             "isSelected": false,
+             "uniqueId": "Songs"
+            }
+           },
+           {
+            "chipCloudChipRenderer": {
+             "style": {
+              "styleType": "STYLE_DEFAULT"
+             },
+             "text": {
+              "runs": [
+               {
+                "text": "Videos"
+               }
+              ]
+             },
+             "navigationEndpoint": {
+              "searchEndpoint": {
+               "query": "song exploder",
+               "params": "EgWKAQIQAWoMEA4QChADEAQQCRAF"
+              }
+             },
+             "isSelected": false,
+             "uniqueId": "Videos"
+            }
+           },
+           {
+            "chipCloudChipRenderer": {
+             "style": {
+              "styleType": "STYLE_DEFAULT"
+             },
+             "text": {
+              "runs": [
+               {
+                "text": "Albums"
+               }
+              ]
+             },
+             "navigationEndpoint": {
+              "searchEndpoint": {
+               "query": "song exploder",
+               "params": "EgWKAQIYAWoMEA4QChADEAQQCRAF"
+              }
+             },
+             "isSelected": false,
+             "uniqueId": "Albums"
+            }
+           },
+           {
+            "chipCloudChipRenderer": {
+             "style": {
+              "styleType": "STYLE_DEFAULT"
+             },
+             "text": {
+              "runs": [
+               {
+                "text": "Artists"
+               }
+              ]
+             },
+             "navigationEndpoint": {
+              "searchEndpoint": {
+               "query": "song exploder",
+               "params": "EgWKAQIgAWoMEA4QChADEAQQCRAF"
+              }
+             },
+             "isSelected": false,
+             "uniqueId": "Artists"
+            }
+           }
+          ],
+          "collapsedRowCount": 1,
+          "horizontalScrollable": true
+         }
+        }
+       }
+      },
+      "tabIdentifier": "music_search_catalog"
+     }
+    }
+   ]
+  }
+ }
+}

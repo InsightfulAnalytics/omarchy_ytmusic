@@ -419,33 +419,10 @@ function queueAllCommands(tracks) {
 // Lists in the panel are flat arrays of rows: { header: true, title } or
 // { item, trackIndex? }. trackIndex points into the list a click plays from.
 
-var SEARCH_SECTIONS = [
-  { key: "top", title: "Top result" },
-  { key: "songs", title: "Songs" },
-  { key: "albums", title: "Albums" },
-  { key: "artists", title: "Artists" },
-  { key: "playlists", title: "Playlists" },
-  { key: "videos", title: "Videos" }
-]
-
-var FILTER_TITLES = { songs: "Songs", albums: "Albums", artists: "Artists", playlists: "Playlists", videos: "Videos" }
-
-function flattenSearch(result, filter) {
-  var rows = []
-  if (!result) return rows
-  if (filter) {
-    var items = result.items || []
-    if (items.length) rows.push({ header: true, title: FILTER_TITLES[filter] || "Results" })
-    for (var i = 0; i < items.length; i++) rows.push({ item: items[i] })
-    return rows
-  }
-  for (var s = 0; s < SEARCH_SECTIONS.length; s++) {
-    var group = result[SEARCH_SECTIONS[s].key] || []
-    if (!group.length) continue
-    rows.push({ header: true, title: SEARCH_SECTIONS[s].title })
-    for (var j = 0; j < group.length; j++) rows.push({ item: group[j] })
-  }
-  return rows
+// A search result as rows: searchRows in the search (S7) section (groups in
+// YouTube's order, Show all rows, spelling rows, Load more).
+function flattenSearch(result, filter, opts) {
+  return searchRows(result, filter, opts)
 }
 
 function trackRows(tracks) {
@@ -492,14 +469,16 @@ function joinParts(parts) {
 
 function itemSubtitle(item) {
   if (!item) return ""
-  if (item.type === "track") return joinParts([item.artistText, item.kind === "video" ? "Video" : ""])
+  // S6: a chart row (Top songs, Trending, Top artists) leads with its rank and trend.
+  var rank = rankText(item)
+  if (item.type === "track") return joinParts([rank, item.artistText, item.kind === "video" ? "Video" : ""])
   if (item.type === "album") return joinParts([item.albumType, item.artistText, item.year])
   if (item.type === "playlist")
     return joinParts([item.author, item.count ? item.count + " songs" : ""]) || (item.description ? String(item.description) : "")
-  if (item.type === "artist") return item.subtitle ? item.subtitle : "Artist"
+  if (item.type === "artist") return joinParts([rank, item.subtitle ? item.subtitle : "Artist"])
   if (item.type === "liked") return "Songs you liked"
   if (item.type === "history") return "Recently played"
-  return item.subtitle ? String(item.subtitle) : ""
+  return joinParts([rank, item.subtitle ? String(item.subtitle) : ""])
 }
 
 // Home's rows (homeRows, shelfTracks): the home (S5) section.
@@ -666,23 +645,28 @@ function parseRecent(text) {
 
 // Up to `max` completions for what's typed: at most two of your recent
 // searches that start with it, then YouTube Music's; never the typed text.
+// S7: one of your YouTube searches (fromHistory) is marked `remote`, also
+// when it repeats a recent search, so x can remove it from YouTube too.
 function suggestionList(recent, remote, typed, max) {
   var key = String(typed || "").trim().toLowerCase()
   var limit = max || 5
   var out = []
   var seen = {}
   seen[key] = true
-  function add(text, fromHistory) {
+  function add(text, fromHistory, isRemote) {
     var value = String(text || "").trim()
     var k = value.toLowerCase()
+    if (isRemote && seen[k] && seen[k] !== true) seen[k].remote = true
     if (value === "" || seen[k] || out.length >= limit) return
-    seen[k] = true
-    out.push({ text: value, recent: fromHistory })
+    var entry = { text: value, recent: fromHistory }
+    if (isRemote) entry.remote = true
+    seen[k] = entry
+    out.push(entry)
   }
   for (var i = 0; i < (recent || []).length && out.length < 2; i++) {
-    if (String(recent[i]).toLowerCase().indexOf(key) === 0) add(recent[i], true)
+    if (String(recent[i]).toLowerCase().indexOf(key) === 0) add(recent[i], true, false)
   }
-  for (var j = 0; j < (remote || []).length; j++) add(remote[j].text, !!remote[j].fromHistory)
+  for (var j = 0; j < (remote || []).length; j++) add(remote[j].text, !!remote[j].fromHistory, !!remote[j].fromHistory)
   return out
 }
 
@@ -693,20 +677,25 @@ function recentRows(recent, max) {
   return rows
 }
 
-// `selected` marks the one Tab put into the field.
+// `selected` marks the one Tab put into the field. S7: a recent or past
+// search can be removed (x): `remote` ones from YouTube too.
 function suggestionRows(suggestions, selected) {
   var list = suggestions || []
   var rows = list.length ? [{ header: true, title: "Suggestions" }] : []
   for (var i = 0; i < list.length; i++) {
-    rows.push({ item: { type: "query", text: list[i].text, recent: !!list[i].recent, removable: false, selected: i === selected } })
+    rows.push({ item: { type: "query", text: list[i].text, recent: !!list[i].recent, removable: !!list[i].recent,
+                        remote: !!list[i].remote, selected: i === selected } })
   }
   return rows
 }
 
 // ---- caches ---------------------------------------------------------------------
 
-function searchKey(query, filter) {
-  return (filter || "") + "|" + String(query || "").trim().toLowerCase()
+// S7: the scope ("", "library", "uploads") and an exact search (no spelling
+// fix) are part of the key; a plain search keeps its old key.
+function searchKey(query, filter, scope, exact) {
+  var key = (filter || "") + "|" + String(query || "").trim().toLowerCase()
+  return scope || exact ? key + "|" + (scope || "") + (exact ? "|exact" : "") : key
 }
 
 // Every cover URL (thumb / thumbLarge) inside a result, deduplicated.
@@ -869,7 +858,9 @@ function canonicalJson(value) {
 //   round         round cover (artists, profiles); a page's own `round` also counts
 //   adapt(r, ref) optional: turns the reply into what CollectionView shows
 //   claims(item)  optional: takes over items of another type (checked first)
-//   ttlMs         optional: how long the Store's copy counts as fresh (5 min)
+//   ttlMs         optional: how long the Store's copy counts as fresh (5 min);
+//                 one longer than Store.unseenMs (10 min) also keeps an
+//                 unseen copy that long (S6 moods)
 //   view          optional: a name that keeps this kind's pages apart from
 //                 another kind's on the same method and params (S1's about
 //                 page reads the artist method)
@@ -1639,7 +1630,7 @@ function actionRows(actions, armed) {
 // the catcher handles itself, listed for help only. A key is bound once.
 
 var KEYS = [
-  { id: "tab", group: "Move", keys: ["1", "2", "3", "4"], label: ["1-4"], title: "switch tab: Now, Search, Library, Home" },
+  { id: "tab", group: "Move", keys: ["1", "2", "3", "4", "5"], label: ["1-5"], title: "switch tab: Now, Search, Library, Home, Explore" },
   { id: "search", group: "Move", keys: ["/"], title: "search" },
   { id: "move", group: "Move", caught: ["j", "k", "↑", "↓"], title: "move" },
   { id: "top", group: "Move", keys: ["g"], title: "first row" },
@@ -1661,7 +1652,7 @@ var KEYS = [
   { id: "remove", group: "Song", caught: ["x"], title: "remove (queue, own playlist, Liked Music, recent search)" },
   { id: "menu", group: "Menus", keys: ["m", "."], title: "the row's menu (or right-click)" },
   { id: "pageMenu", group: "Menus", keys: ["M"], title: "the page's menu (Library: account)" },
-  { id: "order", group: "Menus", keys: ["O"], title: "next sort order on a page that has one" },
+  { id: "order", group: "Menus", keys: ["O"], title: "next sort order on a page that has one (Charts: the country)" },
   { id: "find", group: "Menus", keys: ["f"], title: "find in a page's songs (album, playlist, Liked Music, History) or the suggested artists" },
   { id: "help", group: "Menus", keys: ["?"], title: "these keys" }
 ]
@@ -3593,9 +3584,10 @@ if (typeof module !== "undefined") {
 // read a page of shelves at a time (Store.loadHomeMore when the cursor nears
 // the end, or the Load more row). A shelf ends in a selectable See all row
 // when it has one, routed like any See all (routeEndpoint: VL to a
-// playlist, MPAD to an artist's releases, UC to an artist; anything else,
-// such as Listen again, Mixed for you, New releases, a mood category, the
-// library landing or a channel with params like Recaps, to a browse page),
+// playlist, MPAD to an artist's releases, UC to an artist, a mood category
+// to its mood page (S6); anything else, such as Listen again, Mixed for
+// you, New releases, the library landing or a channel with params like
+// Recaps, to a browse page),
 // and in a Play all row when it has a Play all (Service.playShelf: the list
 // YouTube generates for it). The mood chips above it, All first, switch
 // with h / l; each chip is its served params ("" for All).
@@ -3736,6 +3728,541 @@ if (typeof module !== "undefined") {
     shelfQueueParams: shelfQueueParams,
     appendShelves: appendShelves,
     shelfContext: shelfContext
+  })
+}
+
+// ==== explore (S6) =========================================================================
+// The Explore tab (key 5): the worker's `explore` page as rows. Its entry
+// rows open New releases (a browse page), Charts and Moods & genres; then
+// New albums & singles, Top songs (Premium), Moods & genres (eight
+// categories, and a row that shows the rest: some are on no other page, not
+// even its See all), Trending, New music videos and Popular episodes when
+// served, each ending in See all (Top songs and Trending open their
+// playlist, VL stripped, on the playlist page). A chart row (Top songs,
+// Trending, Top artists) leads its subtitle with its rank and trend
+// (itemSubtitle); a song keeps them only there, not in the queue
+// (withoutRank, Service.remember). Charts is a page of kind `charts`
+// in one country: O, its Country row or its M menu choose another from the
+// countries the page serves, kept in prefs.chartsCountry; a Charts item
+// without a country gets that one when it opens (Panel.push). Moods &
+// genres (`moods`, kept a day, seen or not) lists every category, and a category
+// (`mood`, a `mood` item: { type, id, title, params }) its playlists in
+// titled shelves, each with a See all of a narrower category.
+
+var EXPLORE_TTL_MS = 30 * 60 * 1000
+var MOODS_TTL_MS = 24 * 60 * 60 * 1000
+var GLOBAL_COUNTRY = "ZZ"
+var CHARTS_COUNTRY_ID = "charts:country"
+// Moods & genres on Explore: this many categories, then a row that shows all.
+var MOOD_PREVIEW = 8
+var EXPLORE_MOODS_ID = "explore:moods"
+var MOOD_ICON = "󰠱"
+var EXPLORE_ENTRY_ICONS = { FEmusic_new_releases: "󰎕", FEmusic_charts: "󰔵", FEmusic_moods_and_genres: MOOD_ICON }
+var COUNTRY_ICON = "󰇧"
+var TREND_ICONS = { up: "󰍠", down: "󰍝", neutral: "󰧟" }
+
+PAGE_KINDS.charts = {
+  method: "charts", title: "Charts", round: false,
+  params: function(t) { return { country: chartsCountry(t.country) } },
+  id: function(t) { return chartsCountry(t.country) },
+  adapt: function(result) { return chartsPage(result) }
+}
+PAGE_KINDS.moods = {
+  method: "moods", title: "Moods & genres", round: false, ttlMs: MOODS_TTL_MS,
+  params: function() { return {} },
+  id: function() { return "moods" }
+}
+// Only params: a category's title is not part of what the page is.
+PAGE_KINDS.mood = {
+  method: "mood", title: "", round: false,
+  params: function(t) { return t.params ? { params: t.params } : null },
+  id: function(t) { return t.params }
+}
+
+ROUTES.push({ browseId: "FEmusic_charts", target: function(ep) { return { type: "charts", title: ep.title || "" } } })
+ROUTES.push({ browseId: "FEmusic_moods_and_genres", target: function(ep) { return { type: "moods", title: ep.title || "" } } })
+ROUTES.push({ browseId: "FEmusic_moods_and_genres_category",
+  target: function(ep) { return ep.params ? { type: "mood", id: ep.params, params: ep.params, title: ep.title || "" } : null } })
+
+// ---- charts ---------------------------------------------------------------------------
+
+// A chart country as prefs keep it: ZZ (Global) or two capitals.
+function chartsCountry(value) {
+  return normalizePref("chartsCountry", typeof value === "string" ? value.toUpperCase() : value)
+}
+
+function chartsItem(country, title) {
+  return { type: "charts", country: chartsCountry(country), title: title || "Charts" }
+}
+
+// A Charts item opened without a country (Explore's entry row, a See all
+// that leads to Charts) opens in the one chosen last.
+function withChartsCountry(item, country) {
+  if (!item || item.type !== "charts" || item.country) return item
+  var out = {}
+  for (var k in item) out[k] = item[k]
+  out.country = chartsCountry(country)
+  if (!out.title) out.title = "Charts"
+  return out
+}
+
+// { code, label } the page was served in (Global while unknown).
+function chartsCountryOf(page) {
+  var c = page && page.country
+  return c && c.code ? { code: String(c.code), label: String(c.label || c.code) } : { code: GLOBAL_COUNTRY, label: "Global" }
+}
+
+function chartsCountryTitle(page) {
+  return "Country: " + chartsCountryOf(page).label
+}
+
+// The Charts page as shown: its Country row first (Enter opens the chooser).
+function chartsPage(result) {
+  if (!result || result.type !== "page") return result
+  var out = {}
+  for (var k in result) out[k] = result[k]
+  var row = { type: "action", id: CHARTS_COUNTRY_ID, title: chartsCountryTitle(result), icon: COUNTRY_ICON, hint: keyHint("order") }
+  out.sections = [{ type: "section", title: null, items: [row], more: null, play: null, layout: null, key: "country" }]
+    .concat(result.sections || [])
+  return out
+}
+
+// ItemMenu chooser rows of the countries the page serves, in their order
+// (the suggested ones first); the one shown is ticked.
+function countryChoices(page) {
+  var shown = chartsCountryOf(page).code
+  var list = page && Array.isArray(page.countries) ? page.countries : []
+  return list.filter(function(c) { return c && /^[A-Z]{2}$/.test(String(c.code)) }).map(function(c) {
+    var code = String(c.code)
+    return { id: "country:" + code, title: String(c.label || code), icon: code === shown ? "󰄬" : COUNTRY_ICON, value: code }
+  })
+}
+
+// "#1 󰍠": a chart row's rank and trend ("" for any other row).
+function rankText(item) {
+  if (!item || item.rank === undefined || item.rank === null || String(item.rank) === "") return ""
+  var icon = TREND_ICONS[item.trend] || ""
+  return "#" + String(item.rank) + (icon ? " " + icon : "")
+}
+
+// A song as the queue keeps it (Service.remember): a chart position means
+// nothing there, so its rank and trend stay on the chart's rows. The same
+// object when it has neither.
+function withoutRank(track) {
+  if (!track || typeof track !== "object" || (track.rank === undefined && track.trend === undefined)) return track
+  var out = {}
+  for (var key in track) if (key !== "rank" && key !== "trend") out[key] = track[key]
+  return out
+}
+
+// ---- the Explore page -------------------------------------------------------------------
+
+// An entry row (the page's navigation buttons): an action row that opens
+// what its endpoint routes to.
+function exploreEntry(more) {
+  var ep = more && more.endpoint ? more.endpoint : {}
+  var title = String((more && more.title) || "")
+  return { type: "action", id: "explore:" + String(ep.browseId || title), title: title,
+           icon: EXPLORE_ENTRY_ICONS[ep.browseId] || "󰅂",
+           target: routeEndpoint({ browseId: ep.browseId, params: ep.params, pageType: ep.pageType, title: title }) }
+}
+
+function _isMood(item) {
+  return !!item && item.type === "mood"
+}
+
+// The row that shows every mood category, or only the first MOOD_PREVIEW.
+function moodsToggle(total, open) {
+  return { type: "action", id: EXPLORE_MOODS_ID, title: open ? "Fewer moods and genres" : "All " + total + " moods and genres",
+           icon: open ? "󰅃" : "󰅀" }
+}
+
+// pageRows, with the entry rows as action rows and the Moods & genres
+// section cut to MOOD_PREVIEW categories unless opts.moodsOpen; the toggle
+// row follows its last category shown.
+function exploreRows(page, opts) {
+  var sections = page && page.sections ? page.sections : []
+  var open = !!(opts && opts.moodsOpen)
+  var rows = pageRows(page)
+  var moods = {}
+  var out = []
+  for (var i = 0; i < rows.length; i++) {
+    var row = rows[i]
+    var section = !row.header && row.sectionIndex !== undefined ? sections[row.sectionIndex] : null
+    var key = section ? section.key : null
+    if (key === "entries" && row.item.type === "more") {
+      out.push({ item: exploreEntry(row.item), sectionIndex: row.sectionIndex })
+      continue
+    }
+    if (key === "moods" && _isMood(row.item)) {
+      var state = moods[row.sectionIndex]
+      if (!state) state = moods[row.sectionIndex] = { total: _validItems(section.items).filter(_isMood).length, seen: 0 }
+      state.seen++
+      if (open || state.seen <= MOOD_PREVIEW) out.push(row)
+      var last = state.seen === (open ? state.total : Math.min(MOOD_PREVIEW, state.total))
+      if (last && state.total > MOOD_PREVIEW) out.push({ item: moodsToggle(state.total, open), sectionIndex: row.sectionIndex })
+      continue
+    }
+    out.push(row)
+  }
+  return out
+}
+
+// Where the cursor goes once the moods toggle changed the rows: opened, onto
+// the first category it showed (it takes the toggle's old place); closed,
+// onto the toggle again. -1 without a toggle.
+function exploreMoodsCursor(rows, open) {
+  var list = rows || []
+  var toggle = -1
+  for (var i = 0; i < list.length && toggle < 0; i++)
+    if (!list[i].header && list[i].item && list[i].item.id === EXPLORE_MOODS_ID) toggle = i
+  if (!open || toggle < 0) return toggle
+  var seen = 0
+  for (var j = 0; j < toggle; j++) {
+    var row = list[j]
+    if (!row.header && row.sectionIndex === list[toggle].sectionIndex && _isMood(row.item) && ++seen > MOOD_PREVIEW) return j
+  }
+  return toggle
+}
+
+// What a section's songs play as ("Playing from" Top songs, with the chart
+// playlist as autoplay's context when the section has one).
+function exploreContext(page, index) {
+  var section = page && page.sections ? page.sections[index] : null
+  var id = section && section.more && section.more.browseId ? String(section.more.browseId) : ""
+  return { playlistId: id.indexOf("VL") === 0 ? id.slice(2) : null, title: section && section.title ? String(section.title) : "Explore",
+           radio: false }
+}
+
+// The status line above Explore's rows.
+function exploreStatus(explore) {
+  var e = explore || {}
+  if (e.loading && !e.page) return "Loading Explore…"
+  if (e.error) return String(e.error)
+  return "New releases, charts, moods and genres"
+}
+
+// Charts (M): the Country row's twin. Explore (M): Refresh.
+MENU_ACTIONS.push({ id: "chartsCountry", title: function(item, ctx) { return "Country: " + (ctx.countryLabel || "Global") },
+  icon: COUNTRY_ICON, key: "order",
+  applies: function(item, ctx) { return ctx.page === true && ctx.pageKind === "charts" },
+  run: function(env) { if (env.owner && typeof env.owner.chooseCountry === "function") env.owner.chooseCountry() } })
+MENU_ACTIONS.push({ id: "exploreRefresh", title: "Refresh", icon: "󰑐",
+  applies: function(item, ctx) { return ctx.page === true && ctx.pageKind === "explore" },
+  run: function(env) { env.owner.refresh(true) } })
+
+if (typeof module !== "undefined") {
+  Object.assign(module.exports, {
+    EXPLORE_TTL_MS: EXPLORE_TTL_MS,
+    MOODS_TTL_MS: MOODS_TTL_MS,
+    GLOBAL_COUNTRY: GLOBAL_COUNTRY,
+    CHARTS_COUNTRY_ID: CHARTS_COUNTRY_ID,
+    MOOD_PREVIEW: MOOD_PREVIEW,
+    EXPLORE_MOODS_ID: EXPLORE_MOODS_ID,
+    MOOD_ICON: MOOD_ICON,
+    TREND_ICONS: TREND_ICONS,
+    chartsCountry: chartsCountry,
+    chartsItem: chartsItem,
+    withChartsCountry: withChartsCountry,
+    chartsCountryOf: chartsCountryOf,
+    chartsCountryTitle: chartsCountryTitle,
+    chartsPage: chartsPage,
+    countryChoices: countryChoices,
+    rankText: rankText,
+    withoutRank: withoutRank,
+    exploreEntry: exploreEntry,
+    moodsToggle: moodsToggle,
+    exploreRows: exploreRows,
+    exploreMoodsCursor: exploreMoodsCursor,
+    exploreContext: exploreContext,
+    exploreStatus: exploreStatus
+  })
+}
+
+// ==== search (S7) ============================================================================
+// Search is the web's search. All groups every kind of result in the order
+// YouTube served them, under the top result card, and each group ends in a
+// Show all row that switches to its filter. Songs, Albums, Artists and
+// Playlists are chips; the other filters sit in a More chooser (the chip
+// then shows the chosen one), and h / l cycle through all of them. One
+// scope chip cycles YouTube Music, your library and your uploads (signed
+// in). A filtered list loads more as the cursor nears its end. When YouTube
+// corrected the spelling, a row searches the words exactly as typed (or
+// offers its correction). An empty field lists your recent searches merged
+// with your YouTube searches; while typing, completions come with up to
+// five rich rows (artists, songs, albums) that open or play.
+
+var SEARCH_GROUPS = [
+  { key: "songs", title: "Songs" },
+  { key: "videos", title: "Videos" },
+  { key: "albums", title: "Albums" },
+  { key: "artists", title: "Artists" },
+  { key: "playlists", title: "Playlists" },
+  { key: "podcasts", title: "Podcasts" },
+  { key: "episodes", title: "Episodes" },
+  { key: "profiles", title: "Profiles" }
+]
+
+// Every filter in h / l order ("" is All); `more` ones are in the More chooser.
+var SEARCH_FILTERS = [
+  { key: "", title: "All" },
+  { key: "songs", title: "Songs" },
+  { key: "albums", title: "Albums" },
+  { key: "artists", title: "Artists" },
+  { key: "playlists", title: "Playlists" },
+  { key: "videos", title: "Videos", more: true },
+  { key: "featured_playlists", title: "Featured playlists", more: true },
+  { key: "community_playlists", title: "Community playlists", more: true },
+  { key: "podcasts", title: "Podcasts", more: true },
+  { key: "episodes", title: "Episodes", more: true },
+  { key: "profiles", title: "Profiles", more: true }
+]
+
+var SEARCH_SCOPES = [
+  { key: "", title: "YouTube Music", menuTitle: "Search YouTube Music" },
+  { key: "library", title: "Library", menuTitle: "Search your library" },
+  { key: "uploads", title: "Uploads", menuTitle: "Search your uploads" }
+]
+
+var SEARCH_SHOW_ALL = "search:showAll:"
+var SEARCH_EXACT = "search:exact"
+var SEARCH_CORRECTED = "search:corrected"
+var SEARCH_MORE_CHIP = "more"
+
+function _searchFilter(key) {
+  for (var i = 0; i < SEARCH_FILTERS.length; i++) if (SEARCH_FILTERS[i].key === (key || "")) return SEARCH_FILTERS[i]
+  return null
+}
+
+function _listOf(value) {
+  var out = []
+  for (var i = 0; value && typeof value.length === "number" && i < value.length; i++) {
+    if (value[i] && typeof value[i] === "object") out.push(value[i])
+  }
+  return out
+}
+
+function searchFilterTitle(key) {
+  var spec = _searchFilter(key)
+  return spec ? spec.title : "Results"
+}
+
+function searchScopeTitle(scope) {
+  for (var i = 0; i < SEARCH_SCOPES.length; i++) if (SEARCH_SCOPES[i].key === (scope || "")) return SEARCH_SCOPES[i].title
+  return SEARCH_SCOPES[0].title
+}
+
+// Uploads take no filter; your library has no featured or community playlists.
+function searchFilterAllowed(filter, scope) {
+  if (!filter) return true
+  if (!_searchFilter(filter) || scope === "uploads") return false
+  return scope !== "library" || (filter !== "featured_playlists" && filter !== "community_playlists")
+}
+
+// The filter `dx` steps from `filter` among those the scope allows (wrapping).
+function nextSearchFilter(filter, scope, dx) {
+  var keys = SEARCH_FILTERS.filter(function(f) { return searchFilterAllowed(f.key, scope) }).map(function(f) { return f.key })
+  var at = Math.max(0, keys.indexOf(filter || ""))
+  var n = keys.length
+  return keys[((at + (dx < 0 ? -1 : 1)) % n + n) % n]
+}
+
+function nextSearchScope(scope) {
+  var keys = SEARCH_SCOPES.map(function(s) { return s.key })
+  var at = Math.max(0, keys.indexOf(scope || ""))
+  return keys[(at + 1) % keys.length]
+}
+
+// The chip row: All, Songs, Albums, Artists, Playlists, then More, which
+// shows the chosen More filter. A chip the scope does not allow is disabled.
+function searchChips(filter, scope) {
+  var out = []
+  for (var i = 0; i < SEARCH_FILTERS.length; i++) {
+    var f = SEARCH_FILTERS[i]
+    if (f.more) continue
+    out.push({ key: f.key, title: f.title, selected: (filter || "") === f.key, enabled: searchFilterAllowed(f.key, scope), more: false })
+  }
+  var chosen = _searchFilter(filter)
+  var isMore = !!chosen && chosen.more === true
+  out.push({ key: SEARCH_MORE_CHIP, title: isMore ? chosen.title : "More", selected: isMore, enabled: scope !== "uploads", more: true })
+  return out
+}
+
+// The More chooser's choices (ItemMenu.openChooser): the current one ticked.
+function moreFilterChoices(filter, scope) {
+  return SEARCH_FILTERS.filter(function(f) { return f.more && searchFilterAllowed(f.key, scope) }).map(function(f) {
+    return { id: f.key, title: f.title, icon: f.key === filter ? "󰄬" : "󰈲" }
+  })
+}
+
+function searchResultCount(result) {
+  if (!result) return 0
+  if (result.items && typeof result.items.length === "number") return result.items.length
+  var count = _listOf(result.top).length
+  for (var i = 0; i < SEARCH_GROUPS.length; i++) count += _listOf(result[SEARCH_GROUPS[i].key]).length
+  return count
+}
+
+// "Showing results for radiohead" when YouTube corrected the query, else "".
+function spellingStatus(result) {
+  var sp = result ? result.spelling : null
+  return sp && sp.kind === "corrected" && sp.corrected ? "Showing results for " + sp.corrected : ""
+}
+
+function _spellingRows(result) {
+  var sp = result ? result.spelling : null
+  if (!sp || !sp.corrected) return []
+  if (sp.kind === "corrected" && sp.original)
+    return [{ item: { type: "action", id: SEARCH_EXACT, title: "Search instead for \"" + sp.original + "\"", icon: "󰓆", query: String(sp.original) } }]
+  if (sp.kind === "didYouMean")
+    return [{ item: { type: "action", id: SEARCH_CORRECTED, title: "Did you mean \"" + sp.corrected + "\"?", icon: "󰓆", query: String(sp.corrected) } }]
+  return []
+}
+
+// A search result as rows. A list (a filter, or the uploads scope): its
+// items, then Load more while it has a cursor. All: the top result card's
+// rows, then each group in `order` (YouTube's; the old fixed order when the
+// result has none) ending in a Show all row for its filter. A spelling row
+// comes first. opts: { scope }.
+function searchRows(result, filter, opts) {
+  var rows = []
+  if (!result) return rows
+  var o = opts || {}
+  rows = rows.concat(_spellingRows(result))
+  var i
+  if (filter || (result.items && typeof result.items.length === "number")) {
+    var items = _listOf(result.items)
+    if (items.length) rows.push({ header: true, title: filter ? searchFilterTitle(filter) : o.scope === "uploads" ? "Uploads" : "Results" })
+    for (i = 0; i < items.length; i++) rows.push({ item: items[i] })
+    if ((result.cursor || result.hasMore) && result.capped !== true) rows.push({ item: { type: "loadMore", title: "Load more" } })
+    return rows
+  }
+  var top = _listOf(result.top)
+  if (top.length) rows.push({ header: true, title: "Top result" })
+  for (i = 0; i < top.length; i++) rows.push({ item: top[i] })
+  var order = result.order && typeof result.order.length === "number" ? result.order
+    : ["songs", "albums", "artists", "playlists", "videos", "podcasts", "episodes", "profiles"]
+  for (var g = 0; g < order.length; g++) {
+    var group = null
+    for (var k = 0; k < SEARCH_GROUPS.length; k++) if (SEARCH_GROUPS[k].key === order[g]) group = SEARCH_GROUPS[k]
+    var list = group ? _listOf(result[group.key]) : []
+    if (!list.length) continue
+    rows.push({ header: true, title: group.title })
+    for (i = 0; i < list.length; i++) rows.push({ item: list[i] })
+    if (searchFilterAllowed(group.key, o.scope))
+      rows.push({ item: { type: "action", id: SEARCH_SHOW_ALL + group.key, title: "Show all " + group.title.toLowerCase(), icon: "󰁔", filter: group.key } })
+  }
+  return rows
+}
+
+// The filter a Show all row sets ("" for any other row).
+function showAllFilter(item) {
+  return item && item.type === "action" && String(item.id || "").indexOf(SEARCH_SHOW_ALL) === 0 ? String(item.filter || "") : ""
+}
+
+// The empty field: your recent searches on this computer, then your other
+// YouTube searches (signed in), each once. All can be removed with x; one
+// that is also a YouTube search is `remote` (removed there too).
+function pastSearchRows(local, remote, max) {
+  var limit = max || 10
+  var out = []
+  var seen = {}
+  function add(text, isRemote) {
+    var value = String(text || "").trim()
+    var k = value.toLowerCase()
+    if (value === "") return
+    if (seen[k]) {
+      if (isRemote) seen[k].remote = true
+      return
+    }
+    if (out.length >= limit) return
+    var item = { type: "query", text: value, recent: true, removable: true }
+    if (isRemote) item.remote = true
+    seen[k] = item
+    out.push(item)
+  }
+  var i
+  for (i = 0; local && i < local.length; i++) add(local[i], false)
+  for (i = 0; remote && i < remote.length; i++) add(remote[i] && typeof remote[i] === "object" ? remote[i].text : remote[i], true)
+  return out.length ? [{ header: true, title: "Recent searches" }].concat(out.map(function(item) { return { item: item } })) : []
+}
+
+// While typing: the completions (suggestionRows), then up to five rich rows
+// (songs play, artists and albums open), under one Suggestions header.
+function typingRows(suggestions, selected, entities) {
+  var rows = suggestionRows(suggestions, selected)
+  var items = _listOf(entities).slice(0, 5)
+  if (items.length && rows.length === 0) rows.push({ header: true, title: "Suggestions" })
+  for (var i = 0; i < items.length; i++) rows.push({ item: items[i], suggestion: true })
+  return rows
+}
+
+// searchMore's page added to a filtered result (appendPage), without the
+// rows already listed: YouTube's next page can repeat a few results of the
+// one before (the worker drops repeats within one reply).
+function _searchRepeatKey(item) {
+  if (!item || typeof item !== "object") return ""
+  var id = item.videoId || item.browseId || item.playlistId || item.channelId
+  return id ? String(item.type) + ":" + id : ""
+}
+
+function appendSearchPage(result, next, max) {
+  if (!result || !next || !Array.isArray(next.items)) return appendPage(result, next, max)
+  var seen = {}
+  var listed = _listOf(result.items)
+  for (var i = 0; i < listed.length; i++) seen[_searchRepeatKey(listed[i])] = true
+  var fresh = []
+  for (var j = 0; j < next.items.length; j++) {
+    var key = _searchRepeatKey(next.items[j])
+    if (key && seen[key]) continue
+    if (key) seen[key] = true
+    fresh.push(next.items[j])
+  }
+  var page = {}
+  for (var k in next) page[k] = next[k]
+  page.items = fresh
+  return appendPage(result, page, max)
+}
+
+// Search's page menu (M): the scopes (signed in) and the More filters.
+MENU_ACTIONS.push({ id: "searchMoreFilters", title: "More filters", icon: "󰈲",
+  applies: function(item, ctx) { return ctx.page === true && ctx.pageKind === "search" && ctx.scope !== "uploads" },
+  run: function(env) { env.owner.openMoreFilters() } })
+SEARCH_SCOPES.forEach(function(scope) {
+  MENU_ACTIONS.push({ id: "searchScope:" + scope.key, title: scope.menuTitle, icon: "󰍉",
+    applies: function(item, ctx) {
+      return ctx.page === true && ctx.pageKind === "search" && ctx.signedIn === true && (ctx.scope || "") !== scope.key
+    },
+    run: function(env) { env.owner.setScope(scope.key) } })
+})
+
+// An uploaded album or artist (the uploads scope) opens as its browse page
+// until S10 gives uploads pages of their own (the item's `upload` says which).
+// Its items are `type: "browse"`, so PAGE_KINDS.browse already reads them.
+
+if (typeof module !== "undefined") {
+  Object.assign(module.exports, {
+    SEARCH_GROUPS: SEARCH_GROUPS,
+    SEARCH_FILTERS: SEARCH_FILTERS,
+    SEARCH_SCOPES: SEARCH_SCOPES,
+    SEARCH_SHOW_ALL: SEARCH_SHOW_ALL,
+    SEARCH_EXACT: SEARCH_EXACT,
+    SEARCH_CORRECTED: SEARCH_CORRECTED,
+    SEARCH_MORE_CHIP: SEARCH_MORE_CHIP,
+    searchFilterTitle: searchFilterTitle,
+    searchScopeTitle: searchScopeTitle,
+    searchFilterAllowed: searchFilterAllowed,
+    nextSearchFilter: nextSearchFilter,
+    nextSearchScope: nextSearchScope,
+    searchChips: searchChips,
+    moreFilterChoices: moreFilterChoices,
+    searchResultCount: searchResultCount,
+    spellingStatus: spellingStatus,
+    searchRows: searchRows,
+    showAllFilter: showAllFilter,
+    pastSearchRows: pastSearchRows,
+    typingRows: typingRows,
+    appendSearchPage: appendSearchPage
   })
 }
 

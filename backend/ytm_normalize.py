@@ -343,6 +343,12 @@ def episode(item):
 
 
 def search_item(item):
+    """One search result (ytmusicapi's shape, typed by ``resultType``), or None.
+
+    S7: podcasts, episodes (tracks of kind ``episode``), profiles (with their
+    ``handle``) and stations (a mix playlist) too; an artist keeps YouTube's
+    ``shuffleId`` and ``radioId`` mixes, which the row menu plays.
+    """
     kind = item.get("resultType")
     if kind in ("song", "video"):
         return track(item)
@@ -351,8 +357,27 @@ def search_item(item):
     if kind == "playlist":
         return playlist(item)
     if kind == "artist":
-        return artist(item)
-    return None  # podcasts, episodes, profiles: not supported
+        value = artist(item)
+        value["shuffleId"] = item.get("shuffleId") or None
+        value["radioId"] = item.get("radioId") or None
+        return value
+    if kind == "podcast":
+        value = podcast(item)
+        value["subtitle"] = "Podcast" + (f" \u2022 {value['authorText']}" if value["authorText"] else "")
+        return value
+    if kind == "episode":
+        return episode(item)
+    if kind == "profile":
+        # ytmusicapi reads the display name as ``title`` and the @handle as ``name``.
+        handle = item.get("name") if isinstance(item.get("name"), str) and item["name"].startswith("@") else None
+        value = profile({"browseId": item.get("browseId"), "name": item.get("title") or item.get("name"),
+                         "subtitle": handle, "thumbnails": item.get("thumbnails")})
+        value["handle"] = handle
+        return value
+    if kind == "station":
+        return playlist({"playlistId": item.get("playlistId"), "title": item.get("title"),
+                         "author": item.get("author"), "thumbnails": item.get("thumbnails")})
+    return None
 
 
 def home_item(item):
@@ -381,30 +406,44 @@ def normalize_list(items, fn, what="item"):
     return out
 
 
-SEARCH_GROUPS = {"song": "songs", "video": "videos", "album": "albums", "playlist": "playlists", "artist": "artists"}
+SEARCH_GROUPS = {"song": "songs", "video": "videos", "album": "albums", "playlist": "playlists",
+                 "station": "playlists", "artist": "artists", "podcast": "podcasts", "episode": "episodes",
+                 "profile": "profiles"}
+# Every group key; each is also the search filter its Show all row sets.
+SEARCH_GROUP_KEYS = ("songs", "videos", "albums", "playlists", "artists", "podcasts", "episodes", "profiles")
 
 
-def search_grouped(results):
-    """Unfiltered search: the top result plus one list per kind."""
-    groups = {"top": [], "songs": [], "videos": [], "albums": [], "playlists": [], "artists": []}
+def search_grouped(results, top=None):
+    """Unfiltered search: the top result plus one list per kind.
+
+    ``results`` are search results in served order, ``top`` the top result
+    card's (its item, then the rows it holds) or a podcast's lead shelf, both
+    in ytmusicapi's shape. The top section comes only from what the search
+    module read as the top result (S7: never from a position or the English
+    "Top result" label), so without ``top`` it is empty. ``order``
+    lists the groups in the order YouTube served their first result.
+    """
+    groups = {"top": normalize_list(top, search_item, "top result")}
+    for key in SEARCH_GROUP_KEYS:
+        groups[key] = []
+    order = []
     for raw in results or []:
-        items = normalize_list([raw], search_item, "search result")
+        key = SEARCH_GROUPS.get(raw.get("resultType")) if isinstance(raw, dict) else None
+        items = normalize_list([raw], search_item, "search result") if key else []
         if not items:
             continue
-        if raw.get("category") == "Top result":
-            groups["top"].append(items[0])
-            continue
-        key = SEARCH_GROUPS.get(raw.get("resultType"))
-        if key:
-            groups[key].append(items[0])
+        groups[key].append(items[0])
+        if key not in order:
+            order.append(key)
+    groups["order"] = order
     # When the top result is an artist, YouTube Music's card lists a few of
     # their popular songs with only title and plays; ytmusicapi returns those
     # without artists. They belong to the top-result artist.
     top_artist = next((item for item in groups["top"] if item["type"] == "artist"), None)
     if top_artist and top_artist["name"]:
         credit = [{"name": top_artist["name"], "id": top_artist["channelId"]}]
-        for song in groups["songs"]:
-            if not song["artists"]:
+        for song in groups["top"][1:] + groups["songs"]:
+            if song["type"] == "track" and not song["artists"]:
                 song["artists"] = list(credit)
                 song["artistText"] = artist_text(credit)
     return groups

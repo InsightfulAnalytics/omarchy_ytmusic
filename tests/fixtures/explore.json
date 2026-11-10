@@ -1,0 +1,2799 @@
+{
+ "contents": {
+  "singleColumnBrowseResultsRenderer": {
+   "tabs": [
+    {
+     "tabRenderer": {
+      "endpoint": {
+       "browseEndpoint": {
+        "browseId": "FEmusic_explore"
+       }
+      },
+      "selected": true,
+      "content": {
+       "sectionListRenderer": {
+        "contents": [
+         {
+          "gridRenderer": {
+           "items": [
+            {
+             "musicNavigationButtonRenderer": {
+              "buttonText": {
+               "runs": [
+                {
+                 "text": "New releases"
+                }
+               ]
+              },
+              "clickCommand": {
+               "browseEndpoint": {
+                "browseId": "FEmusic_new_releases"
+               }
+              },
+              "iconStyle": {
+               "icon": {
+                "iconType": "MUSIC_NEW_RELEASE"
+               }
+              }
+             }
+            },
+            {
+             "musicNavigationButtonRenderer": {
+              "buttonText": {
+               "runs": [
+                {
+                 "text": "Charts"
+                }
+               ]
+              },
+              "clickCommand": {
+               "browseEndpoint": {
+                "browseId": "FEmusic_charts",
+                "params": "sgYPRkVtdXNpY19leHBsb3Jl"
+               }
+              },
+              "iconStyle": {
+               "icon": {
+                "iconType": "TRENDING_UP"
+               }
+              }
+             }
+            },
+            {
+             "musicNavigationButtonRenderer": {
+              "buttonText": {
+               "runs": [
+                {
+                 "text": "Moods & genres"
+                }
+               ]
+              },
+              "clickCommand": {
+               "browseEndpoint": {
+                "browseId": "FEmusic_moods_and_genres"
+               }
+              },
+              "iconStyle": {
+               "icon": {
+                "iconType": "STICKER_EMOTICON"
+               }
+              }
+             }
+            }
+           ]
+          }
+         },
+         {
+          "musicCarouselShelfRenderer": {
+           "header": {
+            "musicCarouselShelfBasicHeaderRenderer": {
+             "title": {
+              "runs": [
+               {
+                "text": "New albums & singles",
+                "navigationEndpoint": {
+                 "browseEndpoint": {
+                  "browseId": "FEmusic_new_releases_albums"
+                 }
+                }
+               }
+              ]
+             },
+             "accessibilityData": {
+              "accessibilityData": {
+               "label": "New albums & singles"
+              }
+             },
+             "headerStyle": "MUSIC_CAROUSEL_SHELF_BASIC_HEADER_STYLE_DEFAULT",
+             "moreContentButton": {
+              "buttonRenderer": {
+               "style": "STYLE_TEXT",
+               "text": {
+                "runs": [
+                 {
+                  "text": "More"
+                 }
+                ]
+               },
+               "navigationEndpoint": {
+                "browseEndpoint": {
+                 "browseId": "FEmusic_new_releases_albums"
+                }
+               },
+               "accessibilityData": {
+                "accessibilityData": {
+                 "label": "More"
+                }
+               }
+              }
+             }
+            }
+           },
+           "contents": [
+            {
+             "musicTwoRowItemRenderer": {
+              "thumbnailRenderer": {
+               "musicThumbnailRenderer": {
+                "thumbnail": {
+                 "thumbnails": [
+                  {
+                   "url": "https://yt3.googleusercontent.com/roPu58_Vs5HH0-jdzWNJwmUMPe4Law4JtMIy4AQKM8_Fy87AxcBlyKhdT7CeW0KY9n6a1VlanjJ3aJc=w226-h226-l90-rj",
+                   "width": 226,
+                   "height": 226
+                  },
+                  {
+                   "url": "https://yt3.googleusercontent.com/roPu58_Vs5HH0-jdzWNJwmUMPe4Law4JtMIy4AQKM8_Fy87AxcBlyKhdT7CeW0KY9n6a1VlanjJ3aJc=w544-h544-l90-rj",
+                   "width": 544,
+                   "height": 544
+                  }
+                 ]
+                },
+                "thumbnailCrop": "MUSIC_THUMBNAIL_CROP_UNSPECIFIED",
+                "thumbnailScale": "MUSIC_THUMBNAIL_SCALE_ASPECT_FILL"
+               }
+              },
+              "aspectRatio": "MUSIC_TWO_ROW_ITEM_THUMBNAIL_ASPECT_RATIO_SQUARE",
+              "title": {
+               "runs": [
+                {
+                 "text": "ALL THE YEARS STILL IN ME",
+                 "navigationEndpoint": {
+                  "browseEndpoint": {
+                   "browseId": "MPREb_nAniwdyVtcm",
+                   "browseEndpointContextSupportedConfigs": {
+                    "browseEndpointContextMusicConfig": {
+                     "pageType": "MUSIC_PAGE_TYPE_ALBUM"
+                    }
+                   }
+                  }
+                 }
+                }
+               ]
+              },
+              "subtitle": {
+               "runs": [
+                {
+                 "text": "Album"
+                },
+                {
+                 "text": " • "
+                },
+                {
+                 "text": "Eddie Dalton",
+                 "navigationEndpoint": {
+                  "browseEndpoint": {
+                   "browseId": "UCoH4UM4bewVxJfZZpnTFs5g",
+                   "browseEndpointContextSupportedConfigs": {
+                    "browseEndpointContextMusicConfig": {
+                     "pageType": "MUSIC_PAGE_TYPE_ARTIST"
+                    }
+                   }
+                  }
+                 }
+                }
+               ]
+              },
+              "navigationEndpoint": {
+               "browseEndpoint": {
+                "browseId": "MPREb_nAniwdyVtcm",
+                "browseEndpointContextSupportedConfigs": {
+                 "browseEndpointContextMusicConfig": {
+                  "pageType": "MUSIC_PAGE_TYPE_ALBUM"
+                 }
+                }
+               }
+              },
+              "thumbnailOverlay": {
+               "musicItemThumbnailOverlayRenderer": {
+                "background": {
+                 "verticalGradient": {
+                  "gradientLayerColors": [
+                   "2147483648",
+                   "0",
+                   "0"
+                  ]
+                 }
+                },
+                "content": {
+                 "musicPlayButtonRenderer": {
+                  "playNavigationEndpoint": {
+                   "watchPlaylistEndpoint": {
+                    "playlistId": "OLAK5uy_l01PDxJz9vUcqJozLzwNYuWo3gXhGkLc8"
+                   }
+                  },
+                  "playIcon": {
+                   "iconType": "PLAY_ARROW"
+                  },
+                  "pauseIcon": {
+                   "iconType": "PAUSE"
+                  },
+                  "iconColor": 4294967295,
+                  "backgroundColor": 2566914048,
+                  "activeBackgroundColor": 4278190080,
+                  "loadingIndicatorColor": 14745645,
+                  "playingIcon": {
+                   "iconType": "VOLUME_UP"
+                  },
+                  "iconLoadingColor": 1308622847,
+                  "activeScaleFactor": 1.2,
+                  "buttonSize": "MUSIC_PLAY_BUTTON_SIZE_MEDIUM",
+                  "rippleTarget": "MUSIC_PLAY_BUTTON_RIPPLE_TARGET_SELF",
+                  "accessibilityPlayData": {
+                   "accessibilityData": {
+                    "label": "Play ALL THE YEARS STILL IN ME"
+                   }
+                  },
+                  "accessibilityPauseData": {
+                   "accessibilityData": {
+                    "label": "Pause ALL THE YEARS STILL IN ME"
+                   }
+                  }
+                 }
+                },
+                "contentPosition": "MUSIC_ITEM_THUMBNAIL_OVERLAY_CONTENT_POSITION_BOTTOM_RIGHT",
+                "displayStyle": "MUSIC_ITEM_THUMBNAIL_OVERLAY_DISPLAY_STYLE_HOVER"
+               }
+              }
+             }
+            },
+            {
+             "musicTwoRowItemRenderer": {
+              "thumbnailRenderer": {
+               "musicThumbnailRenderer": {
+                "thumbnail": {
+                 "thumbnails": [
+                  {
+                   "url": "https://yt3.googleusercontent.com/qClKSAJ9r8nfGWOWtanv31wJsHtEXRmtp4fegEWieZk_p__w3AruVfHkQYZFKABa9fcvx1Sd9ihHkqLs=w226-h226-l90-rj",
+                   "width": 226,
+                   "height": 226
+                  },
+                  {
+                   "url": "https://yt3.googleusercontent.com/qClKSAJ9r8nfGWOWtanv31wJsHtEXRmtp4fegEWieZk_p__w3AruVfHkQYZFKABa9fcvx1Sd9ihHkqLs=w544-h544-l90-rj",
+                   "width": 544,
+                   "height": 544
+                  }
+                 ]
+                },
+                "thumbnailCrop": "MUSIC_THUMBNAIL_CROP_UNSPECIFIED",
+                "thumbnailScale": "MUSIC_THUMBNAIL_SCALE_ASPECT_FILL"
+               }
+              },
+              "aspectRatio": "MUSIC_TWO_ROW_ITEM_THUMBNAIL_ASPECT_RATIO_SQUARE",
+              "title": {
+               "runs": [
+                {
+                 "text": "Symphonic Suite The Boy and the Heron for piano and orchestra",
+                 "navigationEndpoint": {
+                  "browseEndpoint": {
+                   "browseId": "MPREb_NPptpsZpkOY",
+                   "browseEndpointContextSupportedConfigs": {
+                    "browseEndpointContextMusicConfig": {
+                     "pageType": "MUSIC_PAGE_TYPE_ALBUM"
+                    }
+                   }
+                  }
+                 }
+                }
+               ]
+              },
+              "subtitle": {
+               "runs": [
+                {
+                 "text": "Album"
+                },
+                {
+                 "text": " • "
+                },
+                {
+                 "text": "Joe Hisaishi",
+                 "navigationEndpoint": {
+                  "browseEndpoint": {
+                   "browseId": "UCeoT9BqyKRktIHvQnWE8zug",
+                   "browseEndpointContextSupportedConfigs": {
+                    "browseEndpointContextMusicConfig": {
+                     "pageType": "MUSIC_PAGE_TYPE_ARTIST"
+                    }
+                   }
+                  }
+                 }
+                },
+                {
+                 "text": " & "
+                },
+                {
+                 "text": "Royal Philharmonic Orchestra",
+                 "navigationEndpoint": {
+                  "browseEndpoint": {
+                   "browseId": "UCfhh98CmKOImKUiTs-vGWoA",
+                   "browseEndpointContextSupportedConfigs": {
+                    "browseEndpointContextMusicConfig": {
+                     "pageType": "MUSIC_PAGE_TYPE_ARTIST"
+                    }
+                   }
+                  }
+                 }
+                }
+               ]
+              },
+              "navigationEndpoint": {
+               "browseEndpoint": {
+                "browseId": "MPREb_NPptpsZpkOY",
+                "browseEndpointContextSupportedConfigs": {
+                 "browseEndpointContextMusicConfig": {
+                  "pageType": "MUSIC_PAGE_TYPE_ALBUM"
+                 }
+                }
+               }
+              },
+              "thumbnailOverlay": {
+               "musicItemThumbnailOverlayRenderer": {
+                "background": {
+                 "verticalGradient": {
+                  "gradientLayerColors": [
+                   "2147483648",
+                   "0",
+                   "0"
+                  ]
+                 }
+                },
+                "content": {
+                 "musicPlayButtonRenderer": {
+                  "playNavigationEndpoint": {
+                   "watchPlaylistEndpoint": {
+                    "playlistId": "OLAK5uy_laQeE0OW2kbfBSwrsnIhJKpS0MDA3PhsU"
+                   }
+                  },
+                  "playIcon": {
+                   "iconType": "PLAY_ARROW"
+                  },
+                  "pauseIcon": {
+                   "iconType": "PAUSE"
+                  },
+                  "iconColor": 4294967295,
+                  "backgroundColor": 2566914048,
+                  "activeBackgroundColor": 4278190080,
+                  "loadingIndicatorColor": 14745645,
+                  "playingIcon": {
+                   "iconType": "VOLUME_UP"
+                  },
+                  "iconLoadingColor": 1308622847,
+                  "activeScaleFactor": 1.2,
+                  "buttonSize": "MUSIC_PLAY_BUTTON_SIZE_MEDIUM",
+                  "rippleTarget": "MUSIC_PLAY_BUTTON_RIPPLE_TARGET_SELF",
+                  "accessibilityPlayData": {
+                   "accessibilityData": {
+                    "label": "Play Symphonic Suite The Boy and the Heron for piano and orchestra"
+                   }
+                  },
+                  "accessibilityPauseData": {
+                   "accessibilityData": {
+                    "label": "Pause Symphonic Suite The Boy and the Heron for piano and orchestra"
+                   }
+                  }
+                 }
+                },
+                "contentPosition": "MUSIC_ITEM_THUMBNAIL_OVERLAY_CONTENT_POSITION_BOTTOM_RIGHT",
+                "displayStyle": "MUSIC_ITEM_THUMBNAIL_OVERLAY_DISPLAY_STYLE_HOVER"
+               }
+              }
+             }
+            },
+            {
+             "musicTwoRowItemRenderer": {
+              "thumbnailRenderer": {
+               "musicThumbnailRenderer": {
+                "thumbnail": {
+                 "thumbnails": [
+                  {
+                   "url": "https://yt3.googleusercontent.com/yOk1tRvxQ34-IIVZ6Ks_vfpYhsF3EE9j0vpc7uMG8UFcGuXltWSEyWVyUSUVOWQPxK1a3K70yxYxfiNm=w226-h226-l90-rj",
+                   "width": 226,
+                   "height": 226
+                  },
+                  {
+                   "url": "https://yt3.googleusercontent.com/yOk1tRvxQ34-IIVZ6Ks_vfpYhsF3EE9j0vpc7uMG8UFcGuXltWSEyWVyUSUVOWQPxK1a3K70yxYxfiNm=w544-h544-l90-rj",
+                   "width": 544,
+                   "height": 544
+                  }
+                 ]
+                },
+                "thumbnailCrop": "MUSIC_THUMBNAIL_CROP_UNSPECIFIED",
+                "thumbnailScale": "MUSIC_THUMBNAIL_SCALE_ASPECT_FILL"
+               }
+              },
+              "aspectRatio": "MUSIC_TWO_ROW_ITEM_THUMBNAIL_ASPECT_RATIO_SQUARE",
+              "title": {
+               "runs": [
+                {
+                 "text": "The Outlaw Syndicate",
+                 "navigationEndpoint": {
+                  "browseEndpoint": {
+                   "browseId": "MPREb_DXc9Sk1QDyh",
+                   "browseEndpointContextSupportedConfigs": {
+                    "browseEndpointContextMusicConfig": {
+                     "pageType": "MUSIC_PAGE_TYPE_ALBUM"
+                    }
+                   }
+                  }
+                 }
+                }
+               ]
+              },
+              "subtitle": {
+               "runs": [
+                {
+                 "text": "Album"
+                },
+                {
+                 "text": " • "
+                },
+                {
+                 "text": "Southern Dark Country",
+                 "navigationEndpoint": {
+                  "browseEndpoint": {
+                   "browseId": "UCAfSQHha7vGQFnwHauPzHDg",
+                   "browseEndpointContextSupportedConfigs": {
+                    "browseEndpointContextMusicConfig": {
+                     "pageType": "MUSIC_PAGE_TYPE_ARTIST"
+                    }
+                   }
+                  }
+                 }
+                }
+               ]
+              },
+              "navigationEndpoint": {
+               "browseEndpoint": {
+                "browseId": "MPREb_DXc9Sk1QDyh",
+                "browseEndpointContextSupportedConfigs": {
+                 "browseEndpointContextMusicConfig": {
+                  "pageType": "MUSIC_PAGE_TYPE_ALBUM"
+                 }
+                }
+               }
+              },
+              "thumbnailOverlay": {
+               "musicItemThumbnailOverlayRenderer": {
+                "background": {
+                 "verticalGradient": {
+                  "gradientLayerColors": [
+                   "2147483648",
+                   "0",
+                   "0"
+                  ]
+                 }
+                },
+                "content": {
+                 "musicPlayButtonRenderer": {
+                  "playNavigationEndpoint": {
+                   "watchPlaylistEndpoint": {
+                    "playlistId": "OLAK5uy_layel2g1zVkWpbFQGoe72kZxy76V_4f78"
+                   }
+                  },
+                  "playIcon": {
+                   "iconType": "PLAY_ARROW"
+                  },
+                  "pauseIcon": {
+                   "iconType": "PAUSE"
+                  },
+                  "iconColor": 4294967295,
+                  "backgroundColor": 2566914048,
+                  "activeBackgroundColor": 4278190080,
+                  "loadingIndicatorColor": 14745645,
+                  "playingIcon": {
+                   "iconType": "VOLUME_UP"
+                  },
+                  "iconLoadingColor": 1308622847,
+                  "activeScaleFactor": 1.2,
+                  "buttonSize": "MUSIC_PLAY_BUTTON_SIZE_MEDIUM",
+                  "rippleTarget": "MUSIC_PLAY_BUTTON_RIPPLE_TARGET_SELF",
+                  "accessibilityPlayData": {
+                   "accessibilityData": {
+                    "label": "Play The Outlaw Syndicate"
+                   }
+                  },
+                  "accessibilityPauseData": {
+                   "accessibilityData": {
+                    "label": "Pause The Outlaw Syndicate"
+                   }
+                  }
+                 }
+                },
+                "contentPosition": "MUSIC_ITEM_THUMBNAIL_OVERLAY_CONTENT_POSITION_BOTTOM_RIGHT",
+                "displayStyle": "MUSIC_ITEM_THUMBNAIL_OVERLAY_DISPLAY_STYLE_HOVER"
+               }
+              }
+             }
+            },
+            {
+             "musicTwoRowItemRenderer": {
+              "thumbnailRenderer": {
+               "musicThumbnailRenderer": {
+                "thumbnail": {
+                 "thumbnails": [
+                  {
+                   "url": "https://yt3.googleusercontent.com/s2X5DYKoR3ROTz4EkECUows-YUy8tqonvAzNlK0QM6gsumMxKhUcWORYO6zii5_K11Mbqs9p4uadSo4vKQ=w226-h226-l90-rj",
+                   "width": 226,
+                   "height": 226
+                  },
+                  {
+                   "url": "https://yt3.googleusercontent.com/s2X5DYKoR3ROTz4EkECUows-YUy8tqonvAzNlK0QM6gsumMxKhUcWORYO6zii5_K11Mbqs9p4uadSo4vKQ=w544-h544-l90-rj",
+                   "width": 544,
+                   "height": 544
+                  }
+                 ]
+                },
+                "thumbnailCrop": "MUSIC_THUMBNAIL_CROP_UNSPECIFIED",
+                "thumbnailScale": "MUSIC_THUMBNAIL_SCALE_ASPECT_FILL"
+               }
+              },
+              "aspectRatio": "MUSIC_TWO_ROW_ITEM_THUMBNAIL_ASPECT_RATIO_SQUARE",
+              "title": {
+               "runs": [
+                {
+                 "text": "Dream Fatigue",
+                 "navigationEndpoint": {
+                  "browseEndpoint": {
+                   "browseId": "MPREb_2cAbYSqcD5J",
+                   "browseEndpointContextSupportedConfigs": {
+                    "browseEndpointContextMusicConfig": {
+                     "pageType": "MUSIC_PAGE_TYPE_ALBUM"
+                    }
+                   }
+                  }
+                 }
+                }
+               ]
+              },
+              "subtitle": {
+               "runs": [
+                {
+                 "text": "Album"
+                },
+                {
+                 "text": " • "
+                },
+                {
+                 "text": "Rex Orange County",
+                 "navigationEndpoint": {
+                  "browseEndpoint": {
+                   "browseId": "UCRI-Ds5eY70A4oeHggAFBbg",
+                   "browseEndpointContextSupportedConfigs": {
+                    "browseEndpointContextMusicConfig": {
+                     "pageType": "MUSIC_PAGE_TYPE_ARTIST"
+                    }
+                   }
+                  }
+                 }
+                }
+               ]
+              },
+              "navigationEndpoint": {
+               "browseEndpoint": {
+                "browseId": "MPREb_2cAbYSqcD5J",
+                "browseEndpointContextSupportedConfigs": {
+                 "browseEndpointContextMusicConfig": {
+                  "pageType": "MUSIC_PAGE_TYPE_ALBUM"
+                 }
+                }
+               }
+              },
+              "thumbnailOverlay": {
+               "musicItemThumbnailOverlayRenderer": {
+                "background": {
+                 "verticalGradient": {
+                  "gradientLayerColors": [
+                   "2147483648",
+                   "0",
+                   "0"
+                  ]
+                 }
+                },
+                "content": {
+                 "musicPlayButtonRenderer": {
+                  "playNavigationEndpoint": {
+                   "watchPlaylistEndpoint": {
+                    "playlistId": "OLAK5uy_mQMhzopCMj3I7LyJCy97kDZAX5r4RxPoc"
+                   }
+                  },
+                  "playIcon": {
+                   "iconType": "PLAY_ARROW"
+                  },
+                  "pauseIcon": {
+                   "iconType": "PAUSE"
+                  },
+                  "iconColor": 4294967295,
+                  "backgroundColor": 2566914048,
+                  "activeBackgroundColor": 4278190080,
+                  "loadingIndicatorColor": 14745645,
+                  "playingIcon": {
+                   "iconType": "VOLUME_UP"
+                  },
+                  "iconLoadingColor": 1308622847,
+                  "activeScaleFactor": 1.2,
+                  "buttonSize": "MUSIC_PLAY_BUTTON_SIZE_MEDIUM",
+                  "rippleTarget": "MUSIC_PLAY_BUTTON_RIPPLE_TARGET_SELF",
+                  "accessibilityPlayData": {
+                   "accessibilityData": {
+                    "label": "Play Dream Fatigue"
+                   }
+                  },
+                  "accessibilityPauseData": {
+                   "accessibilityData": {
+                    "label": "Pause Dream Fatigue"
+                   }
+                  }
+                 }
+                },
+                "contentPosition": "MUSIC_ITEM_THUMBNAIL_OVERLAY_CONTENT_POSITION_BOTTOM_RIGHT",
+                "displayStyle": "MUSIC_ITEM_THUMBNAIL_OVERLAY_DISPLAY_STYLE_HOVER"
+               }
+              },
+              "subtitleBadges": [
+               {
+                "musicInlineBadgeRenderer": {
+                 "icon": {
+                  "iconType": "MUSIC_EXPLICIT_BADGE"
+                 },
+                 "accessibilityData": {
+                  "accessibilityData": {
+                   "label": "Explicit"
+                  }
+                 }
+                }
+               }
+              ]
+             }
+            }
+           ],
+           "itemSize": "COLLECTION_STYLE_ITEM_SIZE_MEDIUM"
+          }
+         },
+         {
+          "musicCarouselShelfRenderer": {
+           "header": {
+            "musicCarouselShelfBasicHeaderRenderer": {
+             "title": {
+              "runs": [
+               {
+                "text": "Moods & genres",
+                "navigationEndpoint": {
+                 "browseEndpoint": {
+                  "browseId": "FEmusic_moods_and_genres"
+                 }
+                }
+               }
+              ]
+             },
+             "accessibilityData": {
+              "accessibilityData": {
+               "label": "Moods & genres"
+              }
+             },
+             "headerStyle": "MUSIC_CAROUSEL_SHELF_BASIC_HEADER_STYLE_DEFAULT",
+             "moreContentButton": {
+              "buttonRenderer": {
+               "style": "STYLE_TEXT",
+               "text": {
+                "runs": [
+                 {
+                  "text": "More"
+                 }
+                ]
+               },
+               "navigationEndpoint": {
+                "browseEndpoint": {
+                 "browseId": "FEmusic_moods_and_genres"
+                }
+               },
+               "accessibilityData": {
+                "accessibilityData": {
+                 "label": "More"
+                }
+               }
+              }
+             }
+            }
+           },
+           "contents": [
+            {
+             "musicNavigationButtonRenderer": {
+              "buttonText": {
+               "runs": [
+                {
+                 "text": "Chill"
+                }
+               ]
+              },
+              "solid": {
+               "leftStripeColor": 4288988671
+              },
+              "clickCommand": {
+               "browseEndpoint": {
+                "browseId": "FEmusic_moods_and_genres_category",
+                "params": "ggMPOg1uX1JOQWZFeDByc2Jm"
+               }
+              }
+             }
+            },
+            {
+             "musicNavigationButtonRenderer": {
+              "buttonText": {
+               "runs": [
+                {
+                 "text": "Commute"
+                }
+               ]
+              },
+              "solid": {
+               "leftStripeColor": 4294951424
+              },
+              "clickCommand": {
+               "browseEndpoint": {
+                "browseId": "FEmusic_moods_and_genres_category",
+                "params": "ggMPOg1uX044Z2o5WERLckpU"
+               }
+              }
+             }
+            },
+            {
+             "musicNavigationButtonRenderer": {
+              "buttonText": {
+               "runs": [
+                {
+                 "text": "Energize"
+                }
+               ]
+              },
+              "solid": {
+               "leftStripeColor": 4294961024
+              },
+              "clickCommand": {
+               "browseEndpoint": {
+                "browseId": "FEmusic_moods_and_genres_category",
+                "params": "ggMPOg1uX2lRZUZiMnNrQnJW"
+               }
+              }
+             }
+            },
+            {
+             "musicNavigationButtonRenderer": {
+              "buttonText": {
+               "runs": [
+                {
+                 "text": "Feel good"
+                }
+               ]
+              },
+              "solid": {
+               "leftStripeColor": 4289003428
+              },
+              "clickCommand": {
+               "browseEndpoint": {
+                "browseId": "FEmusic_moods_and_genres_category",
+                "params": "ggMPOg1uXzZQbDB5eThLRTQ3"
+               }
+              }
+             }
+            },
+            {
+             "musicNavigationButtonRenderer": {
+              "buttonText": {
+               "runs": [
+                {
+                 "text": "Focus"
+                }
+               ]
+              },
+              "solid": {
+               "leftStripeColor": 4291611852
+              },
+              "clickCommand": {
+               "browseEndpoint": {
+                "browseId": "FEmusic_moods_and_genres_category",
+                "params": "ggMPOg1uX0NvNGNhWThMYWRh"
+               }
+              }
+             }
+            },
+            {
+             "musicNavigationButtonRenderer": {
+              "buttonText": {
+               "runs": [
+                {
+                 "text": "Gaming"
+                }
+               ]
+              },
+              "solid": {
+               "leftStripeColor": 4284506208
+              },
+              "clickCommand": {
+               "browseEndpoint": {
+                "browseId": "FEmusic_moods_and_genres_category",
+                "params": "ggMPOg1uX3NmUVV4Vzl3WGQ0"
+               }
+              }
+             }
+            },
+            {
+             "musicNavigationButtonRenderer": {
+              "buttonText": {
+               "runs": [
+                {
+                 "text": "Party"
+                }
+               ]
+              },
+              "solid": {
+               "leftStripeColor": 4290018303
+              },
+              "clickCommand": {
+               "browseEndpoint": {
+                "browseId": "FEmusic_moods_and_genres_category",
+                "params": "ggMPOg1uX2w1aW1CRDFTSUNo"
+               }
+              }
+             }
+            },
+            {
+             "musicNavigationButtonRenderer": {
+              "buttonText": {
+               "runs": [
+                {
+                 "text": "Romance"
+                }
+               ]
+              },
+              "solid": {
+               "leftStripeColor": 4291559424
+              },
+              "clickCommand": {
+               "browseEndpoint": {
+                "browseId": "FEmusic_moods_and_genres_category",
+                "params": "ggMPOg1uX1JCQnB2QXVYVEIz"
+               }
+              }
+             }
+            },
+            {
+             "musicNavigationButtonRenderer": {
+              "buttonText": {
+               "runs": [
+                {
+                 "text": "Sad"
+                }
+               ]
+              },
+              "solid": {
+               "leftStripeColor": 4287401100
+              },
+              "clickCommand": {
+               "browseEndpoint": {
+                "browseId": "FEmusic_moods_and_genres_category",
+                "params": "ggMPOg1uX3NISTh4UmtWcFgz"
+               }
+              }
+             }
+            },
+            {
+             "musicNavigationButtonRenderer": {
+              "buttonText": {
+               "runs": [
+                {
+                 "text": "Sleep"
+                }
+               ]
+              },
+              "solid": {
+               "leftStripeColor": 4286267099
+              },
+              "clickCommand": {
+               "browseEndpoint": {
+                "browseId": "FEmusic_moods_and_genres_category",
+                "params": "ggMPOg1uX1MxaFQ3Z0JMZkN4"
+               }
+              }
+             }
+            },
+            {
+             "musicNavigationButtonRenderer": {
+              "buttonText": {
+               "runs": [
+                {
+                 "text": "Workout"
+                }
+               ]
+              },
+              "solid": {
+               "leftStripeColor": 4294937920
+              },
+              "clickCommand": {
+               "browseEndpoint": {
+                "browseId": "FEmusic_moods_and_genres_category",
+                "params": "ggMPOg1uXzIxYkNac21YZ2Z0"
+               }
+              }
+             }
+            },
+            {
+             "musicNavigationButtonRenderer": {
+              "buttonText": {
+               "runs": [
+                {
+                 "text": "African"
+                }
+               ]
+              },
+              "solid": {
+               "leftStripeColor": 4278232339
+              },
+              "clickCommand": {
+               "browseEndpoint": {
+                "browseId": "FEmusic_moods_and_genres_category",
+                "params": "ggMPOg1uX0UzWGxlRE5jMDVk"
+               }
+              }
+             }
+            },
+            {
+             "musicNavigationButtonRenderer": {
+              "buttonText": {
+               "runs": [
+                {
+                 "text": "Arabic"
+                }
+               ]
+              },
+              "solid": {
+               "leftStripeColor": 4293020416
+              },
+              "clickCommand": {
+               "browseEndpoint": {
+                "browseId": "FEmusic_moods_and_genres_category",
+                "params": "ggMPOg1uX3VOQWxsblVZTFNE"
+               }
+              }
+             }
+            },
+            {
+             "musicNavigationButtonRenderer": {
+              "buttonText": {
+               "runs": [
+                {
+                 "text": "Blues"
+                }
+               ]
+              },
+              "solid": {
+               "leftStripeColor": 4281564671
+              },
+              "clickCommand": {
+               "browseEndpoint": {
+                "browseId": "FEmusic_moods_and_genres_category",
+                "params": "ggMPOg1uX2NXUkgxdW0zUHJp"
+               }
+              }
+             }
+            },
+            {
+             "musicNavigationButtonRenderer": {
+              "buttonText": {
+               "runs": [
+                {
+                 "text": "Bollywood & Indian"
+                }
+               ]
+              },
+              "solid": {
+               "leftStripeColor": 4286267099
+              },
+              "clickCommand": {
+               "browseEndpoint": {
+                "browseId": "FEmusic_moods_and_genres_category",
+                "params": "ggMPOg1uX2hacTRJOU5KcndD"
+               }
+              }
+             }
+            },
+            {
+             "musicNavigationButtonRenderer": {
+              "buttonText": {
+               "runs": [
+                {
+                 "text": "Christian & gospel"
+                }
+               ]
+              },
+              "solid": {
+               "leftStripeColor": 4283297535
+              },
+              "clickCommand": {
+               "browseEndpoint": {
+                "browseId": "FEmusic_moods_and_genres_category",
+                "params": "ggMPOg1uX3E1VnpSRHhLVElG"
+               }
+              }
+             }
+            },
+            {
+             "musicNavigationButtonRenderer": {
+              "buttonText": {
+               "runs": [
+                {
+                 "text": "Classical"
+                }
+               ]
+              },
+              "solid": {
+               "leftStripeColor": 4291611852
+              },
+              "clickCommand": {
+               "browseEndpoint": {
+                "browseId": "FEmusic_moods_and_genres_category",
+                "params": "ggMPOg1uX1N4VmduTmdUR3dm"
+               }
+              }
+             }
+            },
+            {
+             "musicNavigationButtonRenderer": {
+              "buttonText": {
+               "runs": [
+                {
+                 "text": "Country & Americana"
+                }
+               ]
+              },
+              "solid": {
+               "leftStripeColor": 4281564671
+              },
+              "clickCommand": {
+               "browseEndpoint": {
+                "browseId": "FEmusic_moods_and_genres_category",
+                "params": "ggMPOg1uX1RXcFlyZEpRb1d3"
+               }
+              }
+             }
+            },
+            {
+             "musicNavigationButtonRenderer": {
+              "buttonText": {
+               "runs": [
+                {
+                 "text": "Dance & electronic"
+                }
+               ]
+              },
+              "solid": {
+               "leftStripeColor": 4278227647
+              },
+              "clickCommand": {
+               "browseEndpoint": {
+                "browseId": "FEmusic_moods_and_genres_category",
+                "params": "ggMPOg1uX1NPTld3SDN3WGs4"
+               }
+              }
+             }
+            },
+            {
+             "musicNavigationButtonRenderer": {
+              "buttonText": {
+               "runs": [
+                {
+                 "text": "Decades"
+                }
+               ]
+              },
+              "solid": {
+               "leftStripeColor": 4289003428
+              },
+              "clickCommand": {
+               "browseEndpoint": {
+                "browseId": "FEmusic_moods_and_genres_category",
+                "params": "ggMPOg1uX0M4VkwxOFRzMDR1"
+               }
+              }
+             }
+            },
+            {
+             "musicNavigationButtonRenderer": {
+              "buttonText": {
+               "runs": [
+                {
+                 "text": "Family"
+                }
+               ]
+              },
+              "solid": {
+               "leftStripeColor": 4278227647
+              },
+              "clickCommand": {
+               "browseEndpoint": {
+                "browseId": "FEmusic_moods_and_genres_category",
+                "params": "ggMPOg1uXzMyY3J2SGM0bVh5"
+               }
+              }
+             }
+            },
+            {
+             "musicNavigationButtonRenderer": {
+              "buttonText": {
+               "runs": [
+                {
+                 "text": "Folk & acoustic"
+                }
+               ]
+              },
+              "solid": {
+               "leftStripeColor": 4278232339
+              },
+              "clickCommand": {
+               "browseEndpoint": {
+                "browseId": "FEmusic_moods_and_genres_category",
+                "params": "ggMPOg1uXzBTRFBmQ3N4b0R6"
+               }
+              }
+             }
+            },
+            {
+             "musicNavigationButtonRenderer": {
+              "buttonText": {
+               "runs": [
+                {
+                 "text": "Hip-hop"
+                }
+               ]
+              },
+              "solid": {
+               "leftStripeColor": 4293020416
+              },
+              "clickCommand": {
+               "browseEndpoint": {
+                "browseId": "FEmusic_moods_and_genres_category",
+                "params": "ggMPOg1uX2E4aVJuU05GOVQ0"
+               }
+              }
+             }
+            },
+            {
+             "musicNavigationButtonRenderer": {
+              "buttonText": {
+               "runs": [
+                {
+                 "text": "Indie & alternative"
+                }
+               ]
+              },
+              "solid": {
+               "leftStripeColor": 4291611852
+              },
+              "clickCommand": {
+               "browseEndpoint": {
+                "browseId": "FEmusic_moods_and_genres_category",
+                "params": "ggMPOg1uX21NWWpBbU01SDgy"
+               }
+              }
+             }
+            },
+            {
+             "musicNavigationButtonRenderer": {
+              "buttonText": {
+               "runs": [
+                {
+                 "text": "J-Pop"
+                }
+               ]
+              },
+              "solid": {
+               "leftStripeColor": 4294932735
+              },
+              "clickCommand": {
+               "browseEndpoint": {
+                "browseId": "FEmusic_moods_and_genres_category",
+                "params": "ggMPOg1uXzAwSjVITDBZckJR"
+               }
+              }
+             }
+            },
+            {
+             "musicNavigationButtonRenderer": {
+              "buttonText": {
+               "runs": [
+                {
+                 "text": "Jazz"
+                }
+               ]
+              },
+              "solid": {
+               "leftStripeColor": 4288988671
+              },
+              "clickCommand": {
+               "browseEndpoint": {
+                "browseId": "FEmusic_moods_and_genres_category",
+                "params": "ggMPOg1uX3lPcDFRaE9wM1BS"
+               }
+              }
+             }
+            },
+            {
+             "musicNavigationButtonRenderer": {
+              "buttonText": {
+               "runs": [
+                {
+                 "text": "K-Pop"
+                }
+               ]
+              },
+              "solid": {
+               "leftStripeColor": 4290018303
+              },
+              "clickCommand": {
+               "browseEndpoint": {
+                "browseId": "FEmusic_moods_and_genres_category",
+                "params": "ggMPOg1uX0JrbjBDOFFPSzJW"
+               }
+              }
+             }
+            },
+            {
+             "musicNavigationButtonRenderer": {
+              "buttonText": {
+               "runs": [
+                {
+                 "text": "Latin"
+                }
+               ]
+              },
+              "solid": {
+               "leftStripeColor": 4294951424
+              },
+              "clickCommand": {
+               "browseEndpoint": {
+                "browseId": "FEmusic_moods_and_genres_category",
+                "params": "ggMPOg1uX29wWTRjMHV1dWN5"
+               }
+              }
+             }
+            },
+            {
+             "musicNavigationButtonRenderer": {
+              "buttonText": {
+               "runs": [
+                {
+                 "text": "Mandopop & cantopop"
+                }
+               ]
+              },
+              "solid": {
+               "leftStripeColor": 4294936963
+              },
+              "clickCommand": {
+               "browseEndpoint": {
+                "browseId": "FEmusic_moods_and_genres_category",
+                "params": "ggMPOg1uX2hXVUQwc0JTNXlE"
+               }
+              }
+             }
+            },
+            {
+             "musicNavigationButtonRenderer": {
+              "buttonText": {
+               "runs": [
+                {
+                 "text": "Metal"
+                }
+               ]
+              },
+              "solid": {
+               "leftStripeColor": 4287401100
+              },
+              "clickCommand": {
+               "browseEndpoint": {
+                "browseId": "FEmusic_moods_and_genres_category",
+                "params": "ggMPOg1uXzdlSXhKZ0hMV1Z4"
+               }
+              }
+             }
+            },
+            {
+             "musicNavigationButtonRenderer": {
+              "buttonText": {
+               "runs": [
+                {
+                 "text": "Pop"
+                }
+               ]
+              },
+              "solid": {
+               "leftStripeColor": 4294932735
+              },
+              "clickCommand": {
+               "browseEndpoint": {
+                "browseId": "FEmusic_moods_and_genres_category",
+                "params": "ggMPOg1uX1BmNzc2V2p0YXJ5"
+               }
+              }
+             }
+            },
+            {
+             "musicNavigationButtonRenderer": {
+              "buttonText": {
+               "runs": [
+                {
+                 "text": "R&B & soul"
+                }
+               ]
+              },
+              "solid": {
+               "leftStripeColor": 4286267099
+              },
+              "clickCommand": {
+               "browseEndpoint": {
+                "browseId": "FEmusic_moods_and_genres_category",
+                "params": "ggMPOg1uX2JxQ2hxc2J5UFhR"
+               }
+              }
+             }
+            },
+            {
+             "musicNavigationButtonRenderer": {
+              "buttonText": {
+               "runs": [
+                {
+                 "text": "Reggae & caribbean"
+                }
+               ]
+              },
+              "solid": {
+               "leftStripeColor": 4294961024
+              },
+              "clickCommand": {
+               "browseEndpoint": {
+                "browseId": "FEmusic_moods_and_genres_category",
+                "params": "ggMPOg1uX1JUc2lFcDFuUUth"
+               }
+              }
+             }
+            },
+            {
+             "musicNavigationButtonRenderer": {
+              "buttonText": {
+               "runs": [
+                {
+                 "text": "Rock"
+                }
+               ]
+              },
+              "solid": {
+               "leftStripeColor": 4291559424
+              },
+              "clickCommand": {
+               "browseEndpoint": {
+                "browseId": "FEmusic_moods_and_genres_category",
+                "params": "ggMPOg1uXzJKTm5jUEZ5Uzlu"
+               }
+              }
+             }
+            },
+            {
+             "musicNavigationButtonRenderer": {
+              "buttonText": {
+               "runs": [
+                {
+                 "text": "Soundtracks & musicals"
+                }
+               ]
+              },
+              "solid": {
+               "leftStripeColor": 4283297535
+              },
+              "clickCommand": {
+               "browseEndpoint": {
+                "browseId": "FEmusic_moods_and_genres_category",
+                "params": "ggMPOg1uX2tWZXBsRm05cHNR"
+               }
+              }
+             }
+            }
+           ],
+           "itemSize": "COLLECTION_STYLE_ITEM_SIZE_MEDIUM",
+           "numItemsPerColumn": "4"
+          }
+         },
+         {
+          "musicCarouselShelfRenderer": {
+           "header": {
+            "musicCarouselShelfBasicHeaderRenderer": {
+             "title": {
+              "runs": [
+               {
+                "text": "Trending",
+                "navigationEndpoint": {
+                 "browseEndpoint": {
+                  "browseId": "VLOLAK5uy_nFGBM3omhVsEq3br7ph_ZoiW-H-TOv-kE",
+                  "browseEndpointContextSupportedConfigs": {
+                   "browseEndpointContextMusicConfig": {
+                    "pageType": "MUSIC_PAGE_TYPE_PLAYLIST"
+                   }
+                  }
+                 }
+                }
+               }
+              ]
+             },
+             "accessibilityData": {
+              "accessibilityData": {
+               "label": "Trending"
+              }
+             },
+             "headerStyle": "MUSIC_CAROUSEL_SHELF_BASIC_HEADER_STYLE_DEFAULT",
+             "moreContentButton": {
+              "buttonRenderer": {
+               "style": "STYLE_TEXT",
+               "text": {
+                "runs": [
+                 {
+                  "text": "More"
+                 }
+                ]
+               },
+               "navigationEndpoint": {
+                "browseEndpoint": {
+                 "browseId": "VLOLAK5uy_nFGBM3omhVsEq3br7ph_ZoiW-H-TOv-kE",
+                 "browseEndpointContextSupportedConfigs": {
+                  "browseEndpointContextMusicConfig": {
+                   "pageType": "MUSIC_PAGE_TYPE_PLAYLIST"
+                  }
+                 }
+                }
+               },
+               "accessibilityData": {
+                "accessibilityData": {
+                 "label": "More"
+                }
+               }
+              }
+             }
+            }
+           },
+           "contents": [
+            {
+             "musicResponsiveListItemRenderer": {
+              "thumbnail": {
+               "musicThumbnailRenderer": {
+                "thumbnail": {
+                 "thumbnails": [
+                  {
+                   "url": "https://i.ytimg.com/vi/BPZkZpGMpXA/hqdefault.jpg?sqp=-oaymwEWCJADEOEBIAQqCggAEOADGC0guwJIWg&rs=AMzJL3l1GMEfZyGpl4C8IriVdbzgi8n2oA",
+                   "width": 400,
+                   "height": 225
+                  }
+                 ]
+                },
+                "thumbnailCrop": "MUSIC_THUMBNAIL_CROP_UNSPECIFIED",
+                "thumbnailScale": "MUSIC_THUMBNAIL_SCALE_ASPECT_FIT"
+               }
+              },
+              "overlay": {
+               "musicItemThumbnailOverlayRenderer": {
+                "background": {
+                 "verticalGradient": {
+                  "gradientLayerColors": [
+                   "3422552064",
+                   "3422552064"
+                  ]
+                 }
+                },
+                "content": {
+                 "musicPlayButtonRenderer": {
+                  "playNavigationEndpoint": {
+                   "watchEndpoint": {
+                    "videoId": "BPZkZpGMpXA",
+                    "playlistId": "OLAK5uy_nFGBM3omhVsEq3br7ph_ZoiW-H-TOv-kE",
+                    "loggingContext": {
+                     "vssLoggingContext": {
+                      "serializedContextData": "GilPTEFLNXV5X25GR0JNM29taFZzRXEzYnI3cGhfWm9pVy1ILVRPdi1rRQ%3D%3D"
+                     }
+                    },
+                    "watchEndpointMusicSupportedConfigs": {
+                     "watchEndpointMusicConfig": {
+                      "musicVideoType": "MUSIC_VIDEO_TYPE_OMV"
+                     }
+                    }
+                   }
+                  },
+                  "playIcon": {
+                   "iconType": "PLAY_ARROW"
+                  },
+                  "pauseIcon": {
+                   "iconType": "PAUSE"
+                  },
+                  "iconColor": 4294967295,
+                  "backgroundColor": 0,
+                  "activeBackgroundColor": 0,
+                  "loadingIndicatorColor": 14745645,
+                  "playingIcon": {
+                   "iconType": "VOLUME_UP"
+                  },
+                  "iconLoadingColor": 0,
+                  "activeScaleFactor": 1,
+                  "buttonSize": "MUSIC_PLAY_BUTTON_SIZE_SMALL",
+                  "rippleTarget": "MUSIC_PLAY_BUTTON_RIPPLE_TARGET_SELF",
+                  "accessibilityPlayData": {
+                   "accessibilityData": {
+                    "label": "Play Tu Mil Jaaye (From \"KING\") - Ed Sheeran"
+                   }
+                  },
+                  "accessibilityPauseData": {
+                   "accessibilityData": {
+                    "label": "Pause Tu Mil Jaaye (From \"KING\") - Ed Sheeran"
+                   }
+                  }
+                 }
+                },
+                "contentPosition": "MUSIC_ITEM_THUMBNAIL_OVERLAY_CONTENT_POSITION_CENTERED",
+                "displayStyle": "MUSIC_ITEM_THUMBNAIL_OVERLAY_DISPLAY_STYLE_PERSISTENT"
+               }
+              },
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Tu Mil Jaaye (From \"KING\")",
+                    "navigationEndpoint": {
+                     "watchEndpoint": {
+                      "videoId": "BPZkZpGMpXA",
+                      "playlistId": "OLAK5uy_nFGBM3omhVsEq3br7ph_ZoiW-H-TOv-kE",
+                      "loggingContext": {
+                       "vssLoggingContext": {
+                        "serializedContextData": "GilPTEFLNXV5X25GR0JNM29taFZzRXEzYnI3cGhfWm9pVy1ILVRPdi1rRQ%3D%3D"
+                       }
+                      },
+                      "watchEndpointMusicSupportedConfigs": {
+                       "watchEndpointMusicConfig": {
+                        "musicVideoType": "MUSIC_VIDEO_TYPE_OMV"
+                       }
+                      }
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Ed Sheeran"
+                   },
+                   {
+                    "text": ", "
+                   },
+                   {
+                    "text": "Kumaar",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "UCrLyx_mZBvXD1Xt6UG7kYBg",
+                      "browseEndpointContextSupportedConfigs": {
+                       "browseEndpointContextMusicConfig": {
+                        "pageType": "MUSIC_PAGE_TYPE_ARTIST"
+                       }
+                      }
+                     }
+                    }
+                   },
+                   {
+                    "text": ", "
+                   },
+                   {
+                    "text": "Arijit Singh",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "UCDxKh1gFWeYsqePvgVzmPoQ",
+                      "browseEndpointContextSupportedConfigs": {
+                       "browseEndpointContextMusicConfig": {
+                        "pageType": "MUSIC_PAGE_TYPE_ARTIST"
+                       }
+                      }
+                     }
+                    }
+                   },
+                   {
+                    "text": " & "
+                   },
+                   {
+                    "text": "Madhubanti Bagchi",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "UCibTWzFmf9SSzThvtr3vmiw",
+                      "browseEndpointContextSupportedConfigs": {
+                       "browseEndpointContextMusicConfig": {
+                        "pageType": "MUSIC_PAGE_TYPE_ARTIST"
+                       }
+                      }
+                     }
+                    }
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "70M views"
+                   }
+                  ],
+                  "accessibility": {
+                   "accessibilityData": {
+                    "label": "Ed Sheeran, Kumaar, Arijit Singh & Madhubanti Bagchi • 70 million views"
+                   }
+                  }
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {},
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_MEDIUM"
+                }
+               }
+              ],
+              "playlistItemData": {
+               "videoId": "BPZkZpGMpXA"
+              },
+              "flexColumnDisplayStyle": "MUSIC_RESPONSIVE_LIST_ITEM_FLEX_COLUMN_DISPLAY_STYLE_TWO_LINE_STACK",
+              "itemHeight": "MUSIC_RESPONSIVE_LIST_ITEM_HEIGHT_MEDIUM_COMPACT",
+              "customIndexColumn": {
+               "musicCustomIndexColumnRenderer": {
+                "text": {
+                 "runs": [
+                  {
+                   "text": "1"
+                  }
+                 ]
+                },
+                "accessibilityData": {
+                 "accessibilityData": {
+                  "label": "1"
+                 }
+                }
+               }
+              }
+             }
+            },
+            {
+             "musicResponsiveListItemRenderer": {
+              "thumbnail": {
+               "musicThumbnailRenderer": {
+                "thumbnail": {
+                 "thumbnails": [
+                  {
+                   "url": "https://i.ytimg.com/vi/XO1h5G6xytU/hqdefault.jpg?sqp=-oaymwEWCJADEOEBIAQqCggAEOADGC0guwJIWg&rs=AMzJL3nRTWk5SbUKb2Tcj1XheVNVFUpRaw",
+                   "width": 400,
+                   "height": 225
+                  }
+                 ]
+                },
+                "thumbnailCrop": "MUSIC_THUMBNAIL_CROP_UNSPECIFIED",
+                "thumbnailScale": "MUSIC_THUMBNAIL_SCALE_ASPECT_FIT"
+               }
+              },
+              "overlay": {
+               "musicItemThumbnailOverlayRenderer": {
+                "background": {
+                 "verticalGradient": {
+                  "gradientLayerColors": [
+                   "3422552064",
+                   "3422552064"
+                  ]
+                 }
+                },
+                "content": {
+                 "musicPlayButtonRenderer": {
+                  "playNavigationEndpoint": {
+                   "watchEndpoint": {
+                    "videoId": "XO1h5G6xytU",
+                    "playlistId": "OLAK5uy_nFGBM3omhVsEq3br7ph_ZoiW-H-TOv-kE",
+                    "loggingContext": {
+                     "vssLoggingContext": {
+                      "serializedContextData": "GilPTEFLNXV5X25GR0JNM29taFZzRXEzYnI3cGhfWm9pVy1ILVRPdi1rRQ%3D%3D"
+                     }
+                    },
+                    "watchEndpointMusicSupportedConfigs": {
+                     "watchEndpointMusicConfig": {
+                      "musicVideoType": "MUSIC_VIDEO_TYPE_OMV"
+                     }
+                    }
+                   }
+                  },
+                  "playIcon": {
+                   "iconType": "PLAY_ARROW"
+                  },
+                  "pauseIcon": {
+                   "iconType": "PAUSE"
+                  },
+                  "iconColor": 4294967295,
+                  "backgroundColor": 0,
+                  "activeBackgroundColor": 0,
+                  "loadingIndicatorColor": 14745645,
+                  "playingIcon": {
+                   "iconType": "VOLUME_UP"
+                  },
+                  "iconLoadingColor": 0,
+                  "activeScaleFactor": 1,
+                  "buttonSize": "MUSIC_PLAY_BUTTON_SIZE_SMALL",
+                  "rippleTarget": "MUSIC_PLAY_BUTTON_RIPPLE_TARGET_SELF",
+                  "accessibilityPlayData": {
+                   "accessibilityData": {
+                    "label": "Play POKITO - Diljit Dosanjh"
+                   }
+                  },
+                  "accessibilityPauseData": {
+                   "accessibilityData": {
+                    "label": "Pause POKITO - Diljit Dosanjh"
+                   }
+                  }
+                 }
+                },
+                "contentPosition": "MUSIC_ITEM_THUMBNAIL_OVERLAY_CONTENT_POSITION_CENTERED",
+                "displayStyle": "MUSIC_ITEM_THUMBNAIL_OVERLAY_DISPLAY_STYLE_PERSISTENT"
+               }
+              },
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "POKITO",
+                    "navigationEndpoint": {
+                     "watchEndpoint": {
+                      "videoId": "XO1h5G6xytU",
+                      "playlistId": "OLAK5uy_nFGBM3omhVsEq3br7ph_ZoiW-H-TOv-kE",
+                      "loggingContext": {
+                       "vssLoggingContext": {
+                        "serializedContextData": "GilPTEFLNXV5X25GR0JNM29taFZzRXEzYnI3cGhfWm9pVy1ILVRPdi1rRQ%3D%3D"
+                       }
+                      },
+                      "watchEndpointMusicSupportedConfigs": {
+                       "watchEndpointMusicConfig": {
+                        "musicVideoType": "MUSIC_VIDEO_TYPE_OMV"
+                       }
+                      }
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Diljit Dosanjh",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "UCJ2m-WpROlZCiZZID9r7NSQ",
+                      "browseEndpointContextSupportedConfigs": {
+                       "browseEndpointContextMusicConfig": {
+                        "pageType": "MUSIC_PAGE_TYPE_ARTIST"
+                       }
+                      }
+                     }
+                    }
+                   },
+                   {
+                    "text": " & "
+                   },
+                   {
+                    "text": "Daddy Yankee",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "UCXRloA7YFgCfd6sU2_Y12cA",
+                      "browseEndpointContextSupportedConfigs": {
+                       "browseEndpointContextMusicConfig": {
+                        "pageType": "MUSIC_PAGE_TYPE_ARTIST"
+                       }
+                      }
+                     }
+                    }
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "41M views"
+                   }
+                  ],
+                  "accessibility": {
+                   "accessibilityData": {
+                    "label": "Diljit Dosanjh & Daddy Yankee • 41 million views"
+                   }
+                  }
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {},
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_MEDIUM"
+                }
+               }
+              ],
+              "playlistItemData": {
+               "videoId": "XO1h5G6xytU"
+              },
+              "flexColumnDisplayStyle": "MUSIC_RESPONSIVE_LIST_ITEM_FLEX_COLUMN_DISPLAY_STYLE_TWO_LINE_STACK",
+              "itemHeight": "MUSIC_RESPONSIVE_LIST_ITEM_HEIGHT_MEDIUM_COMPACT",
+              "customIndexColumn": {
+               "musicCustomIndexColumnRenderer": {
+                "text": {
+                 "runs": [
+                  {
+                   "text": "2"
+                  }
+                 ]
+                },
+                "accessibilityData": {
+                 "accessibilityData": {
+                  "label": "2"
+                 }
+                }
+               }
+              }
+             }
+            },
+            {
+             "musicResponsiveListItemRenderer": {
+              "thumbnail": {
+               "musicThumbnailRenderer": {
+                "thumbnail": {
+                 "thumbnails": [
+                  {
+                   "url": "https://i.ytimg.com/vi/uXymCnWk9LI/hqdefault.jpg?sqp=-oaymwEWCJADEOEBIAQqCggAEOADGC0guwJIWg&rs=AMzJL3kWToAWEjJqGuBDg2kvriPeenAY0w",
+                   "width": 400,
+                   "height": 225
+                  }
+                 ]
+                },
+                "thumbnailCrop": "MUSIC_THUMBNAIL_CROP_UNSPECIFIED",
+                "thumbnailScale": "MUSIC_THUMBNAIL_SCALE_ASPECT_FIT"
+               }
+              },
+              "overlay": {
+               "musicItemThumbnailOverlayRenderer": {
+                "background": {
+                 "verticalGradient": {
+                  "gradientLayerColors": [
+                   "3422552064",
+                   "3422552064"
+                  ]
+                 }
+                },
+                "content": {
+                 "musicPlayButtonRenderer": {
+                  "playNavigationEndpoint": {
+                   "watchEndpoint": {
+                    "videoId": "uXymCnWk9LI",
+                    "playlistId": "OLAK5uy_nFGBM3omhVsEq3br7ph_ZoiW-H-TOv-kE",
+                    "loggingContext": {
+                     "vssLoggingContext": {
+                      "serializedContextData": "GilPTEFLNXV5X25GR0JNM29taFZzRXEzYnI3cGhfWm9pVy1ILVRPdi1rRQ%3D%3D"
+                     }
+                    },
+                    "watchEndpointMusicSupportedConfigs": {
+                     "watchEndpointMusicConfig": {
+                      "musicVideoType": "MUSIC_VIDEO_TYPE_OMV"
+                     }
+                    }
+                   }
+                  },
+                  "playIcon": {
+                   "iconType": "PLAY_ARROW"
+                  },
+                  "pauseIcon": {
+                   "iconType": "PAUSE"
+                  },
+                  "iconColor": 4294967295,
+                  "backgroundColor": 0,
+                  "activeBackgroundColor": 0,
+                  "loadingIndicatorColor": 14745645,
+                  "playingIcon": {
+                   "iconType": "VOLUME_UP"
+                  },
+                  "iconLoadingColor": 0,
+                  "activeScaleFactor": 1,
+                  "buttonSize": "MUSIC_PLAY_BUTTON_SIZE_SMALL",
+                  "rippleTarget": "MUSIC_PLAY_BUTTON_RIPPLE_TARGET_SELF",
+                  "accessibilityPlayData": {
+                   "accessibilityData": {
+                    "label": "Play take me home (4 christmas) - Olivia Rodrigo"
+                   }
+                  },
+                  "accessibilityPauseData": {
+                   "accessibilityData": {
+                    "label": "Pause take me home (4 christmas) - Olivia Rodrigo"
+                   }
+                  }
+                 }
+                },
+                "contentPosition": "MUSIC_ITEM_THUMBNAIL_OVERLAY_CONTENT_POSITION_CENTERED",
+                "displayStyle": "MUSIC_ITEM_THUMBNAIL_OVERLAY_DISPLAY_STYLE_PERSISTENT"
+               }
+              },
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "take me home (4 christmas)",
+                    "navigationEndpoint": {
+                     "watchEndpoint": {
+                      "videoId": "uXymCnWk9LI",
+                      "playlistId": "OLAK5uy_nFGBM3omhVsEq3br7ph_ZoiW-H-TOv-kE",
+                      "loggingContext": {
+                       "vssLoggingContext": {
+                        "serializedContextData": "GilPTEFLNXV5X25GR0JNM29taFZzRXEzYnI3cGhfWm9pVy1ILVRPdi1rRQ%3D%3D"
+                       }
+                      },
+                      "watchEndpointMusicSupportedConfigs": {
+                       "watchEndpointMusicConfig": {
+                        "musicVideoType": "MUSIC_VIDEO_TYPE_OMV"
+                       }
+                      }
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Olivia Rodrigo",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "UCE5XNpliPM-SmyFEp61tL_g",
+                      "browseEndpointContextSupportedConfigs": {
+                       "browseEndpointContextMusicConfig": {
+                        "pageType": "MUSIC_PAGE_TYPE_ARTIST"
+                       }
+                      }
+                     }
+                    }
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "5M views"
+                   }
+                  ],
+                  "accessibility": {
+                   "accessibilityData": {
+                    "label": "Olivia Rodrigo • 5 million views"
+                   }
+                  }
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {},
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_MEDIUM"
+                }
+               }
+              ],
+              "playlistItemData": {
+               "videoId": "uXymCnWk9LI"
+              },
+              "flexColumnDisplayStyle": "MUSIC_RESPONSIVE_LIST_ITEM_FLEX_COLUMN_DISPLAY_STYLE_TWO_LINE_STACK",
+              "itemHeight": "MUSIC_RESPONSIVE_LIST_ITEM_HEIGHT_MEDIUM_COMPACT",
+              "customIndexColumn": {
+               "musicCustomIndexColumnRenderer": {
+                "text": {
+                 "runs": [
+                  {
+                   "text": "3"
+                  }
+                 ]
+                },
+                "accessibilityData": {
+                 "accessibilityData": {
+                  "label": "3"
+                 }
+                }
+               }
+              }
+             }
+            },
+            {
+             "musicResponsiveListItemRenderer": {
+              "thumbnail": {
+               "musicThumbnailRenderer": {
+                "thumbnail": {
+                 "thumbnails": [
+                  {
+                   "url": "https://i.ytimg.com/vi/XXSNzN8wMTM/hqdefault.jpg?sqp=-oaymwEWCJADEOEBIAQqCggAEOADGC0guwJIWg&rs=AMzJL3kgsj_5gbrh4JxyOlAKrd5vFmVWNQ",
+                   "width": 400,
+                   "height": 225
+                  }
+                 ]
+                },
+                "thumbnailCrop": "MUSIC_THUMBNAIL_CROP_UNSPECIFIED",
+                "thumbnailScale": "MUSIC_THUMBNAIL_SCALE_ASPECT_FIT"
+               }
+              },
+              "overlay": {
+               "musicItemThumbnailOverlayRenderer": {
+                "background": {
+                 "verticalGradient": {
+                  "gradientLayerColors": [
+                   "3422552064",
+                   "3422552064"
+                  ]
+                 }
+                },
+                "content": {
+                 "musicPlayButtonRenderer": {
+                  "playNavigationEndpoint": {
+                   "watchEndpoint": {
+                    "videoId": "XXSNzN8wMTM",
+                    "playlistId": "OLAK5uy_nFGBM3omhVsEq3br7ph_ZoiW-H-TOv-kE",
+                    "loggingContext": {
+                     "vssLoggingContext": {
+                      "serializedContextData": "GilPTEFLNXV5X25GR0JNM29taFZzRXEzYnI3cGhfWm9pVy1ILVRPdi1rRQ%3D%3D"
+                     }
+                    },
+                    "watchEndpointMusicSupportedConfigs": {
+                     "watchEndpointMusicConfig": {
+                      "musicVideoType": "MUSIC_VIDEO_TYPE_OMV"
+                     }
+                    }
+                   }
+                  },
+                  "playIcon": {
+                   "iconType": "PLAY_ARROW"
+                  },
+                  "pauseIcon": {
+                   "iconType": "PAUSE"
+                  },
+                  "iconColor": 4294967295,
+                  "backgroundColor": 0,
+                  "activeBackgroundColor": 0,
+                  "loadingIndicatorColor": 14745645,
+                  "playingIcon": {
+                   "iconType": "VOLUME_UP"
+                  },
+                  "iconLoadingColor": 0,
+                  "activeScaleFactor": 1,
+                  "buttonSize": "MUSIC_PLAY_BUTTON_SIZE_SMALL",
+                  "rippleTarget": "MUSIC_PLAY_BUTTON_RIPPLE_TARGET_SELF",
+                  "accessibilityPlayData": {
+                   "accessibilityData": {
+                    "label": "Play Al Shami - Taa [Official Music Video] (2026) / الشامي - تعا - Al Shami"
+                   }
+                  },
+                  "accessibilityPauseData": {
+                   "accessibilityData": {
+                    "label": "Pause Al Shami - Taa [Official Music Video] (2026) / الشامي - تعا - Al Shami"
+                   }
+                  }
+                 }
+                },
+                "contentPosition": "MUSIC_ITEM_THUMBNAIL_OVERLAY_CONTENT_POSITION_CENTERED",
+                "displayStyle": "MUSIC_ITEM_THUMBNAIL_OVERLAY_DISPLAY_STYLE_PERSISTENT"
+               }
+              },
+              "flexColumns": [
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Al Shami - Taa [Official Music Video] (2026) / الشامي - تعا",
+                    "navigationEndpoint": {
+                     "watchEndpoint": {
+                      "videoId": "XXSNzN8wMTM",
+                      "playlistId": "OLAK5uy_nFGBM3omhVsEq3br7ph_ZoiW-H-TOv-kE",
+                      "loggingContext": {
+                       "vssLoggingContext": {
+                        "serializedContextData": "GilPTEFLNXV5X25GR0JNM29taFZzRXEzYnI3cGhfWm9pVy1ILVRPdi1rRQ%3D%3D"
+                       }
+                      },
+                      "watchEndpointMusicSupportedConfigs": {
+                       "watchEndpointMusicConfig": {
+                        "musicVideoType": "MUSIC_VIDEO_TYPE_OMV"
+                       }
+                      }
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {
+                  "runs": [
+                   {
+                    "text": "Al Shami",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "UCxm29pQhOlG7psdRYizgvsA",
+                      "browseEndpointContextSupportedConfigs": {
+                       "browseEndpointContextMusicConfig": {
+                        "pageType": "MUSIC_PAGE_TYPE_ARTIST"
+                       }
+                      }
+                     }
+                    }
+                   },
+                   {
+                    "text": " • "
+                   },
+                   {
+                    "text": "7.9M views"
+                   }
+                  ],
+                  "accessibility": {
+                   "accessibilityData": {
+                    "label": "Al Shami • 7.9 million views"
+                   }
+                  }
+                 },
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH"
+                }
+               },
+               {
+                "musicResponsiveListItemFlexColumnRenderer": {
+                 "text": {},
+                 "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_MEDIUM"
+                }
+               }
+              ],
+              "playlistItemData": {
+               "videoId": "XXSNzN8wMTM"
+              },
+              "flexColumnDisplayStyle": "MUSIC_RESPONSIVE_LIST_ITEM_FLEX_COLUMN_DISPLAY_STYLE_TWO_LINE_STACK",
+              "itemHeight": "MUSIC_RESPONSIVE_LIST_ITEM_HEIGHT_MEDIUM_COMPACT",
+              "customIndexColumn": {
+               "musicCustomIndexColumnRenderer": {
+                "text": {
+                 "runs": [
+                  {
+                   "text": "4"
+                  }
+                 ]
+                },
+                "accessibilityData": {
+                 "accessibilityData": {
+                  "label": "4"
+                 }
+                }
+               }
+              }
+             }
+            }
+           ],
+           "itemSize": "COLLECTION_STYLE_ITEM_SIZE_MEDIUM",
+           "numItemsPerColumn": "4"
+          }
+         },
+         {
+          "musicCarouselShelfRenderer": {
+           "header": {
+            "musicCarouselShelfBasicHeaderRenderer": {
+             "title": {
+              "runs": [
+               {
+                "text": "New music videos",
+                "navigationEndpoint": {
+                 "browseEndpoint": {
+                  "browseId": "FEmusic_new_releases_videos"
+                 }
+                }
+               }
+              ]
+             },
+             "accessibilityData": {
+              "accessibilityData": {
+               "label": "New music videos"
+              }
+             },
+             "headerStyle": "MUSIC_CAROUSEL_SHELF_BASIC_HEADER_STYLE_DEFAULT",
+             "moreContentButton": {
+              "buttonRenderer": {
+               "style": "STYLE_TEXT",
+               "text": {
+                "runs": [
+                 {
+                  "text": "More"
+                 }
+                ]
+               },
+               "navigationEndpoint": {
+                "browseEndpoint": {
+                 "browseId": "FEmusic_new_releases_videos"
+                }
+               },
+               "accessibilityData": {
+                "accessibilityData": {
+                 "label": "More"
+                }
+               }
+              }
+             }
+            }
+           },
+           "contents": [
+            {
+             "musicTwoRowItemRenderer": {
+              "thumbnailRenderer": {
+               "musicThumbnailRenderer": {
+                "thumbnail": {
+                 "thumbnails": [
+                  {
+                   "url": "https://i.ytimg.com/vi/ccTMQmlge20/hqdefault.jpg?sqp=-oaymwEWCJADEOEBIAQqCggAEOADGC0guwJIWg&rs=AMzJL3lSRHcm9bCqcZn4odk6EQcEIDdBIQ",
+                   "width": 400,
+                   "height": 225
+                  },
+                  {
+                   "url": "https://i.ytimg.com/vi/ccTMQmlge20/hq720.jpg?sqp=-oaymwEKCKAGEMIDIABIWg&rs=AMzJL3kJyjXQhMPtlW0AM2stMOMeiorBEg",
+                   "width": 800,
+                   "height": 450
+                  }
+                 ]
+                },
+                "thumbnailCrop": "MUSIC_THUMBNAIL_CROP_UNSPECIFIED",
+                "thumbnailScale": "MUSIC_THUMBNAIL_SCALE_ASPECT_FILL"
+               }
+              },
+              "aspectRatio": "MUSIC_TWO_ROW_ITEM_THUMBNAIL_ASPECT_RATIO_RECTANGLE_16_9",
+              "title": {
+               "runs": [
+                {
+                 "text": "Vallenato Mix (Diomedes Diaz) | By Doze"
+                }
+               ]
+              },
+              "subtitle": {
+               "runs": [
+                {
+                 "text": "Juancho Rois",
+                 "navigationEndpoint": {
+                  "browseEndpoint": {
+                   "browseId": "UCOefjMfqsBC7fZaalYP2Xfg",
+                   "browseEndpointContextSupportedConfigs": {
+                    "browseEndpointContextMusicConfig": {
+                     "pageType": "MUSIC_PAGE_TYPE_ARTIST"
+                    }
+                   }
+                  }
+                 }
+                },
+                {
+                 "text": " & "
+                },
+                {
+                 "text": "Diomedes Díaz",
+                 "navigationEndpoint": {
+                  "browseEndpoint": {
+                   "browseId": "UCD-tJUeIeVFeTGstnnwRNGA",
+                   "browseEndpointContextSupportedConfigs": {
+                    "browseEndpointContextMusicConfig": {
+                     "pageType": "MUSIC_PAGE_TYPE_ARTIST"
+                    }
+                   }
+                  }
+                 }
+                },
+                {
+                 "text": " • "
+                },
+                {
+                 "text": "25K views"
+                }
+               ],
+               "accessibility": {
+                "accessibilityData": {
+                 "label": "Juancho Rois & Diomedes Díaz • 25 thousand views"
+                }
+               }
+              },
+              "navigationEndpoint": {
+               "watchEndpoint": {
+                "videoId": "ccTMQmlge20",
+                "watchEndpointMusicSupportedConfigs": {
+                 "watchEndpointMusicConfig": {
+                  "musicVideoType": "MUSIC_VIDEO_TYPE_OMV"
+                 }
+                }
+               }
+              },
+              "thumbnailOverlay": {
+               "musicItemThumbnailOverlayRenderer": {
+                "background": {
+                 "verticalGradient": {
+                  "gradientLayerColors": [
+                   "2147483648",
+                   "2147483648"
+                  ]
+                 }
+                },
+                "content": {
+                 "musicPlayButtonRenderer": {
+                  "playNavigationEndpoint": {
+                   "watchEndpoint": {
+                    "videoId": "ccTMQmlge20",
+                    "watchEndpointMusicSupportedConfigs": {
+                     "watchEndpointMusicConfig": {
+                      "musicVideoType": "MUSIC_VIDEO_TYPE_OMV"
+                     }
+                    }
+                   }
+                  },
+                  "playIcon": {
+                   "iconType": "PLAY_ARROW"
+                  },
+                  "pauseIcon": {
+                   "iconType": "PAUSE"
+                  },
+                  "iconColor": 4294967295,
+                  "backgroundColor": 0,
+                  "activeBackgroundColor": 0,
+                  "loadingIndicatorColor": 14745645,
+                  "playingIcon": {
+                   "iconType": "VOLUME_UP"
+                  },
+                  "iconLoadingColor": 0,
+                  "activeScaleFactor": 1,
+                  "buttonSize": "MUSIC_PLAY_BUTTON_SIZE_HUGE",
+                  "rippleTarget": "MUSIC_PLAY_BUTTON_RIPPLE_TARGET_ANCESTOR",
+                  "accessibilityPlayData": {
+                   "accessibilityData": {
+                    "label": "Play Vallenato Mix (Diomedes Diaz) | By Doze - Juancho Rois"
+                   }
+                  },
+                  "accessibilityPauseData": {
+                   "accessibilityData": {
+                    "label": "Pause Vallenato Mix (Diomedes Diaz) | By Doze - Juancho Rois"
+                   }
+                  }
+                 }
+                },
+                "contentPosition": "MUSIC_ITEM_THUMBNAIL_OVERLAY_CONTENT_POSITION_CENTERED",
+                "displayStyle": "MUSIC_ITEM_THUMBNAIL_OVERLAY_DISPLAY_STYLE_PERSISTENT"
+               }
+              }
+             }
+            },
+            {
+             "musicTwoRowItemRenderer": {
+              "thumbnailRenderer": {
+               "musicThumbnailRenderer": {
+                "thumbnail": {
+                 "thumbnails": [
+                  {
+                   "url": "https://i.ytimg.com/vi/GwyF-niH3Ew/hqdefault.jpg?sqp=-oaymwEWCJADEOEBIAQqCggAEOADGC0guwJIWg&rs=AMzJL3krq77cp0QorWmXmRmRAlMdJ0qioQ",
+                   "width": 400,
+                   "height": 225
+                  },
+                  {
+                   "url": "https://i.ytimg.com/vi/GwyF-niH3Ew/hq720.jpg?sqp=-oaymwEKCKAGEMIDIABIWg&rs=AMzJL3l_1kl1nHeLuR0ZcfeL9iXhlreohg",
+                   "width": 800,
+                   "height": 450
+                  }
+                 ]
+                },
+                "thumbnailCrop": "MUSIC_THUMBNAIL_CROP_UNSPECIFIED",
+                "thumbnailScale": "MUSIC_THUMBNAIL_SCALE_ASPECT_FILL"
+               }
+              },
+              "aspectRatio": "MUSIC_TWO_ROW_ITEM_THUMBNAIL_ASPECT_RATIO_RECTANGLE_16_9",
+              "title": {
+               "runs": [
+                {
+                 "text": "Me Encanta"
+                }
+               ]
+              },
+              "subtitle": {
+               "runs": [
+                {
+                 "text": "Cyril Kamer",
+                 "navigationEndpoint": {
+                  "browseEndpoint": {
+                   "browseId": "UCOYgNOTOxyBaTmvRFq-MMtg",
+                   "browseEndpointContextSupportedConfigs": {
+                    "browseEndpointContextMusicConfig": {
+                     "pageType": "MUSIC_PAGE_TYPE_ARTIST"
+                    }
+                   }
+                  }
+                 }
+                },
+                {
+                 "text": " • "
+                },
+                {
+                 "text": "379K views"
+                }
+               ],
+               "accessibility": {
+                "accessibilityData": {
+                 "label": "Cyril Kamer • 379 thousand views"
+                }
+               }
+              },
+              "navigationEndpoint": {
+               "watchEndpoint": {
+                "videoId": "GwyF-niH3Ew",
+                "watchEndpointMusicSupportedConfigs": {
+                 "watchEndpointMusicConfig": {
+                  "musicVideoType": "MUSIC_VIDEO_TYPE_OMV"
+                 }
+                }
+               }
+              },
+              "thumbnailOverlay": {
+               "musicItemThumbnailOverlayRenderer": {
+                "background": {
+                 "verticalGradient": {
+                  "gradientLayerColors": [
+                   "2147483648",
+                   "2147483648"
+                  ]
+                 }
+                },
+                "content": {
+                 "musicPlayButtonRenderer": {
+                  "playNavigationEndpoint": {
+                   "watchEndpoint": {
+                    "videoId": "GwyF-niH3Ew",
+                    "watchEndpointMusicSupportedConfigs": {
+                     "watchEndpointMusicConfig": {
+                      "musicVideoType": "MUSIC_VIDEO_TYPE_OMV"
+                     }
+                    }
+                   }
+                  },
+                  "playIcon": {
+                   "iconType": "PLAY_ARROW"
+                  },
+                  "pauseIcon": {
+                   "iconType": "PAUSE"
+                  },
+                  "iconColor": 4294967295,
+                  "backgroundColor": 0,
+                  "activeBackgroundColor": 0,
+                  "loadingIndicatorColor": 14745645,
+                  "playingIcon": {
+                   "iconType": "VOLUME_UP"
+                  },
+                  "iconLoadingColor": 0,
+                  "activeScaleFactor": 1,
+                  "buttonSize": "MUSIC_PLAY_BUTTON_SIZE_HUGE",
+                  "rippleTarget": "MUSIC_PLAY_BUTTON_RIPPLE_TARGET_ANCESTOR",
+                  "accessibilityPlayData": {
+                   "accessibilityData": {
+                    "label": "Play Me Encanta - Cyril Kamer"
+                   }
+                  },
+                  "accessibilityPauseData": {
+                   "accessibilityData": {
+                    "label": "Pause Me Encanta - Cyril Kamer"
+                   }
+                  }
+                 }
+                },
+                "contentPosition": "MUSIC_ITEM_THUMBNAIL_OVERLAY_CONTENT_POSITION_CENTERED",
+                "displayStyle": "MUSIC_ITEM_THUMBNAIL_OVERLAY_DISPLAY_STYLE_PERSISTENT"
+               }
+              }
+             }
+            },
+            {
+             "musicTwoRowItemRenderer": {
+              "thumbnailRenderer": {
+               "musicThumbnailRenderer": {
+                "thumbnail": {
+                 "thumbnails": [
+                  {
+                   "url": "https://i.ytimg.com/vi/WkyqPqNm3TM/hqdefault.jpg?sqp=-oaymwEWCJADEOEBIAQqCggAEOADGC0guwJIWg&rs=AMzJL3n7wI0WNJUMOx-r13rYVMB7yxhaPA",
+                   "width": 400,
+                   "height": 225
+                  },
+                  {
+                   "url": "https://i.ytimg.com/vi/WkyqPqNm3TM/hq720.jpg?sqp=-oaymwEKCKAGEMIDIABIWg&rs=AMzJL3mH-6lu8Kyd-L5eJ32ucQR2tpkRTg",
+                   "width": 800,
+                   "height": 450
+                  }
+                 ]
+                },
+                "thumbnailCrop": "MUSIC_THUMBNAIL_CROP_UNSPECIFIED",
+                "thumbnailScale": "MUSIC_THUMBNAIL_SCALE_ASPECT_FILL"
+               }
+              },
+              "aspectRatio": "MUSIC_TWO_ROW_ITEM_THUMBNAIL_ASPECT_RATIO_RECTANGLE_16_9",
+              "title": {
+               "runs": [
+                {
+                 "text": "Không Nên Lời (MV)"
+                }
+               ]
+              },
+              "subtitle": {
+               "runs": [
+                {
+                 "text": "Thịnh Suy",
+                 "navigationEndpoint": {
+                  "browseEndpoint": {
+                   "browseId": "UCgbeCyF2R9bNXx9RPBBSaaw",
+                   "browseEndpointContextSupportedConfigs": {
+                    "browseEndpointContextMusicConfig": {
+                     "pageType": "MUSIC_PAGE_TYPE_ARTIST"
+                    }
+                   }
+                  }
+                 }
+                },
+                {
+                 "text": " • "
+                },
+                {
+                 "text": "129K views"
+                }
+               ],
+               "accessibility": {
+                "accessibilityData": {
+                 "label": "Thịnh Suy • 129 thousand views"
+                }
+               }
+              },
+              "navigationEndpoint": {
+               "watchEndpoint": {
+                "videoId": "WkyqPqNm3TM",
+                "watchEndpointMusicSupportedConfigs": {
+                 "watchEndpointMusicConfig": {
+                  "musicVideoType": "MUSIC_VIDEO_TYPE_OMV"
+                 }
+                }
+               }
+              },
+              "thumbnailOverlay": {
+               "musicItemThumbnailOverlayRenderer": {
+                "background": {
+                 "verticalGradient": {
+                  "gradientLayerColors": [
+                   "2147483648",
+                   "2147483648"
+                  ]
+                 }
+                },
+                "content": {
+                 "musicPlayButtonRenderer": {
+                  "playNavigationEndpoint": {
+                   "watchEndpoint": {
+                    "videoId": "WkyqPqNm3TM",
+                    "watchEndpointMusicSupportedConfigs": {
+                     "watchEndpointMusicConfig": {
+                      "musicVideoType": "MUSIC_VIDEO_TYPE_OMV"
+                     }
+                    }
+                   }
+                  },
+                  "playIcon": {
+                   "iconType": "PLAY_ARROW"
+                  },
+                  "pauseIcon": {
+                   "iconType": "PAUSE"
+                  },
+                  "iconColor": 4294967295,
+                  "backgroundColor": 0,
+                  "activeBackgroundColor": 0,
+                  "loadingIndicatorColor": 14745645,
+                  "playingIcon": {
+                   "iconType": "VOLUME_UP"
+                  },
+                  "iconLoadingColor": 0,
+                  "activeScaleFactor": 1,
+                  "buttonSize": "MUSIC_PLAY_BUTTON_SIZE_HUGE",
+                  "rippleTarget": "MUSIC_PLAY_BUTTON_RIPPLE_TARGET_ANCESTOR",
+                  "accessibilityPlayData": {
+                   "accessibilityData": {
+                    "label": "Play Không Nên Lời (MV) - Thịnh Suy"
+                   }
+                  },
+                  "accessibilityPauseData": {
+                   "accessibilityData": {
+                    "label": "Pause Không Nên Lời (MV) - Thịnh Suy"
+                   }
+                  }
+                 }
+                },
+                "contentPosition": "MUSIC_ITEM_THUMBNAIL_OVERLAY_CONTENT_POSITION_CENTERED",
+                "displayStyle": "MUSIC_ITEM_THUMBNAIL_OVERLAY_DISPLAY_STYLE_PERSISTENT"
+               }
+              }
+             }
+            },
+            {
+             "musicTwoRowItemRenderer": {
+              "thumbnailRenderer": {
+               "musicThumbnailRenderer": {
+                "thumbnail": {
+                 "thumbnails": [
+                  {
+                   "url": "https://i.ytimg.com/vi/ZHdYBoOhFKQ/hqdefault.jpg?sqp=-oaymwEWCJADEOEBIAQqCggAEOADGC0guwJIWg&rs=AMzJL3nhpI1s1ZBsvCLFm9ui8USIQjNLCQ",
+                   "width": 400,
+                   "height": 225
+                  },
+                  {
+                   "url": "https://i.ytimg.com/vi/ZHdYBoOhFKQ/hq720.jpg?sqp=-oaymwEKCKAGEMIDIABIWg&rs=AMzJL3nL4ImkFf5181RWxgDahMG6IipsgQ",
+                   "width": 800,
+                   "height": 450
+                  }
+                 ]
+                },
+                "thumbnailCrop": "MUSIC_THUMBNAIL_CROP_UNSPECIFIED",
+                "thumbnailScale": "MUSIC_THUMBNAIL_SCALE_ASPECT_FILL"
+               }
+              },
+              "aspectRatio": "MUSIC_TWO_ROW_ITEM_THUMBNAIL_ASPECT_RATIO_RECTANGLE_16_9",
+              "title": {
+               "runs": [
+                {
+                 "text": "Dante"
+                }
+               ]
+              },
+              "subtitle": {
+               "runs": [
+                {
+                 "text": "Northlane",
+                 "navigationEndpoint": {
+                  "browseEndpoint": {
+                   "browseId": "UC5S3Wz2GgLwe_BzpK8X210A",
+                   "browseEndpointContextSupportedConfigs": {
+                    "browseEndpointContextMusicConfig": {
+                     "pageType": "MUSIC_PAGE_TYPE_ARTIST"
+                    }
+                   }
+                  }
+                 }
+                },
+                {
+                 "text": " • "
+                },
+                {
+                 "text": "1.1M views"
+                }
+               ],
+               "accessibility": {
+                "accessibilityData": {
+                 "label": "Northlane • 1.1 million views"
+                }
+               }
+              },
+              "navigationEndpoint": {
+               "watchEndpoint": {
+                "videoId": "ZHdYBoOhFKQ",
+                "watchEndpointMusicSupportedConfigs": {
+                 "watchEndpointMusicConfig": {
+                  "musicVideoType": "MUSIC_VIDEO_TYPE_OMV"
+                 }
+                }
+               }
+              },
+              "thumbnailOverlay": {
+               "musicItemThumbnailOverlayRenderer": {
+                "background": {
+                 "verticalGradient": {
+                  "gradientLayerColors": [
+                   "2147483648",
+                   "2147483648"
+                  ]
+                 }
+                },
+                "content": {
+                 "musicPlayButtonRenderer": {
+                  "playNavigationEndpoint": {
+                   "watchEndpoint": {
+                    "videoId": "ZHdYBoOhFKQ",
+                    "watchEndpointMusicSupportedConfigs": {
+                     "watchEndpointMusicConfig": {
+                      "musicVideoType": "MUSIC_VIDEO_TYPE_OMV"
+                     }
+                    }
+                   }
+                  },
+                  "playIcon": {
+                   "iconType": "PLAY_ARROW"
+                  },
+                  "pauseIcon": {
+                   "iconType": "PAUSE"
+                  },
+                  "iconColor": 4294967295,
+                  "backgroundColor": 0,
+                  "activeBackgroundColor": 0,
+                  "loadingIndicatorColor": 14745645,
+                  "playingIcon": {
+                   "iconType": "VOLUME_UP"
+                  },
+                  "iconLoadingColor": 0,
+                  "activeScaleFactor": 1,
+                  "buttonSize": "MUSIC_PLAY_BUTTON_SIZE_HUGE",
+                  "rippleTarget": "MUSIC_PLAY_BUTTON_RIPPLE_TARGET_ANCESTOR",
+                  "accessibilityPlayData": {
+                   "accessibilityData": {
+                    "label": "Play Dante - Northlane"
+                   }
+                  },
+                  "accessibilityPauseData": {
+                   "accessibilityData": {
+                    "label": "Pause Dante - Northlane"
+                   }
+                  }
+                 }
+                },
+                "contentPosition": "MUSIC_ITEM_THUMBNAIL_OVERLAY_CONTENT_POSITION_CENTERED",
+                "displayStyle": "MUSIC_ITEM_THUMBNAIL_OVERLAY_DISPLAY_STYLE_PERSISTENT"
+               }
+              }
+             }
+            }
+           ],
+           "itemSize": "COLLECTION_STYLE_ITEM_SIZE_MEDIUM"
+          }
+         }
+        ]
+       }
+      },
+      "icon": {
+       "iconType": "TAB_EXPLORE"
+      },
+      "tabIdentifier": "FEmusic_explore"
+     }
+    }
+   ]
+  }
+ },
+ "maxAgeStoreSeconds": 300
+}

@@ -69,9 +69,14 @@ def test_search_songs_fixture(load_fixture):
 
 
 def test_search_mixed_fixture_is_grouped(load_fixture):
-    groups = norm.search_grouped(load_fixture("search_mixed.json"))
-    assert set(groups) == {"top", "songs", "videos", "albums", "playlists", "artists"}
+    # S7: the top section comes only from the raw top result card (ytm_search
+    # passes it as `top`), never from ytmusicapi's "Top result" label.
+    results = load_fixture("search_mixed.json")
+    groups = norm.search_grouped(results[1:], top=results[:1])
+    assert set(groups) == {"top", "songs", "videos", "albums", "playlists", "artists", "podcasts", "episodes",
+                           "profiles", "order"}
     assert groups["top"], "a mixed search has a top result"
+    assert norm.search_grouped(results)["top"] == [], "no card, no top section"
     expected = {"songs": "track", "videos": "track", "albums": "album", "playlists": "playlist", "artists": "artist"}
     for key, kind in expected.items():
         assert all(item["type"] == kind for item in groups[key]), key
@@ -84,9 +89,8 @@ def test_search_mixed_fixture_is_grouped(load_fixture):
 
 
 def test_songs_keep_their_own_artists_without_an_artist_top_result():
-    groups = norm.search_grouped([
+    groups = norm.search_grouped([{"resultType": "song", "videoId": "a", "title": "A"}], top=[
         {"category": "Top result", "resultType": "song", "videoId": "t", "title": "T", "artists": [{"name": "X"}]},
-        {"resultType": "song", "videoId": "a", "title": "A"},
     ])
     assert groups["songs"][0]["artists"] == []
 

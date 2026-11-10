@@ -6,7 +6,8 @@ import "../YtmModel.js" as Model
 
 // A flat list of result rows ({ header, title } or { item, trackIndex }):
 // section headers, tracks, collections, and the line rows of pages (See all,
-// Load more, action, message, and text: page content shown in full). Owns its keyboard cursor, and keeps it and
+// Load more, action, message, text: page content shown in full, and S6's
+// Moods & genres categories). Owns its keyboard cursor, and keeps it and
 // the scroll position on the same rows by key when the rows change (an
 // append, a background refresh, a removal), unless `listKey` changed.
 ListView {
@@ -197,6 +198,7 @@ ListView {
     if (item.type === "more") return "󰁔"
     if (item.type === "loadMore") return root.moreBusy ? "󰔟" : "󰅀"
     if (item.type === "message") return "󰋽"
+    if (item.type === "mood") return Model.MOOD_ICON  // S6: a Moods & genres category
     return "󰅂"
   }
 
@@ -229,7 +231,8 @@ ListView {
     sourceComponent: kind === "header" ? headerComponent
       : kind === "track" ? trackComponent
       : kind === "query" ? queryComponent
-      : kind === "more" || kind === "loadMore" || kind === "action" || kind === "message" || kind === "text" ? lineComponent
+      : kind === "more" || kind === "loadMore" || kind === "action" || kind === "message" || kind === "text"
+        || kind === "mood" ? lineComponent
       : collectionComponent
 
     Component {
@@ -334,7 +337,8 @@ ListView {
             opacity: queryRow.query.removable && (queryHover.hovered || row.index === root.cursorIndex) ? 1 : 0
             enabled: opacity > 0
             iconText: "󰅖"
-            tooltipText: Model.withKey("Forget this search", "remove")
+            // S7: one of your YouTube searches goes from YouTube too.
+            tooltipText: Model.withKey(queryRow.query.remote ? "Remove from your searches" : "Forget this search", "remove")
             foreground: root.foreground
             onClicked: root.removeRequested(row.index)
           }

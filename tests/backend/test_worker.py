@@ -45,7 +45,7 @@ def test_ping_and_unknown_method():
 def test_bad_params_are_bad_request():
     worker = ytm.Worker(FakeYT(search=[]), "none")
     assert call(worker, "search")["error"]["code"] == "BAD_REQUEST"
-    assert call(worker, "search", query="x", filter="podcasts")["error"]["code"] == "BAD_REQUEST"
+    assert call(worker, "search", query="x", filter="nope")["error"]["code"] == "BAD_REQUEST"
     assert call(worker, "search", query="x", limit="many")["error"]["code"] == "BAD_REQUEST"
     assert worker.handle({"id": 1, "method": "search", "params": []})["error"]["code"] == "BAD_REQUEST"
     assert worker.handle("not an object")["error"]["code"] == "BAD_REQUEST"
@@ -107,18 +107,21 @@ def test_library_needs_auth():
     (RuntimeError("boom"), "INTERNAL", False),
 ])
 def test_errors_are_classified(exc, code, retryable):
-    worker = ytm.Worker(FakeYT(search=exc), "ok")
+    # S7: search sends its own request (ytm_search), so that is what fails.
+    worker = ytm.Worker(FakeYT(_send_request=exc), "ok")
     error = call(worker, "search", query="x", filter="songs")["error"]
     assert (error["code"], error["retryable"]) == (code, retryable)
     assert error["message"]
 
 
-def test_search_filtered_and_grouped():
-    songs = [{"resultType": "song", "videoId": "a", "title": "A", "duration": "1:00"}]
-    worker = ytm.Worker(FakeYT(search=songs), "none")
-    assert [t["videoId"] for t in call(worker, "search", query="x", filter="songs")["result"]["items"]] == ["a"]
+def test_search_filtered_and_grouped(load_fixture):
+    # S7: the raw response is parsed (tests/backend/test_search.py has the rest).
+    worker = ytm.Worker(FakeYT(_send_request=load_fixture("search_episodes.json")), "none")
+    items = call(worker, "search", query="x", filter="episodes", limit=1)["result"]["items"]
+    assert items and all(t["kind"] == "episode" for t in items)
+    worker = ytm.Worker(FakeYT(_send_request=load_fixture("search_raw.json")), "none")
     grouped = call(worker, "search", query="x")["result"]
-    assert [t["videoId"] for t in grouped["songs"]] == ["a"]
+    assert grouped["songs"] and all(t["type"] == "track" for t in grouped["songs"])
 
 
 def test_suggestions_keep_text_and_history_flag():
@@ -127,9 +130,11 @@ def test_suggestions_keep_text_and_history_flag():
     result = call(ytm.Worker(fake, "none"), "suggestions", query="daft p")["result"]
     assert result == {"items": [{"text": "daft punk", "fromHistory": True},
                                 {"text": "daft punk get lucky", "fromHistory": False},
-                                {"text": "plain", "fromHistory": False}]}
+                                {"text": "plain", "fromHistory": False}], "entities": []}
     assert fake.calls[-1] == ("get_search_suggestions", ("daft p",), {"detailed_runs": True})
-    assert call(ytm.Worker(fake, "none"), "suggestions", query=" ")["error"]["code"] == "BAD_REQUEST"
+    # S7: an empty field asks for your past searches; signed out there are none.
+    assert call(ytm.Worker(fake, "none"), "suggestions", query=" ")["result"] == {"items": [], "entities": []}
+    assert call(ytm.Worker(fake, "none"), "suggestions")["error"]["code"] == "BAD_REQUEST"
 
 
 def test_rate_passes_like_status_enum():

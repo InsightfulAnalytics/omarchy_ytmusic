@@ -125,7 +125,8 @@ Item {
       var track = tracks[i]
       if (track && track.videoId) {
         // S3: no feedback tokens in the queue (status, session.json, mpv).
-        next[track.videoId] = Model.withoutTokens(track)
+        // S6: nor a chart song's rank and trend (Explore's rows only).
+        next[track.videoId] = Model.withoutRank(Model.withoutTokens(track))
         changed = true
       }
     }
@@ -797,6 +798,11 @@ Item {
     account = parsed
     if (changed) applyAuthChange()
   }
+
+  // S7: a library or uploads search ends with the session (expired, invalid
+  // or signed out), not only on an account change; signed out, nothing in
+  // the panel could take the scope back.
+  onSignedInChanged: if (!signedIn) storeItem.leaveScope()
 
   function applyAuthChange() {
     storeItem.reset()
@@ -2200,7 +2206,8 @@ Item {
   // Open the panel on the search tab with results for `query`.
   function showSearch(query) {
     var text = String(query || "").trim()
-    if (text !== "") store.search(text, "")
+    // S7: YouTube Music, whichever scope the panel's Search was left in.
+    if (text !== "") store.search(text, "", "")
     store.requestTab("search")
     if (shell && typeof shell.summon === "function") shell.summon(pluginId)
     return true

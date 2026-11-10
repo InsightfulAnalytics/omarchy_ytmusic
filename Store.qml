@@ -20,6 +20,14 @@ Item {
   property string query: ""
   // "" = everything, grouped; otherwise a ytmusicapi search filter.
   property string filter: ""
+  // S7: "" (YouTube Music), "library" or "uploads" (signed in); `exact`
+  // searches the words as typed (no spelling fix). A filtered result
+  // (or uploads) grows by searchMore() while it has a cursor.
+  property string scope: ""
+  property bool exact: false
+  property bool searchingMore: false
+  property string searchMoreError: ""
+  readonly property int maxSearchItems: 500
   property var result: null
   property bool searching: false
   property string searchError: ""
@@ -42,24 +50,38 @@ Item {
     if (track && track.type === "track" && track.videoId) trackHinted(track)
   }
 
-  function search(text, searchFilter) {
+  // S7: `searchScope` undefined keeps the current scope; `exactly` is for
+  // this search only (a new one is corrected again).
+  function search(text, searchFilter, searchScope, exactly) {
     var q = String(text || "").trim()
     var f = searchFilter || ""
+    var s = searchScope === undefined ? scope : (searchScope || "")
+    var x = exactly === true
+    if (!Model.searchFilterAllowed(f, s)) f = ""
     if (q === "") {
       _seq++
       query = ""
+      filter = f
+      scope = s
+      exact = false
       result = null
       searching = false
+      searchingMore = false
       searchError = ""
+      searchMoreError = ""
       return
     }
-    if (q === query && f === filter && (result || searching) && searchError === "") return
-    var key = Model.searchKey(q, f)
+    if (q === query && f === filter && s === scope && x === exact && (result || searching) && searchError === "") return
+    var key = Model.searchKey(q, f, s, x)
     var hit = _searches[key]
+    searchingMore = false
+    searchMoreError = ""
     if (hit && Date.now() - hit.at < searchTtlMs) {
       _seq++
       query = q
       filter = f
+      scope = s
+      exact = x
       searching = false
       searchError = ""
       lastSearchMs = 0
@@ -71,8 +93,11 @@ Item {
     var started = Date.now()
     query = q
     filter = f
+    scope = s
+    exact = x
     searching = true
-    worker.request("search", { query: q, filter: f || null, limit: f ? 40 : 20 }, function(reply) {
+    var params = { query: q, filter: f || null, scope: s || null, exact: x }
+    worker.request("search", params, function(reply) {
       // A newer search superseded this one while it was in flight.
       if (seq !== root._seq) return
       root.searching = false
@@ -87,7 +112,65 @@ Item {
       root._rememberSearch(key, reply.result)
       root.requestThumbs(Model.collectThumbs(reply.result))
       root.hint(Model.firstTrack(Model.flattenSearch(reply.result, f)))
+      // A signed-in search joins your YouTube searches.
+      root.pastSearchesAt = 0
     })
+  }
+
+  // ---- search: more of a filtered list (S7) -----------------------------------
+  // The next page by the result's cursor (never cached). A reply for a
+  // search that has been replaced meanwhile is dropped. After a failure
+  // only an explicit Load more (Enter, a click) tries again.
+  function searchMore(explicit) {
+    var current = result
+    if (!worker || !current || !current.cursor || searching || searchingMore) return false
+    if (searchMoreError !== "" && explicit !== true) return false
+    var seq = _seq
+    var key = Model.searchKey(query, filter, scope, exact)
+    var params = { query: query, filter: filter || null, scope: scope || null, exact: exact, cursor: current.cursor }
+    searchingMore = true
+    searchMoreError = ""
+    worker.request("search", params, function(reply) {
+      if (seq !== root._seq || root.result !== current) return
+      root.searchingMore = false
+      if (!reply.ok) {
+        root.searchMoreError = reply.error.message
+        return
+      }
+      var next = Model.appendSearchPage(current, reply.result, root.maxSearchItems)
+      root.result = next
+      root._updateSearch(key, next)
+      root.requestThumbs(Model.collectThumbs(reply.result))
+    }, 60000)
+    return true
+  }
+
+  // A held search grown by searchMore keeps its age.
+  function _updateSearch(key, value) {
+    var hit = _searches[key]
+    if (!hit) return
+    var next = ({})
+    for (var k in _searches) next[k] = _searches[k]
+    next[key] = { result: value, at: hit.at }
+    _searches = next
+  }
+
+  // ---- search: the session ended (S7) ------------------------------------------
+  // A library or uploads search belongs to the session. Service calls this
+  // when signedIn goes false (expired, invalid, signed out) and reset() on
+  // an account change: the scoped search is dropped, so the next search
+  // (SearchView runs the field's words again) goes to YouTube Music.
+  function leaveScope() {
+    if (scope === "") return
+    _seq++
+    query = ""
+    result = null
+    searching = false
+    searchingMore = false
+    searchError = ""
+    searchMoreError = ""
+    exact = false
+    scope = ""
   }
 
   // ---- recent searches -----------------------------------------------------------
@@ -106,6 +189,9 @@ Item {
   function forgetQuery(text) {
     recent = Model.forgetQuery(recent, text)
     _saveRecent()
+    // S7: a recent search can be removed from the completions too.
+    var key = String(text || "").trim().toLowerCase()
+    suggestions = suggestions.filter(function(s) { return s.remote || s.text.toLowerCase() !== key })
   }
 
   function _saveRecent() {
@@ -122,10 +208,13 @@ Item {
   }
 
   // ---- suggestions while typing ------------------------------------------------------
-  // [{ text, recent }] for the text being typed: matching recent searches,
+  // [{ text, recent, remote? }] for the text being typed: matching recent searches,
   // then YouTube Music's. One request at a time (the latest text wins);
   // answers are kept for the session, so backspacing asks nothing.
+  // S7: suggestionEntities are the rich rows (artists, songs, albums) for
+  // the same text.
   property var suggestions: []
+  property var suggestionEntities: []
   property string _suggestFor: ""
   // The text `suggestions` belong to (the field may hold something else,
   // e.g. after an IPC search).
@@ -138,26 +227,85 @@ Item {
     _suggestFor = q
     if (q === "") {
       suggestions = []
+      suggestionEntities = []
       return
     }
     var cached = _suggestCache[q.toLowerCase()]
-    suggestions = Model.suggestionList(recent, cached || [], q, 5)
+    suggestions = Model.suggestionList(recent, cached ? cached.items : [], q, 5)
+    suggestionEntities = cached ? cached.entities : []
     if (cached || _suggesting || !worker) return
     _suggesting = true
     worker.request("suggestions", { query: q }, function(reply) {
       root._suggesting = false
-      if (reply.ok) root._cacheSuggestions(q, reply.result.items || [])
+      if (reply.ok) root._cacheSuggestions(q, reply.result.items || [], reply.result.entities || [])
       if (root._suggestFor !== q) root.suggest(root._suggestFor)
-      else if (reply.ok) root.suggestions = Model.suggestionList(root.recent, reply.result.items || [], q, 5)
+      else if (reply.ok) {
+        root.suggestions = Model.suggestionList(root.recent, reply.result.items || [], q, 5)
+        root.suggestionEntities = reply.result.entities || []
+        root.requestThumbs(Model.collectThumbs(root.suggestionEntities))
+      }
     }, 5000)
   }
 
-  function _cacheSuggestions(q, items) {
+  function _cacheSuggestions(q, items, entities) {
     var keys = Object.keys(_suggestCache)
     var next = ({})
     for (var i = Math.max(0, keys.length - 49); i < keys.length; i++) next[keys[i]] = _suggestCache[keys[i]]
-    next[q.toLowerCase()] = items
+    next[q.toLowerCase()] = { items: items, entities: entities || [] }
     _suggestCache = next
+  }
+
+  // ---- your YouTube searches (S7) ----------------------------------------------------
+  // The empty field lists them (signed in) with the recent searches above.
+  // Asked for at most once a minute while the field is shown empty; a
+  // search made since makes the next ask go to YouTube.
+  property var pastSearches: []
+  property real pastSearchesAt: 0
+  readonly property int pastSearchesTtlMs: 60 * 1000
+  property bool _pastLoading: false
+  property int _pastSeq: 0
+
+  function loadPastSearches(force) {
+    if (!worker || _pastLoading) return
+    if (force !== true && pastSearchesAt > 0 && Date.now() - pastSearchesAt < pastSearchesTtlMs) return
+    var seq = _pastSeq
+    _pastLoading = true
+    worker.request("suggestions", { query: "" }, function(reply) {
+      root._pastLoading = false
+      if (seq !== root._pastSeq || !reply.ok) return
+      root.pastSearches = (reply.result.items || []).filter(function(item) { return item.fromHistory })
+        .map(function(item) { return item.text })
+      root.pastSearchesAt = Date.now()
+    }, 5000)
+  }
+
+  // x on one of your YouTube searches: gone from the lists at once, back
+  // when YouTube refuses for sure; an unknown outcome (the worker went away)
+  // reloads the list. `typed` is what the field held ("" for the empty
+  // field's list). callback(reply) after the Store is updated.
+  function removeSuggestion(text, typed, callback) {
+    var value = String(text || "").trim()
+    if (!worker || value === "") return false
+    var key = value.toLowerCase()
+    var before = pastSearches
+    var beforeSuggestions = suggestions
+    pastSearches = before.filter(function(t) { return String(t).toLowerCase() !== key })
+    suggestions = suggestions.filter(function(s) { return !(s.remote && s.text.toLowerCase() === key) })
+    // Cached completions still list it; an answer under way would bring it back.
+    _suggestCache = ({})
+    _pastSeq++
+    var seq = _pastSeq
+    worker.request("removeSuggestion", { query: String(typed || "").trim(), text: value }, function(reply) {
+      var unknown = !reply.ok && !!reply.error && reply.error.unknown === true
+      if (!reply.ok && !unknown && seq === root._pastSeq) {
+        root.pastSearches = before
+        if (root.suggestions !== beforeSuggestions && root._suggestFor === String(typed || "").trim())
+          root.suggestions = beforeSuggestions
+      }
+      if (unknown) root.loadPastSearches(true)
+      if (callback) callback(reply)
+    }, 15000, { retry: false })
+    return true
   }
 
   function _rememberSearch(key, value) {
@@ -579,13 +727,57 @@ Item {
     _collections = next
   }
 
+  // ---- explore (S6) -----------------------------------------------------------------
+  // The Explore tab's page (the worker's `explore`), asked when the tab is
+  // shown and kept Model.EXPLORE_TTL_MS (30 min): a disk copy first, then the
+  // fresh one (force: only the fresh one). `explore` is replaced on every
+  // change, so bindings on its fields follow. Its Charts, Moods & genres and
+  // mood pages are ordinary pages (collections above).
+  property var explore: ({ page: null, loading: false, error: "", at: 0 })
+  // Counted up by reset(): a reply asked for before a sign-in change is dropped.
+  property int _exploreSeq: 0
+
+  function _setExplore(fields) {
+    var next = ({})
+    for (var k in explore) next[k] = explore[k]
+    for (var f in fields) next[f] = fields[f]
+    explore = next
+  }
+
+  function loadExplore(force) {
+    if (!worker || explore.loading) return
+    if (!force && explore.at > 0 && Date.now() - explore.at < Model.EXPLORE_TTL_MS) return
+    var seq = _exploreSeq
+    _setExplore({ loading: true, error: "" })
+    var handle = function(reply) {
+      if (seq !== root._exploreSeq) return
+      if (!reply.ok) {
+        // A page already shown stays; only an empty tab says why.
+        root._setExplore({ loading: false, error: root.explore.page ? "" : reply.error.message })
+        return
+      }
+      root._setExplore({ page: reply.result, loading: false, error: "", at: Date.now() })
+      root.requestThumbs(Model.collectThumbs(reply.result))
+    }
+    if (force) worker.request("explore", { cache: "refresh" }, handle, 30000)
+    else _cachedThenFresh("explore", {}, handle)
+  }
+
+  // How long the sweep keeps ref's page unseen: unseenMs, or its kind's
+  // longer ttlMs (Moods & genres, a day: small, and slow to change), which
+  // would otherwise last only while the page is reopened every 10 min.
+  function _unseenFor(ref) {
+    return Math.max(unseenMs, _ttl(ref))
+  }
+
   // ---- sweep (F2) -------------------------------------------------------------------
   // Every minute while anything is cached: drop collections past their TTL
-  // or unseen for 10 min, searches past theirs, library lists (S2) unseen
-  // for 10 min, the now contexts and lyrics (S11) of songs other than the
-  // one playing, and Home's feeds (S5) of chips other than the chosen one
-  // unseen for 10 min. A slice with its own keyed cache adds it here and to
-  // sweepWanted.
+  // or unseen for 10 min (S6: or their longer TTL), searches past theirs,
+  // library lists (S2) unseen for 10 min, the now contexts and lyrics (S11)
+  // of songs other than the one playing, and Home's feeds (S5) of chips
+  // other than the chosen one unseen for 10 min. Explore (S6) is one page
+  // with its own TTL and is not swept. A slice with its own keyed cache
+  // adds it here and to sweepWanted.
   readonly property bool sweepWanted: collectionCount > 0 || searchCacheSize > 0 || libraryListCount > 0
     || nowSweepWanted || homeFeedCount > 1
 
@@ -595,7 +787,7 @@ Item {
     var droppedCollections = false
     for (var key in _collections) {
       var entry = _collections[key]
-      var expired = t - entry.at >= _ttl(entry.ref) || t - entry.seen >= unseenMs
+      var expired = t - entry.at >= _ttl(entry.ref) || t - entry.seen >= _unseenFor(entry.ref)  // S6
       if (expired && !_appending[key]) droppedCollections = true
       else collections[key] = entry
     }
@@ -1220,6 +1412,12 @@ Item {
     _collections = ({})
     _appending = ({})
     _searches = ({})
+    // search (S7): your searches and the library scopes belong to the account.
+    leaveScope()
+    pastSearches = []
+    pastSearchesAt = 0
+    _pastSeq++
+    _suggestCache = ({})
     playlists = []
     libraryAt = 0
     libraryError = ""
@@ -1232,6 +1430,9 @@ Item {
     libraryLists = ({})
     _listSeq++
     _resetHome()  // home (S5)
+    // S6: Explore is the account's too (Top songs, the region).
+    _exploreSeq++
+    explore = ({ page: null, loading: false, error: "", at: 0 })
     likes = ({})
     _resetActions()  // S4
     _resetRecommendations()  // S14

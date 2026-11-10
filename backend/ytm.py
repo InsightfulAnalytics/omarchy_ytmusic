@@ -47,6 +47,7 @@ import ytm_auth as auth  # noqa: E402
 import ytm_cache as caches  # noqa: E402
 import ytm_collections as collections  # noqa: E402
 import ytm_edit as edit  # noqa: E402
+import ytm_explore as explore  # noqa: E402
 import ytm_feedback as feedback  # noqa: E402
 import ytm_home as home  # noqa: E402
 import ytm_library as library  # noqa: E402
@@ -55,6 +56,7 @@ import ytm_now as now  # noqa: E402
 import ytm_pages as pages  # noqa: E402
 import ytm_play as play  # noqa: E402
 import ytm_raw as raw  # noqa: E402
+import ytm_search as search  # noqa: E402
 import ytm_streams as streams  # noqa: E402
 from ytm_proto import (  # noqa: E402, F401 - re-exported for tests and tools
     Fixed,
@@ -73,7 +75,8 @@ from ytm_proto import (  # noqa: E402, F401 - re-exported for tests and tools
 
 PROTOCOL = 1
 VERSION = "1.0.0"
-SEARCH_FILTERS = ("songs", "videos", "albums", "artists", "playlists", "community_playlists", "featured_playlists")
+# S7: search and suggestions live in ytm_search; the CLI offers its filters.
+SEARCH_FILTERS = search.FILTERS
 RATINGS = ("LIKE", "DISLIKE", "INDIFFERENT")
 CACHE_MODES = ("prefer", "refresh", "bypass")
 # Background threads ("lanes") for methods that must not hold up the requests
@@ -187,26 +190,7 @@ def m_verify_auth(worker, params):
     return m_hello(worker, params)
 
 
-def m_search(worker, params):
-    query = req_str(params, "query")
-    search_filter = choice(params, "filter", SEARCH_FILTERS)
-    limit = opt_int(params, "limit", 20, high=100)
-    if search_filter:
-        results = worker.yt.search(query, filter=search_filter, limit=limit)
-        return {"items": norm.normalize_list(results, norm.search_item, "search result")}
-    return norm.search_grouped(worker.yt.search(query, limit=limit))
-
-
-def m_suggestions(worker, params):
-    """Completions for a half-typed search (with your own searches when signed in)."""
-    query = req_str(params, "query")
-    limit = opt_int(params, "limit", 8, high=20)
-    items = []
-    for entry in worker.yt.get_search_suggestions(query, detailed_runs=True) or []:
-        text = entry.get("text") if isinstance(entry, dict) else entry
-        if isinstance(text, str) and text.strip():
-            items.append({"text": text.strip(), "fromHistory": bool(isinstance(entry, dict) and entry.get("fromHistory"))})
-    return {"items": items[:limit]}
+# search, suggestions and removeSuggestion: ytm_search (S7).
 
 
 # S5: Home is homeFeed (ytm_home); this get_home reader stays as homeLegacy,
@@ -308,8 +292,6 @@ CORE_METHODS = {
     "reloadAuth": m_reload_auth,
     "verifyAuth": m_verify_auth,
     "configure": m_configure,
-    "search": m_search,
-    "suggestions": m_suggestions,
     "homeLegacy": m_home,
     "song": m_song,
     "resolve": m_resolve,
@@ -320,7 +302,7 @@ CORE_METHODS = {
     "deletePlaylist": m_delete_playlist,
 }
 CORE_CACHEABLE = {"homeLegacy"}
-CORE_LANES = {"resolve": "streams", "suggestions": "suggest"}
+CORE_LANES = {"resolve": "streams"}
 # The browsePage pages the core edits change: a playlist's own page, the
 # library's playlist pages, and the liked songs pages.
 _PLAYLIST_PAGE = ("browsePage", Prefixed("VL", "playlistId"), "browseId")
@@ -338,7 +320,6 @@ CORE_INVALIDATES = {
 }
 CORE_MUTATES = {"rate", "removeFromPlaylist", "deletePlaylist"}  # S13: the other playlist edits are ytm_edit's
 CORE_RECORDERS = {
-    "search": lambda yt, p: yt.search(p["query"], filter=p.get("filter"), limit=p.get("limit", 20)),
     "song": lambda yt, p: yt.get_song(p["videoId"]),
     "watch": lambda yt, p: yt.get_watch_playlist(videoId=p["videoId"], limit=p.get("limit", 25), radio=p.get("radio", False)),
     "home": lambda yt, p: yt.get_home(limit=p.get("limit", 3)),
@@ -357,7 +338,7 @@ class _Core:
 
 # Area modules, in a fixed order. A slice that rewrites a core method moves it
 # out of the core tables into its module.
-AREA_MODULES = (pages, play, now, artist, library, collections, actions, home, edit, feedback)
+AREA_MODULES = (pages, play, now, artist, library, collections, actions, home, explore, search, edit, feedback)
 
 
 def merge_registries(sources):
