@@ -494,28 +494,7 @@ function itemSubtitle(item) {
   return item.subtitle ? String(item.subtitle) : ""
 }
 
-// Home: a header per shelf; tracks carry their index among the shelf's
-// tracks so a click plays the shelf from there.
-function homeRows(shelves) {
-  var rows = []
-  for (var s = 0; s < (shelves || []).length; s++) {
-    var items = shelves[s].items || []
-    if (!items.length) continue
-    rows.push({ header: true, title: shelves[s].title })
-    var trackIndex = 0
-    for (var i = 0; i < items.length; i++) {
-      var row = { item: items[i], shelfIndex: s }
-      if (items[i].type === "track") row.trackIndex = trackIndex++
-      rows.push(row)
-    }
-  }
-  return rows
-}
-
-function shelfTracks(shelves, index) {
-  var shelf = shelves && shelves[index]
-  return shelf ? (shelf.items || []).filter(function(item) { return item.type === "track" }) : []
-}
+// Home's rows (homeRows, shelfTracks): the home (S5) section.
 
 // History grouped under its "played" labels (Today, Yesterday, …).
 function historyRows(tracks) {
@@ -2511,5 +2490,156 @@ if (typeof module !== "undefined") {
     loadAllIndex: loadAllIndex,
     pageArtistItem: pageArtistItem,
     withoutTokens: withoutTokens
+  })
+}
+
+// ==== home (S5) ============================================================================
+// Home is the whole feed (the worker's homeFeed): every shelf the web shows,
+// read a page of shelves at a time (Store.loadHomeMore when the cursor nears
+// the end, or the Load more row). A shelf ends in a selectable See all row
+// when it has one, routed like any See all (routeEndpoint: VL to a
+// playlist, MPAD to an artist's releases, UC to an artist; anything else,
+// such as Listen again, Mixed for you, New releases, a mood category, the
+// library landing or a channel with params like Recaps, to a browse page),
+// and in a Play all row when it has a Play all (Service.playShelf: the list
+// YouTube generates for it). The mood chips above it, All first, switch
+// with h / l; each chip is its served params ("" for All).
+
+var HOME_PLAY_ALL = "home:playAll"
+var HOME_ALL_CHIP = { title: "All", params: "" }
+
+// Recaps' See all is a user channel with params (live: your own channel's
+// page, Songs, Artists, Playlists and Videos on repeat; the recap playlists
+// themselves are only on the shelf). It reads as a browse page, as the web
+// opens it; this keeps it there when a profile route for user channels
+// comes (S9), which would otherwise outrank the UC default.
+ROUTES.push({ pageType: "MUSIC_PAGE_TYPE_USER_CHANNEL", prefix: "UC", when: function(ep) { return !!ep.params },
+  target: function(ep, id) { return { type: "browse", browseId: id, params: ep.params, title: ep.title || "" } } })
+
+// A podcast on a Home shelf (the Podcasts chip has whole shelves of them)
+// opens as its browse page, which reads an MPSP page's episodes, until S8
+// gives podcasts a page of their own.
+if (!PAGE_KINDS.podcast) {
+  PAGE_KINDS.podcast = {
+    method: "browsePage", title: "Podcast", round: false,
+    params: function(t) { return t.browseId ? { browseId: t.browseId } : null },
+    id: function(t) { return t.browseId }
+  }
+}
+
+// All, then the served chips ({ title, params }; one without params is left out).
+function homeChipList(served) {
+  var out = [HOME_ALL_CHIP]
+  var list = served && typeof served.length === "number" ? served : []
+  for (var i = 0; i < list.length; i++) {
+    var chip = list[i]
+    if (chip && chip.params && chip.title) out.push({ title: String(chip.title), params: String(chip.params) })
+  }
+  return out
+}
+
+// The params of the chip `dx` steps from `current` (wrapping; an unknown
+// current counts as All).
+function nextHomeChip(chips, current, dx) {
+  var list = chips && chips.length ? chips : [HOME_ALL_CHIP]
+  var at = 0
+  for (var i = 0; i < list.length; i++) if (list[i].params === (current || "")) at = i
+  var n = list.length
+  return list[((at + (dx < 0 ? -1 : 1)) % n + n) % n].params
+}
+
+function isPlayAllRow(item) {
+  return !!item && item.type === "action" && item.playAll === true
+}
+
+// A header per titled shelf (its strapline first when it has one: "Similar
+// to" before an artist's name), its items (shelfIndex on every row; tracks
+// numbered among the shelf's tracks, so Enter plays the shelf from there),
+// See all when the shelf has a more endpoint, Play all when it has a play
+// endpoint, and a trailing Load more when `opts.more` (more shelves to
+// read). A shelf with nothing to show is skipped.
+function homeRows(shelves, opts) {
+  var rows = []
+  var list = shelves || []
+  for (var s = 0; s < list.length; s++) {
+    var shelf = list[s] || {}
+    var items = _validItems(shelf.items)
+    if (!items.length && !shelf.more && !shelf.play) continue
+    var title = shelf.title ? String(shelf.title) : ""
+    if (title) rows.push({ header: true, title: shelf.strapline ? String(shelf.strapline) + " · " + title : title })
+    var trackIndex = 0
+    for (var i = 0; i < items.length; i++) {
+      var row = { item: items[i], shelfIndex: s }
+      if (items[i].type === "track") row.trackIndex = trackIndex++
+      rows.push(row)
+    }
+    if (shelf.more) {
+      rows.push({ item: { type: "more", title: title ? "See all " + title : "See all", endpoint: shelf.more,
+                          sectionTitle: title }, shelfIndex: s })
+    }
+    var queue = shelfQueueParams(shelf)
+    if (queue) {
+      // The id names what the shelf plays, so the cursor keeps to this
+      // shelf's row. Not its params: YouTube serves new ones on every load
+      // of the same shelf (Service.playShelf reads them from the shelf).
+      var plays = { videoId: queue.videoId || null, playlistId: queue.playlistId || null }
+      rows.push({ item: { type: "action", id: HOME_PLAY_ALL + ":" + canonicalJson(plays), playAll: true,
+                          title: title ? "Play all " + title : "Play all", icon: "󰐊" }, shelfIndex: s })
+    }
+  }
+  if (opts && opts.more) rows.push({ item: { type: "loadMore", title: "Load more" } })
+  return rows
+}
+
+function shelfTracks(shelves, index) {
+  var shelf = shelves && shelves[index]
+  return shelf ? _validItems(shelf.items).filter(function(item) { return item.type === "track" }) : []
+}
+
+// The worker's shelfQueue params of a shelf's Play all, or null.
+function shelfQueueParams(shelf) {
+  var play = shelf && shelf.play
+  if (!play || !(play.videoId || play.playlistId)) return null
+  var out = {}
+  if (play.videoId) out.videoId = String(play.videoId)
+  if (play.playlistId) out.playlistId = String(play.playlistId)
+  if (play.params) out.params = String(play.params)
+  return out
+}
+
+// `shelves` with the next page's after them, at most `max` in all:
+// { shelves, capped } (capped: some were left out, the feed ends there).
+function appendShelves(shelves, next, max) {
+  var limit = max > 0 ? max : Infinity
+  var out = (shelves || []).slice()
+  var incoming = next || []
+  var capped = false
+  for (var i = 0; i < incoming.length; i++) {
+    if (out.length >= limit) {
+      capped = true
+      break
+    }
+    if (incoming[i] && typeof incoming[i] === "object") out.push(incoming[i])
+  }
+  return { shelves: out, capped: capped || out.length >= limit }
+}
+
+// What playing a shelf's songs from a row reports as playing ("Playing from").
+function shelfContext(shelf) {
+  return { playlistId: null, title: shelf && shelf.title ? String(shelf.title) : "", radio: false }
+}
+
+if (typeof module !== "undefined") {
+  Object.assign(module.exports, {
+    HOME_PLAY_ALL: HOME_PLAY_ALL,
+    HOME_ALL_CHIP: HOME_ALL_CHIP,
+    homeChipList: homeChipList,
+    nextHomeChip: nextHomeChip,
+    isPlayAllRow: isPlayAllRow,
+    homeRows: homeRows,
+    shelfTracks: shelfTracks,
+    shelfQueueParams: shelfQueueParams,
+    appendShelves: appendShelves,
+    shelfContext: shelfContext
   })
 }

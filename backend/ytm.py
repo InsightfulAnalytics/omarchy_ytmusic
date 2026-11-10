@@ -45,6 +45,7 @@ import ytm_artist as artist  # noqa: E402
 import ytm_auth as auth  # noqa: E402
 import ytm_cache as caches  # noqa: E402
 import ytm_collections as collections  # noqa: E402
+import ytm_home as home  # noqa: E402
 import ytm_library as library  # noqa: E402
 import ytm_normalize as norm  # noqa: E402
 import ytm_pages as pages  # noqa: E402
@@ -205,6 +206,8 @@ def m_suggestions(worker, params):
     return {"items": items[:limit]}
 
 
+# S5: Home is homeFeed (ytm_home); this get_home reader stays as homeLegacy,
+# the shape Home had before (no See all, Play all or chips).
 def m_home(worker, params):
     return {"shelves": norm.home(worker.yt.get_home(limit=opt_int(params, "limit", 6, high=20)))}
 
@@ -338,7 +341,7 @@ CORE_METHODS = {
     "configure": m_configure,
     "search": m_search,
     "suggestions": m_suggestions,
-    "home": m_home,
+    "homeLegacy": m_home,
     "song": m_song,
     "upNext": m_up_next,
     "resolve": m_resolve,
@@ -351,7 +354,7 @@ CORE_METHODS = {
     "removeFromPlaylist": m_remove_from_playlist,
     "deletePlaylist": m_delete_playlist,
 }
-CORE_CACHEABLE = {"home"}
+CORE_CACHEABLE = {"homeLegacy"}
 CORE_LANES = {"resolve": "streams", "suggestions": "suggest"}
 # The browsePage pages the core edits change: a playlist's own page, the
 # library's playlist pages, and the liked songs pages.
@@ -390,7 +393,7 @@ class _Core:
 
 # Area modules, in a fixed order. A slice that rewrites a core method moves it
 # out of the core tables into its module.
-AREA_MODULES = (pages, play, artist, library, collections)
+AREA_MODULES = (pages, play, artist, library, collections, home)
 
 
 def merge_registries(sources):

@@ -314,31 +314,209 @@ Item {
     return entry ? entry.data : null
   }
 
-  // ---- home ---------------------------------------------------------------------
+  // ---- home (S5) --------------------------------------------------------------------
+  // The Home feed of each chip (the worker's homeFeed). homeChip is the
+  // chosen chip's served params, "" for All. A chip's feed is { shelves,
+  // chips, cursor, hasMore, capped, loading, loadingMore, moreError,
+  // moreWanted, refreshing, error, at, seenAt, seq }: its first page (about
+  // nine shelves; the worker's disk copy first, then fresh), then a page of
+  // shelves at a time (loadHomeMore: the cursor nearing the end, or Load
+  // more), at most maxHomeShelves. A chip's feed is reused for homeTtlMs;
+  // up to maxHomeFeeds chips are held, and one unseen for 10 min is swept
+  // (never the chosen chip's). A refresh replaces the whole feed; a Load
+  // more reply from before it is dropped (seq).
   readonly property int homeTtlMs: 10 * 60 * 1000
-  property var shelves: []
-  property bool homeLoading: false
-  property string homeError: ""
-  property real homeAt: 0
+  readonly property int maxHomeShelves: 40
+  readonly property int maxHomeFeeds: 4
+  property var homeFeeds: ({})
+  property string homeChip: ""
+  // The chips as last served ([{ title, params, selected }]); every chip's
+  // first page serves them all, so they stay while another chip loads.
+  property var homeChips: []
+  property int _homeSeq: 0
+  readonly property int homeFeedCount: Object.keys(homeFeeds).length
+  readonly property var homeFeed: homeFeeds[homeChip] || null
+  readonly property var _noShelves: []
+  readonly property var shelves: homeFeed ? homeFeed.shelves : _noShelves
+  readonly property var homeCursor: homeFeed ? homeFeed.cursor : null
+  readonly property bool homeLoading: !!homeFeed && homeFeed.loading === true
+  readonly property string homeError: homeFeed ? homeFeed.error : ""
+  readonly property real homeAt: homeFeed ? homeFeed.at : 0
 
-  function loadHome(force) {
-    if (homeLoading) return
-    if (!force && homeAt > 0 && Date.now() - homeAt < homeTtlMs) return
-    homeLoading = true
-    homeError = ""
+  function _setHomeFeed(chip, entry) {
+    var next = _copy(homeFeeds)
+    next[chip] = entry
+    homeFeeds = next
+  }
+
+  // The chip's feed with `fields` changed (a new object, so bindings follow).
+  function _patchHome(chip, fields) {
+    var entry = homeFeeds[chip]
+    if (!entry) return
+    var next = _copy(entry)
+    for (var key in fields) next[key] = fields[key]
+    _setHomeFeed(chip, next)
+  }
+
+  // force: skip the memory and disk copies (Refresh, Load more on a disk
+  // copy). chip: choose that chip first (its served params, "" for All);
+  // left out, the chosen one loads.
+  function loadHome(force, chip) {
+    if (chip !== undefined && chip !== null) homeChip = String(chip)
+    var key = homeChip
+    var entry = homeFeeds[key] || null
+    var now = Date.now()
+    if (!worker) return
+    // Choosing a chip always patches its feed (seenAt), so Home's rows follow
+    // the switch even when nothing new is asked for.
+    if (!force && entry && entry.loading) {
+      _patchHome(key, { seenAt: now })
+      return
+    }
+    if (!force && entry && entry.at > 0 && now - entry.at < homeTtlMs && entry.error === "") {
+      _patchHome(key, { seenAt: now })
+      return
+    }
+    var seq = ++_homeSeq
+    var keep = !!entry && entry.shelves.length > 0
+    _setHomeFeed(key, {
+      shelves: keep ? entry.shelves : [], chips: keep ? entry.chips : [], cursor: keep ? entry.cursor : null,
+      hasMore: keep ? entry.hasMore : false, capped: keep ? entry.capped : false, loading: true,
+      loadingMore: false, moreError: "", moreWanted: !!entry && entry.moreWanted === true, refreshing: false,
+      error: "", at: keep ? entry.at : 0, seenAt: now, seq: seq
+    })
+    _trimHomeFeeds()
+    var params = key !== "" ? { params: key } : {}
     var handle = function(reply) {
-      root.homeLoading = false
+      var current = root.homeFeeds[key]
+      if (!current || current.seq !== seq) return
       if (!reply.ok) {
-        if (root.shelves.length === 0) root.homeError = reply.error.message
+        // A Load more asked for meanwhile goes on from the held cursor.
+        var more = current.moreWanted === true && !!current.cursor
+        root._patchHome(key, { loading: false, moreWanted: false,
+                               error: current.shelves.length === 0 ? reply.error.message : "" })
+        if (more) root.loadHomeMore(false)
         return
       }
-      root.homeError = ""
-      root.shelves = reply.result.shelves || []
-      root.homeAt = Date.now()
-      root.requestThumbs(Model.collectThumbs(root.shelves))
+      var result = reply.result || {}
+      var shelves = Model.appendShelves([], result.shelves, root.maxHomeShelves)
+      var chips = result.chips || []
+      var wanted = current.moreWanted === true && !reply.cached
+      var fields = { shelves: shelves.shelves, cursor: shelves.capped ? null : (result.cursor || null),
+                     hasMore: !shelves.capped && (!!result.cursor || result.hasMore === true), capped: shelves.capped,
+                     loading: false, error: "", moreError: "", at: Date.now(), seenAt: Date.now() }
+      if (chips.length > 0) {
+        fields.chips = chips
+        // The same chips come with every page (one selected): keep the list
+        // as it is unless they changed, so the chip row is not rebuilt.
+        if (JSON.stringify(Model.homeChipList(chips)) !== JSON.stringify(Model.homeChipList(root.homeChips)))
+          root.homeChips = chips
+      }
+      if (wanted) fields.moreWanted = false
+      root._patchHome(key, fields)
+      root.requestThumbs(Model.collectThumbs(shelves.shelves))
+      if (wanted) root.loadHomeMore(false)
     }
-    if (force) worker.request("home", { limit: 6, cache: "refresh" }, handle, 30000)
-    else _cachedThenFresh("home", { limit: 6 }, handle)
+    // A feed already shown is newer than its disk copy: straight to YouTube.
+    if (force || keep) {
+      params.cache = "refresh"
+      worker.request("homeFeed", params, handle, 30000)
+    } else {
+      _cachedThenFresh("homeFeed", params, handle, function(on) {
+        var current = root.homeFeeds[key]
+        if (!current || current.seq !== seq) return
+        // The refresh ended without a page for us (it failed): a Load more
+        // waiting for its cursor is spent.
+        root._patchHome(key, on ? { refreshing: true } : { refreshing: false, moreWanted: false })
+      })
+    }
+  }
+
+  // The chosen chip's next page of shelves. explicit: Load more was pressed
+  // (on a disk copy, which has no cursor, that refreshes the feed and then
+  // loads more). The cursor nearing the end passes false: it waits for a
+  // load or refresh already on its way (which brings the cursor), and never
+  // starts one.
+  function loadHomeMore(explicit) {
+    var key = homeChip
+    var entry = homeFeeds[key]
+    if (!entry || entry.loadingMore || entry.capped || !worker) return
+    if (entry.loading) {
+      if (entry.cursor || entry.hasMore) _patchHome(key, { moreWanted: true })
+      return
+    }
+    if (!entry.cursor) {
+      if (!entry.hasMore) return
+      if (entry.refreshing) {
+        _patchHome(key, { moreWanted: true })
+        return
+      }
+      if (!explicit) return
+      loadHome(true)
+      _patchHome(key, { moreWanted: true })
+      return
+    }
+    var seq = entry.seq
+    var cursor = entry.cursor
+    _patchHome(key, { loadingMore: true, moreError: "", seenAt: Date.now() })
+    var params = key !== "" ? { params: key } : {}
+    params.cursor = cursor
+    params.cache = "bypass"
+    worker.request("homeFeed", params, function(reply) {
+      var current = root.homeFeeds[key]
+      // A refresh replaced the feed meanwhile: its own state stands.
+      if (!current || current.seq !== seq || current.cursor !== cursor) return
+      if (!reply.ok) {
+        root._patchHome(key, { loadingMore: false, moreError: reply.error.message })
+        return
+      }
+      var next = reply.result.shelves || []
+      var merged = Model.appendShelves(current.shelves, next, root.maxHomeShelves)
+      var nextCursor = merged.capped ? null : (reply.result.cursor || null)
+      root._patchHome(key, { shelves: merged.shelves, cursor: nextCursor, hasMore: !!nextCursor,
+                             capped: merged.capped, loadingMore: false, seenAt: Date.now() })
+      root.requestThumbs(Model.collectThumbs(next))
+    }, 60000)
+  }
+
+  // At most maxHomeFeeds chips held: the least recently seen go first,
+  // never the chosen one.
+  function _trimHomeFeeds() {
+    var others = Object.keys(homeFeeds).filter(function(chip) { return chip !== root.homeChip })
+    if (others.length < maxHomeFeeds) return
+    others.sort(function(a, b) { return root.homeFeeds[b].seenAt - root.homeFeeds[a].seenAt })
+    var next = ({})
+    next[homeChip] = homeFeeds[homeChip]
+    for (var i = 0; i < maxHomeFeeds - 1; i++) next[others[i]] = homeFeeds[others[i]]
+    homeFeeds = next
+  }
+
+  // Every minute while another chip's feed is held: drop the ones unseen
+  // for 10 min (not the chosen chip's, nor one still loading).
+  function sweepHome(now) {
+    var t = now || Date.now()
+    var next = null
+    for (var chip in homeFeeds) {
+      var entry = homeFeeds[chip]
+      if (chip === homeChip || entry.loading || entry.loadingMore || t - entry.seenAt < unseenMs) continue
+      if (!next) next = _copy(homeFeeds)
+      delete next[chip]
+    }
+    if (next) homeFeeds = next
+  }
+
+  function _resetHome() {
+    _homeSeq++
+    homeFeeds = ({})
+    homeChip = ""
+    homeChips = []
+  }
+
+  Timer {
+    interval: 60 * 1000
+    repeat: true
+    running: root.homeFeedCount > 1
+    onTriggered: root.sweepHome()
   }
 
   // Ask with cache "prefer"; if that came from disk, follow up with a refresh.
@@ -786,9 +964,7 @@ Item {
     _librarySeq++
     libraryLists = ({})
     _listSeq++
-    shelves = []
-    homeAt = 0
-    homeError = ""
+    _resetHome()  // home (S5)
     likes = ({})
   }
 

@@ -57,7 +57,7 @@ test("pageRef: the existing kinds keep their methods and params", () => {
 })
 
 test("pageRef: unknown kinds and missing ids give null; collectionTarget wraps it", () => {
-  assert.equal(Model.pageRef({ type: "podcast", browseId: "MPSPx" }), null)
+  assert.equal(Model.pageRef({ type: "somethingNew", browseId: "x" }), null)
   assert.equal(Model.pageRef({ type: "track", videoId: "v" }), null)
   assert.equal(Model.pageRef({ type: "toString" }), null)
   assert.equal(Model.pageRef({ type: "album" }), null, "no browseId")
