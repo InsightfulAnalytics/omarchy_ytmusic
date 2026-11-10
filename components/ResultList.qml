@@ -6,7 +6,7 @@ import "../YtmModel.js" as Model
 
 // A flat list of result rows ({ header, title } or { item, trackIndex }):
 // section headers, tracks, collections, and the line rows of pages (See all,
-// Load more, action, message, and text: a paragraph shown in full). Owns its keyboard cursor, and keeps it and
+// Load more, action, message, and text: page content shown in full). Owns its keyboard cursor, and keeps it and
 // the scroll position on the same rows by key when the rows change (an
 // append, a background refresh, a removal), unless `listKey` changed.
 ListView {
@@ -338,17 +338,20 @@ ListView {
 
     // See all, Load more and action rows (selectable, in the query-row
     // layout; an action row may show its key as a hint on the right),
-    // message rows (plain text, never selected) and text rows (a paragraph
-    // in full, without an icon; the cursor rests on it so the keyboard can
-    // scroll through, but it does nothing).
+    // message rows (plain text, never selected) and text rows (page content
+    // shown in full, without a line cap: a credited name or About the artist
+    // with its icon, never selected, so the list scrolls over it and G shows
+    // its end; or a description's paragraph, without an icon, which the
+    // cursor rests on so the keyboard can scroll through, but which does
+    // nothing).
     Component {
       id: lineComponent
 
       Item {
         id: lineRow
         readonly property var line: row.modelData.item
-        readonly property bool selectable: line.type !== "message"
         readonly property bool isText: line.type === "text"
+        readonly property bool selectable: line.type !== "message" && (!isText || line.paragraph === true)
         readonly property bool highlighted: selectable && row.index === root.cursorIndex
 
         implicitHeight: Math.max(Style.space(32), lineLabel.implicitHeight + Style.space(12))
@@ -377,7 +380,7 @@ ListView {
           anchors.left: parent.left
           anchors.leftMargin: Style.space(10)
           anchors.verticalCenter: parent.verticalCenter
-          visible: !lineRow.isText
+          visible: !lineRow.isText || !!lineRow.line.icon
           textFormat: Text.PlainText
           text: root.lineIcon(lineRow.line)
           color: Qt.darker(root.foreground, 1.4)
@@ -407,11 +410,12 @@ ListView {
           anchors.verticalCenter: parent.verticalCenter
           textFormat: Text.PlainText
           text: root.lineText(lineRow.line)
-          color: lineRow.selectable ? root.foreground : Qt.darker(root.foreground, 1.4)
+          color: lineRow.selectable || lineRow.isText ? root.foreground : Qt.darker(root.foreground, 1.4)
           font.family: root.fontFamily
-          font.pixelSize: lineRow.selectable ? Style.font.body : Style.font.bodySmall
+          font.pixelSize: lineRow.selectable || lineRow.isText ? Style.font.body : Style.font.bodySmall
           wrapMode: lineRow.selectable && !lineRow.isText ? Text.NoWrap : Text.Wrap
-          maximumLineCount: lineRow.isText ? 1000 : lineRow.selectable ? 1 : 4
+          // undefined resets the cap: a text row has none.
+          maximumLineCount: lineRow.isText ? undefined : lineRow.selectable ? 1 : 4
           elide: lineRow.isText ? Text.ElideNone : Text.ElideRight
         }
       }

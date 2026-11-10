@@ -6,13 +6,19 @@ import "../YtmModel.js" as Model
 
 // The play queue (mpv's playlist): click to jump, hover to move or remove,
 // right-click (or m) for a song's menu. Owns its keyboard cursor; Panel.qml
-// forwards keys.
+// forwards keys. Its header's pane chip (or y) switches the area below to
+// Lyrics or Related (S11): Panel puts those views in it as children.
 Item {
   id: root
 
   property var service: null
   property QtObject bar: null
   property int cursorIndex: -1
+  // "queue", "lyrics" or "related" (prefs.nowPane).
+  property string pane: "queue"
+  // The other panes, declared inside this view by Panel: they fill the area
+  // under the header while their pane is shown.
+  default property alias paneContent: paneArea.data
 
   readonly property color foreground: bar ? bar.foreground : Color.foreground
   readonly property string fontFamily: bar ? bar.fontFamily : Style.font.family
@@ -70,14 +76,45 @@ Item {
     var entry = index >= 0 && index < queue.length ? queue[index] : null
     if (!entry || Model.menuKind(entry.track) === "") return
     cursorIndex = index
+    var current = index === currentIndex
     root.itemMenuRequested({ item: entry.track, owner: root, index: index,
-      ctx: { pageKind: "queue", removable: true, removeTitle: "Remove from queue", isCurrent: index === currentIndex } })
+      ctx: { pageKind: "queue", removable: true, removeTitle: "Remove from queue", isCurrent: current,
+             counterpart: current && service ? service.counterpartOf(entry.track) : null } })  // S12
   }
 
   function removeCursor() {
     if (cursorIndex < 0 || !service) return
     service.removeAt(cursorIndex)
     if (cursorIndex >= queue.length - 1) cursorIndex = queue.length - 2
+  }
+
+  // y or the pane chip: Queue, Lyrics, Related, round again (remembered).
+  function cyclePane() {
+    if (service) service.setPref("nowPane", Model.nextNowPane(pane, 1))
+  }
+
+  onPaneChanged: cursorIndex = -1
+
+  // ---- up next (S12) ------------------------------------------------------------------
+  // Under the header on the Queue pane: "Playing from <title>" and the one
+  // tuner chip ("Tune: All"; a click or t shows the next chip, the Now page
+  // menu lists them all). Choosing a chip replaces only the songs autoplay
+  // added. The chip hides when the song has none (signed out, a video).
+  readonly property string playingFrom: service ? service.playingFrom : ""
+  readonly property int tunerCount: service && service.tunerChips ? service.tunerChips.length : 0
+  readonly property bool contextShown: pane === "queue" && (playingFrom !== "" || tunerCount > 0)
+
+  function cycleTuner() {
+    if (service && tunerCount > 0) service.cycleTuner(1)
+  }
+
+  // A trim took played rows off the top: the cursor stays on its song (and
+  // goes when its row went).
+  Connections {
+    target: root.service
+    function onTrimmed(count) {
+      if (root.cursorIndex >= 0) root.cursorIndex = root.cursorIndex >= count ? root.cursorIndex - count : -1
+    }
   }
 
   function moveSelected(delta) {
@@ -92,14 +129,31 @@ Item {
   Item {
     id: header
     width: parent.width
-    height: Math.max(heading.implicitHeight, autoplayButton.implicitHeight)
+    height: Math.max(heading.implicitHeight, autoplayButton.implicitHeight, paneChip.implicitHeight)
+
+    // One chip for the three panes: it names the one shown, a click (or y)
+    // shows the next.
+    Button {
+      id: paneChip
+      anchors.left: parent.left
+      anchors.verticalCenter: parent.verticalCenter
+      iconText: Model.nowPaneIcon(root.pane)
+      text: Model.nowPaneTitle(root.pane)
+      tooltipText: Model.withKey("Show " + Model.nowPaneTitle(Model.nextNowPane(root.pane, 1)).toLowerCase(), "nowPane")
+      foreground: root.foreground
+      fontSize: Style.font.caption
+      onClicked: root.cyclePane()
+    }
 
     Text {
       id: heading
+      anchors.left: paneChip.right
+      anchors.leftMargin: Style.space(8)
       anchors.verticalCenter: parent.verticalCenter
+      visible: root.pane === "queue"
       textFormat: Text.PlainText
-      text: root.queue.length === 0 ? "QUEUE"
-        : "QUEUE  " + (root.currentIndex >= 0 ? (root.currentIndex + 1) + " / " : "") + root.queue.length
+      text: root.queue.length === 0 ? ""
+        : (root.currentIndex >= 0 ? (root.currentIndex + 1) + " / " : "") + root.queue.length
       color: Qt.darker(root.foreground, 1.4)
       font.family: root.fontFamily
       font.pixelSize: Style.font.caption
@@ -109,6 +163,7 @@ Item {
     Row {
       anchors.right: parent.right
       anchors.verticalCenter: parent.verticalCenter
+      visible: root.pane === "queue"
       spacing: Style.space(4)
 
       Button {
@@ -134,12 +189,61 @@ Item {
     }
   }
 
-  ListView {
-    id: list
+  // S12: "Playing from" and the tuner chip (Queue pane only).
+  Item {
+    id: contextRow
+    anchors.top: header.bottom
+    anchors.topMargin: visible ? Style.space(4) : 0
+    width: parent.width
+    height: visible ? Math.max(playingFromText.implicitHeight, tuneChip.visible ? tuneChip.implicitHeight : 0) : 0
+    visible: root.contextShown
+
+    Text {
+      id: playingFromText
+      anchors.left: parent.left
+      anchors.right: tuneChip.visible ? tuneChip.left : parent.right
+      anchors.rightMargin: tuneChip.visible ? Style.space(8) : 0
+      anchors.verticalCenter: parent.verticalCenter
+      visible: root.playingFrom !== ""
+      textFormat: Text.PlainText
+      text: "Playing from " + root.playingFrom
+      color: Qt.darker(root.foreground, 1.4)
+      font.family: root.fontFamily
+      font.pixelSize: Style.font.caption
+      elide: Text.ElideRight
+    }
+
+    Button {
+      id: tuneChip
+      anchors.right: parent.right
+      anchors.verticalCenter: parent.verticalCenter
+      visible: root.tunerCount > 0
+      iconText: "󰘮"
+      text: "Tune: " + (root.service ? root.service.tunerTitle : "All")
+      tooltipText: Model.withKey("Next tuner chip (M lists them all)", "tune")
+      selected: !!root.service && !!root.service.tuner
+      foreground: root.foreground
+      fontSize: Style.font.caption
+      onClicked: root.cycleTuner()
+    }
+  }
+
+  // Lyrics and Related (Panel's children of this view) go here.
+  Item {
+    id: paneArea
     anchors.top: header.bottom
     anchors.topMargin: Style.space(6)
     anchors.bottom: parent.bottom
     width: parent.width
+  }
+
+  ListView {
+    id: list
+    anchors.top: contextRow.bottom  // S12
+    anchors.topMargin: Style.space(6)
+    anchors.bottom: parent.bottom
+    width: parent.width
+    visible: root.pane === "queue"
     clip: true
     boundsBehavior: Flickable.StopAtBounds
     spacing: Style.space(2)
@@ -168,6 +272,26 @@ Item {
       onRemoveRequested: root.service.removeAt(index)
       onMenuRequested: root.menu(index)
       onMoveRequested: function(delta) { root.service.move(index, index + delta) }
+    }
+
+    // S12: where autoplay would have added songs, why it did not.
+    footer: Item {
+      readonly property string text: note.text
+      width: list.width
+      height: note.text !== "" ? note.implicitHeight + Style.space(8) : 0
+      visible: note.text !== ""
+
+      Text {
+        id: note
+        anchors.bottom: parent.bottom
+        width: parent.width
+        textFormat: Text.PlainText
+        text: root.service && root.service.autoplay ? root.service.autoplayNote : ""
+        color: Qt.darker(root.foreground, 1.6)
+        font.family: root.fontFamily
+        font.pixelSize: Style.font.caption
+        horizontalAlignment: Text.AlignHCenter
+      }
     }
 
     Text {

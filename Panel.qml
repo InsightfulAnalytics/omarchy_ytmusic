@@ -8,27 +8,32 @@ import "YtmModel.js" as Model
 // The YouTube Music dropdown. BarWidget.qml loads this and injects the bar,
 // the anchor button, the widget itself (bar identity) and the service.
 //
-// Tabs: Now (playing + queue), Search, Library and Home, with a page stack on
-// top for albums, playlists, Liked Music, History, artists and See all
-// pages, the item menu (row menu, chooser, key help) and the playlist picker.
+// Tabs: Now (playing, then the queue, lyrics or related), Search, Library and
+// Home, with a page stack on top for albums, playlists, Liked Music, History,
+// artists, credits and See all pages, the item menu (row menu, chooser, key
+// help) and the playlist picker.
 // Keys (Model.KEYS; ? lists them): 1-4 switch tab: Now, Search, Library, Home
 // · / search · j / k / ↑ / ↓ move · g first row · G last row (loads more), or
 // a long list's Load all row · Enter play or open · h / l / ← / → seek 10 s
 // on Now, or the page's chips · Esc leave the field → close the picker or
 // menu → clear the filter → back → close · Space play/pause · n play next (a
 // song, album or playlist) · a add to queue · R start radio from the row, the
-// artist page or the current song · s shuffle · r repeat · L like · p add to
-// playlist · A go to artist (of the row, the album page or the current song)
-// · o go to album · J / K move a queued song down / up · x remove (queue, own
-// playlist, Liked Music, recent search) · m / . the row's menu (or
-// right-click) · M the page's menu (Library: account) · O next sort order on
-// a page that has one · f find in a page's songs (album, playlist, Liked
-// Music, History) · ? these keys.
+// artist page or the current song · s shuffle · r repeat · L like · S save to
+// library or subscribe (the row, else the page) · D dislike the row's song
+// (again to undo) or the one playing, which skips · p add to playlist · A go
+// to artist (of the row, the album page or the current song) · o go to album
+// · J / K move a queued song down / up · x remove (queue, own playlist, Liked
+// Music, recent search) · m / . the row's menu (or right-click) · M the
+// page's menu (Library: account) · O next sort order on a page that has one ·
+// f find in a page's songs (album, playlist, Liked Music, History) · ? these
+// keys · y cycle the pane under the song: Queue, Lyrics, Related · t cycle
+// the queue tuner chip: All, Discover, Popular and the rest · [ / ] playback
+// speed down / up (0.5x to 2x, kept apart for episodes).
 // Text keys go through Model.keyId to runKey(); Ctrl and Alt chords are
 // ignored. Views offer optional hooks, checked with typeof: horizontal(dx),
 // cycleOrder(), find(), playNext(i) / addToQueue(i), menu(i), pageMenu(),
 // menuChosen(id), placeAt(i) / indexOfPlace(place), pageRadio(),
-// pageArtist() and clearFind().
+// pageArtist(), clearFind(), and (S4) toggleSave() and editCallback().
 Panel {
   id: root
   moduleName: "damir.ytmusic"
@@ -56,6 +61,10 @@ Panel {
   readonly property var topEntry: stack.length > 0 ? stack[stack.length - 1] : null
   readonly property var page: topEntry ? topEntry.item : null
   property bool returnPressed: false
+  // Now (S11): the pane under the song (prefs.nowPane), and whether the
+  // queue is what the keys move in.
+  readonly property string nowPane: service && service.prefs ? Model.nowPane(service.prefs.nowPane) : "queue"
+  readonly property bool queueShown: tab === "now" && !page && nowPane === "queue"
 
   readonly property var tabs: [
     { key: "now", title: "Now" },
@@ -115,6 +124,7 @@ Panel {
     if (picker.open) return picker
     if (itemMenu.open) return itemMenu
     if (page) return collectionLoader.item
+    if (tab === "now" && nowPane === "related") return relatedView
     if (tab === "search") return searchView
     if (tab === "library") return libraryView
     if (tab === "home") return homeView
@@ -155,7 +165,9 @@ Panel {
     if (list) {
       if (toEnd) list.toBottom()
       else list.toTop()
-    } else if (tab === "now" && service && service.queue.length > 0) {
+    } else if (tab === "now" && nowPane === "lyrics") {
+      lyricsView.jump(toEnd)
+    } else if (queueShown && service && service.queue.length > 0) {
       queueView.cursorIndex = toEnd ? service.queue.length - 1 : 0
       queueView.ensureVisible(queueView.cursorIndex)
     }
@@ -164,14 +176,15 @@ Panel {
   function moveCursor(delta) {
     var list = activeList()
     if (list) list.moveCursor(delta)
-    else if (tab === "now") queueView.moveCursor(delta)
+    else if (tab === "now" && nowPane === "lyrics") lyricsView.scroll(delta)
+    else if (queueShown) queueView.moveCursor(delta)
   }
 
   function activateCursor() {
     var owner = activeListOwner()
     var list = activeList()
     if (owner && list) owner.activate(list.cursorIndex)
-    else if (tab === "now") queueView.activateCursor()
+    else if (queueShown) queueView.activateCursor()
   }
 
   function listAction(action) {
@@ -187,7 +200,7 @@ Panel {
     var list = activeList()
     var row = list ? list.rowAt(list.cursorIndex) : null
     if (row && row.item.type === "track") return row.item
-    if (!list && tab === "now" && queueView.cursorIndex >= 0 && service) {
+    if (!list && queueShown && queueView.cursorIndex >= 0 && service) {
       var entry = service.queue[queueView.cursorIndex]
       if (entry) return entry.track
     }
@@ -200,7 +213,7 @@ Panel {
     var list = activeList()
     var row = list ? list.rowAt(list.cursorIndex) : null
     if (row) return row.item
-    if (!list && tab === "now" && queueView.cursorIndex >= 0 && service) {
+    if (!list && queueShown && queueView.cursorIndex >= 0 && service) {
       var entry = service.queue[queueView.cursorIndex]
       if (entry) return entry.track
     }
@@ -289,6 +302,31 @@ Panel {
     return !!owner && typeof owner.clearFind === "function" && owner.clearFind() === true
   }
 
+  // ---- library actions (S4) -----------------------------------------------------------
+  // S: save or subscribe the cursor row's album, playlist, mix, artist or
+  // song (one with library tokens); with no row, or on a row that is no
+  // item (See all, Load all, About), the page itself through the view's
+  // optional toggleSave() hook. The owner's editCallback() reloads its page
+  // when the outcome is unknown or a song's token was stale.
+  function saveCursor() {
+    if (!service) return
+    var list = activeList()
+    var row = list ? list.rowAt(list.cursorIndex) : null
+    var item = row ? row.item : null
+    var target = Model.saveTarget(item, service.saveContext(item))
+    if (target === "row") service.toggleSaveItem(item, Model.editCallbackOf(activeListOwner()))
+    else if (target === "page") ownerHook("toggleSave")
+    else service.failAction("Nothing to save", Model.menuKind(item) === "track"
+      ? "This list has no library control for the song; open its album" : Model.itemTitle(item))
+  }
+
+  // D: dislike the cursor row's song, else the one playing (it skips);
+  // on a disliked song, remove the dislike.
+  function dislikeCursor() {
+    var track = cursorTrack()
+    if (service && track) service.toggleDislike(track)
+  }
+
   // ---- the item menu ------------------------------------------------------------------
   // A view's menu(i) emits itemMenuRequested(request) and its pageMenu()
   // returns one: { item, ctx, owner, index, title?, subtitle? }; ctx is the
@@ -312,6 +350,7 @@ Panel {
     var ctx = {}
     for (var key in request.ctx || {}) ctx[key] = request.ctx[key]
     if (ctx.signedIn === undefined) ctx.signedIn = service.signedIn
+    service.fillMenuState(item, ctx)  // S4: saved, subscribed, in the library, liked, disliked
     var index = request.index >= 0 ? request.index : -1
     var places = rowPlaces(request.owner)
     var full = { item: item, ctx: ctx, owner: request.owner || null, index: index,
@@ -360,9 +399,53 @@ Panel {
       ctx.page = true
       ctx.autoplay = service.autoplay
       ctx.queueLength = service.queue.length
+      // S12: the tuner chooser (Tune the queue).
+      ctx.tunerChips = service.tunerChips.length
+      ctx.tunerTitle = service.tunerTitle
+      // S17: Playback speed and Loudness.
+      ctx.speed = service.speedShown
+      ctx.normalize = service.normalize
     }
+    ctx.counterpart = track ? service.counterpartOf(track) : null  // S12: song / video version
     return { item: track, ctx: ctx, owner: queueView, index: -1,
              title: track ? Model.itemTitle(track) : "Queue", subtitle: track ? Model.itemSubtitle(track) : "" }
+  }
+
+  // ---- up next (S12) -----------------------------------------------------------------
+  // The Now page menu's Tune the queue: every chip of the song playing in a
+  // chooser; the one picked replaces the songs autoplay added.
+  function openTuner() {
+    if (!service) return
+    var chips = service.tunerChips
+    if (chips.length === 0) return
+    itemMenu.openChooser("Tune the queue", "Replaces the songs autoplay added; yours stay",
+      Model.tunerChoices(chips, service.tuner), function(choice) { root.service.chooseTuner(choice.value) })
+    keyCatcher.forceActiveFocus()
+  }
+
+  // ---- playback (S17) -----------------------------------------------------------------
+  // [ and ] step the speed (any tab); the Now page menu's Playback speed and
+  // Loudness, and the speed badge on Now, open their choosers.
+  function speedKey(text) {
+    if (!service) return
+    if (text === "]") service.stepSpeed(1)
+    else if (text === "[") service.stepSpeed(-1)
+    else openSpeedChooser()  // Enter on the key's help row
+  }
+
+  function openSpeedChooser() {
+    if (!service) return
+    var episode = service.speedKind === "episode"
+    itemMenu.openChooser("Playback speed", episode ? "For podcast episodes; music keeps its own" : "For music; podcast episodes keep their own",
+      Model.speedChoices(service.speedShown), function(choice) { root.service.setSpeed(choice.value) })
+    keyCatcher.forceActiveFocus()
+  }
+
+  function openLoudnessChooser() {
+    if (!service) return
+    itemMenu.openChooser("Loudness", "Evens out the volume between songs",
+      Model.normalizeChoices(service.normalize), function(choice) { root.service.setNormalize(choice.value) })
+    keyCatcher.forceActiveFocus()
   }
 
   // m / . : the cursor row's menu; with no row, the page's.
@@ -372,7 +455,7 @@ Panel {
       if (list.cursorIndex >= 0 && ownerHook("menu", list.cursorIndex)) return
       openPageMenu()
     } else if (tab === "now" && !page) {
-      if (queueView.cursorIndex >= 0) queueView.menu(queueView.cursorIndex)
+      if (queueShown && queueView.cursorIndex >= 0) queueView.menu(queueView.cursorIndex)
       else openItemMenu(nowMenu(false))
     }
   }
@@ -409,12 +492,17 @@ Panel {
     else if (id === "addToQueue") listAction("queue")
     else if (id === "radio") startRadio()
     else if (id === "like") { if (service) service.toggleLike(cursorTrack()) }
+    else if (id === "save") saveCursor()
+    else if (id === "dislike") dislikeCursor()
     else if (id === "addToPlaylist") openPicker([cursorTrack()])
     else if (id === "artist") { if (!pageArtist()) openArtistOf(cursorTrack()) }
     else if (id === "album") goAlbum(cursorTrack())
     else if (id === "shuffle") { if (service) service.toggleShuffle() }
     else if (id === "repeat") { if (service) service.cycleRepeat() }
-    else if (id === "queueMove") { if (root.tab === "now" && (text === "J" || text === "K")) queueView.moveSelected(text === "J" ? 1 : -1) }
+    else if (id === "queueMove") { if (root.queueShown && (text === "J" || text === "K")) queueView.moveSelected(text === "J" ? 1 : -1) }
+    else if (id === "nowPane") { if (root.tab === "now" && !root.page) queueView.cyclePane() }
+    else if (id === "tune") { if (root.queueShown) queueView.cycleTuner() }
+    else if (id === "speed") speedKey(text)
     else if (id === "top") jumpCursor(false)
     else if (id === "bottom") jumpCursor(true)
     else if (id === "order") ownerHook("cycleOrder")
@@ -432,7 +520,7 @@ Panel {
     if (picker.open || itemMenu.open) return
     if (page && collectionLoader.item) {
       collectionLoader.item.remove(collectionLoader.item.results.cursorIndex)
-    } else if (tab === "now" && !page) {
+    } else if (queueShown) {
       queueView.removeCursor()
     } else if (tab === "search" && !page) {
       searchView.remove(searchView.results.cursorIndex)
@@ -653,6 +741,7 @@ Panel {
             onArtistRequested: function(artist) { root.openArtist(artist) }
             onAlbumRequested: function(track) { root.goAlbum(track) }
             onMenuRequested: root.openItemMenu(root.nowMenu(false))
+            onSpeedRequested: root.openSpeedChooser()
           }
 
           PanelSeparator {
@@ -667,7 +756,29 @@ Panel {
             height: nowTab.height - nowPlaying.height - separator.height - nowTab.spacing * 2
             service: root.service
             bar: root.bar
+            pane: root.nowPane
             onItemMenuRequested: function(request) { root.openItemMenu(request) }
+
+            // The other panes (S11), under the queue header's pane chip.
+            LyricsView {
+              id: lyricsView
+              anchors.fill: parent
+              visible: queueView.pane === "lyrics"
+              service: root.service
+              bar: root.bar
+              active: root.opened && root.tab === "now" && !root.page && queueView.pane === "lyrics"
+            }
+
+            RelatedView {
+              id: relatedView
+              anchors.fill: parent
+              visible: queueView.pane === "related"
+              service: root.service
+              bar: root.bar
+              active: root.opened && root.tab === "now" && !root.page && queueView.pane === "related"
+              onOpenRequested: function(item) { root.push(item) }
+              onItemMenuRequested: function(request) { root.openItemMenu(request) }
+            }
           }
         }
 

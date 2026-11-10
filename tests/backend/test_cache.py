@@ -391,3 +391,177 @@ def test_client_settings_record_survives_clear(cache):
     assert oct(mode(cache.dir / caches.DiskCache.SETTINGS_FILE)) == oct(0o600)
     cache.record_client_settings({})
     assert cache.client_settings() == {} and not (cache.dir / caches.DiskCache.SETTINGS_FILE).exists()
+
+
+# ---- library actions (S4) -----------------------------------------------------------------
+
+
+class Actions(Upstream):
+    def rate_playlist(self, playlist_id, rating):
+        return {}
+
+    def subscribe_artist(self, channel_id):
+        return {}
+
+    def unsubscribe_artists(self, channel_ids):
+        return {}
+
+    def edit_song_library_status(self, feedbackTokens=None):
+        return {"feedbackResponses": [{"isProcessed": True}]}
+
+
+_FILLED = {
+    "album": [{"browseId": "MPREb_ok"}, {"browseId": "MPREb_other"}],
+    "playlist": [{"playlistId": "PLx", "related": True}, {"playlistId": "OLAK5uy_ok"}, {"playlistId": "PLother"}],
+    "artist": [{"channelId": "UCpage"}, {"channelId": "UCother"}],
+    "libraryPlaylists": [{}], "libraryAlbums": [{}], "libraryLanding": [{}], "librarySubscriptions": [{}],
+    "libraryArtists": [{}], "librarySongs": [{}],
+    "browsePage": [{"browseId": b} for b in ("VLPLx", "VLOLAK5uy_ok", "FEmusic_liked_playlists", "FEmusic_liked_albums",
+                                             "FEmusic_library_landing", "FEmusic_library_corpus_artists",
+                                             "FEmusic_library_corpus_track_artists", "FEmusic_liked_videos",
+                                             "FEmusic_new_releases_albums")]
+    # An artist's "From your library" See all page (MPLA + params).
+    + [{"browseId": "MPLAUCpage", "params": "lib"}, {"browseId": "MPLAUCother", "params": "lib"}],
+}
+
+
+def _label(method, params):
+    return method + ":" + (next(iter(params.values())) if params else "")
+
+
+def _fill(cache):
+    for method, entries in _FILLED.items():
+        for params in entries:
+            cache.put(method, params, {"type": "page"})
+
+
+def _dropped(cache):
+    return {_label(m, p) for m, entries in _FILLED.items() for p in entries if cache.get(m, p) is None}
+
+
+def test_saving_an_album_drops_its_page_its_playlist_and_the_library_lists(cache):
+    worker = ytm.Worker(Actions(), "ok", cache=cache)
+    _fill(cache)
+    assert request(worker, "rateCollection", kind="album", browseId="MPREb_ok", playlistId="OLAK5uy_ok",
+                   rating="LIKE", artistIds=["UCpage"])["ok"]
+    # Its songs and artists join the library too: Songs, Artists, and the
+    # artist's page and "From your library" See all.
+    assert _dropped(cache) == {"album:MPREb_ok", "playlist:OLAK5uy_ok", "libraryPlaylists:", "libraryAlbums:",
+                               "libraryLanding:", "librarySongs:", "libraryArtists:", "artist:UCpage",
+                               "browsePage:VLOLAK5uy_ok", "browsePage:FEmusic_liked_playlists",
+                               "browsePage:FEmusic_liked_albums", "browsePage:FEmusic_library_landing",
+                               "browsePage:FEmusic_liked_videos", "browsePage:FEmusic_library_corpus_track_artists",
+                               "browsePage:MPLAUCpage"}
+
+
+def test_an_album_save_finds_its_artists_on_the_cached_page_else_drops_every_artist(cache):
+    worker = ytm.Worker(Actions(), "ok", cache=cache)
+    _fill(cache)
+    cache.put("album", {"browseId": "MPREb_ok"}, {"playlistId": "OLAK5uy_ok",
+                                                  "header": {"artists": [{"name": "A", "id": "UCother"}]}})
+    assert request(worker, "rateCollection", kind="album", browseId="MPREb_ok", rating="LIKE")["ok"]
+    dropped = _dropped(cache)
+    assert {"artist:UCother", "browsePage:MPLAUCother"} <= dropped
+    assert not {"artist:UCpage", "browsePage:MPLAUCpage"} & dropped
+    _fill(cache)
+    assert request(worker, "rateCollection", kind="album", browseId="MPREb_other", playlistId="OLAK5uy_x",
+                   rating="LIKE")["ok"]
+    dropped = _dropped(cache)
+    assert {"artist:UCpage", "artist:UCother"} <= dropped, "no artists known: every artist page"
+    assert not {"browsePage:MPLAUCpage", "browsePage:FEmusic_new_releases_albums"} & dropped, "but not every browsePage"
+
+
+def test_saving_a_playlist_keeps_every_album_page(cache):
+    worker = ytm.Worker(Actions(), "ok", cache=cache)
+    _fill(cache)
+    assert request(worker, "rateCollection", kind="playlist", playlistId="PLx", rating="INDIFFERENT")["ok"]
+    dropped = _dropped(cache)
+    assert "playlist:PLx" in dropped and "browsePage:VLPLx" in dropped, "in every limit and with related"
+    assert not {"album:MPREb_ok", "album:MPREb_other", "playlist:PLother"} & dropped
+    assert not {"artist:UCpage", "artist:UCother", "browsePage:MPLAUCpage"} & dropped, \
+        "a playlist brings no artists into the library"
+
+
+def test_subscribing_drops_the_artist_page_by_its_page_channel(cache):
+    worker = ytm.Worker(Actions(), "ok", cache=cache)
+    _fill(cache)
+    assert request(worker, "subscribe", channelId="UCofficial", pageChannelId="UCpage", subscribe=True)["ok"]
+    assert _dropped(cache) == {"artist:UCpage", "librarySubscriptions:", "libraryArtists:", "libraryLanding:",
+                               "browsePage:FEmusic_library_corpus_artists",
+                               "browsePage:FEmusic_library_corpus_track_artists", "browsePage:FEmusic_library_landing"}
+    _fill(cache)
+    assert request(worker, "subscribe", channelId="UCofficial", pageChannelId="UCpage", subscribe=False)["ok"]
+    assert "artist:UCpage" in _dropped(cache) and "artist:UCother" not in _dropped(cache)
+
+
+def test_a_song_library_edit_drops_the_library_songs(cache):
+    worker = ytm.Worker(Actions(), "ok", cache=cache)
+    _fill(cache)
+    assert request(worker, "songLibrary", videoId="v", token="T", artistIds=["MPLAUCpage"])["ok"]
+    assert _dropped(cache) == {"librarySongs:", "libraryAlbums:", "libraryArtists:", "artist:UCpage",
+                               "browsePage:FEmusic_liked_videos", "browsePage:FEmusic_liked_albums",
+                               "browsePage:FEmusic_library_corpus_track_artists", "browsePage:MPLAUCpage"}
+    _fill(cache)
+    assert request(worker, "songLibrary", videoId="v", token="T")["ok"]
+    dropped = _dropped(cache)
+    assert {"artist:UCpage", "artist:UCother"} <= dropped and "browsePage:MPLAUCpage" not in dropped
+
+
+def test_an_action_that_may_have_applied_still_invalidates_and_a_bad_one_does_not(cache):
+    class Failing(Actions):
+        def subscribe_artist(self, channel_id):
+            raise requests.exceptions.ReadTimeout("slow")
+
+        def edit_song_library_status(self, feedbackTokens=None):
+            return {"feedbackResponses": [{"isProcessed": False}]}
+
+    worker = ytm.Worker(Failing(), "ok", cache=cache)
+    _fill(cache)
+    assert request(worker, "subscribe", channelId="UCofficial", pageChannelId="UCpage", subscribe=True)["error"]["code"] \
+        == "NETWORK"
+    assert "artist:UCpage" in _dropped(cache)
+    _fill(cache)
+    assert request(worker, "songLibrary", videoId="v", token="T")["error"]["code"] == "UPSTREAM"
+    assert "librarySongs:" in _dropped(cache), "a stale token may still have done something"
+    _fill(cache)
+    assert request(worker, "songLibrary", videoId="v")["error"]["code"] == "BAD_REQUEST"
+    assert request(worker, "rateCollection", kind="album", playlistId="OLAK5uy_ok", rating="LIKE")["error"]["code"] \
+        == "BAD_REQUEST"
+    assert _dropped(cache) == set(), "a request that never went out changes nothing"
+
+
+def test_an_edit_that_failed_before_it_was_sent_drops_nothing(cache, monkeypatch):
+    import ytm_artist
+
+    class NoPlaylist(Actions):
+        def __init__(self, album):
+            super().__init__()
+            self.album = album
+            self.rated = 0
+
+        def get_album(self, browse_id):
+            if isinstance(self.album, Exception):
+                raise self.album
+            return self.album
+
+        def rate_playlist(self, playlist_id, rating):
+            self.rated += 1
+            return {}
+
+    for album, code in (({"audioPlaylistId": None}, "NOT_FOUND"),
+                        (requests.exceptions.ConnectionError("down"), "NETWORK")):
+        upstream = NoPlaylist(album)
+        worker = ytm.Worker(upstream, "ok", cache=cache)
+        _fill(cache)
+        assert request(worker, "rateCollection", kind="album", browseId="MPREb_x", rating="LIKE")["error"]["code"] == code
+        assert upstream.rated == 0
+        assert _dropped(cache) == set(), f"{code}: YouTube was never asked to change anything"
+
+    def down(worker, channel_id, needs):
+        raise requests.exceptions.ConnectionError("down")
+
+    monkeypatch.setattr(ytm_artist, "cached_or_fetch", down)
+    worker = ytm.Worker(Actions(), "ok", cache=cache)
+    _fill(cache)
+    assert request(worker, "subscribe", pageChannelId="UCpage", subscribe=True)["error"]["code"] == "NETWORK"
+    assert _dropped(cache) == set()

@@ -33,13 +33,14 @@ test("menuKind tells songs, albums, playlists, mixes, Liked Music and artists ap
 
 test("menuActions per type", () => {
   const ctx = { signedIn: true, pageKind: "search" }
+  // S4: like, dislike, save and subscribe follow Start radio, as on the web.
   assert.deepEqual(ids(Model.menuActions(song, ctx)),
-    ["play", "playNext", "addToQueue", "radio", "addToPlaylist", "goArtist", "goAlbum", "share"])
+    ["play", "playNext", "addToQueue", "radio", "like", "dislike", "addToPlaylist", "goArtist", "goAlbum", "credits", "share"])
   assert.deepEqual(ids(Model.menuActions(album, ctx)),
-    ["play", "shuffle", "playNext", "addToQueue", "radio", "goArtist", "share"])
+    ["play", "shuffle", "playNext", "addToQueue", "radio", "save", "goArtist", "share"])
   assert.deepEqual(ids(Model.menuActions(playlist, ctx)), ["play", "shuffle", "playNext", "addToQueue", "radio", "share"])
-  assert.deepEqual(ids(Model.menuActions(artist, ctx)), ["open", "shuffle", "radio", "share"])
-  assert.deepEqual(ids(Model.menuActions(mix, ctx)), ["play", "playNext", "addToQueue"])
+  assert.deepEqual(ids(Model.menuActions(artist, ctx)), ["open", "shuffle", "radio", "subscribe", "share"])
+  assert.deepEqual(ids(Model.menuActions(mix, ctx)), ["play", "playNext", "addToQueue", "save"])
   assert.deepEqual(ids(Model.menuActions({ type: "liked" }, ctx)), ["play", "shuffle", "playNext", "addToQueue"])
   assert.deepEqual(ids(Model.menuActions({ type: "history" }, ctx)), [])
   // Titles, icons and key hints come resolved.
@@ -60,7 +61,7 @@ test("menuActions follow ctx: signed out hides account entries; page, queue and 
   assert.deepEqual(ids(Model.menuActions(mix, { pageKind: "home" })), ["play", "playNext", "addToQueue"])
   // The song playing: no Play, Play next or Add to queue.
   assert.deepEqual(ids(Model.menuActions(song, { signedIn: true, isCurrent: true })),
-    ["radio", "addToPlaylist", "goArtist", "goAlbum", "share"])
+    ["radio", "like", "dislike", "addToPlaylist", "goArtist", "goAlbum", "credits", "share"])
   // A queued song: jump to it, remove it; no duplicates.
   const queued = ids(Model.menuActions(song, { pageKind: "queue", removable: true, removeTitle: "Remove from queue" }))
   assert.ok(queued.includes("play") && queued.includes("remove") && !queued.includes("playNext") && !queued.includes("addToQueue"))
@@ -75,7 +76,8 @@ test("menuActions follow ctx: signed out hides account entries; page, queue and 
   assert.deepEqual(ids(Model.menuActions({ type: "browse", browseId: "X" }, { page: true, hasTracks: true })),
     ["play", "shuffle", "playNext", "addToQueue"])
   assert.deepEqual(ids(Model.menuActions(null, { page: true, pageKind: "home" })), ["refresh"])
-  assert.deepEqual(ids(Model.menuActions(null, { page: true, pageKind: "now", queueLength: 1, autoplay: true })), ["autoplay"])
+  assert.deepEqual(ids(Model.menuActions(null, { page: true, pageKind: "now", queueLength: 1, autoplay: true })),
+    ["autoplay", "speed", "loudness"])  // S17: Playback speed and Loudness
   const now = Model.menuActions(song, { page: true, pageKind: "now", isCurrent: true, queueLength: 5, autoplay: false })
   assert.ok(ids(now).includes("clearQueue") && ids(now).includes("radio"))
   assert.equal(now.find(a => a.id === "autoplay").title, "Turn autoplay on")

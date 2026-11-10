@@ -60,6 +60,7 @@ run_mpv() {
     --no-config
     --script="$ROOT/mpv/ytm-idle.lua"
     --script="$ROOT/mpv/ytm-streams.lua"
+    --script="$ROOT/mpv/ytm-levels.lua"
     --script-opts=ytm-idle-idle_secs=300,ytm-idle-pause_secs=1800
     --idle=yes
     --no-video

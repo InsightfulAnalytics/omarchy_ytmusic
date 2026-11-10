@@ -41,6 +41,7 @@ import subprocess  # noqa: E402
 import threading  # noqa: E402
 import time  # noqa: E402
 
+import ytm_actions as actions  # noqa: E402
 import ytm_artist as artist  # noqa: E402
 import ytm_auth as auth  # noqa: E402
 import ytm_cache as caches  # noqa: E402
@@ -48,6 +49,7 @@ import ytm_collections as collections  # noqa: E402
 import ytm_home as home  # noqa: E402
 import ytm_library as library  # noqa: E402
 import ytm_normalize as norm  # noqa: E402
+import ytm_now as now  # noqa: E402
 import ytm_pages as pages  # noqa: E402
 import ytm_play as play  # noqa: E402
 import ytm_raw as raw  # noqa: E402
@@ -213,26 +215,12 @@ def m_resolve(worker, params):
     if account is not None and not isinstance(account, bool):
         raise WorkerError("BAD_REQUEST", "'account' must be true or false")
     worker.wait_for_warm()
+    # S17: the song's loudness too, while the shell levels by YouTube's.
+    loudness = {"loudness_from": worker.yt} if worker.settings.get("normalize") == "youtube" else {}
     try:
-        return worker.resolver().resolve(video_id, account=account)
+        return worker.resolver().resolve(video_id, account=account, **loudness)
     except streams.StreamError as exc:
         raise WorkerError(exc.code, exc.message, exc.retryable) from exc
-
-
-def m_up_next(worker, params):
-    """What YouTube Music would play after ``videoId`` (autoplay), without it."""
-    video_id = req_str(params, "videoId")
-    data = worker.yt.get_watch_playlist(videoId=video_id, limit=opt_int(params, "limit", 25, high=100))
-    tracks = norm.normalize_list(data.get("tracks"), norm.track, "up-next track")
-    return {"playlistId": data.get("playlistId"), "items": [t for t in tracks if t["videoId"] != video_id]}
-
-
-def m_like_status(worker, params):
-    worker.require_auth()
-    video_id = req_str(params, "videoId")
-    tracks = worker.yt.get_watch_playlist(videoId=video_id, limit=1).get("tracks") or []
-    match = next((t for t in tracks if t.get("videoId") == video_id), tracks[0] if tracks else {})
-    return {"videoId": video_id, "likeStatus": norm.like_status(match.get("likeStatus"))}
 
 
 def m_rate(worker, params):
@@ -324,11 +312,9 @@ CORE_METHODS = {
     "configure": m_configure,
     "homeLegacy": m_home,
     "song": m_song,
-    "upNext": m_up_next,
     "resolve": m_resolve,
     "warmStreams": m_warm_streams,
     "cacheThumbs": m_cache_thumbs,
-    "likeStatus": m_like_status,
     "rate": m_rate,
     "createPlaylist": m_create_playlist,
     "addToPlaylist": m_add_to_playlist,
@@ -369,11 +355,12 @@ class _Core:
     INVALIDATES = CORE_INVALIDATES
     RECORDERS = CORE_RECORDERS
     MUTATES = CORE_MUTATES
+    SETTINGS = streams.SETTINGS  # S17: normalize (resolve's loudness)
 
 
 # Area modules, in a fixed order. A slice that rewrites a core method moves it
 # out of the core tables into its module.
-AREA_MODULES = (pages, play, artist, library, collections, home, search)
+AREA_MODULES = (pages, play, now, artist, library, collections, actions, home, search)
 
 
 def merge_registries(sources):
@@ -515,11 +502,26 @@ class Worker:
         except OSError as exc:
             norm.log(f"could not clear the cache: {exc}")
 
+    # ---- skip_store (S11) ----
+    # Per thread: lanes handle requests beside the main thread. handle()
+    # clears it when a request starts.
+    _request_state = threading.local()
+
+    def skip_store(self):
+        """Keep the answer of the request this thread is handling out of the
+        disk cache: a stand-in after a passing failure (plain lyrics when the
+        synced ones could not be asked for), so the next request asks again."""
+        self._request_state.no_store = True
+
+    # ---- end skip_store (S11) ----
+
     def _store(self, name, params, result, guard):
         """Cache a result unless the account or the method's data changed since the
         request started (``guard`` = (generation, cache epoch) taken then)."""
         if guard is None or guard[0] != self.generation:
             return
+        if getattr(self._request_state, "no_store", False):
+            return  # skip_store() (S11)
         # A cache that can't be written must never fail the request itself.
         try:
             self.cache().put(name, params, result, epoch=guard[1])
@@ -646,6 +648,7 @@ class Worker:
         request_id = request.get("id") if isinstance(request, dict) else None
         started = time.monotonic()
         raw.reset_http()
+        self._request_state.no_store = False  # skip_store (S11)
         name = None
         try:
             if not isinstance(request, dict):
@@ -676,8 +679,10 @@ class Worker:
             try:
                 result = method(self, params)
             except Exception as exc:
-                # An edit that may have reached YouTube still makes the cache stale.
-                if name in MUTATES and classify(exc).code not in ("BAD_REQUEST", "AUTH_REQUIRED", "AUTH_EXPIRED"):
+                # An edit that may have reached YouTube still makes the cache stale
+                # (S4: not one that failed before it was sent, ytm_proto.unsent).
+                if name in MUTATES and not getattr(exc, "unsent", False) \
+                        and classify(exc).code not in ("BAD_REQUEST", "AUTH_REQUIRED", "AUTH_EXPIRED"):
                     self._invalidate(name, params)
                 raise
             self._store(name, params, result, guard)
@@ -913,7 +918,8 @@ def cmd_selftest(args):
     return 0 if all(ok for ok, _, _ in checks) else 1
 
 
-SCRUB_KEYS = ("streamingData", "playbackTracking", "playerConfig", "microformat", "responseContext", "trackingParams")
+SCRUB_KEYS = ("streamingData", "playbackTracking", "playerConfig", "microformat", "responseContext", "trackingParams",
+              "clickTrackingParams")
 # Any key containing one of these (case-insensitive) is dropped as well.
 SCRUB_PARTS = ("token", "continuation", "cursor", "jct", "feedback", "onbehalfofuser")
 

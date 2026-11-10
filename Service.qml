@@ -72,8 +72,11 @@ Item {
   readonly property string pendingTitle: _pendingPlay ? _pendingPlay.title : ""
   property string lastError: ""
 
-  readonly property var queue: Model.buildQueue(playlist, meta)
-  readonly property var currentEntry: playlistPos >= 0 && playlistPos < queue.length ? queue[playlistPos] : null
+  // Each entry with its origin, "user" or "auto" (S12: queueOrigins).
+  readonly property var queue: Model.withOrigins(Model.buildQueue(playlist, meta), queueOrigins)
+  // S12: a trim holds it while it updates the queue and position (_trimHeld).
+  readonly property var currentEntry: _trimHeld ? _trimHeld
+    : playlistPos >= 0 && playlistPos < queue.length ? queue[playlistPos] : null
   readonly property var currentTrack: currentEntry ? currentEntry.track : null
   readonly property bool hasMedia: mpv.up && !idle && currentEntry !== null
   readonly property bool playing: hasMedia && !paused
@@ -128,6 +131,7 @@ Item {
     }
     if (!changed) return
     meta = next
+    _noteRemembered(tracks)  // S12
     metaSync.restart()
     storeItem.requestThumbs(Model.collectThumbs(tracks))
   }
@@ -136,6 +140,8 @@ Item {
     if (!track || !track.videoId) return false
     // The latest thing started wins over a Play or radio still loading.
     _replaceToken++
+    // S12: into an empty queue it starts a new one, from nothing in particular.
+    if (playlistCount === 0) _newQueue(null)
     remember([track])
     withStream(track, function() {
       mpv.commands(Model.playNowCommands(track, { count: root.playlistCount, pos: root.playlistPos }))
@@ -212,7 +218,7 @@ Item {
 
   function addStream(videoId, stream) {
     var next = Model.pruneStreams(streams, nowSec(), 50)
-    next[videoId] = { url: stream.url, expires: stream.expires }
+    next[videoId] = Model.streamEntry(stream)  // S17: with its loudness gain when asked for
     streams = next
     pushStreams()
   }
@@ -348,19 +354,26 @@ Item {
   }
 
   // ---- autoplay ------------------------------------------------------------------------
-  // A few seconds into the last song of the queue, YouTube Music's up-next
-  // list for it is appended (songs before videos, nothing already queued),
-  // so the music keeps going as on music.youtube.com. Not while repeating.
-  readonly property bool autoplayWanted: autoplay && repeatMode === "off" && hasMedia && playlistPos === playlistCount - 1
+  // S12: a few seconds into a song with Model.AUTOPLAY_LEFT (3) or fewer
+  // songs after it, up to 10 new ones are appended as radio for whatever
+  // plays (refillAutoplay, Model.autoplaySources), so the music keeps going
+  // as on music.youtube.com: songs before videos, nothing queued or played
+  // already. Not while repeating.
+  readonly property bool autoplayWanted: autoplay && repeatMode === "off" && hasMedia
+    && Model.topUpNeeded(playlistCount, playlistPos, Model.AUTOPLAY_LEFT)
+  // The song and queue length the last top-up started from.
   property string _autoplaySeed: ""
 
   onAutoplayWantedChanged: {
+    // A trim passes through states with no current song (S12): no new song.
+    if (_trimShift) return
     if (autoplayWanted) autoplayTimer.restart()
     else autoplayTimer.stop()
   }
 
   function setAutoplay(on) {
     autoplay = !!on
+    autoplayNote = ""  // S12
     savePrefs()
     return true
   }
@@ -369,28 +382,29 @@ Item {
     return setAutoplay(!autoplay)
   }
 
+  // One top-up per song and queue length: the chosen tuner chip's queue,
+  // else the song's nowContext items (no request) and upNext for the
+  // context; if every pick of those is a duplicate, the song's own radio
+  // once; then "Autoplay found nothing new".
   function refillAutoplay() {
     var seed = currentTrack
-    if (!autoplayWanted || !seed || !seed.videoId || seed.videoId === _autoplaySeed) return
-    _autoplaySeed = seed.videoId
-    backend.request("upNext", { videoId: seed.videoId }, function(reply) {
-      root.releaseWorkerIfIdle()
-      if (!reply.ok) {
-        console.warn("ytmusic: autoplay: " + reply.error.message)
-        root._autoplaySeed = ""
-        return
-      }
-      // Still at the end of the queue (or it just ran out)? Then append; the
-      // first song starts playback if the queue already ended.
-      var ended = root.autoplay && root.repeatMode === "off" && root.idle && root.playlistCount > 0
-      if (!root.autoplayWanted && !ended) return
-      root.queueAll(Model.autoplayPicks(root.queue, reply.result.items || [], 10))
-    }, 20000)
+    if (!autoplayWanted || !seed || !seed.videoId) return
+    var key = seed.videoId + "|" + playlistCount
+    if (key === _autoplaySeed) return
+    _autoplaySeed = key
+    var memo = storeItem.nowContextOf(seed.videoId, false)
+    var sources = Model.autoplaySources(seed.videoId, tuner, memo, playContext ? playContext.playlistId : null)
+    _topUp(seed, sources, _replaceToken, memo, false)
   }
 
   onPlaylistPosChanged: {
     preResolve.restart()
     sessionSave.restart()
+    // S12: each song with few left tries a top-up; played ones are trimmed
+    // (a trim's own shift of the index is no new song).
+    if (_trimShift) return
+    if (autoplayWanted) autoplayTimer.restart()
+    trimTimer.restart()
   }
   onPlaylistChanged: {
     preResolve.restart()
@@ -476,7 +490,9 @@ Item {
   function addToQueue(track) {
     if (!track || !track.videoId) return false
     remember([track])
-    mpv.commands(Model.addToQueueCommands(track))
+    // S12: before autoplay's upcoming picks, as on the web.
+    var at = _queueAt()
+    mpv.commands(at >= 0 ? Model.queueAtCommands([track], at).commands : Model.addToQueueCommands(track))
     return true
   }
 
@@ -487,7 +503,9 @@ Item {
   // shuffling all), with a notice. `context` is what plays now
   // ({ playlistId, title, radio }); null when unknown. `partial`
   // ({ total }) says `tracks` is only the start of a longer list.
-  function playCollection(tracks, start, shuffleAll, context, partial) {
+  // S12: `autoFrom` (Start radio) marks the tracks from that index on as
+  // autoplay entries (a tuner chip may replace them).
+  function playCollection(tracks, start, shuffleAll, context, partial, autoFrom) {
     // The latest thing started wins over a Play or radio still loading.
     _replaceToken++
     if (shuffleAll && !shuffle) {
@@ -496,15 +514,16 @@ Item {
     }
     var random = shuffle
     var list = tracks || []
+    var autoIds = autoFrom >= 0 ? _idsOf(list.slice(autoFrom)) : null  // S12
     if (shuffleAll && list.length > Model.QUEUE_CAP) list = Model.shuffled(list.filter(Model.playable), Date.now())
     var cut = Model.capWindow(list, start || 0, Model.QUEUE_CAP)
     var plan = Model.playCollectionCommands(cut.tracks, cut.start, random, Date.now(), !shuffleAll)
     if (plan.tracks.length === 0) return false
     noticeCut(plan.tracks.length, cut, partial)
-    playContext = context || null
+    _newQueue(context || null)  // S12
     remember(plan.tracks)
     withStream(plan.tracks[plan.index], function() {
-      mpv.commands(plan.commands)
+      root._sendQueue(plan.commands, autoIds)  // S12
       if (!random) {
         root.setShuffleOrder([])
         return
@@ -522,7 +541,7 @@ Item {
   // playCollection.
   function queueAll(tracks, title, partial) {
     var cut = Model.capWindow(tracks || [], 0, Model.QUEUE_CAP)
-    var plan = Model.queueAllCommands(cut.tracks)
+    var plan = Model.queueAtCommands(cut.tracks, _queueAt())  // S12: before autoplay's picks
     if (plan.tracks.length === 0) return false
     remember(plan.tracks)
     mpv.commands(plan.commands)
@@ -670,18 +689,21 @@ Item {
         return
       }
       var items = reply.result.items || []
-      var context = { playlistId: reply.result.playlistId || null, title: title, radio: true }
+      // S12: named as YouTube names it ("Karma Police Mix"); its songs are
+      // autoplay entries (a tuner chip replaces them, as on the web).
+      var context = { playlistId: reply.result.playlistId || null, title: reply.result.playingFrom || title, radio: true }
       var current = root.currentTrack
       if (seed && root.hasMedia && current && current.videoId === seed.videoId) {
         var plan = Model.queueAllCommands(Model.capWindow(items, 0, Model.QUEUE_CAP).tracks)
         root.remember(plan.tracks)
-        mpv.commands([["playlist-clear"]].concat(plan.commands))
+        root._sendQueue([["playlist-clear"]].concat(plan.commands), root._idsOf(plan.tracks))
         root.setShuffleOrder([])
-        root.playContext = context
+        root._newQueue(context)
         return
       }
       var list = seed ? [seed].concat(items.filter(function(t) { return t.videoId !== seed.videoId })) : items
-      if (!root.playCollection(list, 0, false, context)) root.failAction("Couldn't start radio", "No songs came back")
+      if (!root.playCollection(list, 0, false, context, undefined, seed ? 1 : 0))
+        root.failAction("Couldn't start radio", "No songs came back")
     }, 30000)
     return true
   }
@@ -845,7 +867,10 @@ Item {
     var previous = likeStatusOf(track)
     var rating = like ? "LIKE" : "INDIFFERENT"
     storeItem.setLike(track.videoId, rating)
+    storeItem.setDisliked(track.videoId, null)  // S4: a like or unlike ends a dislike
+    root._rateSent(track.videoId)  // S11
     backend.request("rate", { videoId: track.videoId, rating: rating }, function(reply) {
+      root._rateAnswered(track.videoId)  // S11
       if (root.unsure(reply)) {
         root.refreshUnsure([{ kind: "liked", id: "LM" }, { kind: "like", id: track.videoId }], Model.mediaTitle(track))
       } else if (!reply.ok) {
@@ -864,20 +889,630 @@ Item {
     return setLike(track, likeStatusOf(track) !== "LIKE")
   }
 
-  // Only looked up while a panel shows it; results are cached per videoId.
-  function refreshLikeStatus() {
-    var track = currentTrack
-    if (!signedIn || !track || likeStatusOf(track) !== null) return
-    refreshLikeOf(track.videoId)
-  }
-
+  // After an unsure rating (refreshUnsure).
   function refreshLikeOf(videoId) {
     backend.request("likeStatus", { videoId: videoId }, function(reply) {
       if (reply.ok && reply.result.likeStatus) storeItem.setLike(videoId, reply.result.likeStatus)
     })
   }
 
-  onCurrentTrackChanged: if (positionWanted) likeCheck.restart()
+  // ---- now context (S11) ------------------------------------------------------------
+  // One nowContext request per song while a panel is open (a moment after
+  // it starts, so skipping through the queue asks nothing): its like status
+  // goes to the Store's likes, and the whole reply (lyrics and Related ids,
+  // the song/video twin, the queue's chips, "Playing from", YouTube's up-next
+  // list) to the Store's memo for 10 min, reused when the song comes back.
+  // S12 reads the memo for autoplay.
+  readonly property var nowContext: currentTrack ? storeItem.nowContextOf(currentTrack.videoId, false) : null
+  // { videoId, message } when the last nowContext of that song failed.
+  property var nowContextFailure: null
+  property string _nowFetching: ""
+  // videoId -> ratings sent and not answered yet (setLike counts them). A
+  // nowContext runs on the worker's pages lane, beside a rating in flight
+  // on its main thread, so it may read the status from before that rating.
+  property var _ratesOut: ({})
+
+  function _rateSent(videoId) {
+    var next = ({})
+    for (var k in _ratesOut) next[k] = _ratesOut[k]
+    next[videoId] = (next[videoId] || 0) + 1
+    _ratesOut = next
+  }
+
+  function _rateAnswered(videoId) {
+    var next = ({})
+    for (var k in _ratesOut) if (k !== videoId) next[k] = _ratesOut[k]
+    if (_ratesOut[videoId] > 1) next[videoId] = _ratesOut[videoId] - 1
+    _ratesOut = next
+  }
+
+  function refreshNowContext() {
+    var track = currentTrack
+    if (!positionWanted || !track || !track.videoId) return
+    var videoId = track.videoId
+    if (storeItem.nowContextOf(videoId, true) || _nowFetching === videoId) return
+    _nowFetching = videoId
+    nowContextFailure = null
+    // A rating wins over the status this brings back: one still out when
+    // it is sent, one sent while it is out (still out, or already applied
+    // to the Store's likes) or a rating's rollback.
+    var likeBefore = storeItem.likeStatus(videoId)
+    var ratingOut = !!_ratesOut[videoId]
+    backend.request("nowContext", { videoId: videoId }, function(reply) {
+      if (root._nowFetching === videoId) root._nowFetching = ""
+      if (!reply.ok) {
+        root.nowContextFailure = { videoId: videoId, message: reply.error.message }
+        return
+      }
+      storeItem.rememberNowContext(videoId, reply.result)
+      var like = reply.result.likeStatus
+      if (root.signedIn && like && !ratingOut && !root._ratesOut[videoId] && storeItem.likeStatus(videoId) === likeBefore)
+        storeItem.setLike(videoId, like)
+    }, 15000)
+  }
+
+  onCurrentTrackChanged: if (positionWanted) nowCheck.restart()
+  // Signing in or out empties the memo: ask again for the song playing.
+  onNowContextChanged: if (!nowContext && positionWanted) nowCheck.restart()
+
+  // ---- up next (S12) ----------------------------------------------------------------
+  // The queue as the web's Up next (Model's "up next" section). Every mpv
+  // entry autoplay, Start radio or a tuner chip added is "auto" in
+  // queueOrigins (by mpv playlist entry id, read from loadfile's reply);
+  // the rest are the user's. "Playing from" is the playContext's title, else
+  // the song's nowContext name; the one tuner chip ("Tune: All", t) cycles
+  // the song's nowContext chips and replaces only the upcoming auto entries.
+  // Played entries more than 50 behind the current one leave mpv (their ids
+  // stay in `_seen` for autoplay's dedupe until a new queue starts), and
+  // `meta` keeps only what is queued. Origins, context, tuner and seen ids
+  // are kept in queue.json for the player they belong to (mpv's pid), so a
+  // hot reload keeps them.
+  readonly property string queueStatePath: cacheDir + "/queue.json"
+  // "<entry id>" -> { videoId, origin: "auto" }
+  property var queueOrigins: ({})
+  property var _originsPending: []
+  // The chosen tuner chip { title, playlistId, params }; null is YouTube's own (All).
+  property var tuner: null
+  readonly property var tunerChips: Model.tunerChips(nowContext)
+  readonly property string tunerTitle: Model.tunerTitle(tuner, tunerChips)
+  readonly property string playingFrom: Model.playingFrom(playContext, nowContext)
+  // "Autoplay found nothing new" (the queue view shows it), else "".
+  property string autoplayNote: ""
+  // Songs trimmed out of this queue, oldest first (Model.SEEN_MAX); a new
+  // queue starts over, as on the web.
+  property var _seen: []
+  property var _tuneChip: null
+  property int _tuneToken: 0
+  property bool _tuning: false
+  property bool _trimShift: false
+  // The current entry while a trim updates playlist, count and position one
+  // at a time (currentEntry): no other song is current in between.
+  property var _trimHeld: null
+  property var _trimTarget: null
+  // videoId -> when remember() last stored it (its loadfile may still be on the way).
+  property var _rememberedAt: ({})
+  property real _mpvPid: 0
+  property var _savedQueueState: null
+  property bool _queueStateRead: false
+
+  onPlayContextChanged: _queueStateChanged()
+
+  // A trim took the first `count` entries out: every row index after them
+  // is `count` less (QueueView keeps its cursor on the same song).
+  signal trimmed(int count)
+
+  // videoId -> true for `tracks`.
+  function _idsOf(tracks) {
+    var ids = ({})
+    for (var i = 0; i < (tracks || []).length; i++) if (tracks[i] && tracks[i].videoId) ids[tracks[i].videoId] = true
+    return ids
+  }
+
+  // A new queue: what it plays from, no tuner, no note, nothing seen.
+  function _newQueue(context) {
+    playContext = context
+    _seen = []
+    tuner = null
+    _tuneChip = null
+    autoplayNote = ""
+    _autoplaySeed = ""
+    _queueStateChanged()
+  }
+
+  // Where added songs go: before the first upcoming auto entry, else the end (-1).
+  function _queueAt() {
+    return hasMedia ? Model.queueInsertAt(queue, playlistPos) : -1
+  }
+
+  // Sends `commands`; a loadfile of a song in `autoIds` records its new
+  // entry (mpv's reply names its id) as an autoplay entry.
+  function _sendQueue(commands, autoIds) {
+    for (var i = 0; i < commands.length; i++) {
+      var command = commands[i]
+      var videoId = command[0] === "loadfile" ? Model.videoIdFromUrl(command[1]) : ""
+      if (videoId && autoIds && autoIds[videoId]) mpv.command(command, _originReply(videoId))
+      else mpv.command(command)
+    }
+  }
+
+  function _originReply(videoId) {
+    return function(reply) {
+      var id = reply && reply.error === "success" && reply.data ? reply.data.playlist_entry_id : undefined
+      if (typeof id !== "number") return
+      root._originsPending = root._originsPending.concat([{ entryId: id, videoId: videoId, origin: "auto" }])
+      Qt.callLater(root._flushOrigins)
+    }
+  }
+
+  function _flushOrigins() {
+    if (_originsPending.length === 0) return
+    queueOrigins = Model.addOrigins(queueOrigins, _originsPending)
+    _originsPending = []
+    _queueStateChanged()
+  }
+
+  function _noteRemembered(tracks) {
+    var now = Date.now()
+    var next = ({})
+    for (var key in _rememberedAt) next[key] = _rememberedAt[key]
+    for (var i = 0; i < tracks.length; i++) if (tracks[i] && tracks[i].videoId) next[tracks[i].videoId] = now
+    _rememberedAt = next
+  }
+
+  // After every playlist refresh: origins of entries that left go, and so
+  // does the metadata of songs neither queued nor remembered in the last 2 min.
+  function _queueRefreshed() {
+    _flushOrigins()
+    var origins = Model.pruneOrigins(queueOrigins, playlist)
+    if (origins !== queueOrigins) {
+      queueOrigins = origins
+      _queueStateChanged()
+    }
+    var now = Date.now()
+    var recent = ({})
+    for (var id in _rememberedAt) if (now - _rememberedAt[id] < 120000) recent[id] = _rememberedAt[id]
+    _rememberedAt = recent
+    var kept = Model.trimMeta(meta, playlist, recent)
+    if (kept !== meta) meta = kept
+  }
+
+  // mpv's playlist as it is now, with its current index, for edits by
+  // index (a trim or a move may have shifted what the queue binding shows).
+  // fn(null, -1) when mpv did not answer.
+  function _withSnapshot(fn) {
+    mpv.command(["get_property", "playlist"], function(reply) {
+      if (!reply || reply.error !== "success" || !Array.isArray(reply.data)) {
+        fn(null, -1)
+        return
+      }
+      root._flushOrigins()
+      var pos = -1
+      for (var i = 0; i < reply.data.length; i++) if (reply.data[i].current) pos = i
+      fn(Model.withOrigins(Model.buildQueue(reply.data, root.meta), root.queueOrigins), pos)
+    })
+  }
+
+  function _queueEnded() {
+    return autoplay && repeatMode === "off" && idle && playlistCount > 0
+  }
+
+  // Walks the top-up's sources (Model.autoplaySources) until one gives new
+  // songs. `failed`: a source failed on the way (then no "found nothing").
+  function _topUp(seed, sources, token, memo, failed) {
+    if (token !== _replaceToken || (!autoplayWanted && !_queueEnded())) return
+    if (sources.length === 0) {
+      if (failed) _autoplaySeed = ""  // the next song tries again
+      else _autoplayFoundNothing()
+      return
+    }
+    var step = sources[0]
+    var rest = sources.slice(1)
+    if (step.items) {
+      if (!_appendAuto(step.items, memo)) _topUp(seed, rest, token, memo, failed)
+      return
+    }
+    backend.request(step.method, step.params, function(reply) {
+      root.releaseWorkerIfIdle()
+      if (token !== root._replaceToken || (!root.autoplayWanted && !root._queueEnded())) return
+      if (!reply.ok) {
+        console.warn("ytmusic: autoplay: " + reply.error.message)
+        root._topUp(seed, rest, token, memo, true)
+        return
+      }
+      if (!root._appendAuto(reply.result.items || [], step.method === "upNext" ? reply.result : null))
+        root._topUp(seed, rest, token, memo, failed)
+    }, 20000)
+  }
+
+  // Appends autoplay's picks of `items` (false when none is new). A queue
+  // started from nothing in particular then plays from the radio they came
+  // from (`source`: { playlistId, playingFrom }), like the web.
+  function _appendAuto(items, source) {
+    var picks = Model.autoplayPicks(queue, items, Model.AUTOPLAY_BATCH, _seen)
+    if (picks.length === 0) return false
+    remember(picks)
+    _sendQueue(Model.queueAllCommands(picks).commands, _idsOf(picks))
+    autoplayNote = ""
+    if (!playContext && source && source.playlistId && source.playingFrom)
+      playContext = { playlistId: source.playlistId, title: source.playingFrom, radio: true }
+    return true
+  }
+
+  function _autoplayFoundNothing() {
+    autoplayNote = "Autoplay found nothing new"
+    notifyOnce("autoplay-nothing", "Autoplay found nothing new", "The queue ends after the songs in it.")
+  }
+
+  // t or the tune chip: the next chip (`delta` -1: the one before), applied
+  // a moment later so a few quick presses send one request.
+  function cycleTuner(delta) {
+    var chip = Model.nextTuner(tunerChips, tuner, delta)
+    if (!chip || !hasMedia) return false
+    _setTuner(chip)
+    tuneApply.restart()
+    return true
+  }
+
+  // A chip from the Now page menu's chooser.
+  function chooseTuner(chip) {
+    if (!chip || !chip.playlistId || !hasMedia) return false
+    _setTuner(chip)
+    tuneApply.stop()
+    _applyTuner()
+    return true
+  }
+
+  // YouTube's own chip (All) is no tuner: autoplay goes back to its usual sources.
+  function _setTuner(chip) {
+    _tuneChip = Model.tunerOf(chip)
+    tuner = chip.selected === true ? null : _tuneChip
+    _queueStateChanged()
+  }
+
+  // The chip's queue in place of the upcoming auto entries (user entries
+  // stay); nothing changes when it brings nothing new.
+  function _applyTuner() {
+    var chip = _tuneChip
+    var seed = currentTrack
+    if (!chip || !seed || !seed.videoId || !hasMedia) return
+    var token = _replaceToken
+    var mine = ++_tuneToken
+    var params = { videoId: seed.videoId, playlistId: chip.playlistId }
+    if (chip.params) params.params = chip.params
+    _tuning = true
+    backend.request("queueFrom", params, function(reply) {
+      root.releaseWorkerIfIdle()
+      if (mine !== root._tuneToken) return
+      if (token !== root._replaceToken) {
+        root._tuning = false
+        return
+      }
+      if (!reply.ok) {
+        root._tuning = false
+        root.failAction("Couldn't tune the queue", reply.error.message)
+        return
+      }
+      var items = reply.result.items || []
+      root._withSnapshot(function(queue, pos) {
+        root._tuning = false
+        if (!queue || mine !== root._tuneToken || token !== root._replaceToken) return
+        var plan = Model.replaceUpcomingAuto(queue, pos, items, Model.AUTOPLAY_BATCH, root._seen)
+        if (plan.tracks.length === 0) {
+          root.notify("Nothing new for " + chip.title, "The queue stays as it is.")
+          return
+        }
+        root.remember(plan.tracks)
+        root._sendQueue(plan.commands, root._idsOf(plan.tracks))
+        root.autoplayNote = ""
+      })
+    }, 20000)
+  }
+
+  // The current song's other version (Model.counterpartOf), for its menu.
+  function counterpartOf(track) {
+    return Model.counterpartOf(track, nowContext)
+  }
+
+  // Play the song playing's twin (song or video version) from its start in
+  // place of its entry, which keeps its origin. `item` is the song the menu
+  // was opened for: once another song plays, nothing happens.
+  function switchVersion(counterpart, item) {
+    var entry = currentEntry
+    if (!entry || !item || entry.videoId !== item.videoId) return false
+    var next = Model.counterpartTrack(entry.track, counterpart)
+    if (!next || !hasMedia) return false
+    remember([next])
+    var entryId = entry.entryId
+    var videoId = entry.videoId
+    var autoIds = entry.origin === "auto" ? _idsOf([next]) : null
+    withStream(next, function() {
+      root._withSnapshot(function(queue, pos) {
+        // Moved on to another song meanwhile: leave it.
+        if (!queue || pos < 0 || queue[pos].entryId !== entryId || queue[pos].videoId !== videoId) return
+        root._sendQueue(Model.switchVersionCommands(next, pos), autoIds)
+      })
+    })
+    return true
+  }
+
+  // Played entries more than Model.TRIM_KEEP behind the current one leave
+  // mpv's playlist (not while repeating the queue: they come round again).
+  // Not while a Play waits for its stream either: a queue row's jump sends
+  // the index it was clicked at (the next song change trims instead).
+  function trimPlayed() {
+    if (!mpv.up || repeatMode !== "off" || _reordering || _tuning || _pendingPlay) return false
+    var count = Model.trimPlayed(playlistPos, Model.TRIM_KEEP)
+    if (count <= 0 || count > playlist.length || playlist.length !== playlistCount) return false
+    var gone = queue.slice(0, count)
+    _seen = Model.withSeen(_seen, gone.map(function(entry) { return entry.videoId }).filter(Boolean), Model.SEEN_MAX)
+    if (shuffleOrder.length > 0) {
+      var ids = gone.map(function(entry) { return entry.entryId })
+      setShuffleOrder(shuffleOrder.filter(function(id) { return ids.indexOf(id) < 0 }))
+    }
+    if (_retryIndex >= 0) _retryIndex = Math.max(0, _retryIndex - count)
+    mpv.commands(Model.trimCommands(count))
+    // Shown trimmed at once, and mpv's index changes on the way there (one
+    // per removed entry) are skipped; the current entry is held while the
+    // three change, so no other song is ever current.
+    _trimHeld = currentEntry
+    _trimShift = true
+    playlist = playlist.slice(count)
+    playlistCount = playlist.length
+    playlistPos = playlistPos - count
+    _trimShift = false
+    _trimHeld = null
+    _trimTarget = { pos: playlistPos, count: playlistCount, posSeen: false, countSeen: false }
+    trimGuard.restart()
+    _queueStateChanged()
+    trimmed(count)
+    return true
+  }
+
+  // True for a playlist-pos / playlist-count change a trim is still making.
+  function _trimEvent(name, value) {
+    var target = _trimTarget
+    if (!target) return false
+    if (name === "playlist-pos" ? value !== target.pos : value !== target.count) return true
+    if (name === "playlist-pos") target.posSeen = true
+    else target.countSeen = true
+    if (target.posSeen && target.countSeen) {
+      _trimTarget = null
+      trimGuard.stop()
+    }
+    return false
+  }
+
+  // Something else moved the queue meanwhile: read where mpv is.
+  function _trimSettle() {
+    if (!_trimTarget) return
+    _trimTarget = null
+    mpv.command(["get_property", "playlist-pos"], function(reply) {
+      if (reply && reply.error === "success") root.onMpvProperty("playlist-pos", reply.data)
+    })
+    mpv.command(["get_property", "playlist-count"], function(reply) {
+      if (reply && reply.error === "success") root.onMpvProperty("playlist-count", reply.data)
+    })
+  }
+
+  // ---- queue.json
+  // Nothing is written before the file was read and merged (a restore
+  // waiting for mpv's pid would otherwise lose what it holds).
+  function _queueStateChanged() {
+    if (_queueStateRead) queueStateSave.restart()
+  }
+
+  function saveQueueState() {
+    if (!_queueStateRead || _savedQueueState !== null) return
+    queueStateFile.setText(Model.queueStateText({ pid: _mpvPid > 0 ? _mpvPid : null, context: playContext, tuner: tuner,
+                                                  origins: queueOrigins, seen: _seen }))
+  }
+
+  function _readMpvPid() {
+    mpv.command(["get_property", "pid"], function(reply) {
+      root._mpvPid = reply && reply.error === "success" && typeof reply.data === "number" ? reply.data : 0
+      root._restoreQueueState()
+    })
+  }
+
+  // Once both the file and mpv's pid are known: the saved origins, context,
+  // tuner and seen ids belong to this player's queue only when the pid
+  // matches (a new player starts its entry ids over).
+  function _restoreQueueState() {
+    var saved = _savedQueueState
+    if (!saved || !(_mpvPid > 0)) return
+    _savedQueueState = null
+    if (saved.pid === _mpvPid) {
+      _seen = Model.withSeen(saved.seen, _seen, Model.SEEN_MAX)
+      var origins = ({})
+      for (var key in saved.origins) origins[key] = saved.origins[key]
+      for (var mine in queueOrigins) origins[mine] = queueOrigins[mine]
+      // Before the first playlist read the next refresh prunes them.
+      queueOrigins = playlist.length > 0 ? Model.pruneOrigins(origins, playlist) : origins
+      if (!playContext) playContext = saved.context
+      if (!tuner) tuner = saved.tuner
+    }
+    _queueStateChanged()
+  }
+
+  function _applyQueueStateText(text) {
+    _savedQueueState = Model.parseQueueState(text)
+    _queueStateRead = true
+    _restoreQueueState()
+  }
+
+  // mpv quit: its entry ids mean nothing to the next player.
+  function _playerGone() {
+    _mpvPid = 0
+    _trimTarget = null
+    _originsPending = []
+    if (Object.keys(queueOrigins).length > 0) queueOrigins = ({})
+    _queueStateChanged()
+  }
+
+  FileView {
+    id: queueStateFile
+    path: root.queueStatePath
+    atomicWrites: true
+    watchChanges: false
+    printErrors: false
+    onLoaded: root._applyQueueStateText(text())
+    onLoadFailed: root._applyQueueStateText("")
+  }
+
+  Timer {
+    id: queueStateSave
+    interval: 1000
+    onTriggered: root.saveQueueState()
+  }
+
+  Timer {
+    id: tuneApply
+    interval: 400
+    onTriggered: root._applyTuner()
+  }
+
+  // A few seconds after a track change, so skipping through the queue
+  // trims nothing until it settles.
+  Timer {
+    id: trimTimer
+    interval: 3000
+    onTriggered: root.trimPlayed()
+  }
+
+  Timer {
+    id: trimGuard
+    interval: 1500
+    onTriggered: root._trimSettle()
+  }
+
+  // ---- playback (S17) ------------------------------------------------------------------
+  // Speed is mpv's `speed`, 0.5x to 2x in steps of 0.25 ([ and ], the Now
+  // page menu), remembered per kind of entry in prefs.speed { music,
+  // episode } and applied whenever the kind of the entry playing (or its
+  // saved speed) changes, so an episode keeps its own speed after music.
+  // Loudness is prefs.normalize: "youtube" has the worker answer each
+  // resolved song's loudness (its `normalize` setting), kept with the
+  // stream as its gain, which mpv/ytm-levels.lua sets as that file's own
+  // volume-gain when it loads; "dynamic" runs mpv's dynaudnorm filter (the
+  // same script); "off" neither. mpv learns the mode from
+  // user-data/ytm/normalize.
+  // mpv's speed (mirrored; 1 for a new player).
+  property real speed: 1
+  readonly property string speedKind: currentTrack ? Model.speedKind(currentTrack) : ""
+  readonly property string normalize: Model.normalizeMode(prefs.normalize)
+  // "<kind>:<speed>" the song playing wants; "" without a song or before the
+  // prefs are read. Applied once per change, so a speed set elsewhere (MPRIS)
+  // stays until the kind changes.
+  readonly property string speedWanted: prefsLoaded && speedKind !== ""
+    ? speedKind + ":" + Model.speedFor(prefs.speed, speedKind) : ""
+  property string _speedApplied: ""
+  // The kind [ / ] and the speed chooser set: the entry playing's, music
+  // when nothing plays (mpv may still hold the speed of an episode that ended).
+  readonly property string speedEditKind: speedKind !== "" ? speedKind : "music"
+  // That kind's speed as its next play gets it: mpv's while mpv holds what
+  // was applied for it (a speed set elsewhere included), else the saved one,
+  // which a play applies. [ / ], the Now page menu and the chooser's tick go
+  // by it, so they agree with what is saved; the badge shows mpv's `speed`.
+  readonly property real speedShown: mpv.up
+    && _speedApplied === speedEditKind + ":" + Model.speedFor(prefs.speed, speedEditKind)
+    ? speed : Model.speedFor(prefs.speed, speedEditKind)
+  // The mode mpv gets; "" before the prefs are read.
+  readonly property string levelsMode: prefsLoaded ? normalize : ""
+  // A string, so the worker is configured again only when a setting changed.
+  readonly property string workerSettingsText: JSON.stringify(Model.workerSettings(prefs))
+
+  onSpeedWantedChanged: _applySpeed()
+  onLevelsModeChanged: _applyLevels()
+
+  function _applySpeed() {
+    if (speedWanted === "" || speedWanted === _speedApplied || !mpv.up) return
+    _speedApplied = speedWanted
+    _setMpvSpeed(Model.speedFor(prefs.speed, speedKind))
+  }
+
+  function _setMpvSpeed(value) {
+    speed = value
+    mpv.command(["set_property", "speed", value])
+  }
+
+  // [ / ] (delta 1 / -1): one step, kept for the kind of entry playing.
+  function stepSpeed(delta) {
+    return setSpeed(Model.speedStep(speedShown, delta))
+  }
+
+  // Kept for the kind playing (music when nothing plays) and applied now;
+  // a player that is down is not started for it.
+  function setSpeed(value) {
+    var next = Model.clampSpeed(value)
+    setPref("speed", Model.withSpeed(prefs.speed, speedEditKind, next))
+    if (speedKind === "") {
+      // Nothing playing: mpv keeps the last entry's speed. A song's takes
+      // the new one now, so the next song keeps it; an episode's stays for
+      // the next episode, and the next song applies the saved one.
+      if (!mpv.up || _speedApplied.indexOf("music:") !== 0) return true
+      _speedApplied = "music:" + Model.speedFor(prefs.speed, "music")
+    }
+    // The pref may have held it already while mpv's speed differs (MPRIS).
+    if (mpv.up && Math.abs(speed - next) > 0.001) _setMpvSpeed(next)
+    return true
+  }
+
+  function setNormalize(mode) {
+    var next = Model.normalizeMode(mode)
+    setPref("normalize", next)
+    // After the bindings above have sent the worker its new setting.
+    if (next === "youtube") Qt.callLater(root._levelStreams)
+    return true
+  }
+
+  function _applyLevels() {
+    if (levelsMode !== "" && mpv.up) mpv.command(["set_property", "user-data/ytm/normalize", levelsMode])
+  }
+
+  // YouTube levelling just turned on: streams resolved without their
+  // loudness are forgotten, and the song playing and the next one are
+  // resolved again (with it), so they are levelled too.
+  function _levelStreams() {
+    if (normalize !== "youtube") return
+    var kept = Model.streamsWithLoudness(streams)
+    if (kept !== streams) {
+      streams = kept
+      pushStreams()
+    }
+    var track = currentTrack
+    if (hasMedia && track && track.videoId && !Model.streamHasLoudness(streams[track.videoId])) resolveStream(track.videoId)
+    preResolveUpcoming()
+  }
+
+  function _playbackReady() {
+    _applyLevels()
+    _applySpeed()
+    levelsCheck.restart()
+  }
+
+  // A new player starts at 1x.
+  function _playbackGone() {
+    speed = 1
+    _speedApplied = ""
+    levelsCheck.stop()
+  }
+
+  // mpv outlives plugin updates: a player started before mpv/ytm-levels.lua
+  // existed gets it loaded. The script marks itself in user-data/ytm/levels;
+  // asked a moment after connecting, so a player that is starting has run it.
+  function _loadLevelsScript() {
+    if (!mpv.up) return
+    mpv.command(["get_property", "user-data/ytm/levels"], function(reply) {
+      if (!mpv.up || (reply && reply.error === "success" && reply.data === true)) return
+      mpv.command(["load-script", root.rootDir + "/mpv/ytm-levels.lua"])
+    })
+  }
+
+  Timer {
+    id: levelsCheck
+    interval: 2000
+    onTriggered: root._loadLevelsScript()
+  }
 
   // ---- playlists ---------------------------------------------------------------------
 
@@ -952,6 +1587,286 @@ Item {
     return true
   }
 
+  // ---- library actions (S4) ---------------------------------------------------------
+  // Save to library (albums, playlists, mixes), Subscribe (artists), a
+  // song's Save to library (through its row's library tokens) and Dislike,
+  // done as setLike does: the Store shows the change at once, a definite
+  // error puts it back, and an unknown outcome (the worker stopped or timed
+  // out after the edit went out) forgets it and refreshes what it touched
+  // ("Not sure the change applied; refreshed"). `callback(reply)` is the
+  // owner's (Model.editCallbackOf): it reloads the page or Library list
+  // shown when the outcome is unknown or a song's token was stale, and
+  // returns true then (_ownerCallback). The Library list shown is read
+  // again after every edit that changed it (_refreshLists).
+
+  readonly property bool currentDisliked: !!currentTrack && storeItem.isDisliked(currentTrack.videoId, currentTrack.likeStatus)
+
+  // fallback: what the item's page says (album or playlist header,
+  // artist header), when it is shown.
+  function savedOf(item, fallback) {
+    return storeItem.savedState(item, fallback)
+  }
+
+  function subscribedOf(item, fallback) {
+    return item ? storeItem.subscribedState(item.channelId, fallback) : null
+  }
+
+  function inLibraryOf(track) {
+    return storeItem.inLibraryState(track)
+  }
+
+  function dislikedOf(track) {
+    return !!track && !!track.videoId && storeItem.isDisliked(track.videoId, track.likeStatus)
+  }
+
+  // What saveAction and the menus need to know beyond the item: whether it
+  // is a playlist of yours.
+  function saveContext(item) {
+    var kind = Model.menuKind(item)
+    return { ownItem: (kind === "playlist" || kind === "mix") && storeItem.ownsPlaylist(Model.savePlaylistId(item)) }
+  }
+
+  // Panel.openItemMenu: the states the library entries' titles follow,
+  // for the keys the view left unset.
+  function fillMenuState(item, ctx) {
+    if (!item || !ctx) return
+    var kind = Model.menuKind(item)
+    if (ctx.ownItem === undefined) ctx.ownItem = saveContext(item).ownItem
+    if (ctx.saved === undefined && Model.SAVE_KINDS.indexOf(kind) >= 0) ctx.saved = savedOf(item)
+    if (ctx.subscribed === undefined && Model.canSubscribe(item)) ctx.subscribed = subscribedOf(item)
+    if (kind !== "track") return
+    if (ctx.inLibrary === undefined) ctx.inLibrary = inLibraryOf(item)
+    if (ctx.liked === undefined) ctx.liked = likeStatusOf(item) === "LIKE"
+    if (ctx.disliked === undefined) ctx.disliked = dislikedOf(item)
+  }
+
+  function _signedInFor(title) {
+    if (signedIn) return true
+    failAction(title, "Sign in to use your library")
+    return false
+  }
+
+  // S: whatever the item offers (Model.saveAction), the other way round.
+  function toggleSaveItem(item, callback) {
+    var action = Model.saveAction(item, saveContext(item))
+    if (action === "save") return saveItem(item, savedOf(item) !== true, callback)
+    if (action === "subscribe") return subscribe(item, subscribedOf(item) !== true, callback)
+    if (action === "saveSong") return setSongLibrary(item, inLibraryOf(item) !== true, callback)
+    return false
+  }
+
+  // An album, playlist or mix into the library (save) or out of it.
+  function saveItem(item, save, callback) {
+    var params = Model.rateCollectionParams(item, save === true)
+    var failTitle = save ? "Couldn't save to your library" : "Couldn't remove from your library"
+    if (!params || !_signedInFor(failTitle)) return false
+    var title = Model.itemTitle(item)
+    var keys = Model.saveKeys(item)
+    var previous = storeItem.setSaved(keys, save === true)
+    var lists = params.kind === "album" ? ["albums", "songs", "artists"] : ["playlists"]
+    backend.request("rateCollection", params, function(reply) {
+      if (root.unsure(reply)) {
+        storeItem.setSaved(keys, null)
+        root._forgetSaved(params)
+        var reloaded = root._ownerCallback(callback, reply)
+        root._editUnsure(root._refreshLists(lists, true, reloaded) || reloaded, title)
+        return
+      }
+      if (!reply.ok) {
+        storeItem.restore("saved", previous)
+        root.failAction(failTitle, reply.error.message)
+        root._ownerCallback(callback, reply)
+        return
+      }
+      root._forgetSaved(params)
+      root._refreshLists(lists, false, false)
+      root.notify(save ? "Saved to library" : "Removed from library", title)
+      root._ownerCallback(callback, reply)
+    }, 30000, noRetry)
+    return true
+  }
+
+  // The worker dropped the same (its INVALIDATES). An album brings its
+  // songs and artists into the library too: its artists' pages change
+  // (From your library).
+  function _forgetSaved(params) {
+    if (params.kind === "album") storeItem.forgetCollection("album", params.browseId)
+    if (params.playlistId) {
+      storeItem.forgetCollection("playlist", params.playlistId)
+      storeItem.forgetCollection("mix", params.playlistId)
+    }
+    storeItem.forgetCollection("libraryLanding")
+    if (params.kind === "album") _forgetArtists(params.artistIds)
+  }
+
+  // The artist pages an album save or a song's library edit changed; every
+  // one when the edit named none (the worker drops the same).
+  function _forgetArtists(ids) {
+    if (!ids || ids.length === 0) storeItem.forgetCollection("artist")
+    else for (var i = 0; i < ids.length; i++) storeItem.forgetCollection("artist", ids[i])
+  }
+
+  // The Library lists ("playlists", "songs", "albums", "artists") an edit
+  // changed. The one shown is read again now, the others when next shown;
+  // after an unknown outcome (unsure) every one held is read again too, as
+  // the saved states come from them. shownDone: the owner's callback has
+  // already read the one shown again. True when this read the one shown.
+  function _refreshLists(chips, unsure, shownDone) {
+    var readShown = false
+    for (var i = 0; i < chips.length; i++) {
+      var chip = chips[i]
+      var shown = storeItem.libraryShown === chip
+      var held = chip === "playlists" ? storeItem.playlists.length > 0 : !!storeItem.libraryLists[chip]
+      if (shown && shownDone) continue
+      if (shown || (unsure && held)) {
+        if (chip === "playlists") storeItem.loadLibrary(true)
+        else storeItem.loadLibraryList(chip, true)
+        readShown = readShown || shown
+      } else if (chip === "playlists") {
+        storeItem.invalidateLibrary()
+      } else {
+        storeItem.staleLibraryList(chip)
+      }
+    }
+    return readShown
+  }
+
+  // The owner's callback (Model.editCallbackOf), if any: true when it read
+  // its page again. Its view may be gone by now (Back while the edit was
+  // on its way), and a throw never stops the reply's own handling.
+  function _ownerCallback(callback, reply) {
+    if (!callback) return false
+    try {
+      return callback(reply) === true
+    } catch (e) {
+      console.warn("ytmusic: edit callback failed: " + e)
+      return false
+    }
+  }
+
+  // The notice after an unknown outcome: "refreshed" only when what is
+  // shown was read again (a page, a Library list). Search and Home rows
+  // are not searched or read again: their item is to be opened again.
+  function _editUnsure(reloaded, title) {
+    if (reloaded) notify("Not sure the change applied; refreshed", title)
+    else notify("Not sure the change applied; open it again to check", title)
+  }
+
+  // Subscribe to an artist (on) or unsubscribe.
+  function subscribe(item, on, callback) {
+    var params = Model.subscribeParams(item, on === true)
+    var failTitle = on ? "Couldn't subscribe" : "Couldn't unsubscribe"
+    if (!params || !_signedInFor(failTitle)) return false
+    var title = Model.itemTitle(item)
+    var channelId = item.channelId
+    var previous = storeItem.setSubscribed(channelId, on === true)
+    backend.request("subscribe", params, function(reply) {
+      if (root.unsure(reply)) {
+        storeItem.setSubscribed(channelId, null)
+        root._forgetSubscribed(channelId)
+        var reloaded = root._ownerCallback(callback, reply)
+        root._editUnsure(root._refreshLists(["artists"], true, reloaded) || reloaded, title)
+        return
+      }
+      if (!reply.ok) {
+        storeItem.restore("subscribed", previous)
+        root.failAction(failTitle, reply.error.message)
+        root._ownerCallback(callback, reply)
+        return
+      }
+      root._forgetSubscribed(channelId)
+      root._refreshLists(["artists"], false, false)
+      root.notify(on ? "Subscribed" : "Unsubscribed", title)
+      root._ownerCallback(callback, reply)
+    }, 30000, noRetry)
+    return true
+  }
+
+  function _forgetSubscribed(channelId) {
+    storeItem.forgetCollection("artist", channelId)
+    storeItem.forgetCollection("librarySubscriptions")
+    storeItem.forgetCollection("libraryLanding")
+  }
+
+  // A song into the library (add) or out of it, with the token its row
+  // came with. YouTube refuses a stale one: the owner reloads its page
+  // (once; the next press uses the new tokens).
+  function setSongLibrary(track, add, callback) {
+    var failTitle = add ? "Couldn't save the song" : "Couldn't remove the song"
+    if (!track || !track.videoId || !_signedInFor(failTitle)) return false
+    var params = Model.songLibraryParams(track, add === true)
+    if (!params) {
+      failAction(failTitle, "This list has no library control for it; open its album")
+      return false
+    }
+    var title = Model.mediaTitle(track)
+    var videoId = track.videoId
+    var previous = storeItem.setInLibrary(videoId, add === true)
+    var lists = ["songs", "albums", "artists"]
+    backend.request("songLibrary", params, function(reply) {
+      if (root.unsure(reply)) {
+        storeItem.setInLibrary(videoId, null)
+        root._forgetArtists(params.artistIds)
+        var reloaded = root._ownerCallback(callback, reply)
+        root._editUnsure(root._refreshLists(lists, true, reloaded) || reloaded, title)
+        return
+      }
+      if (!reply.ok) {
+        storeItem.restore("inLibrary", previous)
+        if (!Model.staleToken(reply)) {
+          root.failAction(failTitle, reply.error.message)
+          root._ownerCallback(callback, reply)
+        } else if (root._ownerCallback(callback, reply)) {
+          root.notify("This page is out of date; refreshed", title)
+        } else {
+          root.failAction("This list is out of date", "Open it again to change " + title)
+        }
+        return
+      }
+      root._forgetArtists(params.artistIds)
+      root._refreshLists(lists, false, false)
+      root.notify(add ? "Saved to library" : "Removed from library", title)
+      root._ownerCallback(callback, reply)
+    }, 30000, noRetry)
+    return true
+  }
+
+  // Dislike a song (on) or remove the dislike. The song playing skips to
+  // the next one at once, as on the web.
+  function dislike(track, on, callback) {
+    var failTitle = on ? "Couldn't dislike the song" : "Couldn't remove the dislike"
+    if (!track || !track.videoId || !_signedInFor(failTitle)) return false
+    var videoId = track.videoId
+    var title = Model.mediaTitle(track)
+    var previousLike = storeItem.likes[videoId]
+    var previous = storeItem.setDisliked(videoId, on === true)
+    storeItem.setLike(videoId, on ? "DISLIKE" : "INDIFFERENT")
+    var current = currentTrack
+    if (on && hasMedia && current && current.videoId === videoId) root.next()
+    root._rateSent(videoId)  // S11, as in setLike
+    backend.request("rate", { videoId: videoId, rating: on ? "DISLIKE" : "INDIFFERENT" }, function(reply) {
+      root._rateAnswered(videoId)  // S11
+      if (root.unsure(reply)) {
+        // A dislike cannot be read back: what YouTube reports stands.
+        storeItem.setDisliked(videoId, null)
+        root.refreshUnsure([{ kind: "liked", id: "LM" }, { kind: "like", id: videoId }], title)
+      } else if (!reply.ok) {
+        storeItem.restore("disliked", previous)
+        storeItem.setLike(videoId, previousLike)
+        root.failAction(failTitle, reply.error.message)
+      } else {
+        storeItem.forgetCollection("liked", "LM")
+        root.notify(on ? "Disliked" : "Dislike removed", title)
+      }
+      if (callback) callback(reply)
+    }, undefined, noRetry)
+    return true
+  }
+
+  function toggleDislike(track) {
+    return dislike(track, !dislikedOf(track))
+  }
+
   // Open the panel on the search tab with results for `query`.
   function showSearch(query) {
     var text = String(query || "").trim()
@@ -1023,7 +1938,7 @@ Item {
   onPositionWantedChanged: {
     if (!positionWanted) return
     fetchPosition()
-    likeCheck.restart()
+    nowCheck.restart()
   }
 
   function setVolume(percent) {
@@ -1098,14 +2013,15 @@ Item {
   function onMpvProperty(name, value) {
     if (name === "pause") paused = value === true
     else if (name === "idle-active") idle = value === true
-    else if (name === "playlist-pos") { playlistPos = typeof value === "number" ? value : -1; queueRefresh.restart() }
-    else if (name === "playlist-count") { playlistCount = typeof value === "number" ? value : 0; queueRefresh.restart() }
+    else if (name === "playlist-pos") { if (_trimEvent(name, value)) return; playlistPos = typeof value === "number" ? value : -1; queueRefresh.restart() }
+    else if (name === "playlist-count") { if (_trimEvent(name, value)) return; playlistCount = typeof value === "number" ? value : 0; queueRefresh.restart() }
     else if (name === "media-title") mediaTitle = value || ""
     else if (name === "duration") duration = typeof value === "number" ? value : 0
     else if (name === "volume") { if (typeof value === "number") volume = Math.round(value) }
     else if (name === "paused-for-cache") buffering = value === true
     else if (name === "loop-file") _loopFile = value
     else if (name === "loop-playlist") _loopPlaylist = value
+    else if (name === "speed") { if (typeof value === "number") speed = value }  // S17
     else if (name === "user-data/ytm/stale" && Array.isArray(value) && value.length > 0) {
       // mpv/ytm-streams.lua dropped streams that failed to play.
       dropStreams(value)
@@ -1143,6 +2059,8 @@ Item {
 
   function onMpvReady() {
     applyRepeat()
+    _readMpvPid()  // S12
+    _playbackReady()  // S17
     mpv.command(["get_property", "user-data/ytm/order"], function(reply) {
       root.shuffleOrder = reply && reply.error === "success" && Array.isArray(reply.data) ? reply.data : []
     })
@@ -1174,6 +2092,7 @@ Item {
     mpv.command(["get_property", "playlist"], function(reply) {
       if (!reply || reply.error !== "success") return
       root.playlist = reply.data || []
+      root._queueRefreshed()  // S12
       metaSync.restart()
       root.lookUpUnknownTracks()
     })
@@ -1211,6 +2130,8 @@ Item {
     shuffleOrder = []
     _loopFile = false
     _loopPlaylist = false
+    _playerGone()  // S12
+    _playbackGone()  // S17
   }
 
   function statusJson() {
@@ -1243,7 +2164,20 @@ Item {
         shuffle: shuffle,
         repeat: repeatMode,
         shuffleOrder: shuffleOrder.length,
-        context: playContext
+        context: playContext,
+        // S12
+        playingFrom: playingFrom,
+        tuner: tuner ? tuner.title : null,
+        autoEntries: queue.filter(function(entry) { return entry.origin === "auto" }).length,
+        seen: _seen.length,
+        autoplayNote: autoplayNote,
+        // S17
+        speed: speed,
+        speedKind: speedKind,
+        normalize: normalize,
+        // The song playing's YouTube gain in dB (mpv applies it while normalize is youtube).
+        gain: currentTrack && streams[currentTrack.videoId] && typeof streams[currentTrack.videoId].gain === "number"
+          ? streams[currentTrack.videoId].gain : null
       },
       lastError: lastError,
       streams: {
@@ -1328,7 +2262,8 @@ Item {
     socketPath: Quickshell.env("XDG_RUNTIME_DIR") + "/omarchy-ytmusic/mpv.sock"
     controlScript: root.rootDir + "/bin/ytm-mpv"
     startVolume: root.volume
-    observedProperties: ["pause", "idle-active", "playlist-pos", "playlist-count", "media-title", "duration", "volume", "paused-for-cache", "loop-file", "loop-playlist", "user-data/ytm/stale"]
+    observedProperties: ["pause", "idle-active", "playlist-pos", "playlist-count", "media-title", "duration", "volume", "paused-for-cache", "loop-file", "loop-playlist", "user-data/ytm/stale",
+      "speed"]  // S17
 
     onPropertyUpdated: (name, value) => root.onMpvProperty(name, value)
     onEvent: message => root.onMpvEvent(message)
@@ -1339,6 +2274,9 @@ Item {
   Backend {
     id: backend
     launcher: root.rootDir + "/bin/ytm"
+    // S17: the worker's settings (Model.workerSettings; S16 adds its keys
+    // there), once the prefs are read.
+    configureParams: root.prefsLoaded ? JSON.parse(root.workerSettingsText) : null
   }
 
   // Search results and opened collections, shared by every panel.
@@ -1349,6 +2287,7 @@ Item {
     worker: backend
     thumbsEnabled: root.panelsOpen > 0
     stateDir: root.cacheDir
+    nowKeep: root.currentTrack ? root.currentTrack.videoId : ""
     // Library (S2): each chip's sort order, saved in player.json.
     libraryOrders: root.prefs.libraryOrders
   }
@@ -1374,9 +2313,9 @@ Item {
   }
 
   Timer {
-    id: likeCheck
+    id: nowCheck
     interval: 600
-    onTriggered: root.refreshLikeStatus()
+    onTriggered: root.refreshNowContext()
   }
 
   FileView {
@@ -1429,8 +2368,8 @@ Item {
     checkTools()
   }
 
-  // Waits a few seconds into the last song, so skipping through the queue
-  // doesn't fetch anything.
+  // Waits a few seconds into a song with few left (S12: 3 or fewer), so
+  // skipping through the queue doesn't fetch anything.
   Timer {
     id: autoplayTimer
     interval: 5000

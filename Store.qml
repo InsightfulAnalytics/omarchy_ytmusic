@@ -639,8 +639,9 @@ Item {
     homeFeeds = next
   }
 
-  // Every minute while another chip's feed is held: drop the ones unseen
-  // for 10 min (not the chosen chip's, nor one still loading).
+  // From the shared sweep (every minute while another chip's feed is held):
+  // drop the ones unseen for 10 min (not the chosen chip's, nor one still
+  // loading).
   function sweepHome(now) {
     var t = now || Date.now()
     var next = null
@@ -658,13 +659,6 @@ Item {
     homeFeeds = ({})
     homeChip = ""
     homeChips = []
-  }
-
-  Timer {
-    interval: 60 * 1000
-    repeat: true
-    running: root.homeFeedCount > 1
-    onTriggered: root.sweepHome()
   }
 
   // Ask with cache "prefer"; if that came from disk, follow up with a refresh.
@@ -735,10 +729,13 @@ Item {
 
   // ---- sweep (F2) -------------------------------------------------------------------
   // Every minute while anything is cached: drop collections past their TTL
-  // or unseen for 10 min, searches past theirs, and library lists (S2)
+  // or unseen for 10 min, searches past theirs, library lists (S2) unseen
+  // for 10 min, the now contexts and lyrics (S11) of songs other than the
+  // one playing, and Home's feeds (S5) of chips other than the chosen one
   // unseen for 10 min. A slice with its own keyed cache adds it here and to
   // sweepWanted.
   readonly property bool sweepWanted: collectionCount > 0 || searchCacheSize > 0 || libraryListCount > 0
+    || nowSweepWanted || homeFeedCount > 1
 
   function sweep(now) {
     var t = now || Date.now()
@@ -759,6 +756,8 @@ Item {
     }
     if (droppedSearches) _searches = searches
     _sweepLibraryLists(t)
+    _sweepNow(t)
+    sweepHome(t)  // S5
   }
 
   Timer {
@@ -1045,6 +1044,194 @@ Item {
     likes = next
   }
 
+  // ---- actions (S4) ------------------------------------------------------------------
+  // What the panel knows of the library beyond the lists it read: albums,
+  // playlists and mixes saved (by playlistId, and an album's browseId too),
+  // channels subscribed to (by the channelId rows and pages use), songs in
+  // the library (by videoId), each a boolean set by an edit made here (at
+  // once, put back when the worker says no) or forgotten again (null:
+  // unknown) when its outcome is unknown; and the songs disliked this
+  // session (YouTube reports a disliked song as INDIFFERENT). The states
+  // themselves (savedState and the others) also read the library's
+  // playlists, albums and subscriptions held here and the page's own
+  // header (fallback). reset() clears them.
+  property var saved: ({})
+  property var subscribed: ({})
+  property var inLibrary: ({})
+  property var disliked: ({})
+
+  // item: an album, playlist or mix; fallback: what its page's header says
+  // (true / false), or undefined.
+  function savedState(item, fallback) {
+    var albums = libraryLists.albums || null
+    return Model.savedState(item, {
+      saved: saved, fallback: fallback, playlists: playlists, playlistsLoaded: libraryAt > 0,
+      albums: albums ? albums.items : [], albumsComplete: !!albums && albums.at > 0 && !albums.cursor && !albums.hasMore
+    })
+  }
+
+  // channelId: the page id rows and pages use; fallback: an artist page's
+  // header.subscribed.
+  function subscribedState(channelId, fallback) {
+    var page = cachedCollection(Model.pageRef({ type: "librarySubscriptions" }))
+    var list = page ? Model.libraryList(page) : null
+    return Model.subscribedState(channelId, {
+      subscribed: subscribed, fallback: fallback, subscriptions: list ? list.items : [],
+      subscriptionsComplete: !!list && !list.cursor && !list.hasMore
+    })
+  }
+
+  function inLibraryState(track) {
+    return Model.inLibraryState(track, { inLibrary: inLibrary })
+  }
+
+  function isDisliked(videoId, fallback) {
+    return Model.dislikedState(videoId, likes, disliked, fallback)
+  }
+
+  // A playlist of the library's that is yours.
+  function ownsPlaylist(playlistId) {
+    var id = String(playlistId || "")
+    for (var i = 0; id !== "" && i < playlists.length; i++) if (playlists[i].playlistId === id) return playlists[i].owned === true
+    return false
+  }
+
+  // The edits: each returns what the keys held before (for restore).
+  function setSaved(keys, value) {
+    var edit = Model.optimistic(saved, keys, value)
+    saved = edit.map
+    return edit.previous
+  }
+
+  function setSubscribed(channelId, value) {
+    var edit = Model.optimistic(subscribed, channelId, value)
+    subscribed = edit.map
+    return edit.previous
+  }
+
+  function setInLibrary(videoId, value) {
+    var edit = Model.optimistic(inLibrary, videoId, value)
+    inLibrary = edit.map
+    return edit.previous
+  }
+
+  // true while disliked here; false or null forgets it.
+  function setDisliked(videoId, value) {
+    var edit = Model.optimistic(disliked, videoId, value === true ? true : null)
+    disliked = edit.map
+    return edit.previous
+  }
+
+  // map: "saved" | "subscribed" | "inLibrary" | "disliked".
+  function restore(map, previous) {
+    if (map === "saved") saved = Model.restoreStates(saved, previous)
+    else if (map === "subscribed") subscribed = Model.restoreStates(subscribed, previous)
+    else if (map === "inLibrary") inLibrary = Model.restoreStates(inLibrary, previous)
+    else if (map === "disliked") disliked = Model.restoreStates(disliked, previous)
+  }
+
+  // A chip's list is out of date (an edit changed it): the next show reads
+  // it again, while what it holds stays shown.
+  function staleLibraryList(chip) {
+    if (libraryLists[chip]) _patchList(chip, { at: 0 })
+  }
+
+  function _resetActions() {
+    saved = ({})
+    subscribed = ({})
+    inLibrary = ({})
+    disliked = ({})
+  }
+
+  // ---- now (S11) ----------------------------------------------------------------------
+  // The song playing's nowContext (Service reads one per track while a panel
+  // is open; S12 reuses it for autoplay) and lyrics, both keyed by videoId:
+  // a memo of 20 for 10 min, and an LRU of 20 lyrics (by when the Lyrics
+  // pane last showed them) for 30 min. The sweep spares the song playing
+  // (`nowKeep`, set by the service), so that song alone keeps no timer going.
+  readonly property int nowContextTtlMs: Model.NOW_MEMO_TTL_MS
+  readonly property int maxNowContexts: Model.NOW_MEMO_MAX
+  readonly property int lyricsTtlMs: 30 * 60 * 1000
+  readonly property int maxLyrics: 20
+  property string nowKeep: ""
+  property var _nowContexts: ({})
+  property var _lyrics: ({})
+  // videoId -> true while its lyrics load; videoId -> message when they failed.
+  property var lyricsPending: ({})
+  property var lyricsFailed: ({})
+  readonly property int nowContextCount: Object.keys(_nowContexts).length
+  readonly property int lyricsCount: Object.keys(_lyrics).length
+  // Something the sweep may drop: an entry of a song other than nowKeep.
+  readonly property bool nowSweepWanted: _holdsOther(_nowContexts, nowKeep) || _holdsOther(_lyrics, nowKeep)
+    || _holdsOther(lyricsFailed, nowKeep)
+
+  // The memo's context for videoId: only when younger than its TTL with
+  // `fresh` (reuse it instead of asking again), else whatever its age.
+  function nowContextOf(videoId, fresh) {
+    return Model.nowMemoGet(_nowContexts, videoId, Date.now(), fresh ? nowContextTtlMs : 0)
+  }
+
+  function rememberNowContext(videoId, context) {
+    _nowContexts = Model.nowMemoPut(_nowContexts, videoId, context, Date.now(), maxNowContexts)
+  }
+
+  // { text, source, lines } of videoId's lyrics, or null until loaded.
+  function lyricsOf(videoId) {
+    return Model.nowMemoGet(_lyrics, videoId, Date.now(), 0)
+  }
+
+  function lyricsError(videoId) {
+    return lyricsFailed[videoId] || ""
+  }
+
+  // browseId is the song's lyricsId: time-synced lyrics when there are any
+  // (the worker falls back to plain ones). Answers land in lyricsOf();
+  // lyrics already held count as used now (the LRU's order).
+  function loadLyrics(videoId, browseId) {
+    if (!worker || !videoId || !browseId || lyricsPending[videoId]) return
+    if (lyricsOf(videoId)) {
+      _lyrics = Model.nowMemoTouch(_lyrics, videoId, Date.now())
+      return
+    }
+    lyricsPending = _with(lyricsPending, videoId, true)
+    lyricsFailed = _with(lyricsFailed, videoId, undefined)
+    worker.request("lyrics", { browseId: browseId, timed: true, cache: "prefer" }, function(reply) {
+      root.lyricsPending = root._with(root.lyricsPending, videoId, undefined)
+      if (reply.ok) root._lyrics = Model.nowMemoPut(root._lyrics, videoId, reply.result, Date.now(), root.maxLyrics)
+      // Only the song shown needs its failure (asking again clears it): keep
+      // nowKeep's and this one, the sweep drops all but nowKeep's.
+      else root.lyricsFailed = root._with(root._onlyKey(root.lyricsFailed, root.nowKeep), videoId, reply.error.message)
+    }, 30000)
+  }
+
+  // A copy of map with key set (undefined: removed).
+  function _with(map, key, value) {
+    var next = ({})
+    for (var k in map) if (k !== key) next[k] = map[k]
+    if (value !== undefined) next[key] = value
+    return next
+  }
+
+  // map with key only (an empty map when it lacks key).
+  function _onlyKey(map, key) {
+    var next = ({})
+    if (key && map[key] !== undefined) next[key] = map[key]
+    return next
+  }
+
+  function _holdsOther(map, key) {
+    for (var k in map) if (k !== key) return true
+    return false
+  }
+
+  function _sweepNow(now) {
+    var contexts = Model.nowMemoSweep(_nowContexts, now, nowContextTtlMs, nowKeep)
+    if (contexts !== _nowContexts) _nowContexts = contexts
+    var lyrics = Model.nowMemoSweep(_lyrics, now, lyricsTtlMs, nowKeep)
+    if (lyrics !== _lyrics) _lyrics = lyrics
+    if (_holdsOther(lyricsFailed, nowKeep)) lyricsFailed = _onlyKey(lyricsFailed, nowKeep)
+  }
+
   // ---- cover thumbnails on disk (url -> local path) ------------------------------
   readonly property int maxThumbs: 2000
   property var thumbs: ({})
@@ -1120,6 +1307,11 @@ Item {
     _listSeq++
     _resetHome()  // home (S5)
     likes = ({})
+    _resetActions()  // S4
+    _nowContexts = ({})
+    // A failure may have come from the old session. Pending loads clear
+    // themselves (every request is answered, at the latest by its timeout).
+    lyricsFailed = ({})
   }
 
   // ---- tab requests (IPC "search" opens the panel on the search tab) -----------
