@@ -469,14 +469,16 @@ function joinParts(parts) {
 
 function itemSubtitle(item) {
   if (!item) return ""
-  if (item.type === "track") return joinParts([item.artistText, item.kind === "video" ? "Video" : ""])
+  // S6: a chart row (Top songs, Trending, Top artists) leads with its rank and trend.
+  var rank = rankText(item)
+  if (item.type === "track") return joinParts([rank, item.artistText, item.kind === "video" ? "Video" : ""])
   if (item.type === "album") return joinParts([item.albumType, item.artistText, item.year])
   if (item.type === "playlist")
     return joinParts([item.author, item.count ? item.count + " songs" : ""]) || (item.description ? String(item.description) : "")
-  if (item.type === "artist") return item.subtitle ? item.subtitle : "Artist"
+  if (item.type === "artist") return joinParts([rank, item.subtitle ? item.subtitle : "Artist"])
   if (item.type === "liked") return "Songs you liked"
   if (item.type === "history") return "Recently played"
-  return item.subtitle ? String(item.subtitle) : ""
+  return joinParts([rank, item.subtitle ? String(item.subtitle) : ""])
 }
 
 // Home's rows (homeRows, shelfTracks): the home (S5) section.
@@ -856,7 +858,9 @@ function canonicalJson(value) {
 //   round         round cover (artists, profiles); a page's own `round` also counts
 //   adapt(r, ref) optional: turns the reply into what CollectionView shows
 //   claims(item)  optional: takes over items of another type (checked first)
-//   ttlMs         optional: how long the Store's copy counts as fresh (5 min)
+//   ttlMs         optional: how long the Store's copy counts as fresh (5 min);
+//                 one longer than Store.unseenMs (10 min) also keeps an
+//                 unseen copy that long (S6 moods)
 //   view          optional: a name that keeps this kind's pages apart from
 //                 another kind's on the same method and params (S1's about
 //                 page reads the artist method)
@@ -1626,7 +1630,7 @@ function actionRows(actions, armed) {
 // the catcher handles itself, listed for help only. A key is bound once.
 
 var KEYS = [
-  { id: "tab", group: "Move", keys: ["1", "2", "3", "4"], label: ["1-4"], title: "switch tab: Now, Search, Library, Home" },
+  { id: "tab", group: "Move", keys: ["1", "2", "3", "4", "5"], label: ["1-5"], title: "switch tab: Now, Search, Library, Home, Explore" },
   { id: "search", group: "Move", keys: ["/"], title: "search" },
   { id: "move", group: "Move", caught: ["j", "k", "↑", "↓"], title: "move" },
   { id: "top", group: "Move", keys: ["g"], title: "first row" },
@@ -1648,7 +1652,7 @@ var KEYS = [
   { id: "remove", group: "Song", caught: ["x"], title: "remove (queue, own playlist, Liked Music, recent search)" },
   { id: "menu", group: "Menus", keys: ["m", "."], title: "the row's menu (or right-click)" },
   { id: "pageMenu", group: "Menus", keys: ["M"], title: "the page's menu (Library: account)" },
-  { id: "order", group: "Menus", keys: ["O"], title: "next sort order on a page that has one" },
+  { id: "order", group: "Menus", keys: ["O"], title: "next sort order on a page that has one (Charts: the country)" },
   { id: "find", group: "Menus", keys: ["f"], title: "find in a page's songs (album, playlist, Liked Music, History)" },
   { id: "help", group: "Menus", keys: ["?"], title: "these keys" }
 ]
@@ -3580,9 +3584,10 @@ if (typeof module !== "undefined") {
 // read a page of shelves at a time (Store.loadHomeMore when the cursor nears
 // the end, or the Load more row). A shelf ends in a selectable See all row
 // when it has one, routed like any See all (routeEndpoint: VL to a
-// playlist, MPAD to an artist's releases, UC to an artist; anything else,
-// such as Listen again, Mixed for you, New releases, a mood category, the
-// library landing or a channel with params like Recaps, to a browse page),
+// playlist, MPAD to an artist's releases, UC to an artist, a mood category
+// to its mood page (S6); anything else, such as Listen again, Mixed for
+// you, New releases, the library landing or a channel with params like
+// Recaps, to a browse page),
 // and in a Play all row when it has a Play all (Service.playShelf: the list
 // YouTube generates for it). The mood chips above it, All first, switch
 // with h / l; each chip is its served params ("" for All).
@@ -3723,6 +3728,254 @@ if (typeof module !== "undefined") {
     shelfQueueParams: shelfQueueParams,
     appendShelves: appendShelves,
     shelfContext: shelfContext
+  })
+}
+
+// ==== explore (S6) =========================================================================
+// The Explore tab (key 5): the worker's `explore` page as rows. Its entry
+// rows open New releases (a browse page), Charts and Moods & genres; then
+// New albums & singles, Top songs (Premium), Moods & genres (eight
+// categories, and a row that shows the rest: some are on no other page, not
+// even its See all), Trending, New music videos and Popular episodes when
+// served, each ending in See all (Top songs and Trending open their
+// playlist, VL stripped, on the playlist page). A chart row (Top songs,
+// Trending, Top artists) leads its subtitle with its rank and trend
+// (itemSubtitle); a song keeps them only there, not in the queue
+// (withoutRank, Service.remember). Charts is a page of kind `charts`
+// in one country: O, its Country row or its M menu choose another from the
+// countries the page serves, kept in prefs.chartsCountry; a Charts item
+// without a country gets that one when it opens (Panel.push). Moods &
+// genres (`moods`, kept a day, seen or not) lists every category, and a category
+// (`mood`, a `mood` item: { type, id, title, params }) its playlists in
+// titled shelves, each with a See all of a narrower category.
+
+var EXPLORE_TTL_MS = 30 * 60 * 1000
+var MOODS_TTL_MS = 24 * 60 * 60 * 1000
+var GLOBAL_COUNTRY = "ZZ"
+var CHARTS_COUNTRY_ID = "charts:country"
+// Moods & genres on Explore: this many categories, then a row that shows all.
+var MOOD_PREVIEW = 8
+var EXPLORE_MOODS_ID = "explore:moods"
+var MOOD_ICON = "󰠱"
+var EXPLORE_ENTRY_ICONS = { FEmusic_new_releases: "󰎕", FEmusic_charts: "󰔵", FEmusic_moods_and_genres: MOOD_ICON }
+var COUNTRY_ICON = "󰇧"
+var TREND_ICONS = { up: "󰍠", down: "󰍝", neutral: "󰧟" }
+
+PAGE_KINDS.charts = {
+  method: "charts", title: "Charts", round: false,
+  params: function(t) { return { country: chartsCountry(t.country) } },
+  id: function(t) { return chartsCountry(t.country) },
+  adapt: function(result) { return chartsPage(result) }
+}
+PAGE_KINDS.moods = {
+  method: "moods", title: "Moods & genres", round: false, ttlMs: MOODS_TTL_MS,
+  params: function() { return {} },
+  id: function() { return "moods" }
+}
+// Only params: a category's title is not part of what the page is.
+PAGE_KINDS.mood = {
+  method: "mood", title: "", round: false,
+  params: function(t) { return t.params ? { params: t.params } : null },
+  id: function(t) { return t.params }
+}
+
+ROUTES.push({ browseId: "FEmusic_charts", target: function(ep) { return { type: "charts", title: ep.title || "" } } })
+ROUTES.push({ browseId: "FEmusic_moods_and_genres", target: function(ep) { return { type: "moods", title: ep.title || "" } } })
+ROUTES.push({ browseId: "FEmusic_moods_and_genres_category",
+  target: function(ep) { return ep.params ? { type: "mood", id: ep.params, params: ep.params, title: ep.title || "" } : null } })
+
+// ---- charts ---------------------------------------------------------------------------
+
+// A chart country as prefs keep it: ZZ (Global) or two capitals.
+function chartsCountry(value) {
+  return normalizePref("chartsCountry", typeof value === "string" ? value.toUpperCase() : value)
+}
+
+function chartsItem(country, title) {
+  return { type: "charts", country: chartsCountry(country), title: title || "Charts" }
+}
+
+// A Charts item opened without a country (Explore's entry row, a See all
+// that leads to Charts) opens in the one chosen last.
+function withChartsCountry(item, country) {
+  if (!item || item.type !== "charts" || item.country) return item
+  var out = {}
+  for (var k in item) out[k] = item[k]
+  out.country = chartsCountry(country)
+  if (!out.title) out.title = "Charts"
+  return out
+}
+
+// { code, label } the page was served in (Global while unknown).
+function chartsCountryOf(page) {
+  var c = page && page.country
+  return c && c.code ? { code: String(c.code), label: String(c.label || c.code) } : { code: GLOBAL_COUNTRY, label: "Global" }
+}
+
+function chartsCountryTitle(page) {
+  return "Country: " + chartsCountryOf(page).label
+}
+
+// The Charts page as shown: its Country row first (Enter opens the chooser).
+function chartsPage(result) {
+  if (!result || result.type !== "page") return result
+  var out = {}
+  for (var k in result) out[k] = result[k]
+  var row = { type: "action", id: CHARTS_COUNTRY_ID, title: chartsCountryTitle(result), icon: COUNTRY_ICON, hint: keyHint("order") }
+  out.sections = [{ type: "section", title: null, items: [row], more: null, play: null, layout: null, key: "country" }]
+    .concat(result.sections || [])
+  return out
+}
+
+// ItemMenu chooser rows of the countries the page serves, in their order
+// (the suggested ones first); the one shown is ticked.
+function countryChoices(page) {
+  var shown = chartsCountryOf(page).code
+  var list = page && Array.isArray(page.countries) ? page.countries : []
+  return list.filter(function(c) { return c && /^[A-Z]{2}$/.test(String(c.code)) }).map(function(c) {
+    var code = String(c.code)
+    return { id: "country:" + code, title: String(c.label || code), icon: code === shown ? "󰄬" : COUNTRY_ICON, value: code }
+  })
+}
+
+// "#1 󰍠": a chart row's rank and trend ("" for any other row).
+function rankText(item) {
+  if (!item || item.rank === undefined || item.rank === null || String(item.rank) === "") return ""
+  var icon = TREND_ICONS[item.trend] || ""
+  return "#" + String(item.rank) + (icon ? " " + icon : "")
+}
+
+// A song as the queue keeps it (Service.remember): a chart position means
+// nothing there, so its rank and trend stay on the chart's rows. The same
+// object when it has neither.
+function withoutRank(track) {
+  if (!track || typeof track !== "object" || (track.rank === undefined && track.trend === undefined)) return track
+  var out = {}
+  for (var key in track) if (key !== "rank" && key !== "trend") out[key] = track[key]
+  return out
+}
+
+// ---- the Explore page -------------------------------------------------------------------
+
+// An entry row (the page's navigation buttons): an action row that opens
+// what its endpoint routes to.
+function exploreEntry(more) {
+  var ep = more && more.endpoint ? more.endpoint : {}
+  var title = String((more && more.title) || "")
+  return { type: "action", id: "explore:" + String(ep.browseId || title), title: title,
+           icon: EXPLORE_ENTRY_ICONS[ep.browseId] || "󰅂",
+           target: routeEndpoint({ browseId: ep.browseId, params: ep.params, pageType: ep.pageType, title: title }) }
+}
+
+function _isMood(item) {
+  return !!item && item.type === "mood"
+}
+
+// The row that shows every mood category, or only the first MOOD_PREVIEW.
+function moodsToggle(total, open) {
+  return { type: "action", id: EXPLORE_MOODS_ID, title: open ? "Fewer moods and genres" : "All " + total + " moods and genres",
+           icon: open ? "󰅃" : "󰅀" }
+}
+
+// pageRows, with the entry rows as action rows and the Moods & genres
+// section cut to MOOD_PREVIEW categories unless opts.moodsOpen; the toggle
+// row follows its last category shown.
+function exploreRows(page, opts) {
+  var sections = page && page.sections ? page.sections : []
+  var open = !!(opts && opts.moodsOpen)
+  var rows = pageRows(page)
+  var moods = {}
+  var out = []
+  for (var i = 0; i < rows.length; i++) {
+    var row = rows[i]
+    var section = !row.header && row.sectionIndex !== undefined ? sections[row.sectionIndex] : null
+    var key = section ? section.key : null
+    if (key === "entries" && row.item.type === "more") {
+      out.push({ item: exploreEntry(row.item), sectionIndex: row.sectionIndex })
+      continue
+    }
+    if (key === "moods" && _isMood(row.item)) {
+      var state = moods[row.sectionIndex]
+      if (!state) state = moods[row.sectionIndex] = { total: _validItems(section.items).filter(_isMood).length, seen: 0 }
+      state.seen++
+      if (open || state.seen <= MOOD_PREVIEW) out.push(row)
+      var last = state.seen === (open ? state.total : Math.min(MOOD_PREVIEW, state.total))
+      if (last && state.total > MOOD_PREVIEW) out.push({ item: moodsToggle(state.total, open), sectionIndex: row.sectionIndex })
+      continue
+    }
+    out.push(row)
+  }
+  return out
+}
+
+// Where the cursor goes once the moods toggle changed the rows: opened, onto
+// the first category it showed (it takes the toggle's old place); closed,
+// onto the toggle again. -1 without a toggle.
+function exploreMoodsCursor(rows, open) {
+  var list = rows || []
+  var toggle = -1
+  for (var i = 0; i < list.length && toggle < 0; i++)
+    if (!list[i].header && list[i].item && list[i].item.id === EXPLORE_MOODS_ID) toggle = i
+  if (!open || toggle < 0) return toggle
+  var seen = 0
+  for (var j = 0; j < toggle; j++) {
+    var row = list[j]
+    if (!row.header && row.sectionIndex === list[toggle].sectionIndex && _isMood(row.item) && ++seen > MOOD_PREVIEW) return j
+  }
+  return toggle
+}
+
+// What a section's songs play as ("Playing from" Top songs, with the chart
+// playlist as autoplay's context when the section has one).
+function exploreContext(page, index) {
+  var section = page && page.sections ? page.sections[index] : null
+  var id = section && section.more && section.more.browseId ? String(section.more.browseId) : ""
+  return { playlistId: id.indexOf("VL") === 0 ? id.slice(2) : null, title: section && section.title ? String(section.title) : "Explore",
+           radio: false }
+}
+
+// The status line above Explore's rows.
+function exploreStatus(explore) {
+  var e = explore || {}
+  if (e.loading && !e.page) return "Loading Explore…"
+  if (e.error) return String(e.error)
+  return "New releases, charts, moods and genres"
+}
+
+// Charts (M): the Country row's twin. Explore (M): Refresh.
+MENU_ACTIONS.push({ id: "chartsCountry", title: function(item, ctx) { return "Country: " + (ctx.countryLabel || "Global") },
+  icon: COUNTRY_ICON, key: "order",
+  applies: function(item, ctx) { return ctx.page === true && ctx.pageKind === "charts" },
+  run: function(env) { if (env.owner && typeof env.owner.chooseCountry === "function") env.owner.chooseCountry() } })
+MENU_ACTIONS.push({ id: "exploreRefresh", title: "Refresh", icon: "󰑐",
+  applies: function(item, ctx) { return ctx.page === true && ctx.pageKind === "explore" },
+  run: function(env) { env.owner.refresh(true) } })
+
+if (typeof module !== "undefined") {
+  Object.assign(module.exports, {
+    EXPLORE_TTL_MS: EXPLORE_TTL_MS,
+    MOODS_TTL_MS: MOODS_TTL_MS,
+    GLOBAL_COUNTRY: GLOBAL_COUNTRY,
+    CHARTS_COUNTRY_ID: CHARTS_COUNTRY_ID,
+    MOOD_PREVIEW: MOOD_PREVIEW,
+    EXPLORE_MOODS_ID: EXPLORE_MOODS_ID,
+    MOOD_ICON: MOOD_ICON,
+    TREND_ICONS: TREND_ICONS,
+    chartsCountry: chartsCountry,
+    chartsItem: chartsItem,
+    withChartsCountry: withChartsCountry,
+    chartsCountryOf: chartsCountryOf,
+    chartsCountryTitle: chartsCountryTitle,
+    chartsPage: chartsPage,
+    countryChoices: countryChoices,
+    rankText: rankText,
+    withoutRank: withoutRank,
+    exploreEntry: exploreEntry,
+    moodsToggle: moodsToggle,
+    exploreRows: exploreRows,
+    exploreMoodsCursor: exploreMoodsCursor,
+    exploreContext: exploreContext,
+    exploreStatus: exploreStatus
   })
 }
 

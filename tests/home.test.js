@@ -79,9 +79,12 @@ test("See all routes by endpoint", () => {
   assert.deepEqual(target({ browseId: "MPADUCx", params: "disc" }), { type: "artistAlbums", browseId: "MPADUCx", params: "disc", title: "Shelf" })
   assert.deepEqual(target({ browseId: "UCsimilar", params: null, pageType: "MUSIC_PAGE_TYPE_ARTIST" }, "Similar"),
     { type: "artist", channelId: "UCsimilar", name: "Similar" })
+  // A mood category opens its mood page (S6).
+  assert.deepEqual(target({ browseId: "FEmusic_moods_and_genres_category", params: "p" }, "Chill"),
+    { type: "mood", id: "p", params: "p", title: "Chill" })
   // Everything else is a browse page, which decides by renderer.
   for (const browseId of ["FEmusic_listen_again", "FEmusic_mixed_for_you", "FEmusic_new_releases_albums",
-                          "FEmusic_moods_and_genres_category", "FEmusic_library_landing"]) {
+                          "FEmusic_library_landing"]) {
     assert.deepEqual(target({ browseId, params: "p" }), { type: "browse", browseId, params: "p", title: "Shelf" }, browseId)
   }
   // Recaps: a channel with params is a browse page, not the channel's own page.
