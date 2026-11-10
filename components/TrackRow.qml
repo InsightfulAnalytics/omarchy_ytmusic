@@ -20,6 +20,8 @@ Item {
   property string removeTooltip: "Remove"
   // S3: the track's number on its album, shown in place of the cover (0: the cover).
   property int number: 0
+  // S13: show the net votes a playlist's song carries (pages; the queue does not).
+  property bool showVotes: false
   property QtObject bar: null
   property var store: null
 
@@ -112,7 +114,20 @@ Item {
       Row {
         width: parent.width
         spacing: Style.space(4)
-        visible: subtitle.text !== "" || explicitBadge.visible
+        visible: subtitle.text !== "" || explicitBadge.visible || votes.visible
+
+        // S13: the song's net votes on a playlist with voting on ("+3").
+        Text {
+          id: votes
+          anchors.verticalCenter: parent.verticalCenter
+          visible: text !== ""
+          textFormat: Text.PlainText
+          text: root.showVotes ? Model.voteLabel(root.track) : ""
+          color: Color.accent
+          font.family: root.fontFamily
+          font.pixelSize: Style.font.caption
+          font.bold: true
+        }
 
         ExplicitBadge {
           id: explicitBadge
@@ -125,6 +140,7 @@ Item {
         Text {
           id: subtitle
           width: parent.width - (explicitBadge.visible ? explicitBadge.width + parent.spacing : 0)
+            - (votes.visible ? votes.width + parent.spacing : 0)
           textFormat: Text.PlainText
           text: Model.itemSubtitle(root.track)
           color: Qt.darker(root.foreground, 1.4)

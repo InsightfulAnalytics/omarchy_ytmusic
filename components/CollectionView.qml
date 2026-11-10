@@ -16,6 +16,13 @@ import "../YtmModel.js" as Model
 // (an About row shows the rest); a list with more songs than shown ends in
 // Load all, which reloads it whole (limit "all") with the cursor kept; f
 // opens a filter over the songs; the page's shelves follow the songs.
+//
+// Playlist edits (S13), on your own playlist: Edit (e) opens Panel's
+// editor on editTarget(); J / K (moveTrack) move the song under the cursor
+// one place (optimistic, put back when YouTube refuses; a playlist sorted
+// by date or votes asks for Manual order first); Suggestions follow the
+// songs (i adds the one under the cursor, Enter plays it, a Refresh row
+// asks again). Rows show net votes when voting is on.
 Item {
   id: root
 
@@ -48,6 +55,25 @@ Item {
   property bool aboutOpen: false
   // f: the filter field is shown (its text filters the songs).
   property bool findOpen: false
+  // ---- playlist edits (S13)
+  // Your playlist's suggestions (playlistSuggestions), for _suggestFor.
+  property var suggestions: []
+  property bool suggestionsLoading: false
+  property bool suggestionsLoaded: false
+  property string suggestionsError: ""
+  property string _suggestFor: ""
+  property int _suggestSeq: 0
+  // The entry the settings, adds and moves on their way were sent for.
+  property int _editSeq: 0
+  // Its owner settings (playlistSettings, or the suggestions' copy); known
+  // once asked, even when YouTube reported nothing.
+  property var settings: null
+  property bool settingsKnown: false
+  property bool settingsLoading: false
+  // J / K: the move waiting for the settings, and the moves on their way.
+  property var _pendingMove: null
+  property int _movesPending: 0
+  property bool _moveFailed: false
 
   readonly property var store: service ? service.store : null
   readonly property color foreground: bar ? bar.foreground : Color.foreground
@@ -62,8 +88,11 @@ Item {
   readonly property bool editable: !!page && page.editable === true
   readonly property bool round: Model.pageRound(ref, page)
   readonly property var tracks: !page ? [] : isPage ? Model.pageTracks(page) : (page.tracks || [])
+  // One binding (S13's Suggestions included), so Back's place is looked up
+  // in the whole list, never in a half-updated one.
   readonly property var rows: !page ? [] : isPage ? Model.pageRows(page)
-    : Model.collectionRows(page, { history: isHistory, find: findText, about: descriptionText.truncated, aboutOpen: aboutOpen })
+    : _withSuggestions(Model.collectionRows(page, { history: isHistory, find: findText, about: descriptionText.truncated,
+                                                    aboutOpen: aboutOpen }))
   // The page shows part of its list (Liked Music past 200 songs, a page with
   // more to load, an artist's top songs): Play, Shuffle and Queue all then
   // read the whole list (Service.playItem), at most 500 queued.
@@ -118,6 +147,8 @@ Item {
   signal leftField()
   // A row's menu, or the page's (M): Panel opens it.
   signal itemMenuRequested(var request)
+  // S13: the header's Edit (Panel opens its editor on editTarget()).
+  signal editRequested()
 
   ConfirmGate {
     id: gate
@@ -141,6 +172,7 @@ Item {
     moreError = ""
     _moreWanted = false
     gate.reset()
+    _resetEdits(view ? view.edits : null)  // S13
     _pendingView = view ? (view.list || null) : null
     if (entry) load(false)
   }
@@ -168,6 +200,7 @@ Item {
         root.moreError = ""
         root.page = reply.result
         if (wanted) root.loadMore(true)
+        root._pageLoaded()  // S13
       } else if (root.full && Model.canLoadAll(root.page)) {
         // Load all failed over the first read: that stays, and its Load
         // all row says why (Enter tries again).
@@ -204,7 +237,7 @@ Item {
 
   // For Back: the sort order, Load all, the About row and the list's place.
   function viewState() {
-    return { order: order, full: full, aboutOpen: aboutOpen, list: resultList.viewState() }
+    return { order: order, full: full, aboutOpen: aboutOpen, list: resultList.viewState(), edits: _editsState() }
   }
 
   function restore(view) {
@@ -264,7 +297,7 @@ Item {
   // shows every page of the panel's stack in turn.
   function remove(index) {
     var row = resultList.rowAt(index)
-    if (!row || row.item.type !== "track" || !service) return
+    if (!row || row.item.type !== "track" || row.suggestion === true || !service) return
     var track = row.item
     var requested = ref
     if (isLiked) {
@@ -311,6 +344,8 @@ Item {
     if (item.target) root.openRequested(item.target)
     // Collections (S3): the About row shows or hides the description.
     else if (item.id === Model.COLLECTION_ABOUT_ID) toggleAbout()
+    // S13: Refresh suggestions.
+    else if (item.id === Model.SUGGESTIONS_REFRESH_ID) loadSuggestions()
     // About (S1): a description link row copies its URL.
     else if (item.url && service) service.copyLink({ type: "link", url: item.url })
   }
@@ -324,6 +359,7 @@ Item {
     else if (item.type === "loadMore") loadMore(true)
     else if (item.type === "action") runAction(item)
     else if (item.type === "message" || item.type === "text") return
+    else if (row.suggestion === true) service.playItem(item, "now")  // S13: a suggestion plays alone
     else if (row.trackIndex !== undefined)  // S12: the page is what plays ("Playing from", autoplay)
       service.playCollection(isPage ? Model.sectionTracks(page, row.sectionIndex) : tracks, row.trackIndex, false,
                              { playlistId: page ? page.playlistId || null : null, title: title, radio: false })
@@ -346,9 +382,10 @@ Item {
   function menu(index) {
     var row = resultList.rowAt(index)
     if (!row || Model.menuKind(row.item) === "") return
-    var removable = row.item.type === "track" && (editable || isLiked)
+    var suggestion = row.suggestion === true  // S13: offers Add to this playlist, not Remove
+    var removable = row.item.type === "track" && (editable || isLiked) && !suggestion
     root.itemMenuRequested({ item: row.item, owner: root, index: index,
-      ctx: { pageKind: ref ? ref.kind : "", owned: editable, removable: removable,
+      ctx: { pageKind: ref ? ref.kind : "", owned: editable, removable: removable, suggestion: suggestion,
              removeTitle: isLiked ? "Remove from Liked Music" : "Remove from playlist" } })
   }
 
@@ -462,6 +499,230 @@ Item {
     if (!item) return false
     root.openRequested(item)
     return true
+  }
+
+  // ---- playlist edits (S13) -----------------------------------------------------------
+
+  // A new entry starts without suggestions or settings; one coming back
+  // (Back) has them from its saved view, so nothing is asked again.
+  function _resetEdits(saved) {
+    _suggestSeq++
+    _editSeq++
+    var s = saved || {}
+    suggestions = s.items || []
+    suggestionsLoaded = s.loaded === true
+    suggestionsLoading = false
+    suggestionsError = ""
+    _suggestFor = s.forId || ""
+    settings = s.settings || null
+    settingsKnown = s.known === true
+    settingsLoading = false
+    _pendingMove = null
+    _movesPending = 0
+    _moveFailed = false
+  }
+
+  // Your playlist's rows with the Suggestions section after the songs (not
+  // while finding). Read from the page itself, not editable / isCollection:
+  // rows may be evaluated before those follow a new page.
+  function _withSuggestions(list) {
+    if (!(page && page.editable === true && Model.isCollection(page) && signedIn && findText.trim() === "")) return list
+    return Model.withSuggestionRows(list, { items: suggestions, loading: suggestionsLoading, error: suggestionsError,
+                                            loaded: suggestionsLoaded })
+  }
+
+  // Back asks again for suggestions that had not come (or had failed) when
+  // the page was left: only a finished load counts as had.
+  function _editsState() {
+    var had = suggestionsLoaded && !suggestionsLoading && suggestionsError === ""
+    return { forId: had ? _suggestFor : "", items: suggestions, loaded: had, settings: settings, known: settingsKnown }
+  }
+
+  function _playlistId() {
+    return page ? String(page.playlistId || page.id || "") : ""
+  }
+
+  // Once your playlist's page is shown: its suggestions (once per entry).
+  function _pageLoaded() {
+    if (editable && signedIn && _suggestFor !== _playlistId()) loadSuggestions()
+  }
+
+  // The suggestions YouTube has for your playlist now (Refresh asks again;
+  // they bring the owner settings along).
+  function loadSuggestions() {
+    if (!service || !editable || suggestionsLoading) return false
+    var id = _playlistId()
+    var seq = ++_suggestSeq
+    _suggestFor = id
+    suggestionsLoading = true
+    suggestionsError = ""
+    var sent = service.playlistSuggestions(id, function(reply) {
+      if (!root || root._suggestSeq !== seq) return
+      root.suggestionsLoading = false
+      root.suggestionsLoaded = true
+      if (!reply.ok) {
+        root.suggestionsError = reply.error.message
+        return
+      }
+      root.suggestions = reply.result.items || []
+      if (reply.result.settings) root._takeSettings(reply.result.settings)
+    })
+    if (!sent) suggestionsLoading = false
+    return sent
+  }
+
+  function _takeSettings(value) {
+    settings = value
+    settingsKnown = true
+  }
+
+  function loadSettings() {
+    if (!service || !editable || settingsLoading) return
+    var id = _playlistId()
+    var seq = _editSeq
+    settingsLoading = true
+    var sent = service.playlistSettings(id, function(reply) {
+      if (!root || root._editSeq !== seq) return
+      root.settingsLoading = false
+      // Unknown settings never block a move: YouTube is asked then.
+      if (reply.ok) root._takeSettings(reply.result)
+      else root.settingsKnown = true
+      var pending = root._pendingMove
+      root._pendingMove = null
+      if (pending) root._moveBySetId(pending.setVideoId, pending.delta)
+    })
+    if (!sent) settingsLoading = false
+  }
+
+  // i (Panel's addSuggestion hook) or the row menu's Add to this playlist:
+  // the suggestion leaves the list at once and the page is read again to
+  // show it among the songs; a failure puts it back.
+  function addSuggestion(index) {
+    if (!service) return false
+    var row = resultList.rowAt(index === undefined ? resultList.cursorIndex : index)
+    if (!row || row.suggestion !== true) {
+      service.failAction("Nothing to add", "Put the cursor on one of the suggestions under the songs")
+      return false
+    }
+    var track = row.item
+    var before = suggestions
+    var seq = _editSeq
+    var requested = ref
+    suggestions = Model.withoutSuggestion(suggestions, track)
+    var sent = service.addToPlaylist({ playlistId: _playlistId(), title: title }, [track], function(reply) {
+      if (!root || root._editSeq !== seq) return false
+      if (reply.ok || root.service.unsure(reply)) {
+        if (root.shows(requested)) root.load(true)
+      } else if (reply.error.code !== "DUPLICATE") {
+        root.suggestions = before
+      }
+      return false  // Service notifies (Already in, or why it failed)
+    })
+    if (!sent) suggestions = before
+    return sent
+  }
+
+  // J / K (Panel's moveTrack hook) on the cursor's song, and the row's move
+  // buttons. False when the row is no song of your playlist.
+  function moveTrack(delta) {
+    return moveTrackAt(resultList.cursorIndex, delta)
+  }
+
+  function moveTrackAt(index, delta) {
+    var row = resultList.rowAt(index)
+    if (!service || !editable || !row || row.trackIndex === undefined || row.suggestion === true) return false
+    if (findText.trim() !== "") {
+      service.failAction("Can't move songs while finding", "Clear the filter first (Esc)")
+      return true
+    }
+    if (loading || refreshing) {
+      service.failAction("Can't move the song yet", "The playlist is still loading")
+      return true
+    }
+    return _moveBySetId(row.item.setVideoId, delta)
+  }
+
+  function _moveBySetId(setVideoId, delta) {
+    if (!page || !setVideoId) return false
+    // The settings say whether YouTube keeps its own order: asked once, first.
+    if (!settingsKnown) {
+      _pendingMove = { setVideoId: setVideoId, delta: delta }
+      loadSettings()
+      return true
+    }
+    var blocked = Model.orderBlocksMoves(settings)
+    if (blocked !== "") {
+      service.failAction("Set order to Manual first", "This playlist is sorted " + blocked + "; change it with e (Advanced, Order)")
+      return true
+    }
+    var at = -1
+    var list = page.tracks || []
+    for (var i = 0; i < list.length; i++) if (list[i].setVideoId === setVideoId) at = i
+    var move = Model.moveTrack(page, at, delta)
+    if (!move.page) {
+      if (move.problem !== "") service.failAction("Can't move the song", move.problem)
+      return true
+    }
+    _sendMove(move)
+    return true
+  }
+
+  // Shown at once; sent in order. A refusal puts this move back when no
+  // later one is on its way (they were made on top of it: the page is read
+  // again once they are done); an unknown outcome reads it again. A failure
+  // is said even when the page was left meanwhile (Service has dropped the
+  // playlist's pages then).
+  function _sendMove(move) {
+    var before = page
+    var seq = _editSeq
+    var requested = ref
+    var svc = service
+    var name = title
+    _movesPending++
+    page = move.page
+    var sent = service.movePlaylistItem(move.params, function(reply) {
+      var unsure = !reply.ok && svc.unsure(reply)
+      if (unsure) svc.notify("Not sure the song moved; refreshed", name)
+      else if (!reply.ok) svc.failAction("Couldn't move the song", reply.error.message)
+      if (!root || root._editSeq !== seq) return
+      root._movesPending = Math.max(0, root._movesPending - 1)
+      if (!root.shows(requested)) return  // Load all or a new order replaced the page meanwhile
+      if (unsure) {
+        root._moveFailed = true
+      } else if (!reply.ok) {
+        if (root._movesPending === 0 && !root._moveFailed) root.page = before
+        else root._moveFailed = true
+      }
+      if (root._movesPending === 0 && root._moveFailed) {
+        root._moveFailed = false
+        root.load(true)
+      }
+    })
+    if (!sent) {
+      _movesPending--
+      page = before
+    }
+  }
+
+  // Panel's editor (e, the header's Edit, the page menu): your playlist as
+  // the editor needs it, or null on any other page. done(reply) reads the
+  // page again after a change (if it is still shown).
+  function editTarget() {
+    if (!editable || !isCollection || !page) return null
+    var requested = ref
+    var header = Model.collectionHeader(page)
+    return { playlistId: _playlistId(), title: page.title || title, description: header.description || "",
+             privacy: header.privacy || null, collaborators: header.collaborators || null, settings: settings,
+             done: function(reply) { if (root) root.afterEdit(reply, requested) },
+             onSettings: function(value) { if (root && root.shows(requested)) root._takeSettings(value) } }
+  }
+
+  function afterEdit(reply, requested) {
+    if (!service || !shows(requested)) return
+    if (!reply.ok && !service.unsure(reply)) return
+    settings = null
+    settingsKnown = false
+    load(true)
   }
 
   // ---- library actions (S4) ---------------------------------------------------------
@@ -620,7 +881,8 @@ Item {
       Flow {
         width: parent.width
         spacing: Style.space(4)
-        visible: root.tracks.length > 0 || root.isArtist || root.canSavePage
+        // S13: your playlist's Edit and Delete show on an empty one too.
+        visible: root.tracks.length > 0 || root.isArtist || root.canSavePage || root.editable
 
         Button {
           visible: root.tracks.length > 0
@@ -677,6 +939,17 @@ Item {
           foreground: root.pageSubscribed ? Color.accent : root.foreground
           fontSize: Style.font.caption
           onClicked: root.toggleSave()
+        }
+
+        // S13: the editor (e; the page menu's Edit playlist).
+        Button {
+          visible: root.editable
+          iconText: "󰏫"
+          text: "Edit"
+          tooltipText: Model.withKey("Title, description, privacy, order, voting, collaborators", "editPlaylist")
+          foreground: root.foreground
+          fontSize: Style.font.caption
+          onClicked: root.editRequested()
         }
 
         Button {
@@ -795,6 +1068,8 @@ Item {
     listKey: root.listId
     removable: root.editable || root.isLiked
     removeTooltip: root.isLiked ? "Remove from Liked Music" : "Remove from playlist"
+    // S13: your playlist's songs move (J / K's twins), not while finding.
+    movable: root.editable && root.findText.trim() === ""
     numbered: !!root.ref && root.ref.kind === "album"
     // G stops on Load all: the page's shelves come after it.
     endIndex: Model.loadAllIndex(root.rows)
@@ -807,6 +1082,7 @@ Item {
     onPlayNextRequested: function(index) { root.playNext(index) }
     onAddToQueueRequested: function(index) { root.addToQueue(index) }
     onRemoveRequested: function(index) { root.remove(index) }
+    onMoveRequested: function(index, delta) { root.moveTrackAt(index, delta) }
     onRowsUpdated: root._applyPending()
     // After a failure only an explicit Load more tries again.
     onNearEnd: if (root.page && root.page.cursor && !root.loadingMore && !root.loading && root.moreError === "")

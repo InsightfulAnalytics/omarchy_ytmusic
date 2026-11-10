@@ -11,29 +11,35 @@ import "YtmModel.js" as Model
 // Tabs: Now (playing, then the queue, lyrics or related), Search, Library and
 // Home, with a page stack on top for albums, playlists, Liked Music, History,
 // artists, credits and See all pages, the item menu (row menu, chooser, key
-// help) and the playlist picker.
+// help), the playlist picker and (S13) the playlist editor.
 // Keys (Model.KEYS; ? lists them): 1-4 switch tab: Now, Search, Library, Home
 // · / search · j / k / ↑ / ↓ move · g first row · G last row (loads more), or
 // a long list's Load all row · Enter play or open · h / l / ← / → seek 10 s
-// on Now, or the page's chips · Esc leave the field → close the picker or
-// menu → clear the filter → back → close · Space play/pause · n play next (a
-// song, album or playlist) · a add to queue · R start radio from the row, the
-// artist page or the current song · s shuffle · r repeat · L like · S save to
-// library or subscribe (the row, else the page) · D dislike the row's song
-// (again to undo) or the one playing, which skips · p add to playlist · A go
-// to artist (of the row, the album page or the current song) · o go to album
-// · J / K move a queued song down / up · x remove (queue, own playlist, Liked
-// Music, recent search) · m / . the row's menu (or right-click) · M the
-// page's menu (Library: account) · O next sort order on a page that has one ·
-// f find in a page's songs (album, playlist, Liked Music, History) · ? these
-// keys · y cycle the pane under the song: Queue, Lyrics, Related · t cycle
-// the queue tuner chip: All, Discover, Popular and the rest · [ / ] playback
-// speed down / up (0.5x to 2x, kept apart for episodes).
+// on Now, or the page's chips · Esc leave the field → close the picker,
+// editor or menu → clear the filter → back → close · Space play/pause · n
+// play next (a song, album or playlist) · a add to queue · R start radio from
+// the row, the artist page or the current song · s shuffle · r repeat · L
+// like · S save to library or subscribe (the row, else the page) · D dislike
+// the row's song (again to undo) or the one playing, which skips · p add to
+// playlist (the song, or a whole album or playlist row) · A go to artist (of
+// the row, the album page or the current song) · o go to album · J / K move a
+// queued song, or a song of your own playlist, down / up · i add the
+// suggestion under the cursor to your playlist · x remove (queue, own
+// playlist, Liked Music, recent search) · m / . the row's menu (or
+// right-click) · M the page's menu (Library: account) · O next sort order on
+// a page that has one · f find in a page's songs (album, playlist, Liked
+// Music, History) · e edit your playlist: details, order, voting,
+// collaborators · ? these keys · y cycle the pane under the song: Queue,
+// Lyrics, Related · t cycle the queue tuner chip: All, Discover, Popular and
+// the rest · [ / ] playback speed down / up (0.5x to 2x, kept apart for
+// episodes).
 // Text keys go through Model.keyId to runKey(); Ctrl and Alt chords are
 // ignored. Views offer optional hooks, checked with typeof: horizontal(dx),
 // cycleOrder(), find(), playNext(i) / addToQueue(i), menu(i), pageMenu(),
 // menuChosen(id), placeAt(i) / indexOfPlace(place), pageRadio(),
-// pageArtist(), clearFind(), and (S4) toggleSave() and editCallback().
+// pageArtist(), clearFind(), (S4) toggleSave() and editCallback(), and
+// (S13) moveTrack(delta), addSuggestion() and editTarget() (the playlist
+// editor's target; Panel opens PlaylistEditor over the page).
 Panel {
   id: root
   moduleName: "damir.ytmusic"
@@ -76,6 +82,7 @@ Panel {
   function setTab(key) {
     picker.close()
     itemMenu.close()
+    editor.close()  // S13
     tab = key
     stack = []
     if (key === "search") Qt.callLater(focusSearch)
@@ -91,6 +98,7 @@ Panel {
     if (!item) return
     picker.close()
     itemMenu.close()
+    editor.close()  // S13
     var next = stack.slice()
     var shown = collectionLoader.item
     if (next.length > 0 && shown) next[next.length - 1] = { item: next[next.length - 1].item, view: shown.viewState() }
@@ -107,6 +115,7 @@ Panel {
     if (stack.length === 0) return false
     picker.close()
     itemMenu.close()
+    editor.close()  // S13
     stack = stack.slice(0, -1)
     keyCatcher.forceActiveFocus()
     return true
@@ -115,6 +124,7 @@ Panel {
   // (Not "escape": QML rejects methods named after JS globals.)
   function handleEscape() {
     if (picker.open) picker.close()
+    else if (editor.open) editor.close()  // S13
     else if (itemMenu.open) itemMenu.close()
     else if (!clearFind() && !back()) close()
   }
@@ -122,6 +132,7 @@ Panel {
   // The view whose list the keyboard cursor currently drives.
   function activeListOwner() {
     if (picker.open) return picker
+    if (editor.open) return editor  // S13
     if (itemMenu.open) return itemMenu
     if (page) return collectionLoader.item
     if (tab === "now" && nowPane === "related") return relatedView
@@ -148,7 +159,7 @@ Panel {
   // Views and overlays with a text field, each listed once. While one
   // reports inputFocused, keys go to its field instead of the shortcuts.
   function inputOwners() {
-    return [libraryView, picker, itemMenu, collectionLoader.item]
+    return [libraryView, picker, itemMenu, collectionLoader.item, editor]
   }
 
   function anyInputFocused() {
@@ -473,6 +484,7 @@ Panel {
   function runKey(id, text) {
     if (id === "") return
     if (picker.open && ["tab", "search", "top", "bottom"].indexOf(id) < 0) return
+    if (editor.open && ["tab", "search", "top", "bottom"].indexOf(id) < 0) return  // S13
     if (itemMenu.open && ["tab", "search", "top", "bottom", "help"].indexOf(id) < 0) return
     if (id === "tab") {
       var chosen = tabs[Number(text) - 1]
@@ -485,12 +497,14 @@ Panel {
     else if (id === "like") { if (service) service.toggleLike(cursorTrack()) }
     else if (id === "save") saveCursor()
     else if (id === "dislike") dislikeCursor()
-    else if (id === "addToPlaylist") openPicker([cursorTrack()])
+    else if (id === "addToPlaylist") addToPlaylistKey()
     else if (id === "artist") { if (!pageArtist()) openArtistOf(cursorTrack()) }
     else if (id === "album") goAlbum(cursorTrack())
     else if (id === "shuffle") { if (service) service.toggleShuffle() }
     else if (id === "repeat") { if (service) service.cycleRepeat() }
-    else if (id === "queueMove") { if (root.queueShown && (text === "J" || text === "K")) queueView.moveSelected(text === "J" ? 1 : -1) }
+    else if (id === "queueMove") moveKey(text)
+    else if (id === "addSuggestion") ownerHook("addSuggestion")
+    else if (id === "editPlaylist") openEditor()
     else if (id === "nowPane") { if (root.tab === "now" && !root.page) queueView.cyclePane() }
     else if (id === "tune") { if (root.queueShown) queueView.cycleTuner() }
     else if (id === "speed") speedKey(text)
@@ -508,7 +522,7 @@ Panel {
 
   function removeCursor() {
     // x acts on the rows of a view, never on what an overlay covers.
-    if (picker.open || itemMenu.open) return
+    if (picker.open || itemMenu.open || editor.open) return
     if (page && collectionLoader.item) {
       collectionLoader.item.remove(collectionLoader.item.results.cursorIndex)
     } else if (queueShown) {
@@ -518,11 +532,56 @@ Panel {
     }
   }
 
-  function openPicker(tracks) {
+  // `label` names many songs ("The queue", S13).
+  function openPicker(tracks, label) {
     var list = (tracks || []).filter(function(t) { return t && t.videoId })
     if (list.length === 0 || !service || !service.signedIn) return
-    picker.tracks = list
+    picker.openTracks(list, label || "")
     keyCatcher.forceActiveFocus()
+  }
+
+  // ---- playlist edits (S13) -------------------------------------------------------------
+  // e (and the page menu's Edit playlist, the header's Edit): the editor
+  // over your playlist's page, on the view's optional editTarget(). Save to
+  // playlist and Copy to new playlist open the picker with a whole album or
+  // playlist; the queue header's Save (and the Now page menu) with every
+  // queued song. p on an album or playlist row saves all of it. J / K move
+  // the queue's song on Now, else the page's (the view's moveTrack hook).
+  function openEditor() {
+    if (!service) return
+    var owner = activeListOwner()
+    var target = owner && typeof owner.editTarget === "function" ? owner.editTarget() : null
+    if (!target) {
+      service.failAction("Nothing to edit", "Only your own playlists can be edited")
+      return
+    }
+    picker.close()
+    itemMenu.close()
+    editor.openFor(target)
+  }
+
+  function openSourcePicker(item, copy) {
+    if (!service || !service.signedIn || Model.sourcePlaylistOf(item) === "") return
+    itemMenu.close()
+    editor.close()
+    picker.openSource(item, copy === true)
+    if (copy !== true) keyCatcher.forceActiveFocus()
+  }
+
+  function saveQueue() {
+    if (service) openPicker(service.queue.map(function(entry) { return entry.track }), "The queue")
+  }
+
+  function addToPlaylistKey() {
+    var item = cursorItem()
+    if (item && Model.sourcePlaylistOf(item) !== "") openSourcePicker(item, false)
+    else openPicker([cursorTrack()])
+  }
+
+  function moveKey(text) {
+    if (text !== "J" && text !== "K") return
+    if (root.queueShown) queueView.moveSelected(text === "J" ? 1 : -1)
+    else ownerHook("moveTrack", text === "J" ? 1 : -1)
   }
 
   // Tab requests (IPC "search") can arrive before this panel exists, so they
@@ -541,6 +600,7 @@ Panel {
     if (!opened) {
       picker.close()
       itemMenu.close()
+      editor.close()  // S13
       return
     }
     queueView.cursorIndex = -1
@@ -569,7 +629,11 @@ Panel {
       blocked: searchView.field.activeFocus || root.anyInputFocused()
 
       onCloseRequested: root.handleEscape()
-      onTabRequested: function(direction) { root.switchPanel(direction) }
+      // S13: with the editor open, Tab goes back into its fields.
+      onTabRequested: function(direction) {
+        if (editor.open) editor.tabFocus(direction)
+        else root.switchPanel(direction)
+      }
       onMoveRequested: function(dx, dy) {
         if (dy !== 0) root.moveCursor(dy)
         else if (dx !== 0 && root.tab === "now" && !root.page) { if (root.service) root.service.seekRelative(dx * 10) }
@@ -749,6 +813,7 @@ Panel {
             bar: root.bar
             pane: root.nowPane
             onItemMenuRequested: function(request) { root.openItemMenu(request) }
+            onSaveRequested: root.saveQueue()  // S13
 
             // The other panes (S11), under the queue header's pane chip.
             LyricsView {
@@ -817,6 +882,7 @@ Panel {
             onItemMenuRequested: function(request) { root.openItemMenu(request) }
             onCloseRequested: root.back()
             onLeftField: keyCatcher.forceActiveFocus()
+            onEditRequested: root.openEditor()  // S13
           }
         }
 
@@ -829,6 +895,16 @@ Panel {
           onClosed: keyCatcher.forceActiveFocus()
           onChosen: function(action, request) { root.runMenuAction(action, request) }
           onKeyChosen: function(keyId) { root.runKey(keyId, "") }
+        }
+
+        // S13: your playlist's editor (e), over the page; under the picker.
+        PlaylistEditor {
+          id: editor
+          anchors.fill: parent
+          service: root.service
+          bar: root.bar
+          onClosed: keyCatcher.forceActiveFocus()
+          onLeftField: keyCatcher.forceActiveFocus()
         }
 
         PlaylistPicker {

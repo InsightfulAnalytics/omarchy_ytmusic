@@ -10,6 +10,10 @@ import "../YtmModel.js" as Model
 // prefs.libraryChip); O cycles the chip's sort order (prefs.libraryOrders),
 // named in its first heading. A chip's list loads only once it is shown,
 // about 50 at a time: Load more, or the cursor nearing the end.
+//
+// New playlist (S13): a privacy chip (a click, or Alt+Left / Alt+Right in
+// the fields) and an optional description under the name; a pasted
+// playlist invite link joins that playlist instead.
 Item {
   id: root
 
@@ -39,7 +43,10 @@ Item {
     && !Model.sameOrder(store.playlistsRequested, store.playlistOrder)
   readonly property var rows: store ? Model.libraryRows(chip, list, store.playlists) : []
   readonly property alias results: resultList
-  readonly property bool inputFocused: nameField.activeFocus
+  readonly property bool inputFocused: nameField.activeFocus || descriptionField.activeFocus
+  // S13: the new playlist's privacy, and whether the name field holds an invite link.
+  property string newPrivacy: "PRIVATE"
+  readonly property bool joining: !!Model.parseInviteUrl(nameField.text)
 
   signal openRequested(var item)
   signal leftField()
@@ -136,12 +143,39 @@ Item {
     return true
   }
 
+  // S13: with the privacy chip's privacy and the description; an invite
+  // link joins its playlist.
   function createPlaylist() {
     var name = nameField.text.trim()
     if (name === "" || !service) return
-    service.createPlaylist(name, [], function(reply) {
-      if (reply.ok) nameField.text = ""
-    })
+    var done = function(reply) {
+      if (!reply.ok) return
+      nameField.text = ""
+      descriptionField.text = ""
+    }
+    if (joining) service.joinPlaylist(name, done)
+    else service.createPlaylist(name, [], done, { privacy: newPrivacy, description: descriptionField.text.trim() })
+  }
+
+  function cyclePrivacy(dx) {
+    newPrivacy = Model.nextOption(Model.PRIVACY_OPTIONS, newPrivacy, dx)
+  }
+
+  // Keys both fields share: Enter creates (or joins), Alt+Left / Alt+Right
+  // cycle the privacy, Esc and Down give the keys back to the list.
+  function fieldKey(event) {
+    if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
+      root.createPlaylist()
+    } else if ((event.modifiers & Qt.AltModifier) && (event.key === Qt.Key_Left || event.key === Qt.Key_Right)) {
+      root.cyclePrivacy(event.key === Qt.Key_Left ? -1 : 1)
+    } else if (event.key === Qt.Key_Escape || event.key === Qt.Key_Down) {
+      root.leftField()
+      if (event.key === Qt.Key_Down) resultList.moveCursor(1)
+    } else {
+      return false
+    }
+    event.accepted = true
+    return true
   }
 
   // The list shown is kept from the Store's sweep; a list stays only while
@@ -240,29 +274,40 @@ Item {
 
       TextField {
         id: nameField
-        width: parent.width - createButton.width - parent.spacing
-        placeholderText: "New playlist name"
+        width: parent.width - privacyChip.width - createButton.width - parent.spacing * (privacyChip.visible ? 2 : 1)
+        placeholderText: "New playlist name (or an invite link)"
         foreground: root.foreground
         font.family: root.fontFamily
 
         Keys.onPressed: function(event) {
-          if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
-            root.createPlaylist()
-            event.accepted = true
-          } else if (event.key === Qt.Key_Escape || event.key === Qt.Key_Down) {
-            root.leftField()
-            if (event.key === Qt.Key_Down) resultList.moveCursor(1)
+          if (root.fieldKey(event)) return
+          if (event.key === Qt.Key_Tab && descriptionRow.visible) {
+            descriptionField.forceActiveFocus()
             event.accepted = true
           }
         }
       }
 
+      // S13: the new playlist's privacy (one cycling chip).
+      Button {
+        id: privacyChip
+        anchors.verticalCenter: parent.verticalCenter
+        visible: !root.joining
+        width: visible ? implicitWidth : 0
+        iconText: Model.optionIcon(Model.PRIVACY_OPTIONS, root.newPrivacy)
+        text: Model.optionTitle(Model.PRIVACY_OPTIONS, root.newPrivacy)
+        tooltipText: "The new playlist's privacy (Alt+Left / Alt+Right while typing)"
+        foreground: root.foreground
+        fontSize: Style.font.caption
+        onClicked: root.cyclePrivacy(1)
+      }
+
       Button {
         id: createButton
         anchors.verticalCenter: parent.verticalCenter
-        iconText: "󰐕"
-        text: "Create"
-        tooltipText: "Create a private playlist"
+        iconText: root.joining ? "󰀐" : "󰐕"
+        text: root.joining ? "Join" : "Create"
+        tooltipText: root.joining ? "Join this collaborative playlist" : "Create a " + root.newPrivacy.toLowerCase() + " playlist"
         enabled: nameField.text.trim() !== ""
         opacity: enabled ? 1 : 0.4
         foreground: root.foreground
@@ -271,10 +316,36 @@ Item {
       }
     }
 
+    // S13: an optional description, once a name is typed.
+    Row {
+      id: descriptionRow
+      anchors.top: createRow.bottom
+      anchors.topMargin: visible ? Style.space(6) : 0
+      width: parent.width
+      height: visible ? implicitHeight : 0
+      visible: !root.joining && (nameField.text.trim() !== "" || descriptionField.text !== "" || descriptionField.activeFocus)
+
+      TextField {
+        id: descriptionField
+        width: parent.width
+        placeholderText: "Description (optional)"
+        foreground: root.foreground
+        font.family: root.fontFamily
+
+        Keys.onPressed: function(event) {
+          if (root.fieldKey(event)) return
+          if (event.key === Qt.Key_Backtab || (event.key === Qt.Key_Tab && (event.modifiers & Qt.ShiftModifier))) {
+            nameField.forceActiveFocus()
+            event.accepted = true
+          }
+        }
+      }
+    }
+
     // The chips (h / l), and the chip's sort order (O) when it has some.
     Flow {
       id: chipRow
-      anchors.top: createRow.bottom
+      anchors.top: descriptionRow.bottom
       anchors.topMargin: Style.space(8)
       width: parent.width
       spacing: Style.space(4)

@@ -1511,39 +1511,63 @@ Item {
 
   // ---- playlists ---------------------------------------------------------------------
 
-  function createPlaylist(title, tracks, callback) {
+  // S13: opts { description, privacy, sourcePlaylistId (a copy of that
+  // playlist or album), sourceTitle }.
+  function createPlaylist(title, tracks, callback, opts) {
     var name = String(title || "").trim()
     if (!signedIn || name === "") return false
+    var o = opts || {}
     var ids = (tracks || []).filter(function(t) { return t && t.videoId }).map(function(t) { return t.videoId })
-    backend.request("createPlaylist", { title: name, videoIds: ids.length ? ids : null }, function(reply) {
+    var params = { title: name, videoIds: ids.length ? ids : null }
+    if (o.description) params.description = String(o.description)
+    if (o.privacy) params.privacy = String(o.privacy)
+    if (o.sourcePlaylistId) params.sourcePlaylistId = String(o.sourcePlaylistId)
+    backend.request("createPlaylist", params, function(reply) {
       if (reply.ok) {
         storeItem.loadLibrary(true)
-        root.notify("Playlist created", ids.length ? name + " — " + ids.length + (ids.length === 1 ? " song" : " songs") : name)
+        // A copy fills in on YouTube's side a few seconds later.
+        if (o.sourcePlaylistId) copyRefresh.restart()
+        root.notify("Playlist created", ids.length ? name + ": " + root.songCount(ids.length)
+          : o.sourceTitle ? name + ": the songs of " + o.sourceTitle + " follow in a few seconds" : name)
       } else if (root.unsure(reply)) {
         root.refreshUnsure([{ kind: "library" }], name)
       } else {
         root.fail(reply.error.message)
       }
       if (callback) callback(reply)
-    }, 30000, noRetry)
+    }, ids.length > 100 || o.sourcePlaylistId ? 60000 : 30000, noRetry)
     return true
   }
 
-  function addToPlaylist(playlist, tracks, callback) {
+  // S13: opts { duplicates (add anyway), sourcePlaylistId (a whole album or
+  // playlist, with sourceTitle) }. A song already there (DUPLICATE) is the
+  // callback's to ask about: it returns true when it did (the picker),
+  // else a notice says nothing was added.
+  function addToPlaylist(playlist, tracks, callback, opts) {
+    var o = opts || {}
     var list = (tracks || []).filter(function(t) { return t && t.videoId })
-    if (!signedIn || !playlist || list.length === 0) return false
-    backend.request("addToPlaylist", { playlistId: playlist.playlistId, videoIds: list.map(function(t) { return t.videoId }) }, function(reply) {
+    if (!signedIn || !playlist || (list.length === 0 && !o.sourcePlaylistId)) return false
+    var params = { playlistId: playlist.playlistId }
+    if (list.length > 0) params.videoIds = list.map(function(t) { return t.videoId })
+    if (o.sourcePlaylistId) params.sourcePlaylistId = String(o.sourcePlaylistId)
+    if (o.duplicates === true) params.duplicates = true
+    backend.request("addToPlaylist", params, function(reply) {
+      if (!reply.ok && reply.error.code === "DUPLICATE" && !root.unsure(reply)) {
+        if (!(callback && callback(reply) === true)) root.notify("Already in " + playlist.title, "Nothing was added")
+        return
+      }
       if (reply.ok) {
         storeItem.forgetCollection("playlist", playlist.playlistId)
         storeItem.forgetCollection("libraryLanding")  // S2: Recent activity lists playlists too
-        root.notify("Added to " + playlist.title, list.length === 1 ? Model.mediaTitle(list[0]) : list.length + " songs")
+        root.notify("Added to " + playlist.title, o.sourceTitle ? String(o.sourceTitle)
+          : list.length === 1 ? Model.mediaTitle(list[0]) : list.length + " songs")
       } else if (root.unsure(reply)) {
         root.refreshUnsure([{ kind: "playlist", id: playlist.playlistId }, { kind: "library" }], playlist.title)
       } else {
         root.fail(reply.error.message)
       }
       if (callback) callback(reply)
-    }, 30000, noRetry)
+    }, list.length > 100 || o.sourcePlaylistId ? 60000 : 30000, noRetry)
     return true
   }
 
@@ -1576,6 +1600,143 @@ Item {
         root.refreshUnsure([{ kind: "playlist", id: playlist.playlistId }, { kind: "library" }], playlist.title)
       } else {
         root.fail(reply.error.message)
+      }
+      if (callback) callback(reply)
+    }, 30000, noRetry)
+    return true
+  }
+
+  // ---- playlist edits (S13) -----------------------------------------------------------
+  // The editor's Save (editPlaylist with only what changed), the invite link
+  // (copied with wl-copy; never shown, notified or logged), J / K moves, a
+  // playlist's owner settings and suggestions (reads), and joining from an
+  // invite link (IPC join, the Library's new playlist field). Edits go with
+  // noRetry. A definite error is the caller's to show, also once its view
+  // has moved on (the editor keeps its fields or, closed, sends a notice; a
+  // move is put back); an unknown outcome forgets the playlist and reads
+  // the library again.
+
+  property string _inviteTitle: ""
+  // copyInvite's copied(ok), for the copy on its way.
+  property var _inviteCopied: null
+
+  // A copy (createPlaylist with sourcePlaylistId) gets its songs a few
+  // seconds after it exists: the library is read again then, for its count.
+  Timer {
+    id: copyRefresh
+    interval: 8000
+    onTriggered: storeItem.loadLibrary(true)
+  }
+
+  // changes: editPlaylist's params besides playlistId. callback(reply) runs
+  // after the Store dropped the playlist's pages.
+  function editPlaylist(playlist, changes, callback) {
+    if (!playlist || !playlist.playlistId || !_signedInFor("Couldn't change the playlist")) return false
+    var params = { playlistId: playlist.playlistId }
+    for (var key in changes || {}) params[key] = changes[key]
+    backend.request("editPlaylist", params, function(reply) {
+      if (reply.ok) {
+        storeItem.forgetCollection("playlist", playlist.playlistId)
+        // A new title or privacy shows in the library's list (and Recent activity).
+        if (params.title !== undefined || params.privacy !== undefined) storeItem.loadLibrary(true)
+        else storeItem.forgetCollection("libraryLanding")
+      } else if (root.unsure(reply)) {
+        root.refreshUnsure([{ kind: "playlist", id: playlist.playlistId }, { kind: "library" }], playlist.title || "")
+      }
+      if (callback) callback(reply)
+    }, 30000, noRetry)
+    return true
+  }
+
+  // Why the invite link cannot be copied ("" when it can).
+  function inviteCopyProblem() {
+    return missingTools.indexOf("wl-copy") >= 0 ? "Getting an invite link needs wl-copy (" + installCommand + ")" : ""
+  }
+
+  // Opens the playlist to collaborators and copies its invite link:
+  // callback(reply) as editPlaylist's, then copied(ok) once wl-copy is done
+  // (false: the link was not copied). Without wl-copy nothing is sent: the
+  // link would be lost.
+  function copyInvite(playlist, callback, copied) {
+    var problem = inviteCopyProblem()
+    if (problem !== "") {
+      failAction("Couldn't copy the invite link", problem)
+      return false
+    }
+    return editPlaylist(playlist, { collaboration: true }, function(reply) {
+      if (callback) callback(reply)
+      if (!reply.ok) return
+      var started = !!reply.result.invite && root._copyInvite(String(reply.result.invite), playlist.title || "", copied)
+      if (!started && copied) copied(false)
+    })
+  }
+
+  function _copyInvite(url, title, copied) {
+    var problem = inviteCopyProblem()
+    if (problem !== "") {
+      failAction("Couldn't copy the invite link", problem)
+      return false
+    }
+    _inviteTitle = title
+    _inviteCopied = copied || null
+    inviteCopier.running = false
+    inviteCopier.command = ["wl-copy", url]
+    inviteCopier.running = true
+    return true
+  }
+
+  Process {
+    id: inviteCopier
+    // The link is a secret: the notice names the playlist only.
+    onExited: function(exitCode) {
+      inviteCopier.command = []
+      var copied = root._inviteCopied
+      root._inviteCopied = null
+      if (exitCode === 0) root.notify("Invite link copied", root._inviteTitle)
+      else root.failAction("Couldn't copy the invite link", "wl-copy failed")
+      if (typeof copied === "function") copied(exitCode === 0)
+    }
+  }
+
+  // J / K on your playlist's page: params from Model.moveTrack.
+  function movePlaylistItem(params, callback) {
+    if (!signedIn || !params || !params.playlistId || !params.setVideoId) return false
+    backend.request("movePlaylistItem", params, function(reply) {
+      if (reply.ok || root.unsure(reply)) storeItem.forgetCollection("playlist", params.playlistId)
+      if (callback) callback(reply)
+    }, 30000, noRetry)
+    return true
+  }
+
+  function playlistSettings(playlistId, callback) {
+    if (!signedIn || !playlistId) return false
+    backend.request("playlistSettings", { playlistId: playlistId }, callback, 30000)
+    return true
+  }
+
+  function playlistSuggestions(playlistId, callback) {
+    if (!signedIn || !playlistId) return false
+    backend.request("playlistSuggestions", { playlistId: playlistId }, callback, 60000)
+    return true
+  }
+
+  // An invite link (Model.parseInviteUrl): join that playlist; false when
+  // the text is no invite link or nobody is signed in.
+  function joinPlaylist(text, callback) {
+    var invite = Model.parseInviteUrl(text)
+    if (!invite) {
+      failAction("Couldn't join the playlist", "That is not a playlist invite link")
+      return false
+    }
+    if (!_signedInFor("Couldn't join the playlist")) return false
+    backend.request("joinPlaylist", { playlistId: invite.playlistId, token: invite.token }, function(reply) {
+      if (reply.ok) {
+        storeItem.loadLibrary(true)
+        root.notify("Joined the playlist", "It is in your library now")
+      } else if (root.unsure(reply)) {
+        root.refreshUnsure([{ kind: "library" }], "")
+      } else {
+        root.failAction("Couldn't join the playlist", reply.error.message)
       }
       if (callback) callback(reply)
     }, 30000, noRetry)
@@ -2444,5 +2605,8 @@ Item {
     function reloadAuth(): string { return root.reloadAuth() ? "ok" : "unhandled" }
     function signIn(): string { return root.signIn() ? "ok" : "unhandled" }
     function signOut(): string { return root.signOut() ? "ok" : "unhandled" }
+    function join(url: string): string {  // S13: a playlist invite link
+      return !Model.parseInviteUrl(url) ? "invalid" : root.joinPlaylist(url) ? "ok" : "unhandled"
+    }
   }
 }

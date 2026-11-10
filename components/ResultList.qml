@@ -27,6 +27,8 @@ ListView {
   // all row, which its shelves follow); -1 for the last row.
   property int endIndex: -1
   property string removeTooltip: "Remove"
+  // S13: the page's own songs get move buttons (your playlist; J / K's twins).
+  property bool movable: false
   // The Load more row's state, set by the owner.
   property bool moreBusy: false
   property string moreError: ""
@@ -43,6 +45,7 @@ ListView {
   signal playNextRequested(int index)
   signal addToQueueRequested(int index)
   signal removeRequested(int index)
+  signal moveRequested(int index, int delta)
   signal menuRequested(int index)
   // The cursor came within 5 rows of the end, or the list was scrolled to
   // the bottom (debounced), or G was pressed: time to load more.
@@ -253,7 +256,10 @@ ListView {
         track: row.modelData.item
         cursor: row.index === root.cursorIndex
         showQueueActions: true
-        showRemove: root.removable
+        // S13: a suggestion is no entry of the playlist: neither removed nor moved.
+        showRemove: root.removable && row.modelData.suggestion !== true
+        showMove: root.movable && row.modelData.trackIndex !== undefined && row.modelData.suggestion !== true
+        showVotes: true
         showMenu: root.hasMenu
         removeTooltip: root.removeTooltip
         number: root.numbered && row.modelData.item.trackNumber > 0 ? row.modelData.item.trackNumber : 0
@@ -261,6 +267,7 @@ ListView {
         onPlayNextRequested: root.playNextRequested(row.index)
         onAddToQueueRequested: root.addToQueueRequested(row.index)
         onRemoveRequested: root.removeRequested(row.index)
+        onMoveRequested: function(delta) { root.moveRequested(row.index, delta) }
         onMenuRequested: root.requestMenu(row.index)
         onHoveredChanged: if (hovered) root.hintRow(row.index)
       }

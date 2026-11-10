@@ -27,6 +27,8 @@ Item {
 
   // A song's menu: Panel opens it.
   signal itemMenuRequested(var request)
+  // S13: the header's Save: every queued song into a playlist (Panel's picker).
+  signal saveRequested()
 
   function ensureVisible(index) {
     if (index >= 0 && index < list.count) list.positionViewAtIndex(index, ListView.Contain)
@@ -165,6 +167,17 @@ Item {
       anchors.verticalCenter: parent.verticalCenter
       visible: root.pane === "queue"
       spacing: Style.space(4)
+
+      // S13: Save the queue to a playlist (the Now page menu's twin).
+      Button {
+        visible: root.queue.length > 0 && !!root.service && root.service.signedIn
+        iconText: "󰐒"
+        text: "Save"
+        tooltipText: "Save the queue to a playlist (" + Model.keyHint("pageMenu") + " has it too)"
+        foreground: root.foreground
+        fontSize: Style.font.caption
+        onClicked: root.saveRequested()
+      }
 
       Button {
         id: autoplayButton

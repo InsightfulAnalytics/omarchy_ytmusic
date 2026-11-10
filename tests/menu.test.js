@@ -36,9 +36,11 @@ test("menuActions per type", () => {
   // S4: like, dislike, save and subscribe follow Start radio, as on the web.
   assert.deepEqual(ids(Model.menuActions(song, ctx)),
     ["play", "playNext", "addToQueue", "radio", "like", "dislike", "addToPlaylist", "goArtist", "goAlbum", "credits", "share"])
+  // S13: Save to playlist and Copy to new playlist (signed in) follow Add to playlist.
   assert.deepEqual(ids(Model.menuActions(album, ctx)),
-    ["play", "shuffle", "playNext", "addToQueue", "radio", "save", "goArtist", "share"])
-  assert.deepEqual(ids(Model.menuActions(playlist, ctx)), ["play", "shuffle", "playNext", "addToQueue", "radio", "share"])
+    ["play", "shuffle", "playNext", "addToQueue", "radio", "save", "saveToPlaylist", "copyToNewPlaylist", "goArtist", "share"])
+  assert.deepEqual(ids(Model.menuActions(playlist, ctx)),
+    ["play", "shuffle", "playNext", "addToQueue", "radio", "saveToPlaylist", "copyToNewPlaylist", "share"])
   assert.deepEqual(ids(Model.menuActions(artist, ctx)), ["open", "shuffle", "radio", "subscribe", "share"])
   assert.deepEqual(ids(Model.menuActions(mix, ctx)), ["play", "playNext", "addToQueue", "save"])
   assert.deepEqual(ids(Model.menuActions({ type: "liked" }, ctx)), ["play", "shuffle", "playNext", "addToQueue"])
@@ -57,7 +59,7 @@ test("menuActions follow ctx: signed out hides account entries; page, queue and 
   assert.deepEqual(ids(Model.menuActions(null, { page: true, pageKind: "library", signedIn: false })), ["signIn"])
   // A row's menu on Library or Home has no account or page entries.
   assert.deepEqual(ids(Model.menuActions(playlist, { pageKind: "library", signedIn: true })),
-    ["play", "shuffle", "playNext", "addToQueue", "radio", "share"])
+    ["play", "shuffle", "playNext", "addToQueue", "radio", "saveToPlaylist", "copyToNewPlaylist", "share"])
   assert.deepEqual(ids(Model.menuActions(mix, { pageKind: "home" })), ["play", "playNext", "addToQueue"])
   // The song playing: no Play, Play next or Add to queue.
   assert.deepEqual(ids(Model.menuActions(song, { signedIn: true, isCurrent: true })),
@@ -70,7 +72,8 @@ test("menuActions follow ctx: signed out hides account entries; page, queue and 
   assert.ok(!ids(Model.menuActions(song, { pageKind: "album" })).includes("goAlbum"))
   // Page menus (M): the header buttons' twins, and Delete for your own playlist.
   const page = ids(Model.menuActions(playlist, { page: true, pageKind: "playlist", owned: true, hasTracks: true }))
-  assert.deepEqual(page, ["play", "shuffle", "playNext", "addToQueue", "radio", "share", "deletePlaylist"])
+  // S13: Edit playlist (e) after Add to playlist's place; signed out here, so no Save to playlist.
+  assert.deepEqual(page, ["play", "shuffle", "playNext", "addToQueue", "radio", "editPlaylist", "share", "deletePlaylist"])
   assert.ok(!ids(Model.menuActions(playlist, { page: true, owned: false, hasTracks: true })).includes("deletePlaylist"))
   assert.ok(!ids(Model.menuActions(artist, { page: true })).includes("open"))
   assert.deepEqual(ids(Model.menuActions({ type: "browse", browseId: "X" }, { page: true, hasTracks: true })),

@@ -46,6 +46,7 @@ import ytm_artist as artist  # noqa: E402
 import ytm_auth as auth  # noqa: E402
 import ytm_cache as caches  # noqa: E402
 import ytm_collections as collections  # noqa: E402
+import ytm_edit as edit  # noqa: E402
 import ytm_home as home  # noqa: E402
 import ytm_library as library  # noqa: E402
 import ytm_normalize as norm  # noqa: E402
@@ -73,7 +74,6 @@ PROTOCOL = 1
 VERSION = "1.0.0"
 SEARCH_FILTERS = ("songs", "videos", "albums", "artists", "playlists", "community_playlists", "featured_playlists")
 RATINGS = ("LIKE", "DISLIKE", "INDIFFERENT")
-PRIVACY = ("PRIVATE", "UNLISTED", "PUBLIC")
 CACHE_MODES = ("prefer", "refresh", "bypass")
 # Background threads ("lanes") for methods that must not hold up the requests
 # behind them: a stream lookup takes ~1 s, completions must show while a
@@ -252,27 +252,7 @@ def m_rate(worker, params):
     return {"videoId": video_id, "likeStatus": rating}
 
 
-def m_create_playlist(worker, params):
-    worker.require_auth()
-    title = req_str(params, "title")
-    description = params.get("description") or ""
-    privacy = choice(params, "privacy", PRIVACY, "PRIVATE")
-    video_ids = params.get("videoIds") or None
-    result = worker.yt.create_playlist(title, description, privacy_status=privacy, video_ids=video_ids)
-    if isinstance(result, str):
-        return {"playlistId": result}
-    raise WorkerError("UPSTREAM", "YouTube Music did not create the playlist")
-
-
-def m_add_to_playlist(worker, params):
-    worker.require_auth()
-    playlist_id = req_str(params, "playlistId")
-    video_ids = req_list(params, "videoIds")
-    result = worker.yt.add_playlist_items(playlist_id, video_ids, duplicates=bool(params.get("duplicates")))
-    if not _succeeded(result):
-        raise WorkerError("UPSTREAM", "Not added (is it already in that playlist?)")
-    added = result.get("playlistEditResults") if isinstance(result, dict) else None
-    return {"added": [{"videoId": a.get("videoId"), "setVideoId": a.get("setVideoId")} for a in added or []]}
+# createPlaylist and addToPlaylist: ytm_edit (S13).
 
 
 def m_remove_from_playlist(worker, params):
@@ -335,8 +315,6 @@ CORE_METHODS = {
     "warmStreams": m_warm_streams,
     "cacheThumbs": m_cache_thumbs,
     "rate": m_rate,
-    "createPlaylist": m_create_playlist,
-    "addToPlaylist": m_add_to_playlist,
     "removeFromPlaylist": m_remove_from_playlist,
     "deletePlaylist": m_delete_playlist,
 }
@@ -354,12 +332,10 @@ _PLAYLIST_EDIT = [("playlist", "playlistId", "playlistId"), ("libraryPlaylists",
                   _LIBRARY_PAGES, _LANDING]
 CORE_INVALIDATES = {
     "rate": [("liked", None, None), _LIKED_PAGES, ("librarySongs", None, None)],
-    "addToPlaylist": _PLAYLIST_EDIT,
     "removeFromPlaylist": _PLAYLIST_EDIT,
-    "createPlaylist": [("libraryPlaylists", None, None), _LIBRARY_PAGES, _LANDING],
     "deletePlaylist": _PLAYLIST_EDIT,
 }
-CORE_MUTATES = {"rate", "createPlaylist", "addToPlaylist", "removeFromPlaylist", "deletePlaylist"}
+CORE_MUTATES = {"rate", "removeFromPlaylist", "deletePlaylist"}  # S13: the other playlist edits are ytm_edit's
 CORE_RECORDERS = {
     "search": lambda yt, p: yt.search(p["query"], filter=p.get("filter"), limit=p.get("limit", 20)),
     "song": lambda yt, p: yt.get_song(p["videoId"]),
@@ -380,7 +356,7 @@ class _Core:
 
 # Area modules, in a fixed order. A slice that rewrites a core method moves it
 # out of the core tables into its module.
-AREA_MODULES = (pages, play, now, artist, library, collections, actions, home)
+AREA_MODULES = (pages, play, now, artist, library, collections, actions, home, edit)
 
 
 def merge_registries(sources):
@@ -881,6 +857,18 @@ def cmd_auth(args):
     return 0
 
 
+def cmd_join(args):
+    """S13: join a collaborative playlist from its invite link. The link's
+    token goes to YouTube once and is never printed."""
+    invite = edit.parse_invite(args.url)
+    if invite is None:
+        print("Not a playlist invite link (https://music.youtube.com/playlist?list=...&jct=...)", file=sys.stderr)
+        return 2
+    reply = Worker().handle({"id": 1, "method": "joinPlaylist", "params": {"playlistId": invite[0], "token": invite[1]}})
+    print_json(reply["result"] if reply["ok"] else {"error": reply["error"]})
+    return 0 if reply["ok"] else 1
+
+
 def cmd_selftest(args):
     checks = []
 
@@ -986,6 +974,8 @@ def main(argv=None):
     source.add_argument("--clipboard", action="store_true", help="read request headers from the clipboard")
     p.add_argument("--authuser", type=int, default=0, help="Google account index when signed in to several")
     p.add_argument("--keyring", default="GNOMEKEYRING", help="keyring holding the browser's cookie key")
+    p = sub.add_parser("join", help="join a collaborative playlist from its invite link")  # S13
+    p.add_argument("url")
     sub.add_parser("logout", help="delete the saved session")
     sub.add_parser("whoami", help="show the signed-in account")
     p = sub.add_parser("selftest", help="check the installation")
@@ -1016,6 +1006,8 @@ def main(argv=None):
         return 0 if reply["ok"] else 1
     if args.cmd == "auth":
         return cmd_auth(args)
+    if args.cmd == "join":
+        return cmd_join(args)
     if args.cmd == "logout":
         removed = auth.logout()
         caches.DiskCache().clear()

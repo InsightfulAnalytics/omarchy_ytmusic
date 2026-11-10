@@ -3738,3 +3738,440 @@ if (typeof module !== "undefined") {
     shelfContext: shelfContext
   })
 }
+
+// ==== playlist edit (S13) ==================================================================
+// Everything the web lets you do to your own playlist, plus saving albums,
+// playlists and the queue into playlists (the worker's ytm_edit). On your
+// playlist's page: e opens the editor (title, description, privacy;
+// Advanced: order, where new songs go, voting, collaborators), J / K move
+// the song under the cursor (optimistic, put back when YouTube refuses),
+// and Suggestions follow the songs (i adds the one under the cursor). The
+// picker saves a whole album or playlist (Save to playlist) or the queue,
+// and a song YouTube says is already there asks again (Enter again adds
+// it anyway). Your playlists show each song's net votes when voting is on.
+
+var PRIVACY_OPTIONS = [
+  { value: "PRIVATE", title: "Private", icon: "󰌾" },
+  { value: "UNLISTED", title: "Unlisted", icon: "󰌷" },
+  { value: "PUBLIC", title: "Public", icon: "󰖟" }
+]
+// The orders when YouTube serves none (NEWEST_LAST is "Oldest first");
+// served ones (settings.sortOptions) carry YouTube's own titles.
+var SORT_OPTIONS = [
+  { value: "MANUAL", title: "Manual" },
+  { value: "NEWEST_FIRST", title: "Newest first" },
+  { value: "NEWEST_LAST", title: "Oldest first" },
+  { value: "TOP_VOTED", title: "Top voted" }
+]
+var VOTE_OPTIONS = [
+  { value: "EVERYONE_CAN_VOTE", title: "Everyone can vote" },
+  { value: "COLLABORATORS_ONLY", title: "Collaborators only" },
+  { value: "OFF", title: "Off" }
+]
+var ADD_TO_TOP_OPTIONS = [
+  { value: false, title: "At the end" },
+  { value: true, title: "At the top" }
+]
+var NOT_REPORTED = "not reported by YouTube"
+var DESCRIPTION_NOTE = "YouTube Music cannot clear a description: write a new one, or leave it as it was"
+var TITLE_MAX = 150
+var SUGGESTIONS_REFRESH_ID = "suggestions:refresh"
+var EDITOR_IDS = { save: "editor:save", privacy: "editor:privacy", order: "editor:order", addToTop: "editor:addToTop",
+                   vote: "editor:vote", invite: "editor:invite", close: "editor:close" }
+// The editor's option rows and the setting each one cycles.
+var EDITOR_OPTIONS = { "editor:privacy": "privacy", "editor:order": "sortOrder", "editor:addToTop": "addToTop",
+                       "editor:vote": "voteOption" }
+
+// The options a setting cycles through. With `initial` (editorInitial),
+// the ones YouTube serves: the orders of its sort menu under their served
+// titles, and the voting options it offers (Collaborators only once
+// collaboration is on). Unknown: every option.
+function editOptions(key, initial) {
+  var a = initial || {}
+  if (key === "sortOrder") {
+    var served = (a.sortOptions || []).filter(function(o) { return o && typeof o.value === "string" && o.title })
+    return served.length > 0 ? served.map(function(o) { return { value: o.value, title: String(o.title) } })
+      : SORT_OPTIONS
+  }
+  if (key === "voteOption") {
+    if (!Array.isArray(a.voteOptions) || a.voteOptions.length === 0) return VOTE_OPTIONS
+    return VOTE_OPTIONS.filter(function(o) { return a.voteOptions.indexOf(o.value) >= 0 || o.value === a.voteOption })
+  }
+  return key === "privacy" ? PRIVACY_OPTIONS : key === "addToTop" ? ADD_TO_TOP_OPTIONS : []
+}
+
+// The option's title; NOT_REPORTED for null (YouTube did not say) or a
+// value the list does not know.
+function optionTitle(options, value) {
+  for (var i = 0; i < (options || []).length; i++) if (options[i].value === value) return options[i].title
+  return NOT_REPORTED
+}
+
+// The value dx places on (cycling); from an unknown value, the first (dx > 0)
+// or the last one.
+function nextOption(options, value, dx) {
+  var list = options || []
+  if (list.length === 0) return value
+  var at = -1
+  for (var i = 0; i < list.length; i++) if (list[i].value === value) at = i
+  if (at < 0) return list[dx < 0 ? list.length - 1 : 0].value
+  return list[(at + (dx < 0 ? -1 : 1) + list.length) % list.length].value
+}
+
+// "" when YouTube takes the title, else why not (the worker's own rules).
+function playlistTitleProblem(title) {
+  var text = String(title || "").trim()
+  if (text === "") return "A playlist needs a title"
+  if (text.indexOf("<") >= 0 || text.indexOf(">") >= 0) return "A title cannot contain < or >"
+  if (text.length > TITLE_MAX) return "A title can have at most " + TITLE_MAX + " characters"
+  return ""
+}
+
+// ---- the editor ----------------------------------------------------------------------------
+
+// What the editor starts from: the page's header, then the owner settings
+// read from YouTube (playlistSettings) where it serves them. null means
+// "not reported" (the editor says so and sends nothing for it).
+function editorInitial(target, settings) {
+  var t = target || {}
+  var s = settings || {}
+  var pick = function(key, fallback) { return s[key] !== null && s[key] !== undefined ? s[key] : fallback }
+  return {
+    title: String(pick("title", t.title || "")),
+    description: String(pick("description", t.description || "")),
+    privacy: pick("privacy", t.privacy || null),
+    sortOrder: pick("sortOrder", null),
+    sortTitle: pick("sortTitle", null),
+    sortOptions: pick("sortOptions", null),
+    addToTop: pick("addToTop", null),
+    voteOption: pick("voteOption", null),
+    voteOptions: pick("voteOptions", null),
+    collaboration: pick("collaboration", null),
+    collaborators: pick("collaborators", t.collaborators || null)
+  }
+}
+
+// editPlaylist's params for what changed between `initial` and `current`
+// ({ title, description, privacy, sortOrder, addToTop, voteOption }), with
+// `problem` ("" when it can be sent) and `count` (fields changed). An
+// emptied description is a problem: YouTube keeps the old one.
+function editorChanges(initial, current) {
+  var a = initial || {}
+  var b = current || {}
+  var params = {}
+  var problem = ""
+  var title = String(b.title || "").trim()
+  if (title !== String(a.title || "").trim()) {
+    problem = playlistTitleProblem(title)
+    params.title = title
+  }
+  var description = String(b.description || "").trim()
+  if (description !== String(a.description || "").trim()) {
+    if (description === "") problem = problem || DESCRIPTION_NOTE
+    else params.description = description
+  }
+  var keys = ["privacy", "sortOrder", "addToTop", "voteOption"]
+  for (var i = 0; i < keys.length; i++) {
+    var value = b[keys[i]]
+    if (value !== null && value !== undefined && value !== a[keys[i]]) params[keys[i]] = value
+  }
+  return { params: params, problem: problem, count: Object.keys(params).length }
+}
+
+// The editor's list (keyboard: j / k, Enter, h / l cycle an option row):
+// Save, Privacy, then Advanced: Order, New songs, Voting, Get invite link,
+// Close collaboration (only while YouTube says collaboration is on: closing
+// it otherwise is refused) and who collaborates. `current` as in
+// editorChanges; opts: { busy }.
+function editorRows(initial, current, opts) {
+  var a = initial || {}
+  var b = current || {}
+  var o = opts || {}
+  var changes = editorChanges(a, b)
+  var option = function(id, key, label) {
+    var options = editOptions(key, a)
+    var value = b[key]
+    var title = label + ": " + (key === "sortOrder" && value === null && a.sortTitle ? a.sortTitle
+                                 : optionTitle(options, value))
+    if (value !== null && value !== undefined && value !== a[key]) title += " (changed)"
+    var icon = key === "privacy" && value ? optionIcon(options, value) : "󰒿"
+    if (key === "addToTop") icon = "󰖃"
+    if (key === "voteOption") icon = "󰨟"
+    return { item: { type: "action", id: id, title: title, icon: icon, hint: "h / l" } }
+  }
+  var save = o.busy ? "Saving…" : changes.count > 0 ? "Save " + (changes.count === 1 ? "1 change" : changes.count + " changes")
+    : "No changes to save"
+  var rows = [
+    { item: { type: "action", id: EDITOR_IDS.save, title: save, icon: "󰆓", hint: "Enter" } },
+    option(EDITOR_IDS.privacy, "privacy", "Privacy"),
+    { header: true, title: "Advanced" },
+    option(EDITOR_IDS.order, "sortOrder", "Order"),
+    option(EDITOR_IDS.addToTop, "addToTop", "New songs go"),
+    option(EDITOR_IDS.vote, "voteOption", "Voting"),
+    { item: { type: "action", id: EDITOR_IDS.invite, title: "Get an invite link for collaborators (copied)", icon: "󰀐" } }
+  ]
+  if (a.collaboration === true)
+    rows.push({ item: { type: "action", id: EDITOR_IDS.close, title: "Close collaboration", icon: "󰅖" } })
+  if (a.collaborators) rows.push({ item: { type: "message", title: "Collaborators: " + a.collaborators } })
+  return rows
+}
+
+function optionIcon(options, value) {
+  for (var i = 0; i < (options || []).length; i++) if (options[i].value === value) return options[i].icon || ""
+  return ""
+}
+
+// Why the invite link cannot be had now ("" when it can): a private
+// playlist cannot have collaborators (YouTube answers 400), and a new
+// privacy has to be saved first.
+function inviteProblem(initial, current) {
+  var saved = initial ? initial.privacy : null
+  if (current && current.privacy && current.privacy !== saved) return "Save the new privacy first"
+  if (saved === "PRIVATE") return "A private playlist cannot have collaborators: make it Unlisted or Public and save"
+  return ""
+}
+
+// The editor's `initial` once collaboration was turned on or off: Close
+// collaboration follows it, and so does Collaborators only voting, which
+// YouTube offers only while collaboration is on.
+function withCollaboration(initial, on) {
+  var next = {}
+  for (var key in initial || {}) next[key] = initial[key]
+  next.collaboration = on === true
+  if (Array.isArray(next.voteOptions)) {
+    var offered = next.voteOptions.filter(function(v) { return v !== "COLLABORATORS_ONLY" })
+    if (on === true) offered.push("COLLABORATORS_ONLY")
+    next.voteOptions = offered
+  }
+  return next
+}
+
+// ---- invite links ----------------------------------------------------------------------------
+
+// { playlistId, token } of a playlist invite link
+// (https://music.youtube.com/playlist?list=<id>&jct=<token>), else null.
+// The worker's parse_invite takes the same links.
+function parseInviteUrl(text) {
+  var s = String(text || "").trim()
+  var m = /^https?:\/\/([A-Za-z0-9.-]+)\/playlist\/?\?([^#]*)/i.exec(s)
+  if (!m) return null
+  var host = m[1].toLowerCase()
+  if (host !== "youtube.com" && !/\.youtube\.com$/.test(host)) return null
+  var params = {}
+  var pairs = m[2].split("&")
+  for (var i = 0; i < pairs.length; i++) {
+    var eq = pairs[i].indexOf("=")
+    var key = eq < 0 ? pairs[i] : pairs[i].slice(0, eq)
+    var value = eq < 0 ? "" : pairs[i].slice(eq + 1)
+    try {
+      value = decodeURIComponent(value.replace(/\+/g, " "))
+    } catch (e) {
+      value = ""
+    }
+    if (value !== "" && !Object.prototype.hasOwnProperty.call(params, key)) params[key] = value
+  }
+  var id = _stripVl(params.list || "")
+  var token = params.jct || ""
+  if (!/^[A-Za-z0-9_-]{1,128}$/.test(id) || !/^[A-Za-z0-9_-]{1,512}$/.test(token)) return null
+  return { playlistId: id, token: token }
+}
+
+// ---- votes -----------------------------------------------------------------------------------
+
+// A song's net votes on a playlist with voting on ("+3", "-1"); "" when the
+// playlist has none, and for 0 (voting is on for every song of a playlist
+// that has it, mostly at 0: a column of zeros says nothing).
+function voteLabel(track) {
+  var vote = track && track.voteStatus
+  if (!vote || typeof vote.votes !== "number" || !isFinite(vote.votes) || vote.votes === 0) return ""
+  return vote.votes > 0 ? "+" + vote.votes : String(vote.votes)
+}
+
+// ---- moving songs ----------------------------------------------------------------------------
+
+// The order that keeps J / K from moving songs, by its served title (""
+// when none): YouTube answers a move in a sorted playlist with success and
+// keeps its order. Unknown (null settings) does not block.
+function orderBlocksMoves(settings) {
+  if (!settings) return ""
+  if (settings.sortOrder && settings.sortOrder !== "MANUAL")
+    return settings.sortTitle ? String(settings.sortTitle) : optionTitle(editOptions("sortOrder", settings), settings.sortOrder)
+  if (!settings.sortOrder && settings.sortTitle) return String(settings.sortTitle)
+  return ""
+}
+
+// The song at page.tracks[index] one place down (delta > 0) or up: { page,
+// index, params } with the page in the new order (optimistic), the song's
+// new index and movePlaylistItem's params (it goes before its new
+// successor, or to the end); or { problem } when it cannot move ("" for
+// nothing to say). A page that shows part of its list cannot send its
+// last song further down: the successor is not loaded.
+function moveTrack(page, index, delta) {
+  var tracks = page && page.tracks ? page.tracks : []
+  var i = Number(index)
+  var d = delta > 0 ? 1 : -1
+  if (!(i >= 0 && i < tracks.length)) return { problem: "" }
+  var j = i + d
+  if (j < 0) return { problem: "It is the first song already" }
+  if (j >= tracks.length) return { problem: page.truncated ? "Load all songs to move it further down" : "It is the last song already" }
+  var track = tracks[i]
+  var successor = d < 0 ? tracks[j] : tracks[i + 2]
+  if (d > 0 && !successor && page.truncated) return { problem: "Load all songs to move it further down" }
+  if (!track.setVideoId || (successor && !successor.setVideoId)) return { problem: "This song cannot be moved; refresh the page" }
+  var next = tracks.slice()
+  next.splice(i, 1)
+  next.splice(j, 0, track)
+  var moved = {}
+  for (var key in page) moved[key] = page[key]
+  moved.tracks = next
+  return { page: moved, index: j,
+           params: { playlistId: _stripVl(page.playlistId || page.id), setVideoId: track.setVideoId,
+                     beforeSetVideoId: successor ? successor.setVideoId : null } }
+}
+
+// ---- suggestions -----------------------------------------------------------------------------
+
+// The Suggestions section of your playlist's page: a header, the songs
+// (rows with suggestion: true; Enter plays one, i adds it), a message while
+// loading or after a failure, and Refresh suggestions. state: { items,
+// loading, error }.
+function playlistSuggestionRows(state) {
+  var s = state || {}
+  var items = s.items || []
+  var rows = [{ header: true, title: "Suggestions" }]
+  for (var i = 0; i < items.length; i++) rows.push({ item: items[i], suggestion: true })
+  if (s.loading && items.length === 0) rows.push({ item: { type: "message", title: "Loading suggestions…" } })
+  else if (s.error) rows.push({ item: { type: "message", title: "Couldn't load suggestions: " + s.error } })
+  else if (items.length === 0 && s.loaded) rows.push({ item: { type: "message", title: "YouTube has no suggestions for this playlist" } })
+  rows.push({ item: { type: "action", id: SUGGESTIONS_REFRESH_ID, title: s.loading ? "Refreshing suggestions…" : "Refresh suggestions",
+                      icon: "󰑐" } })
+  return rows
+}
+
+// A collection page's rows with the Suggestions section after the songs
+// (and Load all), before the page's shelves (which start with a header).
+function withSuggestionRows(rows, state) {
+  var list = rows || []
+  var at = list.length
+  for (var i = 0; i < list.length; i++) {
+    if (list[i].header) {
+      at = i
+      break
+    }
+  }
+  return list.slice(0, at).concat(playlistSuggestionRows(state), list.slice(at))
+}
+
+// The suggestions left after one was added (by videoId).
+function withoutSuggestion(items, track) {
+  return (items || []).filter(function(t) { return !track || t.videoId !== track.videoId })
+}
+
+// ---- the picker: a whole album or playlist, duplicates --------------------------------------
+
+// The playlist whose songs Save to playlist (or Copy to new playlist)
+// adds: an album's audio playlist, a playlist's id (VL stripped); "" for
+// anything else (a song, a mix, Liked Music, Episodes for later).
+function sourcePlaylistOf(item) {
+  var kind = menuKind(item)
+  if (kind === "album") return item.playlistId ? _stripVl(item.playlistId) : ""
+  if (kind !== "playlist") return ""
+  var id = _stripVl(item.playlistId)
+  return isSpecialPlaylist({ playlistId: id }) ? "" : id
+}
+
+// What the picker's next add sends for `playlistId`: duplicates once
+// YouTube said the songs are there and Enter was pressed again on it.
+function pickerAddOptions(state, playlistId) {
+  return { duplicates: !!state && !!playlistId && state.duplicateOf === playlistId }
+}
+
+// total: the songs being added; 0 for a whole album or playlist (YouTube
+// does not say which of its songs are there).
+function duplicatePrompt(count, total) {
+  if (total === 0) return "Some of its songs are already there: Enter again to add them anyway"
+  if (count > 0 && total > 1) return (count === total ? "All " + total + " songs are" : count + " of " + total + " songs are")
+    + " already there: Enter again to add anyway"
+  return "Already there: Enter again to add anyway"
+}
+
+// The picker after an add's reply: { duplicateOf, status, done }. A
+// DUPLICATE arms that playlist for "add anyway"; anything else disarms.
+function pickerAfterReply(state, playlistId, reply, total) {
+  if (reply && reply.ok) return { duplicateOf: "", status: "", done: true }
+  var error = reply && reply.error ? reply.error : null
+  if (error && error.code === "DUPLICATE" && !error.unknown) {
+    var ids = Array.isArray(error.videoIds) ? error.videoIds.length : 0
+    return { duplicateOf: playlistId, status: duplicatePrompt(ids, total === undefined ? 1 : total), done: false }
+  }
+  return { duplicateOf: "", status: error ? String(error.message || "") : "", done: false }
+}
+
+// ---- menu entries and keys -------------------------------------------------------------------
+
+var _PLAYLIST_EDIT_ACTIONS = [
+  { id: "saveToPlaylist", title: "Save to playlist", icon: "󰐒", key: "addToPlaylist",
+    applies: function(item, ctx) { return ctx.signedIn === true && sourcePlaylistOf(item) !== "" },
+    run: function(env) { env.panel.openSourcePicker(env.item, false) } },
+  { id: "copyToNewPlaylist", title: "Copy to new playlist", icon: "󰆏",
+    applies: function(item, ctx) { return ctx.signedIn === true && sourcePlaylistOf(item) !== "" },
+    run: function(env) { env.panel.openSourcePicker(env.item, true) } },
+  { id: "addSuggestion", title: "Add to this playlist", icon: "󰐕", key: "addSuggestion",
+    applies: function(item, ctx) { return ctx.suggestion === true && menuKind(item) === "track" },
+    run: function(env) { if (env.index >= 0 && env.owner && typeof env.owner.addSuggestion === "function") env.owner.addSuggestion(env.index) } },
+  { id: "editPlaylist", title: "Edit playlist", icon: "󰏫", key: "editPlaylist",
+    applies: function(item, ctx) { return ctx.page === true && ctx.owned === true && menuKind(item) === "playlist" },
+    run: function(env) { env.panel.openEditor() } }
+]
+
+_insertAfter(MENU_ACTIONS, "addToPlaylist", _PLAYLIST_EDIT_ACTIONS)
+// Now (M): the queue header's Save twin.
+MENU_ACTIONS.push(
+  { id: "saveQueue", title: "Save the queue to a playlist", icon: "󰐒",
+    applies: function(item, ctx) { return ctx.page === true && ctx.pageKind === "now" && ctx.queueLength > 0 && ctx.signedIn === true },
+    run: function(env) { env.panel.saveQueue() } })
+
+_insertAfter(KEYS, "queueMove", [
+  { id: "addSuggestion", group: "Song", keys: ["i"], title: "add the suggestion under the cursor to your playlist" }
+])
+_insertAfter(KEYS, "find", [
+  { id: "editPlaylist", group: "Menus", keys: ["e"], title: "edit your playlist: details, order, voting, collaborators" }
+])
+_keyEntry("queueMove").title = "move a queued song, or a song of your own playlist, down / up"
+_keyEntry("addToPlaylist").title = "add to playlist (the song, or a whole album or playlist row)"
+_keyEntry("back").title = "leave the field → close the picker, editor or menu → clear the filter → back → close"
+
+if (typeof module !== "undefined") {
+  Object.assign(module.exports, {
+    PRIVACY_OPTIONS: PRIVACY_OPTIONS,
+    SORT_OPTIONS: SORT_OPTIONS,
+    VOTE_OPTIONS: VOTE_OPTIONS,
+    ADD_TO_TOP_OPTIONS: ADD_TO_TOP_OPTIONS,
+    NOT_REPORTED: NOT_REPORTED,
+    DESCRIPTION_NOTE: DESCRIPTION_NOTE,
+    SUGGESTIONS_REFRESH_ID: SUGGESTIONS_REFRESH_ID,
+    EDITOR_IDS: EDITOR_IDS,
+    EDITOR_OPTIONS: EDITOR_OPTIONS,
+    optionTitle: optionTitle,
+    optionIcon: optionIcon,
+    nextOption: nextOption,
+    editOptions: editOptions,
+    playlistTitleProblem: playlistTitleProblem,
+    editorInitial: editorInitial,
+    editorChanges: editorChanges,
+    editorRows: editorRows,
+    inviteProblem: inviteProblem,
+    withCollaboration: withCollaboration,
+    parseInviteUrl: parseInviteUrl,
+    voteLabel: voteLabel,
+    orderBlocksMoves: orderBlocksMoves,
+    moveTrack: moveTrack,
+    playlistSuggestionRows: playlistSuggestionRows,
+    withSuggestionRows: withSuggestionRows,
+    withoutSuggestion: withoutSuggestion,
+    sourcePlaylistOf: sourcePlaylistOf,
+    pickerAddOptions: pickerAddOptions,
+    duplicatePrompt: duplicatePrompt,
+    pickerAfterReply: pickerAfterReply
+  })
+}
