@@ -53,6 +53,7 @@ import ytm_normalize as norm  # noqa: E402
 import ytm_now as now  # noqa: E402
 import ytm_pages as pages  # noqa: E402
 import ytm_play as play  # noqa: E402
+import ytm_podcasts as podcasts  # noqa: E402
 import ytm_raw as raw  # noqa: E402
 import ytm_search as search  # noqa: E402
 import ytm_streams as streams  # noqa: E402
@@ -361,7 +362,7 @@ class _Core:
 
 # Area modules, in a fixed order. A slice that rewrites a core method moves it
 # out of the core tables into its module.
-AREA_MODULES = (pages, play, now, artist, library, collections, actions, home, explore, search)
+AREA_MODULES = (pages, play, now, artist, library, collections, actions, home, explore, search, podcasts)
 
 
 def merge_registries(sources):

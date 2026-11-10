@@ -20,6 +20,12 @@ import "../YtmModel.js" as Model
 // Explore (S6): Charts (its first row, O and the M menu choose the country,
 // and the page then shows that one in its place), Moods & genres and a
 // mood's playlists are sectioned pages too.
+//
+// Podcasts (S8): a podcast (byline: its channel; Save), an episode (Play or
+// Resume, Play from start, Save to Episodes for Later, the description and
+// its chapters, which seek or play from there), a podcast channel
+// (Subscribe), a channel's episodes, New episodes and Episodes for Later (x
+// removes one). These pages have no Shuffle.
 Item {
   id: root
 
@@ -66,7 +72,7 @@ Item {
   readonly property bool editable: !!page && page.editable === true
   readonly property bool round: Model.pageRound(ref, page)
   readonly property var tracks: !page ? [] : isPage ? Model.pageTracks(page) : (page.tracks || [])
-  readonly property var rows: !page ? [] : isPage ? Model.pageRows(page)
+  readonly property var rows: !page ? [] : isPage ? Model.podcastRows(page, { about: descriptionText.truncated, aboutOpen: aboutOpen })
     : Model.collectionRows(page, { history: isHistory, find: findText, about: descriptionText.truncated, aboutOpen: aboutOpen })
   // The page shows part of its list (Liked Music past 200 songs, a page with
   // more to load, an artist's top songs): Play, Shuffle and Queue all then
@@ -92,8 +98,8 @@ Item {
   readonly property bool hasAbout: isArtist && Model.hasAbout(page)
   // Collections (S3).
   readonly property bool isCollection: Model.isCollection(page)
-  readonly property var byline: Model.collectionByline(page)
-  readonly property string description: Model.collectionDescription(page)
+  readonly property var byline: isPage ? Model.podcastByline(page) : Model.collectionByline(page)
+  readonly property string description: Model.collectionDescription(page) || Model.podcastDescription(page)
   readonly property bool explicitAlbum: isCollection && page.kind === "album" && Model.collectionHeader(page).explicit === true
   readonly property bool canLoadAll: !full && Model.canLoadAll(page)
   // The whole list is loading over the first read.
@@ -111,9 +117,28 @@ Item {
   readonly property bool canSavePage: signedIn && !!pageSaveItem
     && Model.canSave(pageSaveItem, { page: true, owned: page.owned === true })
   readonly property bool pageSaved: canSavePage && !!store && store.savedState(pageSaveItem, headerSaved()) === true
-  readonly property bool canSubscribePage: signedIn && isArtist && !!Model.artistHeader(page)
+  readonly property bool canSubscribePage: signedIn && ((isArtist && !!Model.artistHeader(page)) || isChannel)
   readonly property bool pageSubscribed: canSubscribePage && !!store
-    && store.subscribedState(subscribeItem().channelId, Model.artistHeader(page).subscribed === true) === true
+    && store.subscribedState(subscribeItem().channelId, subscribeHeader().subscribed === true) === true
+  // Podcasts (S8): an episode page's Play or Resume (where it was left, else
+  // YouTube's progress) and Save to Episodes for Later, a podcast page's
+  // Save, a channel page's Subscribe (above); no Shuffle on these pages.
+  readonly property bool podcastPage: Model.isPodcastKind(ref ? ref.kind : "")
+  readonly property bool isSavedEpisodes: !!ref && ref.kind === "savedEpisodes" && isCollection
+  readonly property bool isChannel: !!ref && ref.kind === "channel" && isPage && !!page.header && !!page.header.channelId
+  readonly property var episodeTrack: isPage && !!ref && ref.kind === "episode" ? Model.episodeOfPage(page) : null
+  readonly property var episodeResume: !!episodeTrack && !!service ? service.episodeResumeOf(episodeTrack) : null
+  // The page's episode is the one playing (or paused): no Resume then.
+  readonly property bool episodeCurrent: !!episodeTrack && !!service && service.hasMedia && !!service.currentTrack
+    && service.currentTrack.videoId === episodeTrack.videoId
+  readonly property bool canSaveEpisodePage: signedIn && !!episodeTrack
+  readonly property bool episodePageSaved: canSaveEpisodePage && !!store
+    && store.episodeSavedState(episodeTrack.videoId, headerFlag("saved")) === true
+  readonly property var podcastSaveItem: isPage && !!ref && ref.kind === "podcast" && !!page.header && !!page.header.podcastId
+    ? { type: "podcast", browseId: page.id, podcastId: page.header.podcastId, title: title } : null
+  readonly property bool canSavePodcastPage: signedIn && !!podcastSaveItem
+  readonly property bool podcastPageSaved: canSavePodcastPage && !!store
+    && store.podcastSavedState(podcastSaveItem.podcastId, headerFlag("saved")) === true
 
   signal openRequested(var item)
   // The page itself went away (playlist deleted).
@@ -277,7 +302,16 @@ Item {
     if (!row || row.item.type !== "track" || !service) return
     var track = row.item
     var requested = ref
-    if (isLiked) {
+    if (isSavedEpisodes) {
+      // S8: out of Episodes for Later, by the row's entry there.
+      service.saveEpisode(track, false, function(reply) {
+        if (reply.ok) {
+          if (root.shows(requested)) root.page = Model.withoutTrack(root.page, track)
+        } else {
+          root.reloadIfUnsure(reply, requested)
+        }
+      }, track.setVideoId || "")
+    } else if (isLiked) {
       if (service.setLike(track, false, function(reply) { root.reloadIfUnsure(reply, requested) }))
         page = Model.withoutTrack(page, track)
     } else if (editable) {
@@ -289,6 +323,14 @@ Item {
         }
       })
     }
+  }
+
+  // S8 (Panel's saveRow hook): S on an Episodes for Later row takes the
+  // episode out, as x does, and the row goes with it.
+  function saveRow(index) {
+    if (!isSavedEpisodes) return false
+    remove(index)
+    return true
   }
 
   function shows(requested) {
@@ -319,6 +361,8 @@ Item {
   // Action rows: one that names a target opens it; slices handle their ids here.
   function runAction(item) {
     if (item.target) root.openRequested(item.target)
+    // Podcasts (S8): a chapter seeks in its episode playing, else plays it from there.
+    else if (item.chapter && service) service.playChapter(item.chapter, episodeTrack)
     // Collections (S3): the About row shows or hides the description.
     else if (item.id === Model.COLLECTION_ABOUT_ID) toggleAbout()
     // Explore (S6): Charts' Country row opens the country chooser.
@@ -358,16 +402,19 @@ Item {
   function menu(index) {
     var row = resultList.rowAt(index)
     if (!row || Model.menuKind(row.item) === "") return
-    var removable = row.item.type === "track" && (editable || isLiked)
+    var removable = row.item.type === "track" && (editable || isLiked || isSavedEpisodes)
     root.itemMenuRequested({ item: row.item, owner: root, index: index,
       ctx: { pageKind: ref ? ref.kind : "", owned: editable, removable: removable,
-             removeTitle: isLiked ? "Remove from Liked Music" : "Remove from playlist" } })
+             removeTitle: isLiked ? "Remove from Liked Music"
+               : isSavedEpisodes ? "Remove from Episodes for Later" : "Remove from playlist" } })
   }
 
   // The page as an item for its own menu: the opened item, completed from
   // the page (an album's audio playlist feeds Start radio).
   function pageItem() {
     if (!target) return null
+    if (episodeTrack) return episodeTrack  // S8: the episode page's own episode
+    if (podcastSaveItem) return podcastSaveItem  // S8
     var item = ({})
     for (var key in target) item[key] = target[key]
     if (page && !item.playlistId && page.playlistId && ref && (ref.kind === "album" || ref.kind === "playlist"))
@@ -388,16 +435,26 @@ Item {
                     canFind: Model.canFind(page), aboutOpen: aboutOpen,
                     countryLabel: ref && ref.kind === "charts" ? Model.chartsCountryOf(page).label : "",  // S6
                     // The About row is there to show or hide.
-                    description: Model.showsAbout(page, { find: findText, about: descriptionText.truncated }),
+                    description: Model.showsAbout(page, { find: findText, about: descriptionText.truncated })
+                      || Model.podcastShowsAbout(page, { about: descriptionText.truncated }),
                     // S4: the header's Save and Subscribe (none until the page has loaded).
                     saved: pageSaved, subscribed: pageSubscribed,
-                    canSavePage: canSavePage, canSubscribePage: canSubscribePage } }
+                    canSavePage: canSavePage, canSubscribePage: canSubscribePage,
+                    // S8: a podcast's Save, an episode's Save to Episodes for Later.
+                    podcastSaved: podcastPageSaved, canSavePodcastPage: canSavePodcastPage,
+                    episodeSaved: episodePageSaved, canSaveEpisodePage: canSaveEpisodePage } }
   }
 
   // Play, Shuffle, Queue all (mode now, shuffle, queue; next from the menu).
   // An artist's Shuffle plays YouTube's shuffle mix, as on the web.
   function playAll(mode) {
     if (!service) return
+    // S8: an episode page plays (or queues) its episode.
+    if (episodeTrack) {
+      if (mode === "now") service.playEpisode(episodeTrack)
+      else if (mode === "next" || mode === "queue") service.playItem(episodeTrack, mode)
+      return
+    }
     var item = pageItem()
     if (mode === "shuffle" && shuffleItem) service.playItem(shuffleItem, "now")
     else if (incomplete && Model.tracksForParams(item)) service.playItem(item, mode)
@@ -487,11 +544,22 @@ Item {
   }
 
   // The artist page as the item Subscribe acts on, with the channel its
-  // subscribe button names (S1's header.subscribeId).
+  // subscribe button names (S1's header.subscribeId); S8: a podcast
+  // channel's page likewise.
   function subscribeItem() {
-    var header = Model.artistHeader(page) || {}
-    return { type: "artist", channelId: header.channelId || (target ? target.channelId : ""),
+    var header = subscribeHeader()
+    return { type: isChannel ? "channel" : "artist", channelId: header.channelId || (target ? target.channelId : ""),
              subscribeId: header.subscribeId || null, title: title }
+  }
+
+  function subscribeHeader() {
+    return Model.artistHeader(page) || (isChannel ? page.header : null) || {}
+  }
+
+  // S8: a page header's true / false, undefined when it says neither.
+  function headerFlag(key) {
+    var value = isPage && page.header ? page.header[key] : undefined
+    return value === true || value === false ? value : undefined
   }
 
   // S with no row (Panel's toggleSave hook), the header's Save or
@@ -501,6 +569,9 @@ Item {
     if (!service) return false
     if (canSubscribePage) return service.subscribe(subscribeItem(), !pageSubscribed, editCallback())
     if (canSavePage) return service.saveItem(pageSaveItem, !pageSaved, editCallback())
+    // S8: a podcast into the library, an episode into Episodes for Later.
+    if (canSavePodcastPage) return service.savePodcast(podcastSaveItem, !podcastPageSaved, editCallback())
+    if (canSaveEpisodePage) return service.saveEpisode(episodeTrack, !episodePageSaved, editCallback())
     service.failAction("Nothing to save", !signedIn ? "Sign in to use your library"
       : (loading && !page) || error !== "" ? "The page has not loaded" : title)
     return false
@@ -655,6 +726,31 @@ Item {
         width: parent.width
         spacing: Style.space(4)
         visible: root.tracks.length > 0 || root.isArtist || root.canSavePage
+          || !!root.episodeTrack || root.canSavePodcastPage || root.canSubscribePage  // S8
+
+        // S8: an episode page plays its episode, on from where it was left;
+        // while it is the one playing, the button plays and pauses it.
+        Button {
+          visible: !!root.episodeTrack
+          iconText: root.episodeCurrent && root.service.playing ? "󰏤" : "󰐊"
+          text: root.episodeCurrent ? (root.service.playing ? "Pause" : "Play") : root.episodeResume ? "Resume" : "Play"
+          tooltipText: !root.episodeCurrent && root.episodeResume ? "Go on from where you left it" : ""
+          foreground: root.foreground
+          fontSize: Style.font.caption
+          onClicked: {
+            if (!root.service) return
+            if (root.episodeCurrent) root.service.playPause()
+            else root.service.playEpisode(root.episodeTrack)
+          }
+        }
+
+        Button {
+          visible: !!root.episodeTrack && (!!root.episodeResume || root.episodeCurrent)
+          text: "Play from start"
+          foreground: root.foreground
+          fontSize: Style.font.caption
+          onClicked: if (root.service) root.service.playEpisode(root.episodeTrack, false)
+        }
 
         Button {
           visible: root.tracks.length > 0
@@ -667,7 +763,7 @@ Item {
         }
 
         Button {
-          visible: root.tracks.length > 0 || !!root.shuffleItem
+          visible: (root.tracks.length > 0 || !!root.shuffleItem) && !root.podcastPage
           text: "Shuffle"
           tooltipText: root.shuffleItem ? "Play the artist's shuffle mix" : "Turn shuffle on and play in random order"
           foreground: root.foreground
@@ -700,6 +796,27 @@ Item {
           text: root.pageSaved ? "Saved" : "Save"
           tooltipText: Model.withKey(root.pageSaved ? "Remove from library" : "Save to library", "save")
           foreground: root.pageSaved ? Color.accent : root.foreground
+          fontSize: Style.font.caption
+          onClicked: root.toggleSave()
+        }
+
+        // S8: a podcast into the library; an episode into Episodes for Later.
+        Button {
+          visible: root.canSavePodcastPage
+          iconText: root.podcastPageSaved ? "󰃀" : "󰃃"
+          text: root.podcastPageSaved ? "Saved" : "Save"
+          tooltipText: Model.withKey(root.podcastPageSaved ? "Remove from library" : "Save to library", "save")
+          foreground: root.podcastPageSaved ? Color.accent : root.foreground
+          fontSize: Style.font.caption
+          onClicked: root.toggleSave()
+        }
+
+        Button {
+          visible: root.canSaveEpisodePage
+          iconText: root.episodePageSaved ? "󰃀" : "󰃃"
+          text: root.episodePageSaved ? "Saved" : "Save"
+          tooltipText: Model.withKey(root.episodePageSaved ? "Remove from Episodes for Later" : "Save to Episodes for Later", "save")
+          foreground: root.episodePageSaved ? Color.accent : root.foreground
           fontSize: Style.font.caption
           onClicked: root.toggleSave()
         }
@@ -827,8 +944,9 @@ Item {
     owner: root
     // Not refKey: Load all reloads the same list (S3).
     listKey: root.listId
-    removable: root.editable || root.isLiked
-    removeTooltip: root.isLiked ? "Remove from Liked Music" : "Remove from playlist"
+    removable: root.editable || root.isLiked || root.isSavedEpisodes
+    removeTooltip: root.isLiked ? "Remove from Liked Music"
+      : root.isSavedEpisodes ? "Remove from Episodes for Later" : "Remove from playlist"
     numbered: !!root.ref && root.ref.kind === "album"
     // G stops on Load all: the page's shelves come after it.
     endIndex: Model.loadAllIndex(root.rows)

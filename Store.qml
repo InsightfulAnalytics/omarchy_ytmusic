@@ -1120,7 +1120,8 @@ Item {
     var page = cachedCollection(Model.pageRef({ type: "librarySubscriptions" }))
     var list = page ? Model.libraryList(page) : null
     return Model.subscribedState(channelId, {
-      subscribed: subscribed, fallback: fallback, subscriptions: list ? list.items : [],
+      subscribed: subscribed, fallback: fallback,
+      subscriptions: (list ? list.items : []).concat(libraryChannelItems()),  // S8
       subscriptionsComplete: !!list && !list.cursor && !list.hasMore
     })
   }
@@ -1185,6 +1186,77 @@ Item {
     subscribed = ({})
     inLibrary = ({})
     disliked = ({})
+  }
+
+  // ---- podcasts (S8) ------------------------------------------------------------------
+  // What the panel knows of the saved podcasts and Episodes for Later beyond
+  // the lists it read, as S4 does for albums: an edit made here (podcastId
+  // or videoId -> boolean; null forgets it), then the page's own header
+  // (fallback), then the Podcasts chip's list or the Episodes for Later page
+  // held. An episode saved here keeps the setVideoId its reply named, which
+  // removing it again takes. reset() clears them.
+  property var podcastSaves: ({})
+  property var episodeSaves: ({})
+  property var episodeSetIds: ({})
+
+  function podcastSavedState(podcastId, fallback) {
+    var list = libraryLists.podcasts || null
+    return Model.podcastSavedState(podcastId, {
+      edits: podcastSaves, fallback: fallback, podcasts: list ? list.items : [],
+      complete: !!list && list.at > 0 && !list.cursor && !list.hasMore
+    })
+  }
+
+  function episodeSavedState(videoId, fallback) {
+    var page = cachedCollection(Model.pageRef({ type: "savedEpisodes" }))
+    return Model.episodeSavedState(videoId, {
+      edits: episodeSaves, fallback: fallback, saved: page && page.tracks ? page.tracks : [],
+      complete: !!page && page.type === "collection" && page.truncated !== true
+    })
+  }
+
+  // The library's Channels page held (podcast channels, the odd artist):
+  // every one there is subscribed to, so subscribedState counts them with
+  // the Subscriptions list.
+  function libraryChannelItems() {
+    var page = cachedCollection(Model.pageRef({ type: "libraryChannels" }))
+    return page ? Model.libraryList(page).items : []
+  }
+
+  // The entry an episode has in Episodes for Later ("" when unknown).
+  function savedEpisodeSetId(videoId) {
+    return episodeSetIds[videoId] || Model.savedEpisodeSetId(cachedCollection(Model.pageRef({ type: "savedEpisodes" })), videoId)
+  }
+
+  function setPodcastSaved(podcastId, value) {
+    var edit = Model.optimistic(podcastSaves, podcastId, value)
+    podcastSaves = edit.map
+    return edit.previous
+  }
+
+  function setEpisodeSaved(videoId, value) {
+    var edit = Model.optimistic(episodeSaves, videoId, value)
+    episodeSaves = edit.map
+    return edit.previous
+  }
+
+  function rememberSetVideoId(videoId, setVideoId) {
+    var next = _copy(episodeSetIds)
+    if (setVideoId) next[videoId] = String(setVideoId)
+    else delete next[videoId]
+    episodeSetIds = next
+  }
+
+  // map: "podcastSaves" | "episodeSaves".
+  function restoreSaves(map, previous) {
+    if (map === "podcastSaves") podcastSaves = Model.restoreStates(podcastSaves, previous)
+    else if (map === "episodeSaves") episodeSaves = Model.restoreStates(episodeSaves, previous)
+  }
+
+  function _resetPodcasts() {
+    podcastSaves = ({})
+    episodeSaves = ({})
+    episodeSetIds = ({})
   }
 
   // ---- now (S11) ----------------------------------------------------------------------
@@ -1355,6 +1427,7 @@ Item {
     explore = ({ page: null, loading: false, error: "", at: 0 })
     likes = ({})
     _resetActions()  // S4
+    _resetPodcasts()  // S8
     _nowContexts = ({})
     // A failure may have come from the old session. Pending loads clear
     // themselves (every request is answered, at the latest by its timeout).

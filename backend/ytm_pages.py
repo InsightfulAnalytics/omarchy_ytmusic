@@ -289,7 +289,10 @@ ORDER_DEPENDENTS = {"FEmusic_liked_playlists": ("libraryPlaylists",),
                     "FEmusic_liked_albums": ("libraryAlbums",),
                     "FEmusic_library_corpus_track_artists": ("libraryArtists",),
                     "FEmusic_library_corpus_artists": ("librarySubscriptions",),
-                    "FEmusic_library_landing": ("libraryLanding",)}
+                    "FEmusic_library_landing": ("libraryLanding",),
+                    # S8: the library's podcasts and channels (ytm_podcasts).
+                    "FEmusic_library_non_music_audio_list": ("libraryPodcasts",),
+                    "FEmusic_library_non_music_audio_channels_list": ("libraryChannels",)}
 
 
 def saves_order(browse_id):

@@ -305,6 +305,10 @@ INVALIDATES = {
         ("libraryLanding", None, None),
         ("browsePage", Fixed("FEmusic_library_corpus_artists", "FEmusic_library_corpus_track_artists",
                              "FEmusic_library_landing"), "browseId"),
+        # S8: a podcast channel's page and the library's channels.
+        ("channel", "pageChannelId", "channelId"),
+        ("libraryChannels", None, None),
+        ("browsePage", Fixed("FEmusic_library_non_music_audio_channels_list"), "browseId"),
     ],
     # The library's songs, the albums and artists it lists for them, and the
     # song's artists' pages ("From your library").

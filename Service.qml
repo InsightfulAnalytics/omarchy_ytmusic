@@ -141,11 +141,14 @@ Item {
     if (!track || !track.videoId) return false
     // The latest thing started wins over a Play or radio still loading.
     _replaceToken++
+    savePosition()  // S8: the episode playing keeps its place
     // S12: into an empty queue it starts a new one, from nothing in particular.
     if (playlistCount === 0) _newQueue(null)
     remember([track])
     withStream(track, function() {
-      mpv.commands(Model.playNowCommands(track, { count: root.playlistCount, pos: root.playlistPos }))
+      var commands = Model.playNowCommands(track, { count: root.playlistCount, pos: root.playlistPos })
+      commands[0] = Model.withStartOption(commands[0], root._episodeStart(track))  // S8: where it was left
+      mpv.commands(commands)
     })
     return true
   }
@@ -411,7 +414,10 @@ Item {
     preResolve.restart()
     sessionSave.restart()
   }
-  onPausedChanged: if (paused) saveSession()
+  onPausedChanged: if (paused) {
+    saveSession()
+    savePosition()  // S8: a paused episode keeps its place
+  }
 
   // ---- resume ----------------------------------------------------------------------
   // The queue, position and volume are saved to ~/.cache/omarchy-ytmusic/
@@ -506,9 +512,13 @@ Item {
   // ({ total }) says `tracks` is only the start of a longer list.
   // S12: `autoFrom` (Start radio) marks the tracks from that index on as
   // autoplay entries (a tuner chip may replace them).
-  function playCollection(tracks, start, shuffleAll, context, partial, autoFrom) {
+  // S8: the song started, when an episode, starts at `episodeStart`
+  // ({ seconds }, { percent }, false for its beginning), by default where
+  // it was left (_episodeStart).
+  function playCollection(tracks, start, shuffleAll, context, partial, autoFrom, episodeStart) {
     // The latest thing started wins over a Play or radio still loading.
     _replaceToken++
+    savePosition()  // S8: the episode playing keeps its place
     if (shuffleAll && !shuffle) {
       shuffle = true
       savePrefs()
@@ -521,6 +531,8 @@ Item {
     var plan = Model.playCollectionCommands(cut.tracks, cut.start, random, Date.now(), !shuffleAll)
     if (plan.tracks.length === 0) return false
     noticeCut(plan.tracks.length, cut, partial)
+    plan.commands[1 + plan.index] = Model.withStartOption(plan.commands[1 + plan.index],
+                                                          _episodeStart(plan.tracks[plan.index], episodeStart))  // S8
     _newQueue(context || null)  // S12
     remember(plan.tracks)
     withStream(plan.tracks[plan.index], function() {
@@ -1635,6 +1647,7 @@ Item {
     if (ctx.ownItem === undefined) ctx.ownItem = saveContext(item).ownItem
     if (ctx.saved === undefined && Model.SAVE_KINDS.indexOf(kind) >= 0) ctx.saved = savedOf(item)
     if (ctx.subscribed === undefined && Model.canSubscribe(item)) ctx.subscribed = subscribedOf(item)
+    _fillPodcastState(item, ctx)  // S8
     if (kind !== "track") return
     if (ctx.inLibrary === undefined) ctx.inLibrary = inLibraryOf(item)
     if (ctx.liked === undefined) ctx.liked = likeStatusOf(item) === "LIKE"
@@ -1653,6 +1666,8 @@ Item {
     if (action === "save") return saveItem(item, savedOf(item) !== true, callback)
     if (action === "subscribe") return subscribe(item, subscribedOf(item) !== true, callback)
     if (action === "saveSong") return setSongLibrary(item, inLibraryOf(item) !== true, callback)
+    if (action === "savePodcast") return savePodcast(item, podcastSavedOf(item) !== true, callback)  // S8
+    if (action === "saveEpisode") return saveEpisode(item, episodeSavedOf(item) !== true, callback)  // S8
     return false
   }
 
@@ -1787,6 +1802,9 @@ Item {
     storeItem.forgetCollection("artist", channelId)
     storeItem.forgetCollection("librarySubscriptions")
     storeItem.forgetCollection("libraryLanding")
+    // S8: a podcast channel's page and the library's channels.
+    storeItem.forgetCollection("channel", channelId)
+    storeItem.forgetCollection("libraryChannels")
   }
 
   // A song into the library (add) or out of it, with the token its row
@@ -1878,6 +1896,203 @@ Item {
     return true
   }
 
+  // ---- podcasts (S8) -----------------------------------------------------------------
+  // Where each played episode was left (Model.withPosition), kept in
+  // ~/.cache/omarchy-ytmusic/positions.json (at most Model.POSITIONS_MAX):
+  // saved every 15 s while an episode plays, when it pauses, and before a
+  // stop, a skip or a new queue takes it away; one played to its end is
+  // kept as played. An episode started from a list or its page goes on
+  // from there, else from YouTube's progress (Model.episodeResume, mpv's
+  // start=<pct>%); nothing goes back to YouTube. A chapter row seeks in
+  // the episode playing, or plays its episode from there. Saving a podcast
+  // (savePodcast) and Episodes for Later (saveEpisode, unsaveEpisode) work
+  // as S4's edits: shown at once, put back on a definite error, forgotten
+  // and read again when the outcome is unknown.
+
+  property var positions: ({})
+  property bool positionsLoaded: false
+  readonly property bool episodePlaying: playing && Model.isEpisode(currentTrack)
+
+  function episodeResumeOf(track) {
+    return Model.episodeResume(track, positions)
+  }
+
+  // A loadfile's start for `track`: `start` when given ({ seconds },
+  // { percent }; false for the beginning), else where it was left.
+  function _episodeStart(track, start) {
+    if (start === false) return null
+    if (start && typeof start === "object") return start
+    return Model.isEpisode(track) ? episodeResumeOf(track) : null
+  }
+
+  // The playing episode's place. mpv answers before any command sent after
+  // this one, so a stop or skip right after still finds it playing.
+  function savePosition() {
+    var track = currentTrack
+    if (!mpv.up || !positionsLoaded || !Model.isEpisode(track)) return
+    var videoId = track.videoId
+    mpv.command(["get_property", "time-pos"], function(reply) {
+      if (!reply || typeof reply.data !== "number") return
+      if (!root.currentTrack || root.currentTrack.videoId !== videoId) return
+      var length = root.duration > 0 ? root.duration : Number(track.durationSec) || 0
+      root._setPositions(Model.withPosition(root.positions, videoId, reply.data, length, Date.now()))
+    })
+  }
+
+  function _setPositions(next) {
+    positions = next
+    positionsFile.setText(Model.positionsText(next) + "\n")
+  }
+
+  // mpv's end-file for an entry played to its end: an episode is played.
+  function _episodeEnded(message) {
+    var entry = Model.entryById(queue, message.playlist_entry_id)
+    if (!positionsLoaded || !entry || !Model.isEpisode(entry.track)) return
+    _setPositions(Model.withFinished(positions, entry.track.videoId, entry.track.durationSec, Date.now()))
+  }
+
+  // An episode on its own (its page's Play, Resume or Play from start).
+  // The episode playing stays where it is, with its queue: it goes on if
+  // paused, or back to its start (start false) or to { seconds }.
+  function playEpisode(track, start) {
+    if (!Model.isEpisode(track)) return false
+    if (isCurrentEpisode(track)) {
+      if (start === false) seek(0)
+      else if (start && typeof start === "object" && start.seconds !== undefined) seek(start.seconds)
+      if (paused) mpv.command(["set_property", "pause", false])
+      return true
+    }
+    return playCollection([track], 0, false, { playlistId: null, title: track.title || "", radio: false }, null, -1, start)
+  }
+
+  function isCurrentEpisode(track) {
+    return hasMedia && Model.isEpisode(track) && !!currentTrack && currentTrack.videoId === track.videoId
+  }
+
+  // A chapter row (Model.chapterAction): a seek in the episode playing,
+  // else `episode` (the page's) from the chapter's second.
+  function playChapter(chapter, episode) {
+    var action = Model.chapterAction(chapter, currentTrack ? currentTrack.videoId : "")
+    if (action.action === "seek") {
+      seek(action.seconds)
+      if (paused) mpv.command(["set_property", "pause", false])
+      return true
+    }
+    if (!Model.isEpisode(episode) || episode.videoId !== action.videoId) return false
+    return playEpisode(episode, { seconds: action.seconds })
+  }
+
+  function podcastSavedOf(item, fallback) {
+    return storeItem.podcastSavedState(Model.podcastIdOf(item), fallback)
+  }
+
+  function episodeSavedOf(track, fallback) {
+    return track && track.videoId ? storeItem.episodeSavedState(track.videoId, fallback) : null
+  }
+
+  // fillMenuState: the podcast's and the episode's saved states.
+  function _fillPodcastState(item, ctx) {
+    if (ctx.podcastSaved === undefined && Model.menuKind(item) === "podcast") ctx.podcastSaved = podcastSavedOf(item)
+    if (ctx.episodeSaved === undefined && Model.isEpisode(item)) ctx.episodeSaved = episodeSavedOf(item)
+  }
+
+  // A podcast into the library (save) or out of it.
+  function savePodcast(item, save, callback) {
+    var params = Model.savePodcastParams(item, save === true)
+    var failTitle = save ? "Couldn't save the podcast" : "Couldn't remove the podcast"
+    if (!params || !_signedInFor(failTitle)) return false
+    var title = Model.itemTitle(item)
+    var podcastId = params.podcastId
+    var previous = storeItem.setPodcastSaved(podcastId, save === true)
+    backend.request("savePodcast", params, function(reply) {
+      if (root.unsure(reply)) {
+        storeItem.setPodcastSaved(podcastId, null)
+        root._forgetPodcast(podcastId)
+        var reloaded = root._ownerCallback(callback, reply)
+        root._editUnsure(root._refreshLists(["podcasts"], true, reloaded) || reloaded, title)
+        return
+      }
+      if (!reply.ok) {
+        storeItem.restoreSaves("podcastSaves", previous)
+        root.failAction(failTitle, reply.error.message)
+        root._ownerCallback(callback, reply)
+        return
+      }
+      root._forgetPodcast(podcastId)
+      root._refreshLists(["podcasts"], false, false)
+      root.notify(save ? "Saved to library" : "Removed from library", title)
+      root._ownerCallback(callback, reply)
+    }, 30000, noRetry)
+    return true
+  }
+
+  // The worker dropped the same (its INVALIDATES).
+  function _forgetPodcast(podcastId) {
+    storeItem.forgetCollection("podcast", "MPSP" + podcastId)
+    storeItem.forgetCollection("newEpisodes")
+    storeItem.forgetCollection("libraryLanding")
+  }
+
+  // An episode into Episodes for Later (save) or out of it. Removing names
+  // its entry there: the one a save made here named (newer than any page),
+  // else `setVideoId` (the Episodes for Later page's row), else the held
+  // Episodes for Later's, else Episodes for Later is read first.
+  function saveEpisode(track, save, callback, setVideoId) {
+    var failTitle = save ? "Couldn't save the episode" : "Couldn't remove the episode"
+    if (!Model.isEpisode(track) || !_signedInFor(failTitle)) return false
+    var known = save ? "" : (storeItem.episodeSetIds[track.videoId] || setVideoId || storeItem.savedEpisodeSetId(track.videoId))
+    if (save || known) {
+      _sendEpisodeEdit(track, save === true, known, callback)
+      return true
+    }
+    storeItem.loadCollection(Model.pageRef({ type: "savedEpisodes" }), function(reply) {
+      var found = reply.ok ? Model.savedEpisodeSetId(reply.result, track.videoId) : ""
+      if (found) {
+        root._sendEpisodeEdit(track, false, found, callback)
+        return
+      }
+      if (reply.ok) storeItem.setEpisodeSaved(track.videoId, false)
+      root.failAction(failTitle, reply.ok ? "It is not in Episodes for Later" : reply.error.message)
+    }, true)
+    return true
+  }
+
+  function _sendEpisodeEdit(track, save, setVideoId, callback) {
+    var failTitle = save ? "Couldn't save the episode" : "Couldn't remove the episode"
+    var title = Model.itemTitle(track)
+    var videoId = track.videoId
+    var previous = storeItem.setEpisodeSaved(videoId, save)
+    var params = save ? { videoId: videoId } : { videoId: videoId, setVideoId: setVideoId }
+    backend.request(save ? "saveEpisode" : "unsaveEpisode", params, function(reply) {
+      if (root.unsure(reply)) {
+        storeItem.setEpisodeSaved(videoId, null)
+        storeItem.rememberSetVideoId(videoId, "")
+        root._forgetEpisode(videoId)
+        var reloaded = root._ownerCallback(callback, reply)
+        root._editUnsure(root._refreshLists(["podcasts"], true, reloaded) || reloaded, title)
+        return
+      }
+      if (!reply.ok) {
+        storeItem.restoreSaves("episodeSaves", previous)
+        root.failAction(failTitle, reply.error.message)
+        root._ownerCallback(callback, reply)
+        return
+      }
+      storeItem.rememberSetVideoId(videoId, save && reply.result ? reply.result.setVideoId : "")
+      root._forgetEpisode(videoId)
+      root._refreshLists(["podcasts"], false, false)
+      root.notify(save ? "Saved to Episodes for Later" : "Removed from Episodes for Later", title)
+      root._ownerCallback(callback, reply)
+    }, 30000, noRetry)
+  }
+
+  // Episodes for Later and the episode's page (the worker drops the same;
+  // podcast pages hold no saved state of their episodes).
+  function _forgetEpisode(videoId) {
+    storeItem.forgetCollection("savedEpisodes")
+    storeItem.forgetCollection("episode", videoId)
+  }
+
   // ---- transport ------------------------------------------------------------
 
   function playPause() {
@@ -1893,12 +2108,14 @@ Item {
 
   function next() {
     if (!hasMedia) return false
+    savePosition()  // S8
     mpv.command(["playlist-next", "weak"])
     return true
   }
 
   function previous() {
     if (!hasMedia) return false
+    savePosition()  // S8
     mpv.command(["get_property", "time-pos"], function(reply) {
       mpv.commands(Model.previousCommands(reply && reply.data))
     })
@@ -1950,12 +2167,14 @@ Item {
 
   function stop() {
     if (!mpv.up) return false
+    savePosition()  // S8: answered before the stop
     mpv.command(["stop"])
     return true
   }
 
   function jumpTo(index) {
     if (!mpv.up || index < 0 || index >= playlistCount) return false
+    if (index !== playlistPos) savePosition()  // S8
     var entry = queue[index]
     var jump = function() { mpv.commands([["playlist-play-index", index], ["set_property", "pause", false]]) }
     if (entry && entry.videoId) withStream(entry.track, jump)
@@ -2055,6 +2274,8 @@ Item {
       // three instead of running through the whole queue. The queue stays;
       // play/pause continues from the first failure.
       if (consecutiveErrors >= 3) mpv.command(["stop", "keep-playlist"])
+    } else if (message.event === "end-file" && message.reason === "eof") {
+      _episodeEnded(message)  // S8
     }
   }
 
@@ -2327,6 +2548,27 @@ Item {
     printErrors: false
     onLoaded: root.session = Model.parseSession(text())
     onLoadFailed: root.session = null
+  }
+
+  // S8: where each played episode was left.
+  FileView {
+    id: positionsFile
+    path: root.cacheDir + "/positions.json"
+    atomicWrites: true
+    watchChanges: false
+    printErrors: false
+    onLoaded: {
+      root.positions = Model.parsePositions(text())
+      root.positionsLoaded = true
+    }
+    onLoadFailed: root.positionsLoaded = true
+  }
+
+  Timer {
+    interval: 15000
+    repeat: true
+    running: root.episodePlaying
+    onTriggered: root.savePosition()
   }
 
   FileView {

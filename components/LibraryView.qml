@@ -6,10 +6,12 @@ import "../YtmModel.js" as Model
 // Your account and "new playlist", then the library's chips (S2):
 // Playlists (Liked Music, History, Recent activity, your and saved
 // playlists), Songs (Shuffle all, then the songs), Albums and Artists
-// (Subscriptions, then the artists). h / l switch chips (kept in
-// prefs.libraryChip); O cycles the chip's sort order (prefs.libraryOrders),
-// named in its first heading. A chip's list loads only once it is shown,
-// about 50 at a time: Load more, or the cursor nearing the end.
+// (Subscriptions, then the artists), Podcasts (S8: Episodes for Later with
+// its count, New episodes and Channels, then the saved podcasts). h / l
+// switch chips (kept in prefs.libraryChip); O cycles the chip's sort order
+// (prefs.libraryOrders), named in its first heading. A chip's list loads
+// only once it is shown, about 50 at a time: Load more, or the cursor
+// nearing the end.
 Item {
   id: root
 
@@ -315,7 +317,7 @@ Item {
       text: !root.store ? "" : root.listLoading && root.itemCount === 0 ? "Loading your library…"
         : root.listError !== "" ? root.listError
         : !root.isPlaylists && !!root.list && !root.listLoading && root.itemCount === 0 && !root.list.message
-          && root.list.at > 0 ? "Nothing here yet" : ""
+          && root.list.at > 0 && root.chip !== "podcasts" ? "Nothing here yet" : ""  // S8: its entry rows show
       color: root.listError !== "" ? Color.urgent : Qt.darker(root.foreground, 1.5)
       font.family: root.fontFamily
       font.pixelSize: Style.font.bodySmall
