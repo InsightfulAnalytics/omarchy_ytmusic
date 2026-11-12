@@ -740,28 +740,12 @@ function collectThumbs(value, max) {
 
 // ---- bar widget -----------------------------------------------------------------
 
-function normalizeDisplay(value) {
-  var mode = String(value || "").toLowerCase()
-  return mode === "player" || mode === "status" || mode === "mini" ? "player" : "icon"
-}
-
-function nextDisplay(value) {
-  return normalizeDisplay(value) === "player" ? "icon" : "player"
-}
-
 // Qt.LeftButton = 1, Qt.RightButton = 2, Qt.MiddleButton = 4.
 function clickAction(button) {
   if (button === 4) return "playPause"
-  if (button === 2) return "toggleDisplay"
   return "panel"
 }
 
-function nowPlayingLabel(track) {
-  if (!track) return ""
-  var title = String(track.title || "")
-  var artists = String(track.artistText || "")
-  return artists ? title + "  ·  " + artists : title
-}
 
 function parseMpvLine(line) {
   try {
@@ -835,10 +819,7 @@ if (typeof module !== "undefined") {
     suggestionRows: suggestionRows,
     searchKey: searchKey,
     collectThumbs: collectThumbs,
-    normalizeDisplay: normalizeDisplay,
-    nextDisplay: nextDisplay,
     clickAction: clickAction,
-    nowPlayingLabel: nowPlayingLabel,
     parseMpvLine: parseMpvLine
   }
 }

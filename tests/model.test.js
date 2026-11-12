@@ -407,22 +407,10 @@ test("collectThumbs walks results and deduplicates", () => {
   assert.deepEqual(Model.collectThumbs(null), [])
 })
 
-test("display modes and click mapping", () => {
-  assert.equal(Model.normalizeDisplay("player"), "player")
-  assert.equal(Model.normalizeDisplay("MINI"), "player")
-  assert.equal(Model.normalizeDisplay(undefined), "icon")
-  assert.equal(Model.normalizeDisplay("whatever"), "icon")
-  assert.equal(Model.nextDisplay("icon"), "player")
-  assert.equal(Model.nextDisplay("player"), "icon")
+test("click mapping", () => {
   assert.equal(Model.clickAction(1), "panel")
   assert.equal(Model.clickAction(4), "playPause")
-  assert.equal(Model.clickAction(2), "toggleDisplay")
-})
-
-test("now playing label", () => {
-  assert.equal(Model.nowPlayingLabel({ title: "Says", artistText: "Nils Frahm" }), "Says  ·  Nils Frahm")
-  assert.equal(Model.nowPlayingLabel({ title: "Solo" }), "Solo")
-  assert.equal(Model.nowPlayingLabel(null), "")
+  assert.equal(Model.clickAction(2), "panel")
 })
 
 test("parseMpvLine", () => {

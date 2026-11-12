@@ -18,19 +18,6 @@
     "description": "Now playing, search, playlists and likes for YouTube Music",
     "category": "Media",
     "allowMultiple": false,
-    "defaultSection": "right",
-    "defaults": {
-      "display": "icon"
-    },
-    "schema": [
-      {
-        "key": "display",
-        "type": "enum",
-        "options": ["icon", "player"],
-        "label": "Bar display",
-        "defaultValue": "icon",
-        "description": "icon for the music mark only, player for scrolling now-playing text."
-      }
-    ]
+    "defaultSection": "right"
   }
 }
