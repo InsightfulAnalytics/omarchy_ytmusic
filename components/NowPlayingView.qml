@@ -21,6 +21,8 @@ Column {
   // S4: disliked here this session (YouTube reports a dislike as INDIFFERENT).
   readonly property bool disliked: !!service && service.currentDisliked
   readonly property bool accountActions: !!service && service.signedIn && hasMedia
+  readonly property bool removableFromSource: !!service
+    && Model.removableFromSource(service.sourcePlaylist, service.currentEntry, service.removedFromSource)
 
   readonly property bool albumLinked: !!track && !!track.album && !!track.album.id
   // S17: "1.5x" while the speed is not 1x ([ and ]); "" at normal speed.
@@ -304,6 +306,7 @@ Column {
     }
 
     Button {
+      id: addButton
       anchors.right: menuButton.visible ? menuButton.left : parent.right
       anchors.verticalCenter: parent.verticalCenter
       visible: root.accountActions
@@ -311,6 +314,17 @@ Column {
       tooltipText: Model.withKey("Add to playlist", "addToPlaylist")
       foreground: root.foreground
       onClicked: root.addToPlaylistRequested()
+    }
+
+    // Out of your playlist the queue plays from (the queue row's twin).
+    Button {
+      anchors.right: addButton.visible ? addButton.left : menuButton.visible ? menuButton.left : parent.right
+      anchors.verticalCenter: parent.verticalCenter
+      visible: root.accountActions && root.removableFromSource
+      iconText: "󰐐"
+      tooltipText: Model.removeFromSourceTitle(root.service ? root.service.sourcePlaylist : null)
+      foreground: root.foreground
+      onClicked: root.service.removeFromSource(root.track)
     }
 
     Row {

@@ -38,7 +38,7 @@ ytmusicapi and yt-dlp, which can break when YouTube changes something
 ## At a glance
 
 - 🔎 **Search** as you type, like the web: songs, videos, albums, artists, playlists, podcasts, episodes and profiles, Show all, spelling fixes, your library and uploads, and suggestions with your past searches
-- 🎶 **Queue** with shuffle, repeat and autoplay (similar songs when it runs out)
+- 🎶 **Queue** with shuffle, repeat and autoplay (similar songs when it runs out); while it plays one of your playlists, take a song out of that playlist from its row, its menu or Now
 - 🎤 **Lyrics**, time-synced where YouTube has them, **Related** and song credits for what's playing
 - 📚 **Your library**: playlists (create, add, remove, delete; edit, reorder, suggestions, collaborators and votes; save whole albums, playlists or the queue into one), songs (with Shuffle all), albums, artists, subscriptions, recent activity and the profiles you subscribe to, each in YouTube's sort orders; save albums, playlists and songs to it and subscribe to artists, channels and profiles (`S`); likes, dislikes (`D`) and Liked Music, History (remove entries; your plays go there once you turn it on), Home, Your channel
 - 👤 **Artist and album pages**, one click from what's playing: every shelf of an artist's page (top songs, albums, singles, videos, live performances, playlists, related artists) with See all, Shuffle, Radio and About

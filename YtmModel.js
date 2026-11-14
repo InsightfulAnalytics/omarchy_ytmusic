@@ -7988,3 +7988,71 @@ if (typeof module !== "undefined") {
     contextTitle: contextTitle
   })
 }
+
+// ==== remove from the playlist playing ========================================================
+// While the queue plays one of your playlists (a playlist page's Play or
+// Shuffle, a playlist row's Play), a song can be taken out of that playlist
+// from its queue row, the row's menu and Now. The queue keeps the song.
+// Not a radio, a mix, an album, Liked Music (Like does that) or Episodes for
+// Later.
+
+// { playlistId, title } of the playlist playing when it is yours, else null.
+// `playlists` are the library's (Store.playlists, with `owned`).
+function sourcePlaylist(context, playlists) {
+  if (!context || typeof context !== "object" || context.radio === true || !context.playlistId) return null
+  var id = _stripVl(context.playlistId)
+  if (id === "" || id === "LM" || id === "SE" || isMixId(id)) return null
+  var list = playlists || []
+  for (var i = 0; i < list.length; i++) {
+    var p = list[i]
+    if (p && p.owned === true && _stripVl(p.playlistId) === id)
+      return { playlistId: id, title: String(context.title || p.title || "") }
+  }
+  return null
+}
+
+// Whether a queue entry offers it: not a song autoplay added, nor one
+// already taken out (`removed`: videoId -> playlistId).
+function removableFromSource(source, entry, removed) {
+  if (!source || !entry || !entry.videoId || entry.origin === "auto") return false
+  return !(removed && removed[entry.videoId] === source.playlistId)
+}
+
+// The playlist's entry for `track` ({ videoId, setVideoId }) in its
+// `tracks`, or null: the entry the track itself names when the list has it,
+// else the song's first.
+function playlistEntryOf(tracks, track) {
+  if (!track || !track.videoId) return null
+  var list = tracks || []
+  var first = null
+  for (var i = 0; i < list.length; i++) {
+    var t = list[i]
+    if (!t || t.videoId !== track.videoId || !t.setVideoId) continue
+    var entry = { videoId: t.videoId, setVideoId: t.setVideoId }
+    if (track.setVideoId && t.setVideoId === track.setVideoId) return entry
+    if (!first) first = entry
+  }
+  return first
+}
+
+function removeFromSourceTitle(source) {
+  return source && source.title ? "Remove from " + source.title : "Remove from playlist"
+}
+
+// The queue row's menu and the song playing's (ctx.sourcePlaylist, filled by
+// QueueView.menu and Panel.nowMenu when the entry offers it).
+_insertAfter(MENU_ACTIONS, "remove", [
+  { id: "removeFromSource", title: function(item, ctx) { return removeFromSourceTitle(ctx.sourcePlaylist) }, icon: "󰐐",
+    applies: function(item, ctx) {
+      return menuKind(item) === "track" && ctx.signedIn === true && !ctx.page && !!ctx.sourcePlaylist
+    },
+    run: function(env) { env.service.removeFromSource(env.item) } }])
+
+if (typeof module !== "undefined") {
+  Object.assign(module.exports, {
+    sourcePlaylist: sourcePlaylist,
+    removableFromSource: removableFromSource,
+    playlistEntryOf: playlistEntryOf,
+    removeFromSourceTitle: removeFromSourceTitle
+  })
+}

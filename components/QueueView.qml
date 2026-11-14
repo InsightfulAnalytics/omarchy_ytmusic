@@ -32,6 +32,10 @@ Item {
   readonly property bool autoplayApart: Model.autoplaySetApart(service ? service.playContext : null,
                                                                service ? service.tuner : null)
   readonly property int firstAutoIndex: autoplayApart ? Model.firstAutoIndex(queue, currentIndex) : -1
+  // Your playlist the queue plays from: its songs' rows can take them out
+  // of it (Service.removeFromSource); null otherwise.
+  readonly property var sourcePlaylist: service ? service.sourcePlaylist : null
+  readonly property var removedFromSource: service ? service.removedFromSource : ({})
 
   // A song's menu: Panel opens it.
   signal itemMenuRequested(var request)
@@ -91,6 +95,7 @@ Item {
     var track = service ? service.withLiveTokens(entry.track) : entry.track
     root.itemMenuRequested({ item: track, owner: root, index: index,
       ctx: { pageKind: "queue", removable: true, removeTitle: "Remove from queue", isCurrent: current,
+             sourcePlaylist: Model.removableFromSource(sourcePlaylist, entry, removedFromSource) ? sourcePlaylist : null,
              counterpart: current && service ? service.counterpartOf(entry.track) : null } })  // S12
   }
 
@@ -322,10 +327,14 @@ Item {
         cursor: queueRow.index === root.cursorIndex
         showMove: true
         showRemove: true
+        showRemoveFromPlaylist: Model.removableFromSource(root.sourcePlaylist, queueRow.modelData, root.removedFromSource)
+        removeFromPlaylistTooltip: Model.removeFromSourceTitle(root.sourcePlaylist)
+        removeTooltip: "Remove from queue"
         showMenu: true
 
         onActivated: root.service.jumpTo(queueRow.index)
         onRemoveRequested: root.service.removeAt(queueRow.index)
+        onRemoveFromPlaylistRequested: root.service.removeFromSource(queueRow.modelData.track)
         onMenuRequested: root.menu(queueRow.index)
         onMoveRequested: function(delta) { root.service.move(queueRow.index, queueRow.index + delta) }
       }
