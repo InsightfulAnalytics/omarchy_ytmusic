@@ -477,6 +477,9 @@ Panel {
       ctx.normalize = service.normalize
     }
     ctx.counterpart = track ? service.counterpartOf(track) : null  // S12: song / video version
+    // Remove from the playlist playing (the song's own menu, not M's).
+    if (!pageMenu && Model.removableFromSource(service.sourcePlaylist, service.currentEntry, service.removedFromSource))
+      ctx.sourcePlaylist = service.sourcePlaylist
     return { item: track, ctx: ctx, owner: queueView, index: -1,
              title: track ? Model.itemTitle(track) : "Queue", subtitle: track ? Model.itemSubtitle(track) : "" }
   }

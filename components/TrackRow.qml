@@ -15,6 +15,9 @@ Item {
   property bool cursor: false
   property bool showMove: false
   property bool showRemove: false
+  // Take the song out of the playlist the queue plays from (QueueView).
+  property bool showRemoveFromPlaylist: false
+  property string removeFromPlaylistTooltip: "Remove from playlist"
   property bool showQueueActions: false
   property bool showMenu: false
   property string removeTooltip: "Remove"
@@ -27,11 +30,12 @@ Item {
 
   readonly property color foreground: bar ? bar.foreground : Color.foreground
   readonly property string fontFamily: bar ? bar.fontFamily : Style.font.family
-  readonly property bool showActions: (hover.hovered || cursor) && (showMove || showRemove || showQueueActions || showMenu)
+  readonly property bool showActions: (hover.hovered || cursor) && (showMove || showRemove || showRemoveFromPlaylist || showQueueActions || showMenu)
   readonly property bool hovered: hover.hovered
 
   signal activated()
   signal removeRequested()
+  signal removeFromPlaylistRequested()
   signal moveRequested(int delta)
   signal playNextRequested()
   signal addToQueueRequested()
@@ -206,6 +210,14 @@ Item {
           tooltipText: "Move down"
           foreground: root.foreground
           onClicked: root.moveRequested(1)
+        }
+
+        PanelActionButton {
+          visible: root.showRemoveFromPlaylist
+          iconText: "󰐐"
+          tooltipText: root.removeFromPlaylistTooltip
+          foreground: root.foreground
+          onClicked: root.removeFromPlaylistRequested()
         }
 
         PanelActionButton {

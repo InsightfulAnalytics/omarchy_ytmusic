@@ -863,6 +863,7 @@ Item {
   onSignedInChanged: {
     if (!signedIn) storeItem.leaveScope()
     Qt.callLater(root._syncMpvCookies)  // S10
+    if (signedIn) Qt.callLater(root._loadSourceLibrary)
   }
 
   function applyAuthChange() {
@@ -1066,7 +1067,10 @@ Item {
   property var _savedQueueState: null
   property bool _queueStateRead: false
 
-  onPlayContextChanged: _queueStateChanged()
+  onPlayContextChanged: {
+    _queueStateChanged()
+    _sourceChanged()
+  }
 
   // A trim took the first `count` entries out: every row index after them
   // is `count` less (QueueView keeps its cursor on the same song).
@@ -2431,6 +2435,71 @@ Item {
       if (callback) callback(reply)
     }, 30000, noRetry)
     return true
+  }
+
+  // ---- remove from the playlist playing ------------------------------------------
+  // The playlist the queue plays from when it is yours (Model.sourcePlaylist,
+  // from the library's playlists): the queue's rows, their menus and Now take
+  // a song out of it, and the queue keeps the song. removedFromSource
+  // (videoId -> playlistId) hides the action for songs already taken out,
+  // until the queue plays from something else.
+  readonly property var sourcePlaylist: signedIn ? Model.sourcePlaylist(playContext, storeItem.playlists) : null
+  property var removedFromSource: ({})
+
+  function _sourceChanged() {
+    removedFromSource = ({})
+    _loadSourceLibrary()
+  }
+
+  // Whose playlist it is comes from the library's playlists: read them
+  // (memory or disk cache first) when a playlist plays before they were.
+  function _loadSourceLibrary() {
+    var c = playContext
+    if (!signedIn || !c || c.radio === true || !c.playlistId) return
+    if (storeItem.libraryAt > 0 || storeItem.libraryLoading) return
+    storeItem.loadLibrary(false)
+  }
+
+  function _markRemoved(videoId, playlistId) {
+    var next = ({})
+    for (var key in removedFromSource) next[key] = removedFromSource[key]
+    if (playlistId) next[videoId] = playlistId
+    else delete next[videoId]
+    removedFromSource = next
+  }
+
+  // The song's entry comes from the playlist the Store holds, else from a
+  // fresh read of it (tracksFor): a queued song carries no setVideoId of
+  // that playlist.
+  function removeFromSource(track) {
+    var source = sourcePlaylist
+    if (!source || !track || !track.videoId) return false
+    if (removedFromSource[track.videoId] === source.playlistId) return false
+    var ref = Model.pageRef({ type: "playlist", playlistId: source.playlistId })
+    var held = ref ? storeItem.cachedCollection(ref) : null
+    var entry = Model.playlistEntryOf(held ? held.tracks : null, track)
+    _markRemoved(track.videoId, source.playlistId)
+    if (entry) return _removeSourceEntry(source, entry, track)
+    backend.request("tracksFor", { kind: "playlist", id: source.playlistId }, function(reply) {
+      var found = reply.ok ? Model.playlistEntryOf(reply.result.items, track) : null
+      if (!found) {
+        root._markRemoved(track.videoId, null)
+        root.failAction("Couldn't remove " + (track.title || "the song"),
+                        reply.ok ? "It isn't in " + (source.title || "the playlist") : reply.error.message)
+        return
+      }
+      root._removeSourceEntry(source, found, track)
+    }, 120000)
+    return true
+  }
+
+  function _removeSourceEntry(source, entry, track) {
+    var sent = removeFromPlaylist(source.playlistId, [entry], function(reply) {
+      if (reply.ok) root.notify("Removed from " + (source.title || "the playlist"), Model.mediaTitle(track))
+      else if (!root.unsure(reply)) root._markRemoved(track.videoId, null)
+    })
+    if (!sent) _markRemoved(track.videoId, null)
+    return sent
   }
 
   function deletePlaylist(playlist, callback) {
