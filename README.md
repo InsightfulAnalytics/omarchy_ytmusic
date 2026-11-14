@@ -94,9 +94,11 @@ Three things stay on the web, by design:
 - ⏯️ **Media keys and OSD** over MPRIS; the bar shows a music icon
 
 <p align="center">
-  <img src="docs/screenshot-now.png" alt="Now tab: cover, seek bar, like, shuffle, transport, repeat, add to playlist, volume, and the queue with songs autoplay added" width="400">
+  <img src="docs/screenshot-now.png" alt="Now tab: cover, seek bar, like, dislike, shuffle, transport, repeat, remove from and add to playlist, volume, and the queue playing from a playlist" width="290">
   &nbsp;
-  <img src="docs/screenshot-search.png" alt="Search tab: results for daft punk with filters, the top result and songs" width="400">
+  <img src="docs/screenshot-search.png" alt="Search tab: typing daft punk shows suggestions, the artist and songs" width="290">
+  &nbsp;
+  <img src="docs/screenshot-explore.png" alt="Explore tab: New releases, Charts, Moods and genres, then new albums and singles" width="290">
 </p>
 
 ```text
