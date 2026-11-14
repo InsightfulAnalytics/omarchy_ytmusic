@@ -93,13 +93,25 @@ Three things stay on the web, by design:
 - 🎧 **Podcasts**: shows, episodes with chapters, Episodes for Later, New episodes and channels, each episode resuming where you left it
 - ⏯️ **Media keys and OSD** over MPRIS; the bar shows a music icon
 
-<p align="center">
-  <img src="docs/screenshot-now.png" alt="Now tab: cover, seek bar, like, dislike, shuffle, transport, repeat, remove from and add to playlist, volume, and the queue playing from a playlist" width="290">
-  &nbsp;
-  <img src="docs/screenshot-search.png" alt="Search tab: typing daft punk shows suggestions, the artist and songs" width="290">
-  &nbsp;
-  <img src="docs/screenshot-explore.png" alt="Explore tab: New releases, Charts, Moods and genres, then new albums and singles" width="290">
-</p>
+## Screenshots
+
+<table>
+  <tr>
+    <td align="center" width="33%"><img src="docs/screenshot-now.png" alt="Now tab: cover, seek bar, like, dislike, shuffle, transport, repeat, remove from and add to playlist, volume, and the queue playing from a playlist"><br><b>Now</b><br><sub>The song, its controls and the queue</sub></td>
+    <td align="center" width="33%"><img src="docs/screenshot-lyrics.png" alt="Now tab showing the lyrics of the song that's playing"><br><b>Lyrics</b><br><sub>Time-synced where YouTube has them</sub></td>
+    <td align="center" width="33%"><img src="docs/screenshot-related.png" alt="Now tab showing Related: songs you might also like"><br><b>Related</b><br><sub>More like what's playing</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/screenshot-search.png" alt="Search tab: typing daft punk shows suggestions, the artist and songs"><br><b>Search</b><br><sub>Results as you type, read signed out</sub></td>
+    <td align="center"><img src="docs/screenshot-library.png" alt="Library tab: playlists, songs, albums, artists and subscriptions"><br><b>Library</b><br><sub>Your playlists, songs, albums and artists</sub></td>
+    <td align="center"><img src="docs/screenshot-home.png" alt="Home tab: mood chips and shelves such as Listen again and Quick picks"><br><b>Home</b><br><sub>Every shelf and mood chip from the web</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/screenshot-explore.png" alt="Explore tab: New releases, Charts, Moods and genres, then new albums and singles"><br><b>Explore</b><br><sub>New releases, charts, moods and genres</sub></td>
+    <td align="center"><img src="docs/screenshot-artist.png" alt="Artist page: top songs, albums, singles and related artists, with Shuffle and Radio"><br><b>Artist pages</b><br><sub>Every shelf, with Shuffle and Radio</sub></td>
+    <td align="center"><img src="docs/screenshot-menu.png" alt="A song's menu: play next, add to queue, start radio, add to playlist, go to artist and album, like, share"><br><b>Menus</b><br><sub>The web's three-dot menu, on every row</sub></td>
+  </tr>
+</table>
 
 ```text
 Memory while playing (PSS, measured on a 16 GB Omarchy laptop)
