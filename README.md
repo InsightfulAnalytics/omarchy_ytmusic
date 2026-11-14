@@ -203,7 +203,7 @@ bin/ytm join 'https://music.youtube.com/playlist?list=PL...&jct=...'   # join a 
 ```mermaid
 flowchart LR
     subgraph shell["omarchy-shell (Quickshell)"]
-        bar["Bar widget<br/>icon or now playing"]
+        bar["Bar widget<br/>music icon"]
         panel["Panel<br/>Now · Search · Library · Home · Explore"]
         svc["Service<br/>queue · state · IPC"]
         bar --> svc
