@@ -47,8 +47,8 @@ import "YtmModel.js" as Model
 // (the playlist editor's target; Panel opens PlaylistEditor over the page).
 Panel {
   id: root
-  moduleName: "damir.ytmusic"
-  ipcTarget: "damir.ytmusic"
+  moduleName: "tim.ytmusic"
+  ipcTarget: "tim.ytmusic"
   manageIpc: false
 
   property var anchorItem: null

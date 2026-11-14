@@ -1,8 +1,8 @@
-// Pure helpers for damir.ytmusic, shared by the QML side and the Node tests
+// Pure helpers for tim.ytmusic, shared by the QML side and the Node tests
 // (`node --test tests/`). Plain functions only (no `.pragma library`), so the
 // same file loads in both.
 
-var PLUGIN_ID = "damir.ytmusic"
+var PLUGIN_ID = "tim.ytmusic"
 
 // www.youtube.com is the only URL form mpv-mpris derives cover art from.
 var WATCH_URL = "https://www.youtube.com/watch?v="

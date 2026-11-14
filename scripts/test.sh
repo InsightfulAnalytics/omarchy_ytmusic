@@ -1,5 +1,5 @@
 #!/bin/bash
-# Run every test for damir.ytmusic without writing caches into the plugin dir.
+# Run every test for tim.ytmusic without writing caches into the plugin dir.
 set -euo pipefail
 
 ROOT=$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)

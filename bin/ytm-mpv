@@ -1,5 +1,5 @@
 #!/bin/bash
-# Start, stop and inspect the detached mpv player used by damir.ytmusic.
+# Start, stop and inspect the detached mpv player used by tim.ytmusic.
 #
 # mpv runs in its own systemd user unit so playback survives plugin hot
 # reloads and shell restarts. The shell talks to it over the JSON IPC socket.

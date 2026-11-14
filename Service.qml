@@ -3,11 +3,11 @@ import Quickshell
 import Quickshell.Io
 import "YtmModel.js" as Model
 
-// Single service instance for damir.ytmusic. Playback state is mirrored from
+// Single service instance for tim.ytmusic. Playback state is mirrored from
 // the detached mpv player (which owns the queue and per-track metadata, so
 // both survive plugin reloads); library/search calls go to the ytmusicapi
 // worker. Bar widgets, one per monitor, reach this via
-// bar.shell.serviceFor("damir.ytmusic").
+// bar.shell.serviceFor("tim.ytmusic").
 Item {
   id: root
 

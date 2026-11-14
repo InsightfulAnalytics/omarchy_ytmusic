@@ -1,4 +1,4 @@
--- Loudness levelling for damir.ytmusic, set by the shell in
+-- Loudness levelling for tim.ytmusic, set by the shell in
 -- user-data/ytm/normalize (its prefs.normalize):
 --   "youtube"  each song is turned down by what YouTube measured above its
 --              loudness target: the stream's `gain` (dB, never above 0) in

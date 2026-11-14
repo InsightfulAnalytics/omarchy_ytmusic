@@ -6,7 +6,7 @@ User-facing docs are in the [README](../README.md); every feature in detail is i
 
 ## Working on it
 
-Clone into `~/.config/omarchy/plugins/damir.ytmusic` (a real directory: the
+Clone into `~/.config/omarchy/plugins/tim.ytmusic` (a real directory: the
 shell's file watcher and `omarchy plugin validate` don't follow symlinks),
 run `scripts/test.sh` (Node and pytest, without writing caches) and
 `omarchy restart shell` to load QML changes. `omarchy plugin validate .`

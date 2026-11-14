@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "id": "damir.ytmusic",
+  "id": "tim.ytmusic",
   "name": "YouTube Music",
   "version": "2.0.0",
-  "author": "Damir Sagi",
+  "author": "Tim",
   "description": "YouTube Music in a native bar panel, with everything the web app offers: search, library and playlist editing, Home, Explore, podcasts and lyrics. ytmusicapi and mpv, no browser.",
   "kinds": [
     "service",

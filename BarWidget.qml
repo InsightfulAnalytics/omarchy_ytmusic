@@ -4,7 +4,7 @@ import qs.Commons
 import qs.Ui
 import "YtmModel.js" as Model
 
-// Bar entry for damir.ytmusic: a music icon only, no text. Left or right
+// Bar entry for tim.ytmusic: a music icon only, no text. Left or right
 // click opens the panel, middle click plays/pauses, the wheel skips tracks.
 // One instance per monitor; all state lives in the service.
 BarWidget {

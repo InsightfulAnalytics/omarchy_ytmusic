@@ -21,7 +21,7 @@
 [![Omarchy shell plugin](https://img.shields.io/badge/Omarchy-shell%20plugin-1f2335)](https://github.com/basecamp/omarchy)
 ![Memory](https://img.shields.io/badge/memory-~75%20MiB%20playing%20%C2%B7%200%20idle-2ea44f)
 
-Plugin id `damir.ytmusic` · the Omarchy logo is from [basecamp/omarchy](https://github.com/basecamp/omarchy) (MIT)
+Plugin id `tim.ytmusic` · the Omarchy logo is from [basecamp/omarchy](https://github.com/basecamp/omarchy) (MIT)
 
 </div>
 
@@ -94,9 +94,11 @@ Three things stay on the web, by design:
 - ⏯️ **Media keys and OSD** over MPRIS; the bar shows a music icon
 
 <p align="center">
-  <img src="docs/screenshot-now.png" alt="Now tab: cover, seek bar, like, shuffle, transport, repeat, add to playlist, volume, and the queue with songs autoplay added" width="400">
+  <img src="docs/screenshot-now.png" alt="Now tab: cover, seek bar, like, dislike, shuffle, transport, repeat, remove from and add to playlist, volume, and the queue playing from a playlist" width="290">
   &nbsp;
-  <img src="docs/screenshot-search.png" alt="Search tab: results for daft punk with filters, the top result and songs" width="400">
+  <img src="docs/screenshot-search.png" alt="Search tab: typing daft punk shows suggestions, the artist and songs" width="290">
+  &nbsp;
+  <img src="docs/screenshot-explore.png" alt="Explore tab: New releases, Charts, Moods and genres, then new albums and singles" width="290">
 </p>
 
 ```text
@@ -123,19 +125,19 @@ pulls new versions.
 Then:
 
 - **Sign in** for your playlists, likes, history and Home: Library → **Sign
-  in** (or `~/.config/omarchy/plugins/damir.ytmusic/bin/ytm auth`). It copies
+  in** (or `~/.config/omarchy/plugins/tim.ytmusic/bin/ytm auth`). It copies
   your YouTube session from Chromium, so be signed in to YouTube there.
   Search and playback work without it.
 - **Add a shortcut** in `~/.config/hypr/bindings.lua`. This one takes over
   Omarchy's own Music key:
 
   ```lua
-  o.rebind("SUPER + SHIFT + M", "YouTube Music", { panel = "damir.ytmusic" })
+  o.rebind("SUPER + SHIFT + M", "YouTube Music", { panel = "tim.ytmusic" })
   ```
 
-- **Check the installation**: `~/.config/omarchy/plugins/damir.ytmusic/bin/ytm selftest --online`.
+- **Check the installation**: `~/.config/omarchy/plugins/tim.ytmusic/bin/ytm selftest --online`.
 
-Uninstall: `bin/ytm logout`, then `omarchy plugin remove damir.ytmusic` and
+Uninstall: `bin/ytm logout`, then `omarchy plugin remove tim.ytmusic` and
 `rm -rf ~/.cache/omarchy-ytmusic`.
 
 ## Using it
@@ -245,7 +247,7 @@ after it closes.
 | "Can't reach YouTube Music" | No connection. Press play once it's back; the queue is kept. |
 | Sign-in expired (banner, notification) | Make sure you're signed in to YouTube in Chromium, then **Sign in again** (or `bin/ytm auth`). `bin/ytm auth --from-browser chromium:"Profile 1"` picks another profile. |
 | Library, playlist or Home looks stale | It refreshes itself right after showing the cached copy. `rm -rf ~/.cache/omarchy-ytmusic/data` is always safe. |
-| No bar icon | `omarchy plugin list \| grep ytmusic`, `omarchy plugin validate ~/.config/omarchy/plugins/damir.ytmusic`. |
+| No bar icon | `omarchy plugin list \| grep ytmusic`, `omarchy plugin validate ~/.config/omarchy/plugins/tim.ytmusic`. |
 | Something odd | `omarchy-shell ytmusic status \| jq` (player, worker, auth, last error), `bin/ytm selftest --online`, `journalctl --user -b \| grep ytmusic`. mpv itself runs with `--no-terminal`, so it logs almost nothing. |
 | Start over | `bin/ytm logout` and `rm -rf ~/.cache/omarchy-ytmusic`. |
 

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Command-line front end for the damir.ytmusic backend (ytmusicapi via uv).
+# Command-line front end for the tim.ytmusic backend (ytmusicapi via uv).
 # The shell also starts the worker through this: `ytm serve`.
 #
 #   ytm search QUERY [--filter songs|albums|playlists|artists|videos]
