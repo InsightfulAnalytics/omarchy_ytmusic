@@ -1,4 +1,4 @@
-"""Search and its suggestions (S7): an area module (see AREA_MODULES in ytm.py).
+"""Search and its suggestions: an area module (see AREA_MODULES in ytm.py).
 
 ``search`` returns what the web's search returns: songs, videos, albums,
 artists, playlists, podcasts, episodes and profiles grouped in YouTube's
@@ -224,7 +224,7 @@ def parse_rows(contents, rtype=None, category=None):
 
 
 def upload_page(item):
-    """An uploaded album or artist as the uploads views list it (S10): an
+    """An uploaded album or artist as the uploads views list it: an
     album with ``upload`` and the ``entityId`` that deletes it, or an artist
     with ``upload``, both keeping the uploads ids, so the shell opens their
     upload pages and gives them the uploads menus. The row names an album's
@@ -252,7 +252,7 @@ def _normalize(parsed, rtype=None):
                 if item.get("resultType") in ("album", "artist") and item.get("browseId"):
                     out.append(upload_page(item))
                 elif item.get("videoId"):
-                    # S10: an uploaded song streams with the account (kind upload).
+                    # An uploaded song streams with the account (kind upload).
                     out.extend(norm.normalize_list([item], norm.upload_track, "upload"))
                 else:
                     out.extend(norm.normalize_list([item], norm.search_item, "upload"))
@@ -475,7 +475,7 @@ def typing_client(worker):
     A signed-in search joins the account's search history (the web adds a
     search there when it is submitted), so the words of a pause in typing
     must never go out with the account: they would come back among the
-    account's past searches. The worker's content location (S16) applies.
+    account's past searches. The worker's content location applies.
     """
     return raw.install(auth.anonymous_client(settings=worker.client_settings()))
 

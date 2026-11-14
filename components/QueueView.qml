@@ -7,7 +7,7 @@ import "../YtmModel.js" as Model
 // The play queue (mpv's playlist): click to jump, hover to move or remove,
 // right-click (or m) for a song's menu. Owns its keyboard cursor; Panel.qml
 // forwards keys. Its header's pane chip (or y) switches the area below to
-// Lyrics or Related (S11): Panel puts those views in it as children. G4:
+// Lyrics or Related: Panel puts those views in it as children. 
 // the songs autoplay added after the current one sit under an "Autoplay"
 // caption, dimmed, as the web's Up next sets them apart (not in a radio or
 // a tuned queue, whose songs are plain rows there).
@@ -27,7 +27,7 @@ Item {
   readonly property string fontFamily: bar ? bar.fontFamily : Style.font.family
   readonly property var queue: service ? service.queue : []
   readonly property int currentIndex: service ? service.playlistPos : -1
-  // G4: whether autoplay's songs are set apart, and the row the "Autoplay"
+  // Whether autoplay's songs are set apart, and the row the "Autoplay"
   // caption goes above (-1: none).
   readonly property bool autoplayApart: Model.autoplaySetApart(service ? service.playContext : null,
                                                                service ? service.tuner : null)
@@ -39,7 +39,7 @@ Item {
 
   // A song's menu: Panel opens it.
   signal itemMenuRequested(var request)
-  // S13: the header's Save: every queued song into a playlist (Panel's picker).
+  // The header's Save: every queued song into a playlist (Panel's picker).
   signal saveRequested()
 
   function ensureVisible(index) {
@@ -91,15 +91,15 @@ Item {
     if (!entry || Model.menuKind(entry.track) === "") return
     cursorIndex = index
     var current = index === currentIndex
-    // G2: the song with its library and Listen again tokens (Save, Pin).
+    // The song with its library and Listen again tokens (Save, Pin).
     var track = service ? service.withLiveTokens(entry.track) : entry.track
     root.itemMenuRequested({ item: track, owner: root, index: index,
       ctx: { pageKind: "queue", removable: true, removeTitle: "Remove from queue", isCurrent: current,
              sourcePlaylist: Model.removableFromSource(sourcePlaylist, entry, removedFromSource) ? sourcePlaylist : null,
-             counterpart: current && service ? service.counterpartOf(entry.track) : null } })  // S12
+             counterpart: current && service ? service.counterpartOf(entry.track) : null } })
   }
 
-  // G2 (Model.editCallbackOf): after a library or pin edit made here or on
+  // After a library or pin edit made here or on
   // the song playing (Panel.nowMenu, S on Now) whose outcome is unknown or
   // whose token was stale, that song's own menu is read again; true then
   // ("refreshed").
@@ -124,7 +124,7 @@ Item {
 
   onPaneChanged: cursorIndex = -1
 
-  // ---- up next (S12) ------------------------------------------------------------------
+  // ---- up next ------------------------------------------------------------------
   // Under the header on the Queue pane: "Playing from <title>" and the one
   // tuner chip ("Tune: All"; a click or t shows the next chip, the Now page
   // menu lists them all). Choosing a chip replaces only the songs autoplay
@@ -195,7 +195,7 @@ Item {
       visible: root.pane === "queue"
       spacing: Style.space(4)
 
-      // S13: Save the queue to a playlist (the Now page menu's twin).
+      // Save the queue to a playlist (the Now page menu's twin).
       Button {
         visible: root.queue.length > 0 && !!root.service && root.service.signedIn
         iconText: "󰐒"
@@ -229,7 +229,7 @@ Item {
     }
   }
 
-  // S12: "Playing from" and the tuner chip (Queue pane only).
+  // "Playing from" and the tuner chip (Queue pane only).
   Item {
     id: contextRow
     anchors.top: header.bottom
@@ -279,7 +279,7 @@ Item {
 
   ListView {
     id: list
-    anchors.top: contextRow.bottom  // S12
+    anchors.top: contextRow.bottom
     anchors.topMargin: Style.space(6)
     anchors.bottom: parent.bottom
     width: parent.width
@@ -294,7 +294,7 @@ Item {
       policy: ScrollBar.AsNeeded
     }
 
-    // G4: a caption above the first song autoplay added; its songs dimmed
+    // A caption above the first song autoplay added; its songs dimmed
     // until they play. A Column skips the hidden caption, so other rows keep
     // their height (positionViewAtIndex copes with the taller one).
     delegate: Column {
@@ -340,7 +340,7 @@ Item {
       }
     }
 
-    // S12: where autoplay would have added songs, why it did not. G1: or
+    // Where autoplay would have added songs, why it did not. Or
     // what follows while the list that plays goes on.
     footer: Item {
       readonly property string text: note.text
@@ -353,7 +353,7 @@ Item {
         anchors.bottom: parent.bottom
         width: parent.width
         textFormat: Text.PlainText
-        text: !root.service ? "" : root.service.listRestNote !== "" ? root.service.listRestNote  // G1
+        text: !root.service ? "" : root.service.listRestNote !== "" ? root.service.listRestNote
           : root.service.autoplay ? root.service.autoplayNote : ""
         color: Qt.darker(root.foreground, 1.6)
         font.family: root.fontFamily

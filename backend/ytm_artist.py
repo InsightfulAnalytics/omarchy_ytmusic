@@ -8,8 +8,8 @@
   ytmusicapi did parse are matched to its keys (songs, albums, ...) by their
   See all endpoint or by their items, never by title, so a section says what
   it holds (``key``); a row nothing matches is a generic section, and a row
-  that fails to parse is left out. The header carries ``pin`` (S14): its
-  menu's Listen again toggle (raw.header_pin), or None. G3: a page served
+  that fails to parse is left out. The header carries ``pin``: its
+  menu's Listen again toggle (raw.header_pin), or None. A page served
   with its header only (no rows) is that header, no sections and a
   ``message``; Latest episodes' See all carries the page type
   ``YTM_CHANNEL_EPISODES`` (the channel's episode grid, channelEpisodes).
@@ -46,7 +46,7 @@ FALLBACK_TITLES = {
 _NEEDS_PARAMS = ("albums", "singles", "shows")
 # What an album card without a type is in each list.
 _DEFAULT_TYPE = {"albums": "Album", "singles": "Single"}
-# ---- G3 (podcasts more): the page type ytm_podcasts gives a channel's
+# ---- the page type ytm_podcasts gives a channel's
 # Latest episodes See all (ytm_podcasts.CHANNEL_EPISODES; that module
 # imports this one), and the message of an artist page YouTube serves with
 # a header only.
@@ -59,7 +59,6 @@ def _episodes_row(key, items):
     if key == "episodes":
         return True
     return bool(items) and all(i.get("type") == "track" and i.get("kind") == "episode" for i in items)
-# ---- end G3
 
 
 def _normalizer(key):
@@ -197,7 +196,7 @@ def sections(channel_id, data, rows):
         items = _fix_items(key, items)
         more = _more(row["more"], own, key)
         if more and more.get("params") and more["browseId"] in own and _episodes_row(key, items):
-            # G3: Latest episodes' See all is the channel's episode grid (the
+            # Latest episodes' See all is the channel's episode grid (the
             # served page type says artist, which opens no such page).
             more = dict(more, pageType=CHANNEL_EPISODES)
         if items or more:
@@ -311,7 +310,7 @@ def reparse(yt, channel_id, response):
 
 
 def header_only(channel_id, response):
-    """G3: an artist page served with its header and nothing under it (an
+    """An artist page served with its header and nothing under it (an
     author's: Brandon Sanderson, Agatha Christie). get_artist and its reparse
     read no such page (it has no rows); the web shows the header, so this
     does: name, picture, subscribers and Subscribe, and a message where the
@@ -349,11 +348,11 @@ def fetch(worker, channel_id):
     response = cap.first("browse")
     rows = raw.rows(response)
     if data is None and not rows:
-        return header_only(channel_id, response)  # G3
+        return header_only(channel_id, response)
     if data is None or _songs_moved(rows):
         data = reparse(yt, channel_id, response)
     page = build(channel_id, data, rows)
-    # S14: Pin to / Unpin from Listen again (the header menu's), or None.
+    # Pin to / Unpin from Listen again (the header menu's), or None.
     page["header"]["pin"] = raw.header_pin(response)
     return page
 

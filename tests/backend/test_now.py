@@ -1,4 +1,4 @@
-"""ytm_now (S11): nowContext, lyrics, related and credits.
+"""ytm_now: nowContext, lyrics, related and credits.
 
 Real ytmusicapi methods run on recorded (signed-out) responses: each test
 client answers ``_send_request`` from a queue, so the requests a method
@@ -107,7 +107,7 @@ def test_now_context_reads_everything_from_one_next_request(load_fixture):
     items = context["items"]
     assert KARMA not in [t["videoId"] for t in items] and len(items) == 5
     assert all(t["type"] == "track" and t["counterpart"] is None for t in items)
-    # S3's feedback-token fields (ytm_cache.TOKEN_KEYS) are part of every
+    # feedback-token fields (ytm_cache.TOKEN_KEYS) are part of every
     # track by design (the disk cache and the shell's queue drop them); this
     # signed-out fixture fills none, and nothing else token-like is there.
     assert all(t[key] is None for t in items for key in caches.TOKEN_KEYS)
@@ -389,7 +389,7 @@ def test_registry():
     assert not (set(now.METHODS) & ytm.MUTATES)
 
 
-# Lane A's recordings (S1, S3) too: `bin/ytm record` scrubs every one alike.
+# The other recordings too: `bin/ytm record` scrubs every one alike.
 @pytest.mark.parametrize("name", ["watch_raw.json", "related.json", "credits.json", "lyrics_timed.json",
                                   "lyrics_plain.json", "queue_raw.json", "album.json", "artist.json",
                                   "artist_raw_rows.json", "artist_albums.json", "playlist_related.json"])
@@ -399,7 +399,7 @@ def test_fixtures_hold_no_tokens(load_fixture, name):
         assert part not in text, (name, part)
 
 
-# ---- up next (S12) -------------------------------------------------------------------------
+# ---- up next -------------------------------------------------------------------------
 # upNext turns a finite context into its radio and passes a radio through;
 # queueFrom is a tuner chip's queue. Both run on real ytmusicapi code over the
 # anonymous watch_raw / queue_raw fixtures (no continuations: one request).
@@ -451,7 +451,7 @@ def test_up_next_without_a_context_is_the_songs_radio(load_fixture):
     items = result["items"]
     assert len(items) == 5 and KARMA not in [t["videoId"] for t in items]
     assert all(t["type"] == "track" and "counterpart" in t for t in items)
-    # S3's token fields (ytm_cache.TOKEN_KEYS) are empty here; nothing else
+    # token fields (ytm_cache.TOKEN_KEYS) are empty here; nothing else
     # token-like is in the reply.
     assert all(t[key] is None for t in items for key in caches.TOKEN_KEYS)
     bare = str(caches.strip_tokens(result)).lower()

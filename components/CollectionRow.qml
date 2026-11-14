@@ -5,8 +5,8 @@ import "../YtmModel.js" as Model
 
 // An album, playlist or artist in a list; clicking opens it, a right-click
 // (or the menu button shown on hover) asks for its menu. An explicit album
-// has a boxed E before its subtitle (S3). Artists, profiles and channels
-// have round covers (S9).
+// has a boxed E before its subtitle. Artists, profiles and channels
+// have round covers.
 Item {
   id: root
 

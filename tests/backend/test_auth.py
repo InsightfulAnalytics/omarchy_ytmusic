@@ -219,7 +219,7 @@ def test_anonymous_client_uses_the_factory_once(monkeypatch):
     assert made == [{"language": "en"}]
 
 
-# ---- identity and client settings (S16) ---------------------------------------------------
+# ---- identity and client settings ---------------------------------------------------
 
 
 class KwargsClient(FakeClient):

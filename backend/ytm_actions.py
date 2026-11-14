@@ -1,4 +1,4 @@
-"""Library actions (S4): save albums and playlists, subscribe, songs in the library.
+"""Library actions: save albums and playlists, subscribe, songs in the library.
 
 Every method here changes the account (MUTATES): the shell sends it with
 retry:false and refreshes what it touched when the outcome is unknown.
@@ -17,14 +17,14 @@ retry:false and refreshes what it touched when the outcome is unknown.
 - ``subscribe({channelId?, pageChannelId?, subscribe})``: subscribe to an
   artist or any channel (``subscribe`` true) or unsubscribe (false).
   ``channelId`` is the channel to subscribe to; an artist page's subscribe
-  button names another channel than the page itself (S1's
-  ``header.subscribeId``). ``pageChannelId`` is the artist page the edit
+  button names another channel than the page itself
+  (``header.subscribeId``). ``pageChannelId`` is the artist page the edit
   changes; without ``channelId`` the subscribe channel is read from that
   page (the disk copy, else one request). Returns ``{channelId,
   pageChannelId, subscribed}``.
 - ``songLibrary({videoId, token, artistIds?})``: a song's "Save to library"
   / "Remove from library" through the feedback token its row came with
-  (S3's ``libraryTokens.add`` or ``.remove``; which one decides the
+  (``libraryTokens.add`` or ``.remove``; which one decides the
   direction). ``artistIds`` as for an album. Tokens are account-bound and
   may be stale: YouTube then answers without processing the feedback,
   which is UPSTREAM (``STALE_MESSAGE``) with ``stale: true`` in the error,
@@ -297,7 +297,7 @@ INVALIDATES = {
     ],
     # The artist page (keyed by the page's channel id, not the subscribe
     # channel), Subscriptions, the library's artists and Recent activity.
-    # S8 and S9 add their channel and user pages below.
+    # The channel and user pages are added below.
     "subscribe": [
         ("artist", "pageChannelId", "channelId"),
         ("librarySubscriptions", None, None),
@@ -305,11 +305,11 @@ INVALIDATES = {
         ("libraryLanding", None, None),
         ("browsePage", Fixed("FEmusic_library_corpus_artists", "FEmusic_library_corpus_track_artists",
                              "FEmusic_library_landing"), "browseId"),
-        # S8: a podcast channel's page and the library's channels.
+        # A podcast channel's page and the library's channels.
         ("channel", "pageChannelId", "channelId"),
         ("libraryChannels", None, None),
         ("browsePage", Fixed("FEmusic_library_non_music_audio_channels_list"), "browseId"),
-        # S9: a profile's page and the library's profiles (ytm_users).
+        # A profile's page and the library's profiles (ytm_users).
         ("user", "pageChannelId", "channelId"),
         ("libraryProfiles", None, None),
         ("browsePage", Fixed("FEmusic_library_user_profile_channels_list"), "browseId"),

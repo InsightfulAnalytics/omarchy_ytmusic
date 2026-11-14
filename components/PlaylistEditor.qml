@@ -3,7 +3,7 @@ import qs.Commons
 import qs.Ui
 import "../YtmModel.js" as Model
 
-// S13: edit your playlist (e on its page, or the page menu's Edit
+// Edit your playlist (e on its page, or the page menu's Edit
 // playlist), over the panel content like the playlist picker. The title
 // and description fields, the privacy chips, then a list: Save, Privacy
 // and, under Advanced, Order, where new songs go, Voting, the invite link
@@ -12,7 +12,7 @@ import "../YtmModel.js" as Model
 // sent only once chosen; Save sends only what changed. Keys: Tab moves
 // title, description, list; Enter in a field saves; in the list j / k,
 // Enter, and h / l cycle an option row; Esc leaves a field, then closes.
-// G4: Remove custom image, only when YouTube serves it (chosen twice
+// Remove custom image, only when YouTube serves it (chosen twice
 // within 4 s: the panel cannot set one back).
 Rectangle {
   id: root
@@ -48,7 +48,7 @@ Rectangle {
   // A field gave the keys back to the list (Tab, Down, Esc).
   signal leftField()
 
-  // G4: Remove custom image asks again.
+  // Remove custom image asks again.
   ConfirmGate {
     id: imageGate
   }
@@ -81,7 +81,7 @@ Rectangle {
     settingsLoading = false
     status = ""
     statusError = false
-    imageGate.reset()  // G4
+    imageGate.reset()
     _generation++
     titleField.text = ""
     descriptionField.text = ""
@@ -236,10 +236,10 @@ Rectangle {
     else if (Model.EDITOR_OPTIONS[id]) cycle(Model.EDITOR_OPTIONS[id], 1)
     else if (id === Model.EDITOR_IDS.invite) invite()
     else if (id === Model.EDITOR_IDS.close) closeCollaboration()
-    else if (id === Model.EDITOR_REMOVE_IMAGE_ID) removeImage()  // G4
+    else if (id === Model.EDITOR_REMOVE_IMAGE_ID) removeImage()
   }
 
-  // G4: the custom cover goes (YouTube shows its own again); the row goes
+  // The custom cover goes (YouTube shows its own again); the row goes
   // with it, and the page under the editor reads itself again.
   function removeImage() {
     if (!open || busy || !service || !initial || !initial.removeImage) return
@@ -355,7 +355,7 @@ Rectangle {
       placeholderText: "Title"
       foreground: root.foreground
       font.family: root.fontFamily
-      activeFocusOnTab: false  // P1: Tab is routed by hand (tabFocus), never by Qt's chain
+      activeFocusOnTab: false  // Tab is routed by hand (tabFocus), never by Qt's chain
 
       Keys.onPressed: function(event) {
         if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
@@ -378,7 +378,7 @@ Rectangle {
       placeholderText: "Description"
       foreground: root.foreground
       font.family: root.fontFamily
-      activeFocusOnTab: false  // P1: Tab is routed by hand (tabFocus), never by Qt's chain
+      activeFocusOnTab: false  // Tab is routed by hand (tabFocus), never by Qt's chain
 
       Keys.onPressed: function(event) {
         if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {

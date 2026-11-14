@@ -6,7 +6,7 @@ import "../YtmModel.js" as Model
 
 // A flat list of result rows ({ header, title } or { item, trackIndex }):
 // section headers, tracks, collections, and the line rows of pages (See all,
-// Load more, action, message, text: page content shown in full, and S6's
+// Load more, action, message, text: page content shown in full, and the
 // Moods & genres categories). Owns its keyboard cursor, and keeps it and
 // the scroll position on the same rows by key when the rows change (an
 // append, a background refresh, a removal), unless `listKey` changed.
@@ -22,13 +22,13 @@ ListView {
   property int cursorIndex: -1
   // Track rows get a remove action (playlist pages, Liked Music).
   property bool removable: false
-  // S3: track rows show their album track number instead of the cover (album pages).
+  // Track rows show their album track number instead of the cover (album pages).
   property bool numbered: false
-  // S3: the row G lands on instead of the last one (a collection's Load
+  // The row G lands on instead of the last one (a collection's Load
   // all row, which its shelves follow); -1 for the last row.
   property int endIndex: -1
   property string removeTooltip: "Remove"
-  // S13: the page's own songs get move buttons (your playlist; J / K's twins).
+  // The page's own songs get move buttons (your playlist; J / K's twins).
   property bool movable: false
   // The Load more row's state, set by the owner.
   property bool moreBusy: false
@@ -198,7 +198,7 @@ ListView {
     if (item.type === "more") return "󰁔"
     if (item.type === "loadMore") return root.moreBusy ? "󰔟" : "󰅀"
     if (item.type === "message") return "󰋽"
-    if (item.type === "mood") return Model.MOOD_ICON  // S6: a Moods & genres category
+    if (item.type === "mood") return Model.MOOD_ICON  // a Moods & genres category
     return "󰅂"
   }
 
@@ -259,7 +259,7 @@ ListView {
         track: row.modelData.item
         cursor: row.index === root.cursorIndex
         showQueueActions: true
-        // S13: a suggestion is no entry of the playlist: neither removed nor moved.
+        // A suggestion is no entry of the playlist: neither removed nor moved.
         showRemove: root.removable && row.modelData.suggestion !== true
         showMove: root.movable && row.modelData.trackIndex !== undefined && row.modelData.suggestion !== true
         showVotes: true
@@ -337,7 +337,7 @@ ListView {
             opacity: queryRow.query.removable && (queryHover.hovered || row.index === root.cursorIndex) ? 1 : 0
             enabled: opacity > 0
             iconText: "󰅖"
-            // S7: one of your YouTube searches goes from YouTube too.
+            // One of your YouTube searches goes from YouTube too.
             tooltipText: Model.withKey(queryRow.query.remote ? "Remove from your searches" : "Forget this search", "remove")
             foreground: root.foreground
             onClicked: root.removeRequested(row.index)

@@ -18,14 +18,14 @@ Column {
   readonly property real duration: service ? service.duration : 0
   readonly property real position: service ? service.position : 0
   readonly property bool liked: !!service && service.currentLike === "LIKE"
-  // S4: disliked here this session (YouTube reports a dislike as INDIFFERENT).
+  // Disliked here this session (YouTube reports a dislike as INDIFFERENT).
   readonly property bool disliked: !!service && service.currentDisliked
   readonly property bool accountActions: !!service && service.signedIn && hasMedia
   readonly property bool removableFromSource: !!service
     && Model.removableFromSource(service.sourcePlaylist, service.currentEntry, service.removedFromSource)
 
   readonly property bool albumLinked: !!track && !!track.album && !!track.album.id
-  // S17: "1.5x" while the speed is not 1x ([ and ]); "" at normal speed.
+  // "1.5x" while the speed is not 1x ([ and ]); "" at normal speed.
   readonly property string speedLabel: service && hasMedia ? Model.speedLabel(service.speed) : ""
 
   signal addToPlaylistRequested()
@@ -34,7 +34,7 @@ Column {
   // An artist ({ name, id }) or the track's album was clicked.
   signal artistRequested(var artist)
   signal albumRequested(var track)
-  // The speed badge was clicked (S17): the speed chooser.
+  // The speed badge was clicked: the speed chooser.
   signal speedRequested()
 
   spacing: Style.space(10)
@@ -234,7 +234,7 @@ Column {
         font.pixelSize: Style.font.caption
       }
 
-      // S17: the playback speed, when it is not 1x.
+      // The playback speed, when it is not 1x.
       Rectangle {
         id: speedBadge
         anchors.centerIn: parent
@@ -282,7 +282,7 @@ Column {
       onClicked: root.service.toggleLike(root.track)
     }
 
-    // S4: thumbs down; the song skips, so the next press acts on the next
+    // Thumbs down; the song skips, so the next press acts on the next
     // song. On a song disliked earlier it removes the dislike.
     Button {
       anchors.left: likeButton.right

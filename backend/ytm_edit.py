@@ -1,4 +1,4 @@
-"""Playlist editing (S13): everything the web lets a playlist's owner do.
+"""Playlist editing: everything the web lets a playlist's owner do.
 
 Every edit here changes the account (MUTATES): the shell sends it with
 retry:false and refreshes what it touched when the outcome is unknown.
@@ -23,7 +23,7 @@ retry:false and refreshes what it touched when the outcome is unknown.
   audio playlist), at the end. Songs already there are refused with code
   DUPLICATE (the error carries ``videoIds``, empty for a whole playlist:
   YouTube does not say which) unless ``duplicates`` is true (Add anyway).
-  G4: ``skipDuplicates`` adds only the songs not there yet, as the web's
+  ``skipDuplicates`` adds only the songs not there yet, as the web's
   Skip duplicates: a whole playlist goes with DEDUPE_OPTION_DROP_DUPLICATE
   (the command the Duplicates dialog serves); for songs, once YouTube
   refuses them, the refusal's own Skip duplicates command when it serves
@@ -57,7 +57,7 @@ Read only, never cached (an owner's settings change with every edit):
   under your own playlist (14, in two requests after the page), with the
   page's settings. None for a playlist that is not yours.
 
-G4: ``settings`` also has ``removeImage``, the served title of the
+``settings`` also has ``removeImage``, the served title of the
 header's "Remove custom image" entry (its cover's edit menu), else None;
 ``removePlaylistImage({playlistId})`` (MUTATES) reads the page again and
 sends that entry's own edit (two requests), NOT_FOUND when it is not
@@ -337,7 +337,7 @@ def settings(response, playlist_id=None):
     out["voteOption"], out["voteOptions"] = _vote(edit)
     header = nav(editable, ["header", "musicResponsiveHeaderRenderer"], True) or {}
     out["collaboration"], out["collaborators"] = _collaborators(header)
-    entry = remove_image_entry(response)  # G4
+    entry = remove_image_entry(response)
     out["removeImage"] = entry[0] if entry else None
     return out
 
@@ -480,12 +480,12 @@ def m_add_to_playlist(worker, params):
     if source == playlist_id:
         raise WorkerError("BAD_REQUEST", "A playlist cannot be added to itself")
     allow = opt_bool(params, "duplicates", False)
-    skip = opt_bool(params, "skipDuplicates", False)  # G4
+    skip = opt_bool(params, "skipDuplicates", False)
     if skip and (allow or (video_ids and source)):
         raise WorkerError("BAD_REQUEST", "'skipDuplicates' takes songs or a whole playlist, without 'duplicates'")
     worker.require_auth()
     if skip:
-        return _skip_duplicates(worker, playlist_id, video_ids, source)  # G4
+        return _skip_duplicates(worker, playlist_id, video_ids, source)
     kwargs = {"duplicates": allow}
     if source:
         kwargs["source_playlist"] = source
@@ -499,7 +499,7 @@ def m_add_to_playlist(worker, params):
     return {"added": _added(_checked(result))}
 
 
-# ---- G4: Skip duplicates, Remove custom image -----------------------------------------------
+# ---- Skip duplicates, Remove custom image -----------------------------------------------
 
 NOTHING_NEW = "Nothing new to add"
 
@@ -646,7 +646,6 @@ def m_remove_playlist_image(worker, params):
     if not _succeeded(result):
         raise WorkerError("UPSTREAM", "YouTube Music did not remove the custom image")
     return {"playlistId": playlist_id}
-# ---- end G4
 
 
 def m_create_playlist(worker, params):
@@ -744,7 +743,7 @@ METHODS = {
     "joinPlaylist": m_join_playlist,
     "playlistSettings": m_playlist_settings,
     "playlistSuggestions": m_playlist_suggestions,
-    "removePlaylistImage": m_remove_playlist_image,  # G4
+    "removePlaylistImage": m_remove_playlist_image,
 }
 CACHEABLE = set()
 LANES = {"playlistSuggestions": "pages"}
@@ -754,7 +753,7 @@ INVALIDATES = {
     "addToPlaylist": _PLAYLIST,
     "createPlaylist": _LIBRARY,
     "joinPlaylist": _PLAYLIST,
-    "removePlaylistImage": _PLAYLIST,  # G4: the cover shows in the library's lists too
+    "removePlaylistImage": _PLAYLIST,  # the cover shows in the library's lists too
 }
 RECORDERS = {}
 MUTATES = {"editPlaylist", "movePlaylistItem", "addToPlaylist", "createPlaylist", "joinPlaylist",

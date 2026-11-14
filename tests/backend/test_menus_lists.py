@@ -1,4 +1,4 @@
-"""G4 (menus and lists): the library profiles' sort orders, Liked Music's
+"""The library profiles' sort orders, Liked Music's
 chips, explicit badges on watch playlists, Skip duplicates and Remove custom
 image.
 
@@ -104,7 +104,7 @@ def test_an_ordered_profiles_read_drops_the_cached_browse_page(tmp_path):
     worker = worker_for({users.PROFILES_BROWSE_ID: ordered_profiles([channel_row(0)])}, MENU, cache=cache)
     assert call(worker, "libraryProfiles", order="a_to_z", cache="refresh")["ok"]
     assert cache.get("browsePage", {"browseId": users.PROFILES_BROWSE_ID}) is None, "YouTube saved the order"
-    # P1 (acct-1): the list's own copies go too; the shell reads it next in the saved order.
+    # The list's own copies go too; the shell reads it next in the saved order.
     assert cache.get("libraryProfiles", {}) is None, "the plain copy is in the order before"
     assert cache.get("libraryProfiles", {"order": "a_to_z"}) is None
 

@@ -7,7 +7,7 @@ The session lives outside the plugin repository in ``~/.config/omarchy-ytmusic``
 - ``cookies.txt``  (0600): the same session for yt-dlp/mpv (Netscape format)
 - ``account.json`` (0600): display name/handle/photo only, no secrets; the
   shell reads this one to know whether you are signed in
-- ``identity.json`` (0600, S16): which identity of the session the worker
+- ``identity.json`` (0600): which identity of the session the worker
   acts as (a brand account's pageId, a Google login's index), no names;
   absent for the session's own account
 
@@ -95,7 +95,7 @@ def anonymous_client(factory=None, settings=None):
     Fixtures are recorded with it (so they can never hold the account's
     library), and it serves what YouTube only answers without a session.
     ``settings``: the worker's client settings; with a content location
-    (S16) the client is one of its own for that location, reused too
+    the client is one of its own for that location, reused too
     (search as you type reads in the location the account's searches use).
     """
     global _anonymous
@@ -116,7 +116,7 @@ def anonymous_client(factory=None, settings=None):
 def load_client(factory=None, settings=None, identity=None):
     """Return ``(client, state)`` with state ``"ok"``, ``"none"`` or ``"invalid"``.
 
-    ``settings`` are the worker's client settings (S16: ``location``, passed
+    ``settings`` are the worker's client settings (``location``, passed
     to YTMusic when ytmusicapi supports it). ``identity`` (``read_identity()``)
     makes a signed-in client act as a brand account (``user=pageId``) and/or
     another Google login of the session (its ``X-Goog-AuthUser``, set in
@@ -180,7 +180,7 @@ def saved_auth_user():
         return 0
 
 
-# ---- identity (S16) ---------------------------------------------------------------
+# ---- identity ---------------------------------------------------------------
 # Which identity of the saved session the worker acts as. Written by the
 # worker's switchAccount, read at every client build; no names, only ids.
 
@@ -224,7 +224,7 @@ def save_identity(chosen):
     write_private(identity_path(), json.dumps(record, sort_keys=True) + "\n")
 
 
-# ---- end identity (S16) ------------------------------------------------------------
+# ---- end identity ------------------------------------------------------------
 
 
 def remember_visitor_id(path, client):
@@ -253,7 +253,7 @@ def whoami():
 
 def logout():
     removed = []
-    for name in (*SESSION_FILES, IDENTITY_FILE):  # S16: the identity goes with the session
+    for name in (*SESSION_FILES, IDENTITY_FILE):  # the identity goes with the session
         path = config_dir() / name
         if path.exists():
             path.unlink()
@@ -352,7 +352,7 @@ def commit_session(write_browser, cookies, method, factory=None):
         for name in SESSION_FILES:
             os.chmod(staging / name, 0o600)
             os.replace(staging / name, directory / name)
-        # S16: a new session starts as its own account (the brand accounts
+        # A new session starts as its own account (the brand accounts
         # and logins of the old one may not be its own).
         identity_path().unlink(missing_ok=True)
         return account

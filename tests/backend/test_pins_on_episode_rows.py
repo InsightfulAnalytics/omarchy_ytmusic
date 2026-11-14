@@ -1,4 +1,4 @@
-"""G2 (the Listen again pin on every row) with G3 (every episode row ytm_raw
+"""The Listen again pin on every row with every episode row ytm_raw
 reads goes through ytm_podcasts.episode_item, and podcast pages reload in
 an order or filter): those episode rows and pages keep their pins."""
 
@@ -20,8 +20,8 @@ def test_an_artist_pages_episode_rows_keep_their_pin_through_the_podcast_reader(
     page = artist.build(TREVOR, {"name": "Trevor Jackson", "channelId": TREVOR},
                         [artist_carousel("Latest episodes", [with_pin(trevor_episode(), "EP", pinned=True)])])
     [episode] = page["sections"][0]["items"]
-    assert episode["date"] == "Apr 10, 2025" and episode["durationSec"] == 3360, "G3's reader"
-    assert episode["pinned"] is True and episode["listenAgainTokens"] == pins("EP"), "G2's pin"
+    assert episode["date"] == "Apr 10, 2025" and episode["durationSec"] == 3360, "the episode reader"
+    assert episode["pinned"] is True and episode["listenAgainTokens"] == pins("EP"), "the pin"
 
 
 def test_a_see_all_grid_of_episodes_keeps_each_rows_pin():

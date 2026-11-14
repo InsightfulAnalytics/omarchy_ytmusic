@@ -3,7 +3,7 @@ import qs.Commons
 import qs.Ui
 import "../YtmModel.js" as Model
 
-// The Explore tab (S6): the web's Explore page. Its first rows open New
+// The Explore tab: the web's Explore page. Its first rows open New
 // releases, Charts and Moods & genres; then New albums & singles, Top songs (Premium),
 // Moods & genres (eight, and a row that shows them all), Trending, New
 // music videos and Popular episodes (when served), each ending in See all.

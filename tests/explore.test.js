@@ -4,7 +4,7 @@ const fs = require("node:fs")
 const path = require("node:path")
 const Model = require("../YtmModel.js")
 
-// The Explore tab (S6): the worker's explore page as rows, Charts and its
+// The Explore tab: the worker's explore page as rows, Charts and its
 // country, Moods & genres and a mood's page.
 const ROOT = path.join(__dirname, "..")
 const read = file => fs.readFileSync(path.join(ROOT, file), "utf8")
@@ -43,7 +43,7 @@ test("tabs: Explore is the fifth tab, key 5, with its view in Panel.qml", () => 
   assert.ok(/ExploreView \{\s*id: exploreView/.test(panel))
   assert.ok(panel.includes("visible: root.tab === \"explore\" && !root.page"))
   assert.ok(panel.includes("compactTabs"), "the tab row falls back to icons")
-  // No text field: Explore is no input owner (S13 added only its editor).
+  // No text field: Explore is no input owner (only the playlist editor is).
   assert.ok(panel.includes("return [libraryView, picker, itemMenu, collectionLoader.item, editor]"))
   assert.ok(read("components/NowPlayingView.qml").includes("Search (2), Home (4) or Explore (5)"))
 })

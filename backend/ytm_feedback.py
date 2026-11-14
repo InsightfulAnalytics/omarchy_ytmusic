@@ -1,17 +1,17 @@
-"""Recommendations (S14): Listen again pins, Not interested, taste profile.
+"""Recommendations: Listen again pins, Not interested, taste profile.
 
 Every edit here changes the account (MUTATES): the shell sends it with
 retry:false and refreshes what it touched when the outcome is unknown.
 
 - ``feedback({tokens, browseId?, playlistId?, channelId?})`` sends menu
   feedback tokens (``edit_song_library_status``): Pin to / Unpin from Listen
-  again (a track's ``listenAgainTokens`` (S3), a page header's ``pin``
+  again (a track's ``listenAgainTokens``, a page header's ``pin``
   (album, playlist, Liked Music, artist), a Home card's), Home's Not
   interested / Don't recommend (a card's ``feedback``) and their Undo (the
   same card's ``notInterestedUndo`` / ``dontRecommendUndo``: the web's
   "Removed from Home" toast sends it). It succeeds only
   when YouTube processed every token; otherwise the token was stale (the
-  page it came from is out of date): UPSTREAM with ``stale: true`` (S4's
+  page it came from is out of date): UPSTREAM with ``stale: true`` (a
   StaleToken). ``browseId`` / ``playlistId`` / ``channelId`` name the page
   the token came from (an album, a playlist or Liked Music as ``LM``, an
   artist), whose cached copy then goes too. Home and Listen again's See all

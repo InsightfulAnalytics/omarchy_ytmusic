@@ -1,4 +1,4 @@
-"""ytm_feedback (S14): Listen again pins, Not interested, the taste profile.
+"""ytm_feedback: Listen again pins, Not interested, the taste profile.
 
 The menus are hand-built (signed-in menus hold account-bound tokens, so no
 fixture has them), and every edit is pinned against a fake client: the real

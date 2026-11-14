@@ -37,7 +37,7 @@ _SORT_BUTTON = "musicSortFilterButtonRenderer"
 
 # ---- locating content ----------------------------------------------------------------
 
-# Moved to ytm_raw (``raw.rows`` is the slice plan's ``rows``); kept here under
+# Moved to ytm_raw (``raw.rows``); kept here under
 # their first names.
 section_list = raw.section_list
 section_rows = raw.rows
@@ -101,7 +101,7 @@ def _reload_token(response, order):
     raise WorkerError("UPSTREAM", "That sort option cannot be loaded")
 
 
-# The reload token of a served option (S2 reads which order it re-sorts by).
+# The reload token of a served option (the library reads which order it re-sorts by).
 reload_token = _reload_token
 
 
@@ -284,18 +284,18 @@ def _header(response):
 SAVED_ORDER_PREFIXES = ("FEmusic_liked_", "FEmusic_library_")
 # Cached methods that read one of those pages without an order.
 ORDER_DEPENDENTS = {"FEmusic_liked_playlists": ("libraryPlaylists",),
-                    # S2: the library lists (ytm_library) read their pages in the saved order too.
+                    # The library lists (ytm_library) read their pages in the saved order too.
                     "FEmusic_liked_videos": ("librarySongs",),
                     "FEmusic_liked_albums": ("libraryAlbums",),
                     "FEmusic_library_corpus_track_artists": ("libraryArtists",),
                     "FEmusic_library_corpus_artists": ("librarySubscriptions",),
                     "FEmusic_library_landing": ("libraryLanding",),
-                    # S8: the library's podcasts and channels (ytm_podcasts).
+                    # The library's podcasts and channels (ytm_podcasts).
                     "FEmusic_library_non_music_audio_list": ("libraryPodcasts",),
                     "FEmusic_library_non_music_audio_channels_list": ("libraryChannels",),
-                    # S9: the library's profiles (ytm_users).
+                    # The library's profiles (ytm_users).
                     "FEmusic_library_user_profile_channels_list": ("libraryProfiles",),
-                    # S10: your uploads' lists (ytm_uploads).
+                    # Your uploads' lists (ytm_uploads).
                     "FEmusic_library_privately_owned_tracks": ("uploadSongs",),
                     "FEmusic_library_privately_owned_releases": ("uploadAlbums",),
                     "FEmusic_library_privately_owned_artists": ("uploadArtists",)}
@@ -332,7 +332,7 @@ def m_browse_page(worker, params):
         if order is not None and saves_order(browse_id):
             forget_order(worker, browse_id)
     response, _, options, base = first
-    keep_off_disk(worker, browse_id, base)  # S9: your own channel's See all pages
+    keep_off_disk(worker, browse_id, base)  # your own channel's See all pages
     title, subtitle, thumbnails = _header(base)
     if order is None:
         order = next((o["index"] for o in options if o["selected"]), None)
@@ -354,7 +354,7 @@ def m_browse_page(worker, params):
                      cursor, orders=options, order=order, round=round_cover)
 
 
-# ---- S9: your own channel stays off the disk ---------------------------------------------
+# ---- your own channel stays off the disk ---------------------------------------------
 # Your channel's pages are titled with your account's name, which never
 # reaches the disk cache. Such a page is known by the subscribe button its
 # header disables, or by the id the account menu links (Worker.own_channel,

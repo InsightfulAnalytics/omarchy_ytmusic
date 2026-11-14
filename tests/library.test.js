@@ -15,7 +15,7 @@ const ORDERS = [
 ]
 
 test("chips: Playlists first, h / l cycle with wrap, unknown chips fall back", () => {
-  // S8 adds Podcasts after Artists, S10 Uploads after Podcasts.
+  // Podcasts follow Artists, Uploads follow Podcasts.
   assert.deepEqual(Model.LIBRARY_CHIPS.map(c => c.key), ["playlists", "songs", "albums", "artists", "podcasts", "uploads"])
   assert.equal(Model.libraryChip("albums"), "albums")
   assert.equal(Model.libraryChip("downloads"), "playlists", "a chip the plugin does not have")
@@ -41,7 +41,7 @@ test("orders: O cycles from the current one, titles come as served", () => {
   assert.ok(Model.sameOrder(null, undefined) && !Model.sameOrder("a_to_z", "z_to_a"))
 })
 
-test("prefs: the chip survives a round trip; no sort order is kept (P1, acct-1)", () => {
+test("prefs: the chip survives a round trip; no sort order is kept", () => {
   let prefs = Model.parsePrefs("")
   assert.equal(prefs.libraryChip, "playlists")
   assert.equal("libraryOrders" in prefs, false)
@@ -93,7 +93,7 @@ test("songs chip: Shuffle all, then indexed songs, then Load more", () => {
   assert.deepEqual(Model.libraryRows("songs", plain, []).map(label), ["# Songs", "track:a"])
 })
 
-test("albums and artists chips: heading with the order, Subscriptions (and S9's Profiles) first on Artists", () => {
+test("albums and artists chips: heading with the order, Subscriptions (and Profiles) first on Artists", () => {
   const albums = Model.libraryList({ sections: [{ items: [album("MPRE1"), album("MPRE2")] }], hasMore: true,
     orders: ORDERS.slice(0, 3), order: "z_to_a" })
   assert.deepEqual(Model.libraryRows("albums", albums, []).map(label),
@@ -122,7 +122,7 @@ test("appending pages: repeats dropped, capped at the maximum", () => {
   assert.deepEqual(list.items.map(a => a.browseId), ["A", "B", "C", "D"])
   assert.equal(list.capped, true)
   assert.equal(list.cursor, null)
-  // G1: the cap says how to reach the rest (the list has orders).
+  // The cap says how to reach the rest (the list has orders).
   assert.deepEqual(Model.libraryRows("albums", list, []).map(label).slice(-1),
     ["message:Showing the first 4; change the order (O) for the rest"])
 })
@@ -155,7 +155,7 @@ test("library artists: menu Shuffle and Start radio play YouTube's mixes", () =>
   assert.ok(ids.includes("shuffle") && ids.includes("radio") && ids.includes("open"))
 })
 
-test("Liked Music listed as a playlist opens as Liked Music; profiles open their own page (S9)", () => {
+test("Liked Music listed as a playlist opens as Liked Music; profiles open their own page", () => {
   const liked = Model.pageRef({ type: "playlist", playlistId: "LM", title: "Liked Music" })
   assert.equal(liked.kind, "liked")
   assert.equal(liked.key, Model.pageRef({ type: "liked" }).key)

@@ -60,10 +60,10 @@ def strip_cursors(result):
     return out
 
 
-# Feedback tokens a track carries (S3: ytm_normalize.track); account-bound,
+# Feedback tokens a track carries (ytm_normalize.track); account-bound,
 # so a copy on disk drops them and the fresh read that follows brings them.
 TOKEN_KEYS = ("libraryTokens", "listenAgainTokens", "historyToken")
-# S14: a Home card's Not interested / Don't recommend tokens (not a track
+# A Home card's Not interested / Don't recommend tokens (not a track
 # key, so tracks need not carry it; stripped the same way).
 FEEDBACK_KEYS = ("feedback",)
 _STRIPPED = TOKEN_KEYS + FEEDBACK_KEYS

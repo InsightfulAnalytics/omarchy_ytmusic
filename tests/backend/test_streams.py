@@ -180,7 +180,7 @@ def test_forget_account_drops_only_the_cookie_instances(config_dir, monkeypatch)
     assert len(make.made) == 3, "the anonymous instance is kept, the account one built again"
 
 
-# ---- loudness (S17) ---------------------------------------------------------------------
+# ---- loudness ---------------------------------------------------------------------
 # With the worker setting normalize "youtube", resolve also answers the song's
 # loudnessDb from its raw player response (one request through the account
 # client), memoised per video. The responses below copy the shape YouTube
@@ -323,7 +323,7 @@ def test_a_failed_stream_asks_no_loudness():
     assert client.requests == []
 
 
-# ---- quality (S16) ------------------------------------------------------------------------
+# ---- quality ------------------------------------------------------------------------
 # The worker setting `quality` (prefs.quality) picks the resolver's format;
 # the shell gives mpv's own fallback (ytdl-format) the same strings.
 
@@ -411,7 +411,7 @@ def test_warm_up_loads_the_instance_for_the_quality_set():
     assert resolver.warmed == [None, "low", None], "high (and none set) warms the default instance"
 
 
-# ---- uploads (S10) ------------------------------------------------------------------------------
+# ---- uploads ------------------------------------------------------------------------------
 # An uploaded song plays only as the account. The shell asks resolve with
 # account true for tracks of kind "upload"; the worker answers from the
 # yt-dlp instance that reads the session's cookies (F1's account mode),

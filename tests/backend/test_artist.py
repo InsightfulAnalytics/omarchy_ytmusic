@@ -1,4 +1,4 @@
-"""ytm_artist: artist pages from get_artist plus the raw rows, and artistAlbums (S1).
+"""ytm_artist: artist pages from get_artist plus the raw rows, and artistAlbums.
 
 Fixtures are anonymous recordings of Radiohead's page: ``artist.json``
 (get_artist), ``artist_raw_rows.json`` (the raw rows get_artist read, menus

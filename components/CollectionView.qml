@@ -11,46 +11,46 @@ import "../YtmModel.js" as Model
 // wrapper { item, view }, and `view` is what viewState() saved when another
 // page was pushed on top.
 //
-// Collections (S3): the header adds the byline (album artists and a
+// Collections: the header adds the byline (album artists and a
 // playlist's author, as links), details and two lines of the description
 // (an About row shows the rest); a list with more songs than shown ends in
 // Load all, which reloads it whole (limit "all") with the cursor kept; f
 // opens a filter over the songs; the page's shelves follow the songs.
 //
-// Explore (S6): Charts (its first row, O and the M menu choose the country,
+// Explore: Charts (its first row, O and the M menu choose the country,
 // and the page then shows that one in its place), Moods & genres and a
 // mood's playlists are sectioned pages too.
 //
-// Podcasts (S8): a podcast (byline: its channel; Save), an episode (Play or
+// Podcasts: a podcast (byline: its channel; Save), an episode (Play or
 // Resume, Play from start, Save to Episodes for Later, the description and
 // its chapters, which seek or play from there), a podcast channel
 // (Subscribe), a channel's episodes, New episodes and Episodes for Later (x
 // removes one). These pages have no Shuffle.
 //
-// Podcasts more (G3): a podcast's episode orders are one sort chip (a
+// Podcasts more: a podcast's episode orders are one sort chip (a
 // click opens its chooser; O cycles) and its filters are chips after it
 // (h / l cycle them), both in M too; f is Find in show, over every episode
 // once all pages are loaded (up to the Store's cap, which its rows name).
 // An artist page served without shelves shows no Radio.
 //
-// Profiles (S9): a profile's page (its rows, each ending in See all when
+// Profiles: a profile's page (its rows, each ending in See all when
 // the web has one, and Subscribe), Your channel (the same page for the
 // account's own channel, without Subscribe) and the library's Profiles.
 //
-// Playlist edits (S13), on your own playlist: Edit (e) opens Panel's
+// Playlist edits, on your own playlist: Edit (e) opens Panel's
 // editor on editTarget(); J / K (moveTrack) move the song under the cursor
 // one place (optimistic, put back when YouTube refuses; a playlist sorted
 // by date or votes asks for Manual order first); Suggestions follow the
 // songs (i adds the one under the cursor, Enter plays it, a Refresh row
 // asks again). Rows show net votes when voting is on.
 //
-// Recommendations (S14): the page menu (M) of an album, playlist, Liked
+// Recommendations: the page menu (M) of an album, playlist, Liked
 // Music or artist pins it to Listen again (its header's pin); the taste
 // page ("Add artists you like", from Library's account menu) lists
 // YouTube's suggested artists: f finds, Enter marks or unmarks one here,
 // and the Add row sends the marked ones after a second press.
 //
-// Menus and lists (G4): Liked Music's mood and genre chips (All, the first
+// Menus and lists: Liked Music's mood and genre chips (All, the first
 // few, More for a chooser of every one; h / l cycle them, M has Filter; a
 // chip reads the list again filtered, with find and Load all reset), and
 // Start radio from it (M, or R with no row). A playlist's M has Go to
@@ -83,14 +83,14 @@ Item {
   // Set as the view starts going (its page left the stack): a reply that
   // arrives after that finds its properties but not its functions.
   property bool _gone: false
-  // ---- collections (S3)
+  // ---- collections
   // Load all was chosen: the page is asked with limit "all".
   property bool full: false
   // The About row shows the whole description.
   property bool aboutOpen: false
   // f: the filter field is shown (its text filters the songs).
   property bool findOpen: false
-  // ---- playlist edits (S13)
+  // ---- playlist edits
   // Your playlist's suggestions (playlistSuggestions), for _suggestFor.
   property var suggestions: []
   property bool suggestionsLoading: false
@@ -109,13 +109,13 @@ Item {
   property var _pendingMove: null
   property int _movesPending: 0
   property bool _moveFailed: false
-  // ---- recommendations (S14)
+  // ---- recommendations
   // The taste page's marked artists (Model.toggleTasteMark's map), and the
   // add on its way.
   property var tasteMarks: ({})
   property bool tasteSending: false
   property int _tasteSeq: 0
-  // ---- podcasts more (G3)
+  // ---- podcasts more
   // The episode filter asked for (an `index` of page.filters), null for
   // all episodes; kept like `order` (Back restores it).
   property var filter: null
@@ -130,21 +130,21 @@ Item {
   readonly property bool isArtist: !!ref && ref.kind === "artist"
   readonly property bool isLiked: !!ref && ref.kind === "liked"
   readonly property bool isHistory: !!ref && ref.kind === "history"
-  readonly property bool isTaste: !!ref && ref.kind === "taste"  // S14
+  readonly property bool isTaste: !!ref && ref.kind === "taste"
   readonly property bool editable: !!page && page.editable === true
   readonly property bool round: Model.pageRound(ref, page)
   readonly property var tracks: !page ? [] : isPage ? Model.pageTracks(page) : (page.tracks || [])
-  // One binding (S13's Suggestions included), so Back's place is looked up
-  // in the whole list, never in a half-updated one. S8: a podcast or
+  // One binding (Suggestions included), so Back's place is looked up
+  // in the whole list, never in a half-updated one. A podcast or
   // episode page leads with its About row.
   readonly property var rows: !page ? [] : isPage ? Model.podcastRows(page, { about: descriptionText.truncated, aboutOpen: aboutOpen,
-                                                                             // G3: Find in show. The busy flags are read only
+                                                                             // Find in show. The busy flags are read only
                                                                              // while finding: otherwise a Load more would
                                                                              // rebuild every sectioned page's rows twice more.
                                                                              find: findText,
                                                                              loading: episodeFind && findText.trim() !== ""
                                                                                       && (loadingMore || _moreWanted) })
-    // S14: the taste page's Add row and suggested artists.
+    // The taste page's Add row and suggested artists.
     : isTaste ? Model.tasteRows(page, { marked: tasteMarks, find: findText, armed: gate.armed(Model.TASTE_ADD_ID),
                                         sending: tasteSending })
     : _withSuggestions(Model.collectionRows(page, { history: isHistory, find: findText, about: descriptionText.truncated,
@@ -154,29 +154,29 @@ Item {
   // read the whole list (Service.playItem), at most 500 queued.
   readonly property bool incomplete: !!page && (page.truncated === true || Model.pagePartial(ref ? ref.kind : "")
     || (isPage && (!!page.cursor || page.hasMore === true)))
-    && !(isLiked && filter !== null)  // G4: a filtered Liked Music plays what it shows, not all of it
+    && !(isLiked && filter !== null)  // a filtered Liked Music plays what it shows, not all of it
   readonly property var orders: page && Array.isArray(page.orders) ? page.orders : []
   readonly property var currentOrder: order !== null ? order : (page && page.order !== undefined ? page.order : null)
   readonly property alias results: resultList
 
-  // A mix keeps the name of the row it was opened from (S3: the queue
+  // A mix keeps the name of the row it was opened from (the queue
   // YouTube serves for it may be titled "Your Queue").
   readonly property string title: (ref && ref.kind === "mix" && target && target.title)
     || (page && (page.title || page.name)) || (target && (target.title || target.name))
     || Model.pageKindTitle(ref)
   // What a list played from here is called in the queue's context, saved in
-  // queue.json and the status (P1, priv-1): your own channel's page is
+  // queue.json and the status: your own channel's page is
   // titled with the account's name, which never goes there.
   readonly property string contextTitle: Model.contextTitle(ref, page, title)
   readonly property string subtitle: !page ? Model.itemSubtitle(target)
     : isPage ? Model.pageSubtitle(ref, page)
     : Model.isCollection(page) ? Model.collectionMeta(page, tracks.length)
     : String(page.subtitle || "") + (page.truncated ? " • showing " + tracks.length : "")
-  // Artist (S1): YouTube's shuffle and radio mixes, and the About page.
+  // Artist: YouTube's shuffle and radio mixes, and the About page.
   readonly property var shuffleItem: isArtist ? Model.artistShuffleItem(page) : null
   readonly property var radioItem: isArtist ? Model.artistRadioItem(page) : null
   readonly property bool hasAbout: isArtist && Model.hasAbout(page)
-  // Collections (S3).
+  // Collections.
   readonly property bool isCollection: Model.isCollection(page)
   readonly property var byline: isPage ? Model.podcastByline(page) : Model.collectionByline(page)
   readonly property string description: Model.collectionDescription(page) || Model.podcastDescription(page)
@@ -187,14 +187,14 @@ Item {
   readonly property string findText: findOpen ? findField.text : ""
   readonly property bool inputFocused: findField.activeFocus
   // The list's identity: the page and its order, not how much of it is
-  // read, so Load all keeps the cursor and the scroll. P1 (E2E-1): it reads
+  // read, so Load all keeps the cursor and the scroll. It reads
   // `ref` too, which open() sets before the Store answers. A binding on
   // `entry` alone is still the page before while onEntryChanged runs, and a
   // page held in memory is answered inside that handler: the list then kept
   // the old key, and its next change (Load more, x, Load all) took it for a
   // new list (cursor gone, back to the top).
   readonly property string listId: entry && ref ? (Model.pageRef(entry.item, Model.pageExtra(order, false, filter)) || { key: "" }).key : ""
-  // Library actions (S4): Save on an album, a playlist that is not yours or
+  // Library actions: Save on an album, a playlist that is not yours or
   // a mix; Subscribe on an artist. The state shown is the Store's (an edit
   // made here), else the page header's, else the library's lists.
   readonly property bool signedIn: !!service && service.signedIn
@@ -203,18 +203,18 @@ Item {
     && Model.canSave(pageSaveItem, { page: true, owned: page.owned === true })
   readonly property bool pageSaved: canSavePage && !!store && store.savedState(pageSaveItem, headerSaved()) === true
   readonly property bool canSubscribePage: signedIn && ((isArtist && !!Model.artistHeader(page)) || isChannel
-    || (isUser && Model.canSubscribeProfile(page)))  // S9: not on your own channel
+    || (isUser && Model.canSubscribeProfile(page)))  // not on your own channel
   readonly property bool pageSubscribed: canSubscribePage && !!store
     && store.subscribedState(subscribeItem().channelId, subscribeHeader().subscribed === true) === true
-  // Podcasts (S8): an episode page's Play or Resume (where it was left, else
+  // Podcasts: an episode page's Play or Resume (where it was left, else
   // YouTube's progress) and Save to Episodes for Later, a podcast page's
   // Save, a channel page's Subscribe (above); no Shuffle on these pages.
   readonly property bool podcastPage: Model.isPodcastKind(ref ? ref.kind : "")
   readonly property bool isSavedEpisodes: !!ref && ref.kind === "savedEpisodes" && isCollection
   readonly property bool isChannel: !!ref && ref.kind === "channel" && isPage && !!page.header && !!page.header.channelId
-  // Profiles (S9): a profile's page or Your channel, once loaded.
+  // Profiles: a profile's page or Your channel, once loaded.
   readonly property bool isUser: !!ref && Model.isProfileKind(ref.kind) && !!Model.profileHeader(page)
-  // S9: Subscriptions, Channels or Profiles, where every row is subscribed
+  // Subscriptions, Channels or Profiles, where every row is subscribed
   // to (rowSubscribed).
   readonly property bool listsSubscriptions: !!ref && Model.listsSubscriptions(ref.kind)
   readonly property var episodeTrack: isPage && !!ref && ref.kind === "episode" ? Model.episodeOfPage(page) : null
@@ -230,12 +230,12 @@ Item {
   readonly property bool canSavePodcastPage: signedIn && !!podcastSaveItem
   readonly property bool podcastPageSaved: canSavePodcastPage && !!store
     && store.podcastSavedState(podcastSaveItem.podcastId, headerFlag("saved")) === true
-  // G3: a podcast's episode filters (with them, its orders show as one sort
+  // A podcast's episode filters (with them, its orders show as one sort
   // chip), and Find in show.
   readonly property var filters: Model.episodeFilters(page)
   readonly property bool episodeChips: filters.length > 0
   readonly property bool episodeFind: Model.episodeFindable(page)
-  // G4: Liked Music's chips (the `filter` property holds the one chosen).
+  // Liked Music's chips (the `filter` property holds the one chosen).
   readonly property var likedChips: Model.likedFilters(page)
   readonly property bool likedChipRow: likedChips.length > 0
 
@@ -246,12 +246,12 @@ Item {
   signal leftField()
   // A row's menu, or the page's (M): Panel opens it.
   signal itemMenuRequested(var request)
-  // S6: a chooser for Panel to open ({ title, subtitle, choices, onChoice }),
+  // A chooser for Panel to open ({ title, subtitle, choices, onChoice }),
   // and this page shown another way (Charts in another country), which
   // takes the stack entry's place.
   signal chooserRequested(var request)
   signal replaceRequested(var item)
-  // S13: the header's Edit (Panel opens its editor on editTarget()).
+  // The header's Edit (Panel opens its editor on editTarget()).
   signal editRequested()
 
   ConfirmGate {
@@ -265,7 +265,7 @@ Item {
     _opened = entry
     var view = entry ? entry.view : null
     order = view && view.order !== undefined ? view.order : null
-    filter = view && view.filter !== undefined ? view.filter : null  // G3
+    filter = view && view.filter !== undefined ? view.filter : null
     full = !!view && view.full === true
     aboutOpen = !!view && view.aboutOpen === true
     closeFind()
@@ -277,8 +277,8 @@ Item {
     moreError = ""
     _moreWanted = false
     gate.reset()
-    _resetEdits(view ? view.edits : null)  // S13
-    _resetTaste()  // S14
+    _resetEdits(view ? view.edits : null)
+    _resetTaste()
     _pendingView = view ? (view.list || null) : null
     if (entry) load(false)
   }
@@ -296,9 +296,9 @@ Item {
     var key = refKey
     store.loadCollection(ref, function(reply) {
       // The view may be gone by then (Back to an empty stack), or going:
-      // its functions (S13's _pageLoaded) are then no longer there to call.
+      // its functions (_pageLoaded) are then no longer there to call.
       if (!root || root._gone || root.refKey !== key) return
-      // P1: asked before the Store was emptied (another identity, a
+      // Asked before the Store was emptied (another identity, a
       // location): the page is read again as the one in use.
       if (reply.stale) {
         root.load(fresh)
@@ -314,8 +314,8 @@ Item {
         root.moreError = ""
         root.page = reply.result
         if (wanted) root.loadMore(true)
-        root._pageLoaded()  // S13
-        root._findMore()  // G3
+        root._pageLoaded()
+        root._findMore()
       } else if (root.full && Model.canLoadAll(root.page)) {
         // Load all failed over the first read: that stays, and its Load
         // all row says why (Enter tries again).
@@ -347,21 +347,21 @@ Item {
       root.loadingMore = false
       if (reply.ok) root.page = reply.result
       else if (!reply.stale) root.moreError = reply.error.message
-      if (reply.ok) root._findMore()  // G3
+      if (reply.ok) root._findMore()
     }, page)
   }
 
   // For Back: the sort order, Load all, the About row and the list's place.
   function viewState() {
     return { order: order, full: full, aboutOpen: aboutOpen, list: resultList.viewState(), edits: _editsState(),
-             filter: filter }  // G3
+             filter: filter }
   }
 
   function restore(view) {
     if (!view) return
     aboutOpen = view.aboutOpen === true
     var wantsAll = view.full === true
-    var wantsFilter = view.filter !== undefined ? view.filter : null  // G3
+    var wantsFilter = view.filter !== undefined ? view.filter : null
     if (((view.order !== undefined && view.order !== order) || wantsAll !== full || wantsFilter !== filter) && entry) {
       if (view.order !== undefined) order = view.order
       full = wantsAll
@@ -384,7 +384,7 @@ Item {
 
   // O: the next of the page's sort orders (nothing when it has none).
   function cycleOrder() {
-    if (ref && ref.kind === "charts") return chooseCountry()  // S6: O picks the chart country
+    if (ref && ref.kind === "charts") return chooseCountry()  // O picks the chart country
     if (orders.length < 2) return false
     var at = -1
     for (var i = 0; i < orders.length; i++) if (orders[i].index === currentOrder) at = i
@@ -417,13 +417,13 @@ Item {
   // Replies only touch the page if it is still the one edited: this view
   // shows every page of the panel's stack in turn.
   function remove(index) {
-    if (isHistory) return removeFromHistory(index, false, false)  // S15: x twice
+    if (isHistory) return removeFromHistory(index, false, false)  // x twice
     var row = resultList.rowAt(index)
     if (!row || row.item.type !== "track" || row.suggestion === true || !service) return
     var track = row.item
     var requested = ref
     if (isSavedEpisodes) {
-      // S8: out of Episodes for Later, by the row's entry there.
+      // Out of Episodes for Later, by the row's entry there.
       service.saveEpisode(track, false, function(reply) {
         if (reply.ok) {
           if (root.shows(requested)) root.page = Model.withoutTrack(root.page, track)
@@ -445,15 +445,15 @@ Item {
     }
   }
 
-  // S8 (Panel's saveRow hook): S on an Episodes for Later row takes the
+  // S on an Episodes for Later row takes the
   // episode out, as x does, and the row goes with it.
   function saveRow(index) {
-    if (!isSavedEpisodes) return saveSubscriptionRow(index)  // S9
+    if (!isSavedEpisodes) return saveSubscriptionRow(index)
     remove(index)
     return true
   }
 
-  // S9: a row of a list of your subscriptions is subscribed to unless an
+  // A row of a list of your subscriptions is subscribed to unless an
   // edit made here says otherwise. Any subscribe edit drops the list from
   // the Store while this view still shows it, so its rows' state comes from
   // here: undefined elsewhere (the Store's alone, Service.fillMenuState).
@@ -496,22 +496,22 @@ Item {
     })
   }
 
-  // Action rows: one that names a target opens it; slices handle their ids here.
+  // Action rows: one that names a target opens it; sections handle their ids here.
   function runAction(item) {
     if (item.target) root.openRequested(item.target)
-    // Podcasts (S8): a chapter seeks in its episode playing, else plays it from there.
+    // Podcasts: a chapter seeks in its episode playing, else plays it from there.
     else if (item.chapter && service) service.playChapter(item.chapter, episodeTrack)
-    // Collections (S3): the About row shows or hides the description.
+    // Collections: the About row shows or hides the description.
     else if (item.id === Model.COLLECTION_ABOUT_ID) toggleAbout()
-    // G3: a filter nothing matched: Show all episodes.
+    // A filter nothing matched: Show all episodes.
     else if (item.id === Model.CLEAR_FILTER_ID) setFilter(null)
-    // Explore (S6): Charts' Country row opens the country chooser.
+    // Explore: Charts' Country row opens the country chooser.
     else if (item.id === Model.CHARTS_COUNTRY_ID) chooseCountry()
-    // S13: Refresh suggestions.
+    // Refresh suggestions.
     else if (item.id === Model.SUGGESTIONS_REFRESH_ID) loadSuggestions()
-    // S14: the taste page's Add row, or an artist to mark or unmark.
+    // The taste page's Add row, or an artist to mark or unmark.
     else if (Model.isTasteAction(item.id)) tasteAction(item.id)
-    // About (S1): a description link row copies its URL.
+    // About: a description link row copies its URL.
     else if (item.url && service) service.copyLink({ type: "link", url: item.url })
   }
 
@@ -524,11 +524,11 @@ Item {
     else if (item.type === "loadMore") loadMore(true)
     else if (item.type === "action") runAction(item)
     else if (item.type === "message" || item.type === "text") return
-    else if (row.suggestion === true) service.playItem(item, "now")  // S13: a suggestion plays alone
-    else if (row.trackIndex !== undefined)  // S12: the page is what plays ("Playing from", autoplay)
+    else if (row.suggestion === true) service.playItem(item, "now")  // a suggestion plays alone
+    else if (row.trackIndex !== undefined)  // the page is what plays ("Playing from", autoplay)
       service.playCollection(isPage ? Model.sectionTracks(page, row.sectionIndex) : tracks, row.trackIndex, false,
                              { playlistId: page ? page.playlistId || null : null, title: contextTitle, radio: false },
-                             isPage ? undefined : Model.collectionPartial(page, pageItem()))  // G1: the rest is read later
+                             isPage ? undefined : Model.collectionPartial(page, pageItem()))  // the rest is read later
     else root.openRequested(item)
   }
 
@@ -548,35 +548,35 @@ Item {
   function menu(index) {
     var row = resultList.rowAt(index)
     if (!row || Model.menuKind(row.item) === "") return
-    var suggestion = row.suggestion === true  // S13: offers Add to this playlist, not Remove
+    var suggestion = row.suggestion === true  // offers Add to this playlist, not Remove
     var removable = row.item.type === "track" && (editable || isLiked || isSavedEpisodes) && !suggestion
     root.itemMenuRequested({ item: row.item, owner: root, index: index,
       ctx: { pageKind: ref ? ref.kind : "", owned: editable, removable: removable, suggestion: suggestion,
              removeTitle: isLiked ? "Remove from Liked Music"
-               : isSavedEpisodes ? "Remove from Episodes for Later" : "Remove from playlist",  // S8
-             subscribed: rowSubscribed(row.item),  // S9
-             pinSource: Model.pinSource(ref),  // S14: the page a song's pin token came from
-             canRemoveHistory: !(service && service.identityBrand) } })  // S16: not as a brand account
+               : isSavedEpisodes ? "Remove from Episodes for Later" : "Remove from playlist",
+             subscribed: rowSubscribed(row.item),
+             pinSource: Model.pinSource(ref),  // the page a song's pin token came from
+             canRemoveHistory: !(service && service.identityBrand) } })  // not as a brand account
   }
 
   // The page as an item for its own menu: the opened item, completed from
   // the page (an album's audio playlist feeds Start radio).
   function pageItem() {
     if (!target) return null
-    // S8: the episode page's own episode, a podcast's page; G2: with the
+    // The episode page's own episode, a podcast's page; with the
     // header's Listen again pin, on a copy.
     if (episodeTrack) return Model.withPagePinCopy(episodeTrack, page)
     if (podcastSaveItem) return Model.withPagePinCopy(podcastSaveItem, page)
-    if (isUser) return Model.profileOfPage(page)  // S9: Your channel too
+    if (isUser) return Model.profileOfPage(page)  // Your channel too
     var item = ({})
     for (var key in target) item[key] = target[key]
     if (page && !item.playlistId && page.playlistId && ref && (ref.kind === "album" || ref.kind === "playlist"))
       item.playlistId = page.playlistId
     if (page && !item.title && !item.name && (page.title || page.name)) item.title = page.title || page.name
-    // S3: an album opened from a link knows its artists from the page (Go to artist).
+    // An album opened from a link knows its artists from the page (Go to artist).
     if (ref && ref.kind === "album" && Model.linkedArtists(item).length === 0)
       item.artists = Model.collectionHeader(page).artists || []
-    // S14: the header's Listen again pin (the page menu's Pin / Unpin).
+    // The header's Listen again pin (the page menu's Pin / Unpin).
     return Model.withPagePin(item, page)
   }
 
@@ -587,22 +587,22 @@ Item {
              ctx: { page: true, pageKind: ref ? ref.kind : "", owned: editable, hasTracks: tracks.length > 0,
                     about: hasAbout, canLoadAll: canLoadAll && !loading, loadAllTitle: Model.loadAllTitle(page),
                     canFind: Model.canFind(page) || isTaste, aboutOpen: aboutOpen,
-                    countryLabel: ref && ref.kind === "charts" ? Model.chartsCountryOf(page).label : "",  // S6
+                    countryLabel: ref && ref.kind === "charts" ? Model.chartsCountryOf(page).label : "",
                     // The About row is there to show or hide.
                     description: Model.showsAbout(page, { find: findText, about: descriptionText.truncated })
                       || Model.podcastShowsAbout(page, { about: descriptionText.truncated }),
-                    // S4: the header's Save and Subscribe (none until the page has loaded).
+                    // The header's Save and Subscribe (none until the page has loaded).
                     saved: pageSaved, subscribed: pageSubscribed,
                     canSavePage: canSavePage, canSubscribePage: canSubscribePage,
-                    // S8: a podcast's Save, an episode's Save to Episodes for Later.
+                    // A podcast's Save, an episode's Save to Episodes for Later.
                     podcastSaved: podcastPageSaved, canSavePodcastPage: canSavePodcastPage,
                     episodeSaved: episodePageSaved, canSaveEpisodePage: canSaveEpisodePage,
-                    // S14: the page's pin token's source, and the taste page's marks.
+                    // The page's pin token's source, and the taste page's marks.
                     pinSource: Model.pinSource(ref), tasteMarked: isTaste ? Model.tasteMarked(page, tasteMarks).length : 0,
-                    // G3: a podcast's sort chip and filter chips.
+                    // A podcast's sort chip and filter chips.
                     episodeOrders: episodeChips && orders.length > 1, episodeOrderTitle: Model.episodeOrderTitle(orders, currentOrder),
                     episodeFilters: episodeChips, episodeFilterTitle: Model.episodeFilterTitle(filters, filter),
-                    // G4: a playlist's author, Liked Music's chips.
+                    // A playlist's author, Liked Music's chips.
                     authorItem: Model.playlistAuthorItem(page),
                     likedFilters: likedChipRow, likedFilterTitle: Model.likedFilterTitle(likedChips, filter) } }
   }
@@ -611,7 +611,7 @@ Item {
   // An artist's Shuffle plays YouTube's shuffle mix, as on the web.
   function playAll(mode) {
     if (!service) return
-    // S8: an episode page plays (or queues) its episode.
+    // An episode page plays (or queues) its episode.
     if (episodeTrack) {
       if (mode === "now") service.playEpisode(episodeTrack)
       else if (mode === "next" || mode === "queue") service.playItem(episodeTrack, mode)
@@ -624,7 +624,7 @@ Item {
                             contextTitle)
   }
 
-  // ---- artist (S1) -------------------------------------------------------------------
+  // ---- artist -------------------------------------------------------------------
 
   // Radio: the artist's radio mix (the page item's when the page has none).
   function startArtistRadio() {
@@ -632,10 +632,10 @@ Item {
   }
 
   // Panel's R when the cursor row has no radio (no row, a See all row): the
-  // artist's radio on an artist page, (G4) Liked Music's on its page. False
+  // artist's radio on an artist page, Liked Music's on its page. False
   // elsewhere, so R falls back to the song playing.
   function pageRadio() {
-    if (isLiked && service) return service.startRadio(pageItem())  // G4
+    if (isLiked && service) return service.startRadio(pageItem())
     if (!isArtist) return false
     startArtistRadio()
     return true
@@ -646,7 +646,7 @@ Item {
     if (item) root.openRequested(item)
   }
 
-  // ---- collections (S3) --------------------------------------------------------------
+  // ---- collections --------------------------------------------------------------
 
   // Every song (limit "all", up to 5000): the first read stays shown until
   // the whole list replaces it, and the cursor and scroll stay on the same
@@ -667,11 +667,11 @@ Item {
   // f (Panel's find hook): the filter field over the page's songs. A page
   // that shows part of its list loads all of it first.
   function find() {
-    if (!Model.canFind(page) && !isTaste) return false  // S14: the taste page finds artists
+    if (!Model.canFind(page) && !isTaste) return false  // the taste page finds artists
     if (canLoadAll) loadAll()
     findOpen = true
     findField.forceActiveFocus()
-    _findMore()  // G3: Find in show reads every episode
+    _findMore()  // Find in show reads every episode
     return true
   }
 
@@ -699,7 +699,7 @@ Item {
     return true
   }
 
-  // ---- playlist edits (S13) -----------------------------------------------------------
+  // ---- playlist edits -----------------------------------------------------------
 
   // A new entry starts without suggestions or settings; one coming back
   // (Back) has them from its saved view, so nothing is asked again.
@@ -923,7 +923,7 @@ Item {
     load(true)
   }
 
-  // ---- library actions (S4) ---------------------------------------------------------
+  // ---- library actions ---------------------------------------------------------
 
   // What the header says: an album's or playlist's likeStatus (LIKE: in the
   // library), undefined when it says nothing (your own playlist, a mix).
@@ -933,8 +933,8 @@ Item {
   }
 
   // The artist page as the item Subscribe acts on, with the channel its
-  // subscribe button names (S1's header.subscribeId); S8: a podcast
-  // channel's page likewise; S9: a profile's.
+  // subscribe button names (header.subscribeId); a podcast
+  // channel's page likewise; a profile's.
   function subscribeItem() {
     var header = subscribeHeader()
     return { type: isChannel ? "channel" : isUser ? "profile" : "artist",
@@ -946,7 +946,7 @@ Item {
     return Model.artistHeader(page) || (isChannel || isUser ? page.header : null) || {}
   }
 
-  // S8: a page header's true / false, undefined when it says neither.
+  // A page header's true / false, undefined when it says neither.
   function headerFlag(key) {
     var value = isPage && page.header ? page.header[key] : undefined
     return value === true || value === false ? value : undefined
@@ -959,10 +959,10 @@ Item {
     if (!service) return false
     if (canSubscribePage) return service.subscribe(subscribeItem(), !pageSubscribed, editCallback())
     if (canSavePage) return service.saveItem(pageSaveItem, !pageSaved, editCallback())
-    // S8: a podcast into the library, an episode into Episodes for Later.
+    // A podcast into the library, an episode into Episodes for Later.
     if (canSavePodcastPage) return service.savePodcast(podcastSaveItem, !podcastPageSaved, editCallback())
     if (canSaveEpisodePage) return service.saveEpisode(episodeTrack, !episodePageSaved, editCallback())
-    // S9: your channel is titled with your name, which no log line holds.
+    // Your channel is titled with your name, which no log line holds.
     if (isUser && !Model.canSubscribeProfile(page)) {
       service.failAction("Nothing to save", "This is your own channel")
       return false
@@ -987,7 +987,7 @@ Item {
     return true
   }
 
-  // ---- history (S15) ----------------------------------------------------------------
+  // ---- history ----------------------------------------------------------------
 
   // History rows: x pressed twice within 4 s (ConfirmGate), the row's
   // remove button clicked twice (`click`), or the row menu's Remove from
@@ -999,7 +999,7 @@ Item {
     if (!isHistory || !row || row.item.type !== "track" || !service) return false
     var track = row.item
     var token = Model.historyTokenOf(track)
-    if (service.identityBrand) {  // S16: YouTube Music does not remove a brand account's entries
+    if (service.identityBrand) {  // YouTube Music does not remove a brand account's entries
       service.failAction("Not removed from history", "YouTube Music removes history entries only for your own account, not a brand account")
       return false
     }
@@ -1023,7 +1023,7 @@ Item {
     return sent
   }
 
-  // ---- explore (S6) -----------------------------------------------------------------
+  // ---- explore -----------------------------------------------------------------
 
   // Charts' country chooser (O, the Country row, the page menu): the
   // countries the page serves, the one shown ticked.
@@ -1044,7 +1044,7 @@ Item {
     if (target && target.country !== country) root.replaceRequested(Model.chartsItem(country, target.title))
   }
 
-  // ---- recommendations (S14) -------------------------------------------------------
+  // ---- recommendations -------------------------------------------------------
 
   function _resetTaste() {
     _tasteSeq++
@@ -1115,7 +1115,7 @@ Item {
     return sent
   }
 
-  // ---- podcasts more (G3) ----------------------------------------------------------
+  // ---- podcasts more ----------------------------------------------------------
 
   // A filter chip, h / l, the M chooser or Show all episodes: the list again
   // with that filter (null: all episodes), in the same order.
@@ -1132,10 +1132,10 @@ Item {
   }
 
   // h / l (Panel's horizontal hook): the next or previous filter, all
-  // episodes between the last and the first (G4: Liked Music's chips, all
+  // episodes between the last and the first (Liked Music's chips, all
   // songs between). False on other pages.
   function horizontal(dx) {
-    if (likedChipRow && dx) return setLikedFilter(Model.nextEpisodeFilter(likedChips, filter, dx))  // G4
+    if (likedChipRow && dx) return setLikedFilter(Model.nextEpisodeFilter(likedChips, filter, dx))
     if (!episodeChips || !dx) return false
     return setFilter(Model.nextEpisodeFilter(filters, filter, dx))
   }
@@ -1156,7 +1156,7 @@ Item {
     return true
   }
 
-  // ---- menus and lists (G4) -------------------------------------------------------
+  // ---- menus and lists -------------------------------------------------------
 
   // A Liked Music chip (null: all songs): the list again filtered to it,
   // from its first read (Load all and the find field start over).
@@ -1221,7 +1221,7 @@ Item {
         elide: Text.ElideRight
       }
 
-      // S3: an album's type, artists (links) and year; a playlist's author.
+      // An album's type, artists (links) and year; a playlist's author.
       Flow {
         id: bylineFlow
         width: parent.width
@@ -1299,11 +1299,11 @@ Item {
       Flow {
         width: parent.width
         spacing: Style.space(4)
-        // S13: your playlist's Edit and Delete show on an empty one too.
+        // Your playlist's Edit and Delete show on an empty one too.
         visible: root.tracks.length > 0 || root.isArtist || root.canSavePage || root.editable
-          || !!root.episodeTrack || root.canSavePodcastPage || root.canSubscribePage  // S8
+          || !!root.episodeTrack || root.canSavePodcastPage || root.canSubscribePage
 
-        // S8: an episode page plays its episode, on from where it was left;
+        // An episode page plays its episode, on from where it was left;
         // while it is the one playing, the button plays and pauses it.
         Button {
           visible: !!root.episodeTrack
@@ -1347,7 +1347,7 @@ Item {
         }
 
         Button {
-          visible: root.isArtist && !!root.radioItem  // G3: none on a header-only page
+          visible: root.isArtist && !!root.radioItem  // none on a header-only page
           text: "Radio"
           tooltipText: "Start the artist's radio"
           foreground: root.foreground
@@ -1364,7 +1364,7 @@ Item {
           onClicked: root.playAll("queue")
         }
 
-        // S4: Save to library, and Subscribe on an artist page.
+        // Save to library, and Subscribe on an artist page.
         Button {
           visible: root.canSavePage
           iconText: root.pageSaved ? "󰃀" : "󰃃"
@@ -1375,7 +1375,7 @@ Item {
           onClicked: root.toggleSave()
         }
 
-        // S8: a podcast into the library; an episode into Episodes for Later.
+        // A podcast into the library; an episode into Episodes for Later.
         Button {
           visible: root.canSavePodcastPage
           iconText: root.podcastPageSaved ? "󰃀" : "󰃃"
@@ -1405,7 +1405,7 @@ Item {
           onClicked: root.toggleSave()
         }
 
-        // S13: the editor (e; the page menu's Edit playlist).
+        // The editor (e; the page menu's Edit playlist).
         Button {
           visible: root.editable
           iconText: "󰏫"
@@ -1438,7 +1438,7 @@ Item {
     }
   }
 
-  // f: the filter over the page's songs (S3). Esc clears it and leaves;
+  // f: the filter over the page's songs. Esc clears it and leaves;
   // Down or Enter goes to the first match.
   Row {
     id: findRow
@@ -1453,11 +1453,11 @@ Item {
       id: findField
       width: parent.width - stopFind.width - parent.spacing
       placeholderText: root.isTaste ? "Find artists"
-        : root.episodeFind ? "Find episodes by title or description"  // G3
+        : root.episodeFind ? "Find episodes by title or description"
         : "Find songs by title, artist or album"
       foreground: root.foreground
       font.family: root.fontFamily
-      activeFocusOnTab: false  // P1: no field passes Tab on (LibraryView)
+      activeFocusOnTab: false  // no field passes Tab on (LibraryView)
 
       Keys.onPressed: function(event) {
         if (event.key === Qt.Key_Escape) {
@@ -1465,7 +1465,7 @@ Item {
           event.accepted = true
         } else if (event.key === Qt.Key_Down || event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
           root.leftField()
-          if (root.isTaste) root._toFirstTasteArtist()  // S14
+          if (root.isTaste) root._toFirstTasteArtist()
           else resultList.toTop()
           event.accepted = true
         } else if (event.key === Qt.Key_Tab || event.key === Qt.Key_Backtab) {
@@ -1484,7 +1484,7 @@ Item {
     }
   }
 
-  // The page's sort orders as served (O cycles them). G3: a podcast's are
+  // The page's sort orders as served (O cycles them). A podcast's are
   // one chip that opens their chooser, then its filter chips (h / l), the
   // web's one row.
   Flow {
@@ -1494,7 +1494,7 @@ Item {
     width: parent.width
     height: visible ? implicitHeight : 0
     spacing: Style.space(4)
-    visible: root.orders.length > 1 || root.episodeChips || root.likedChipRow  // G4
+    visible: root.orders.length > 1 || root.episodeChips || root.likedChipRow
 
     Repeater {
       model: root.episodeChips ? [] : root.orders
@@ -1510,7 +1510,7 @@ Item {
       }
     }
 
-    // ---- G3: the sort chip and the filter chips
+    // ---- the sort chip and the filter chips
     Button {
       visible: root.episodeChips && root.orders.length > 1
       iconText: "󰅀"
@@ -1536,7 +1536,7 @@ Item {
       }
     }
 
-    // ---- G4: Liked Music's chips (All, the first few, More)
+    // ---- Liked Music's chips (All, the first few, More)
     Repeater {
       model: root.likedChipRow ? Model.likedChipRow(root.likedChips, root.filter) : []
 
@@ -1582,14 +1582,14 @@ Item {
     store: root.store
     rows: root.rows
     owner: root
-    // Not refKey: Load all reloads the same list (S3).
+    // Not refKey: Load all reloads the same list.
     listKey: root.listId
-    removable: root.editable || root.isLiked || root.isSavedEpisodes  // S8
-      || (root.isHistory && root.signedIn && !(root.service && root.service.identityBrand))  // S16
-    removeTooltip: root.isHistory ? "Remove from history (press twice)"  // S15
+    removable: root.editable || root.isLiked || root.isSavedEpisodes
+      || (root.isHistory && root.signedIn && !(root.service && root.service.identityBrand))
+    removeTooltip: root.isHistory ? "Remove from history (press twice)"
       : root.isLiked ? "Remove from Liked Music"
-      : root.isSavedEpisodes ? "Remove from Episodes for Later" : "Remove from playlist"  // S8
-    // S13: your playlist's songs move (J / K's twins), not while finding.
+      : root.isSavedEpisodes ? "Remove from Episodes for Later" : "Remove from playlist"
+    // your playlist's songs move (J / K's twins), not while finding.
     movable: root.editable && root.findText.trim() === ""
     numbered: !!root.ref && root.ref.kind === "album"
     // G stops on Load all: the page's shelves come after it.
@@ -1603,7 +1603,7 @@ Item {
     onPlayNextRequested: function(index) { root.playNext(index) }
     onAddToQueueRequested: function(index) { root.addToQueue(index) }
     onRemoveRequested: function(index) {
-      if (root.isHistory) root.removeFromHistory(index, false, true)  // S15: a click, twice
+      if (root.isHistory) root.removeFromHistory(index, false, true)  // a click, twice
       else root.remove(index)
     }
     onMoveRequested: function(index, delta) { root.moveTrackAt(index, delta) }

@@ -1,4 +1,4 @@
-"""ytm_podcasts (S8): podcast, episode and channel pages, Episodes for Later,
+"""ytm_podcasts: podcast, episode and channel pages, Episodes for Later,
 New episodes, the library's podcasts and channels, and the three edits.
 
 The podcast, episode and channel pages are recorded signed out (Dan Carlin's

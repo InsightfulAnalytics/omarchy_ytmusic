@@ -107,7 +107,7 @@ def test_library_needs_auth():
     (RuntimeError("boom"), "INTERNAL", False),
 ])
 def test_errors_are_classified(exc, code, retryable):
-    # S7: search sends its own request (ytm_search), so that is what fails.
+    # Search sends its own request (ytm_search), so that is what fails.
     worker = ytm.Worker(FakeYT(_send_request=exc), "ok")
     error = call(worker, "search", query="x", filter="songs")["error"]
     assert (error["code"], error["retryable"]) == (code, retryable)
@@ -115,7 +115,7 @@ def test_errors_are_classified(exc, code, retryable):
 
 
 def test_search_filtered_and_grouped(load_fixture):
-    # S7: the raw response is parsed (tests/backend/test_search.py has the rest).
+    # The raw response is parsed (tests/backend/test_search.py has the rest).
     worker = ytm.Worker(FakeYT(_send_request=load_fixture("search_episodes.json")), "none")
     items = call(worker, "search", query="x", filter="episodes", limit=1)["result"]["items"]
     assert items and all(t["kind"] == "episode" for t in items)
@@ -132,7 +132,7 @@ def test_suggestions_keep_text_and_history_flag():
                                 {"text": "daft punk get lucky", "fromHistory": False},
                                 {"text": "plain", "fromHistory": False}], "entities": []}
     assert fake.calls[-1] == ("get_search_suggestions", ("daft p",), {"detailed_runs": True})
-    # S7: an empty field asks for your past searches; signed out there are none.
+    # An empty field asks for your past searches; signed out there are none.
     assert call(ytm.Worker(fake, "none"), "suggestions", query=" ")["result"] == {"items": [], "entities": []}
     assert call(ytm.Worker(fake, "none"), "suggestions")["error"]["code"] == "BAD_REQUEST"
 
@@ -190,7 +190,7 @@ def test_up_next_drops_the_seed_and_normalizes():
     result = call(ytm.Worker(fake, "none"), "upNext", videoId=seed)["result"]
     assert result["items"] and all(t["videoId"] != seed for t in result["items"])
     assert all(t["type"] == "track" and t["title"] and t["thumb"] for t in result["items"])
-    # No context: the song's own radio (S12).
+    # No context: the song's own radio.
     assert fake.calls[-1][2] == {"videoId": seed, "playlistId": None, "radio": True, "limit": 25}
     assert call(ytm.Worker(fake, "none"), "upNext")["error"]["code"] == "BAD_REQUEST"
 
@@ -587,7 +587,7 @@ def test_client_settings_rebuild_and_clear_only_when_they_change(tmp_path, monke
     monkeypatch.setitem(ytm.SETTINGS, "theme", str)
     monkeypatch.setattr(ytm, "CLIENT_SETTINGS", {"location"})
     builds = []
-    # S16: the client settings reach load_client (location).
+    # The client settings reach load_client (location).
     monkeypatch.setattr(auth, "load_client", lambda **kwargs: builds.append(1) or (FakeYT(), "none"))
     cache = caches.DiskCache(tmp_path / "data")
     album = {"browseId": "X"}

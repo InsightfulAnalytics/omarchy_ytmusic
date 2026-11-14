@@ -10,7 +10,7 @@ Column {
   property var service: null
   property QtObject bar: null
   property bool expired: false
-  // S16: expired while acting as a brand account or another login, which
+  // Expired while acting as a brand account or another login, which
   // may be all YouTube stopped answering as (Service.useOwnAccount).
   property bool canUseOwnAccount: false
 
@@ -34,7 +34,7 @@ Column {
     width: parent.width
     textFormat: Text.PlainText
     text: "Your playlists, likes, history and recommendations need your account. "
-      + "Sign-in copies your YouTube session from your Chromium profile — "
+      + "Sign-in copies your YouTube session from your Chromium profile; "
       + "nothing goes through the clipboard."
     color: Qt.darker(root.foreground, 1.3)
     font.family: root.fontFamily
@@ -49,7 +49,6 @@ Column {
     onClicked: if (root.service) root.service.signIn()
   }
 
-  // S16
   Text {
     width: parent.width
     visible: root.canUseOwnAccount

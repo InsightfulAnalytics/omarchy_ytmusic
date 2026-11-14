@@ -39,7 +39,7 @@ test("pageRef: method + canonical params, so albums, singles and orders never co
 test("pageRef: the existing kinds keep their methods and params", () => {
   const cases = [
     [{ type: "album", browseId: "MPREb_1" }, "album", { browseId: "MPREb_1" }, "MPREb_1"],
-    // S3: playlists come with their related playlists, History with all 200.
+    // Playlists come with their related playlists, History with all 200.
     [{ type: "playlist", playlistId: "PL1" }, "playlist", { playlistId: "PL1", related: true }, "PL1"],
     [{ type: "artist", channelId: "UC1" }, "artist", { channelId: "UC1" }, "UC1"],
     [{ type: "liked", title: "Liked Music" }, "liked", {}, "LM"],
@@ -108,7 +108,7 @@ test("routeEndpoint defaults", () => {
     { type: "browse", browseId: "UC1", params: "p", title: "Videos" })
   assert.deepEqual(Model.routeEndpoint({ browseId: "MPLAUC1", params: "p" }),
     { type: "browse", browseId: "MPLAUC1", params: "p", title: "" })
-  // S1 routes an artist's discography (MPAD + params) to artistAlbums.
+  // An artist's discography (MPAD + params) goes to artistAlbums.
   assert.deepEqual(Model.routeEndpoint({ browseId: "MPADUC1", params: "albums", title: "Albums" }),
     { type: "artistAlbums", browseId: "MPADUC1", params: "albums", title: "Albums" })
   assert.deepEqual(Model.routeEndpoint({ browseId: "FEmusic_new_releases_albums" }),
@@ -122,7 +122,7 @@ test("routeEndpoint defaults", () => {
 test("routes: the most specific match wins, ties go to the route added last", () => {
   const added = [
     { prefix: "VLRDPN", target: () => ({ type: "newEpisodes" }) },
-    // As specific as S9's profile route (page type and UC prefix): added last, it wins the tie.
+    // As specific as profile route (page type and UC prefix): added last, it wins the tie.
     { pageType: "MUSIC_PAGE_TYPE_USER_CHANNEL", prefix: "UC", target: (ep, id) => ({ type: "user", channelId: id }) },
     { browseId: "FEmusic_moods_and_genres", target: () => ({ type: "moods" }) },
     { prefix: "FEmusic_moods_and_genres", target: () => ({ type: "moodsPrefix" }) },
@@ -135,7 +135,7 @@ test("routes: the most specific match wins, ties go to the route added last", ()
     assert.equal(Model.routeEndpoint({ browseId: "VLPL1" }).type, "playlist")
     assert.equal(Model.routeEndpoint({ browseId: "UC1", pageType: "MUSIC_PAGE_TYPE_USER_CHANNEL" }).type, "user")
     assert.equal(Model.routeEndpoint({ browseId: "FEmusic_moods_and_genres" }).type, "moods")
-    // (S6 routes FEmusic_moods_and_genres_category exactly, so another id shows the prefix.)
+    // (FEmusic_moods_and_genres_category is routed exactly, so another id shows the prefix.)
     assert.equal(Model.routeEndpoint({ browseId: "FEmusic_moods_and_genres_x", params: "p" }).type, "moodsPrefix")
     assert.equal(Model.routeEndpoint({ browseId: "MPREb_1" }).type, "albumLater")
     assert.equal(Model.routeEndpoint({ browseId: "FExyz" }).type, "browse", "a null target falls back to browse")
@@ -257,7 +257,7 @@ test("appendPage stops at the item cap", () => {
   assert.equal(merged.cursor, null)
   assert.equal(merged.hasMore, false)
   assert.equal(merged.capped, true)
-  // G1: no Load more row once capped, and the cut is shown.
+  // No Load more row once capped, and the cut is shown.
   assert.deepEqual(Model.pageRows(merged).slice(-2).map(r => [r.item.type, r.item.title || r.item.videoId]),
     [["track", "Song c"], ["message", "Showing the first 3"]])
 })
@@ -376,7 +376,7 @@ test("prefs v2 keep valid values and replace invalid ones", () => {
     speed: { music: 1.25, episode: 9 }, normalize: "dynamic", nowPane: "lyrics", unknown: 1,
   }))
   assert.equal(saved.libraryChip, "albums")
-  assert.equal("libraryOrders" in saved, false, "P1: a saved one is dropped")
+  assert.equal("libraryOrders" in saved, false, "a saved one is dropped")
   assert.equal(saved.chartsCountry, "AU")
   assert.equal(saved.location, "DE")
   assert.equal(saved.quality, "low")

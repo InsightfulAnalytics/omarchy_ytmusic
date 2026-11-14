@@ -1,4 +1,4 @@
-// No ceilings (G1): lists load to their end and say so at a cap, every
+// Long lists: lists load to their end and say so at a cap, every
 // completion YouTube serves shows, and a list longer than the queue plays on.
 const test = require("node:test")
 const assert = require("node:assert/strict")

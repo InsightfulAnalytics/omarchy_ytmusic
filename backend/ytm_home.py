@@ -1,4 +1,4 @@
-"""Home (S5): the whole feed, its mood chips and each shelf's Play all.
+"""Home: the whole feed, its mood chips and each shelf's Play all.
 
 - ``homeFeed({params?, cursor?})`` reads the raw ``FEmusic_home`` browse
   (``params``: a chip's, for Relax, Workout, Podcasts...). Every row is
@@ -12,7 +12,7 @@
   ``{shelves, chips, cursor, hasMore}``; shelves have the page section
   shape (``norm.section``), plus ``strapline`` when the web shows a line
   above the title (SIMILAR TO above an artist's name). Signed in, a card
-  carries what its menu offers (S14): ``pinned`` and ``listenAgainTokens``
+  carries what its menu offers: ``pinned`` and ``listenAgainTokens``
   (Pin to / Unpin from Listen again) and ``feedback {notInterested,
   dontRecommend}`` (ytm_feedback sends them). When the first page
   cannot be read at all (no rows, or none it could parse), All falls back
@@ -109,7 +109,7 @@ def parse_rows(contents):
     out = []
     for row in contents or []:
         try:
-            # S14: each card keeps its Listen again pin and its Not
+            # Each card keeps its Listen again pin and its Not
             # interested / Don't recommend tokens (raw.feedback_fields).
             parsed = raw.parse_row(row, extra=raw.feedback_fields)
             parsed["strapline"] = strapline(row)
@@ -162,7 +162,7 @@ def feed(chip_shelves, chip_list, cursor):
 
 
 def legacy(worker):
-    """get_home's rows as shelves: what Home showed before S5."""
+    """get_home's rows as shelves: the plain shelf reader."""
     return [norm.section(s["title"] or None, s["items"], layout="carousel")
             for s in norm.home(worker.yt.get_home(limit=LEGACY_ROWS))]
 

@@ -9,15 +9,15 @@ one fails. Like mpv, this streams without the account unless
 YTM_STREAM_WITH_ACCOUNT=1 or the request asks for it (``account: true``,
 e.g. for uploads); each mode has its own yt-dlp instance.
 
-Uploaded songs (S10) play only as the account, and yt-dlp reaches them only
+Uploaded songs play only as the account, and yt-dlp reaches them only
 with its JS challenge solver (yt-dlp-ejs). The worker's environment has
 plain yt-dlp, so an upload's lookup may fail here; the shell then lets mpv's
 yt-dlp load it with the account's cookies (a per-file
 ``ytdl-raw-options-append``) and stops asking for uploads this session.
 
-With the worker setting ``normalize`` at "youtube" (S17), a lookup also
+With the worker setting ``normalize`` at "youtube", a lookup also
 answers the song's loudness (see the loudness section below). The setting
-``quality`` (S16) picks the yt-dlp format (see the quality section).
+``quality`` picks the yt-dlp format (see the quality section).
 """
 
 import os
@@ -97,7 +97,7 @@ class Resolver:
         # The warm-up thread and the worker's streams lane may both get here
         # first; lookups themselves only ever run on the lane.
         self._lock = threading.Lock()
-        # S17: the songs' loudness, for the worker's lifetime.
+        # The songs' loudness, for the worker's lifetime.
         self.loudness = Loudness()
 
     def wants_account(self, account=None):
@@ -119,7 +119,7 @@ class Resolver:
         return opts
 
     def _client(self, account=False, fmt=FORMAT):
-        # One instance per mode and format (S16: the audio quality), each
+        # One instance per mode and format (the audio quality), each
         # built on first use.
         key = (account, fmt)
         with self._lock:
@@ -150,10 +150,10 @@ class Resolver:
     def resolve(self, video_id, account=None, loudness_from=None, quality=None):
         """The stream URL; ``account`` None means the YTM_STREAM_WITH_ACCOUNT default.
 
-        With ``loudness_from`` (a ytmusicapi client; S17) the reply also
+        With ``loudness_from`` (a ytmusicapi client) the reply also
         carries ``loudnessDb``: a number, or None when YouTube gave none or
         the lookup failed (it never fails the lookup itself). ``quality``
-        (S16: low, normal, high; None is high) picks the format.
+        (low, normal, high; None is high) picks the format.
         """
         use_account = self.wants_account(account)
         try:
@@ -180,7 +180,7 @@ class Resolver:
         return result
 
 
-# ---- loudness (S17) ------------------------------------------------------------
+# ---- loudness ------------------------------------------------------------
 # The shell's loudness levelling (prefs.normalize, sent as the worker setting
 # `normalize`): with "youtube", resolve also answers YouTube's loudness for
 # the song, playerConfig.audioConfig.loudnessDb of its player response (dB
@@ -266,7 +266,7 @@ class Loudness:
         return value
 
 
-# ---- quality (S16) --------------------------------------------------------------
+# ---- quality --------------------------------------------------------------
 # The shell's audio quality (prefs.quality, sent as the worker setting
 # `quality`): the yt-dlp format the resolver asks for. High is the best opus
 # stream, as before (format 251, about 130 to 160 kbps); Normal caps the
@@ -275,7 +275,7 @@ class Loudness:
 # stream when none is that low. mpv's own fallback (ytdl-format, bin/ytm-mpv
 # and the shell) uses the same strings; tests/backend/test_streams.py keeps
 # them in step with YtmModel.js and bin/ytm-mpv. The web's 256 kbps "Always high" is not
-# offered: the account gets the same opus 251 (README, development notes).
+# offered: the account gets the same opus 251 (docs/DEVELOPMENT.md, development notes).
 
 QUALITIES = ("low", "normal", "high")
 QUALITY_FORMATS = {

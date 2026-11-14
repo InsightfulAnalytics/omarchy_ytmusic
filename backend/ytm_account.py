@@ -1,4 +1,4 @@
-"""Account identities and the content location (S16).
+"""Account identities and the content location.
 
 - ``accounts({})``: the identities of the saved session, from YouTube Music's
   own account switcher (raw ``account/accounts_list``): the session's own
@@ -30,7 +30,7 @@ unsent, when the worker acts as another one by its turn
 Brand accounts: YouTube Music removes history entries and takes uploads only
 for the session's own account (ytmusicapi's remove_history_items and
 upload_song), so those methods call ``require_own_identity`` first
-(``removeHistory`` in ytm_history; S10's ``uploadSong`` through
+(``removeHistory`` in ytm_history; ``uploadSong`` through
 ``require_upload_identity``).
 """
 
@@ -178,7 +178,7 @@ def require_own_identity(worker, what):
                                          "YouTube Music; switch back first (Library, M, Switch account)")
 
 
-# S10 (backend/ytm_uploads.py): uploadSong calls this before anything
+# uploadSong calls this before anything
 # else. upload_song sends as the session's login (its x-goog-authuser
 # header, which switchAccount sets for another login) but never as a brand
 # account.

@@ -1,7 +1,7 @@
 import QtQuick
 import qs.Commons
 
-// The small boxed "E" YouTube Music puts on explicit songs and albums (S3).
+// The small boxed "E" YouTube Music puts on explicit songs and albums.
 Rectangle {
   id: root
 

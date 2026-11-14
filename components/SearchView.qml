@@ -6,14 +6,14 @@ import qs.Ui
 import "../YtmModel.js" as Model
 
 // Search field, filter chips and grouped results. Typing searches after a
-// short pause; Enter searches right away and moves to the results. P1
-// (acct-3): signed in, a pause in typing searches signed out (a signed-in
+// short pause; Enter searches right away and moves to the results.
+// Signed in, a pause in typing searches signed out (a signed-in
 // search joins the account's search history, as the web's submitted ones
 // do), and Enter or a picked suggestion searches with the account; your
 // library and uploads are searched on Enter only (a scope or filter picked
 // for words only typed waits for Enter too). A typed list's songs get
 // their library and Listen again tokens from the song's own menu (m, S).
-// S7: All lists every kind of result in YouTube's order under the top
+// All lists every kind of result in YouTube's order under the top
 // result, each group ending in Show all (its filter). More holds the other
 // filters (a chooser; h / l cycle through all of them), and the scope chip
 // on the status line (signed in; also in the M menu) searches your library
@@ -35,7 +35,7 @@ Item {
   readonly property var resultRows: store ? Model.flattenSearch(store.result, store.filter, { scope: store.scope }) : []
   // Suggestions show above the results while you type; Tab / Shift+Tab put
   // them in the field. An empty field lists your recent searches.
-  // S7: Down from the field keeps them (holdSuggestions) so k reaches the
+  // Down from the field keeps them (holdSuggestions) so k reaches the
   // rich rows; typing, Enter, Esc or a search picked lets them go.
   readonly property bool typing: (searchField.activeFocus || holdSuggestions) && searchField.text.trim() !== ""
   property bool holdSuggestions: false
@@ -49,7 +49,7 @@ Item {
   readonly property alias results: resultList
   readonly property var chips: Model.searchChips(store ? store.filter : "", scope)
   readonly property bool hasMore: !!store && !!store.result && !!store.result.cursor
-  // P1: a library or uploads search waits for Enter: the words in the field
+  // A library or uploads search waits for Enter: the words in the field
   // were typed since the last one (or a scope or filter was picked for them).
   readonly property bool waitsForEnter: !!store && scope !== "" && searchField.text.trim() !== ""
     && searchField.text.trim() !== store.query
@@ -60,7 +60,7 @@ Item {
   signal leftField()
   // A row's menu (m, '.', right-click): Panel opens it.
   signal itemMenuRequested(var request)
-  // S7: the More filters chooser { title, subtitle, choices, onChoice }: Panel opens it.
+  // The More filters chooser { title, subtitle, choices, onChoice }: Panel opens it.
   signal chooserRequested(var request)
 
   // The words in the field, submitted (Enter): searched with the account.
@@ -68,19 +68,19 @@ Item {
     if (store) store.search(searchField.text, store.filter)
   }
 
-  // A pause in typing (P1): the words are not submitted (Store.search
+  // A pause in typing: the words are not submitted (Store.search
   // reads them signed out, or waits for Enter in a library or uploads scope).
   function typedSearch() {
     if (store) store.search(searchField.text, store.filter, undefined, false, true)
   }
 
-  // P1: the field holds words nobody submitted: not what the results show,
+  // The field holds words nobody submitted: not what the results show,
   // or what they show was read while typing.
   function _wordsTyped() {
     return !store || store.typed || searchField.text.trim() !== store.query
   }
 
-  // A filter for the words in the field; an exact search stays exact. P1:
+  // A filter for the words in the field; an exact search stays exact. 
   // words only typed stay unsubmitted: searched signed out, or (your
   // library or uploads) the filter is set and the search waits for Enter.
   function setFilter(key) {
@@ -90,7 +90,7 @@ Item {
   }
 
   // The scope chip and the M menu's scope entries ("", "library", "uploads").
-  // P1: words only typed stay unsubmitted: back to YouTube Music they are
+  // Words only typed stay unsubmitted: back to YouTube Music they are
   // searched signed out; your library or uploads, chosen, waits for Enter.
   // Submitted words search the scope chosen with the account at once.
   function setScope(key) {
@@ -217,7 +217,7 @@ Item {
     menuWait.stop()
     if (!row || Model.menuKind(row.item) === "") return
     var item = liveItem(index)
-    // P1: a typed song with no tokens held: its menu opens once its own
+    // A typed song with no tokens held: its menu opens once its own
     // menu was read (_menuWaited).
     if (_typedSong(index) && !Model.liveTokensOf(item) && _readsMenu(item.videoId)) {
       _menuWait = { videoId: String(item.videoId), place: resultList.placeAt(index), at: Date.now() }
@@ -233,8 +233,8 @@ Item {
     root.itemMenuRequested({ item: item, ctx: { pageKind: "search" }, owner: root, index: index, late: late })
   }
 
-  // ---- a typed list's songs (P1) ------------------------------------------------------
-  // A typed list is read signed out (acct-3), so its songs carry no library
+  // ---- a typed list's songs ------------------------------------------------------
+  // A typed list is read signed out, so its songs carry no library
   // or Listen again tokens and never say they are in your library. Signed
   // in, m and S on such a row put back the tokens held for the song
   // (Service.withLiveTokens) and, when none are held, read its own menu
@@ -313,13 +313,13 @@ Item {
 
   // An entry of a result's menu ran (Panel calls this): the search led
   // somewhere. A menu closed with Esc remembers nothing, and so does the
-  // page menu's scope or More filters (S7).
+  // page menu's scope or More filters.
   function menuChosen(actionId) {
     if (String(actionId).indexOf("search") !== 0) rememberSearch()
   }
 
   // x on a recent search forgets it; one of your YouTube searches is
-  // removed from YouTube too (S7).
+  // removed from YouTube too.
   function remove(index) {
     var row = resultList.rowAt(index)
     if (!row || row.item.type !== "query" || !row.item.removable || !store) return
@@ -337,7 +337,7 @@ Item {
   }
 
   // Down and Enter put the cursor on the first result; held suggestions
-  // stay above it (S7).
+  // stay above it.
   function leaveField(moveToResults) {
     root.leftField()
     if (!moveToResults || resultList.cursorIndex >= 0) return
@@ -368,7 +368,7 @@ Item {
       : root.scope === "uploads" ? "Search your uploads" : "Search YouTube Music"
     foreground: root.foreground
     font.family: root.fontFamily
-    activeFocusOnTab: false  // P1: Tab cycles the suggestions here, never Qt's focus chain
+    activeFocusOnTab: false  // Tab cycles the suggestions here, never Qt's focus chain
 
     Component.onCompleted: if (root.store) root.setText(root.store.query)
     onTextChanged: {
@@ -422,7 +422,7 @@ Item {
     onTriggered: if (root.store) root.store.suggest(searchField.text)
   }
 
-  // P1: a typed song's menu waiting for its own menu (_menuWaited).
+  // A typed song's menu waiting for its own menu (_menuWaited).
   Timer {
     id: menuWait
     interval: 100
@@ -475,7 +475,7 @@ Item {
       anchors.verticalCenter: parent.verticalCenter
       textFormat: Text.PlainText
       wrapMode: Text.Wrap
-      // P1: a library or uploads search waits for Enter, and says so; an
+      // A library or uploads search waits for Enter, and says so; an
       // error belongs to the words searched, not to the ones typed since. A
       // typed song's menu waiting for its own menu says so too.
       readonly property bool failed: !!root.store && !root.store.searching && !root._menuWait && !root.waitsForEnter

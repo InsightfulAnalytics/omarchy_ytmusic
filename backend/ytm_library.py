@@ -1,5 +1,5 @@
 """Your library: playlists, songs, albums, artists, subscriptions and the
-landing page's recent activity, with the sort orders YouTube serves (S2).
+landing page's recent activity, with the sort orders YouTube serves.
 
 Every method needs the account and reads on the pages lane. Long lists come
 a page at a time (about 50 items, at most 3 requests per call): the first
@@ -24,7 +24,7 @@ method's own cached first pages, in every order (the unordered one, which
 is in the saved order, above all). The shell sends an order only when the
 user picks one (O), so every other read is in the order YouTube has saved.
 
-G1: a song plays on through the library in the list's order
+A song plays on through the library in the list's order
 (ordered_tracks), and Shuffle all goes on through the server shuffle
 (shuffle_more), both read by tracksFor.
 
@@ -46,7 +46,7 @@ from ytmusicapi.parsers.browsing import parse_playlist
 from ytmusicapi.parsers.library import parse_albums, parse_artists
 from ytmusicapi.parsers.watch import parse_watch_playlist as parse_watch_tracks
 
-import ytm_collections as collections  # G4: explicit badges of the shuffle's and the ordered library's songs
+import ytm_collections as collections  # explicit badges of the shuffle's and the ordered library's songs
 import ytm_normalize as norm
 import ytm_pages as pages
 import ytm_raw as raw
@@ -63,7 +63,7 @@ MAX_HTTP = 3
 PLAYLISTS_MAX_HTTP = 20
 LIST_RENDERERS = ("gridRenderer", "musicShelfRenderer")
 # Auto playlists the Library tab shows its own way (Liked Music as an entry
-# row; Episodes for later on Podcasts, S8).
+# row; Episodes for later on Podcasts).
 SPECIAL = {"LM": "liked", "SE": "episodes"}
 
 BROWSE_IDS = {
@@ -83,7 +83,7 @@ BROWSE_IDS = {
 SHUFFLE_ID = "MLCT"
 SHUFFLE_PARAMS = "wAEB8gECKAE%3D"
 # Each request takes 1 to 2 s (a whole library is shuffled), so the first
-# 50 songs (two requests) are read; G1: the shell reads on from there
+# 50 songs (two requests) are read; the shell reads on from there
 # (shuffle_more), as the web's queue does.
 SHUFFLE_TRACKS = 50
 SHUFFLE_MAX_HTTP = 2
@@ -214,7 +214,7 @@ def _page(method, browse_id, items, cursor, orders=None, order=None, header=None
 def _read_list(worker, params, method, parse, layout, offered=ORDERS, header_of=None, browse_id=None):
     """A page of one library list: ``{type: "page", kind: method, sections: [one
     section], cursor, orders, order, header, message}``. ``browse_id``: a list
-    of another module (S8's podcasts and channels); else BROWSE_IDS[method]."""
+    of another module (podcasts and channels); else BROWSE_IDS[method]."""
     worker.require_auth()
     browse_id = browse_id or BROWSE_IDS[method]
     order = order_param(params)
@@ -247,7 +247,7 @@ def _each(contents, renderer, build, what):
             continue
         try:
             value = build(data)
-            value = raw.pin_fields(content, value)  # G2: each item's Pin to Listen again
+            value = raw.pin_fields(content, value)  # each item's Pin to Listen again
         except (KeyError, TypeError, ValueError, IndexError, AttributeError) as exc:
             norm.log(f"skipped malformed {what}: {type(exc).__name__}")
             continue
@@ -281,7 +281,7 @@ def _playlists(contents):
 
 
 def _album(data):
-    # parse_albums leaves the explicit badge out (S3).
+    # parse_albums leaves the explicit badge out.
     return norm.album(dict(parse_albums([{MTRIR: data}])[0], isExplicit=raw.explicit(data.get("subtitleBadges"))))
 
 
@@ -314,7 +314,7 @@ def _songs(contents):
 
 def _shuffle_header(container):
     """``{shuffleId}`` from the songs page's leading row (a watch playlist, not
-    a song), else ``{}``. G1: and ``playParams``, the params a song row plays
+    a song), else ``{}``. And ``playParams``, the params a song row plays
     the library in its order with (library_play_params)."""
     contents = container.get("contents") or []
     header = library_play_params(contents)
@@ -340,7 +340,7 @@ def m_library_playlists(worker, params):
             items = yt.get_library_playlists(limit=None)
         orders, current = _orders(cap.first("browse"), None)
         items = norm.normalize_list(items, playlist_item, "library playlist")
-        # G2: ytmusicapi reads no card menu; each pin comes from the grid pages it read.
+        # Ytmusicapi reads no card menu; each pin comes from the grid pages it read.
         items = raw.with_card_pins(items, raw.card_pins(cap.all("browse")))
         return {"items": items, "orders": orders, "order": current}
     browse_id = BROWSE_IDS["libraryPlaylists"]
@@ -397,14 +397,14 @@ def is_shuffle(playlist_id):
 def shuffle_tracks(worker, playlist_id, limit=SHUFFLE_TRACKS):
     """tracksFor's reply for the library's server shuffle: at most ``limit``
     (and SHUFFLE_TRACKS) songs, in YouTube's shuffled order, with their
-    explicit badges (G4)."""
+    explicit badges."""
     worker.require_auth()
     limit = max(1, min(limit, SHUFFLE_TRACKS))
     items, seen = [], set()
     # The client and its generation as the read starts: another client
     # (an account switch, a sign-in, a location) meanwhile keeps no memo.
     yt, generation = worker.yt, worker.generation
-    # G1: read by _new_shuffle; where the shuffle goes on (its next page, and
+    # Read by _new_shuffle; where the shuffle goes on (its next page, and
     # what was read past the limit) stays for the shell's next `more` read.
     token, lost = _new_shuffle(yt, playlist_id, limit, items, seen)
     _remember_shuffle(worker, generation, playlist_id, token, items[limit:], seen, lost)
@@ -412,7 +412,7 @@ def shuffle_tracks(worker, playlist_id, limit=SHUFFLE_TRACKS):
     return {"playlistId": playlist_id, "items": items[:limit], "complete": True, "total": None}
 
 
-# ---- no ceilings (G1) --------------------------------------------------------------------------------
+# ---- long lists ---------------------------------------------------------------------------------
 # A song row of the library plays the watch playlist SHUFFLE_ID ("MLCT") from
 # its index without the shuffle params: the song, then the rest of the
 # library in the list's order (what the web plays on a click). YouTube
@@ -471,7 +471,7 @@ def _panel_songs(panel, response=None):
     """``[(track, index)]`` of a playlist panel: each playable entry (its
     counterpart kept) with its watchEndpoint index (None when it has none),
     marked explicit when ``response`` (the 'next' response the panel came
-    from) badges it (G4)."""
+    from) badges it."""
     badged = collections.explicit_videos(response)
     out = []
     for content in panel.get("contents") or []:
@@ -524,7 +524,7 @@ def ordered_tracks(worker, video_id, index=None, params=None, limit=ORDERED_TRAC
     are left out), at most ``limit`` in about ORDERED_MAX_HTTP requests.
     Each song has its ``libraryIndex`` (its place, counted as ``index`` is),
     so the shell asks for the next ones from the last, and its explicit
-    badge (G4, as Shuffle all's songs have theirs). ``complete`` is false
+    badge (as Shuffle all's songs have theirs). ``complete`` is false
     while YouTube has more (past the list's end, YouTube's queue goes on
     with other songs of your library, as on the web, and while a response
     came with no song); no songs and complete when the song cannot be found
@@ -604,7 +604,7 @@ def _remember_shuffle(worker, generation, playlist_id, token, pending, seen, los
 def _take_new(items, seen, page, response):
     """Adds the songs of ``page`` (parsed watch tracks) not in ``seen`` to
     ``items`` and ``seen``, with the explicit badges of ``response`` (the
-    'next' response the page came from; G4: ytmusicapi's watch tracks have
+    'next' response the page came from; ytmusicapi's watch tracks have
     no isExplicit). Songs held for a later ``more`` keep their marks."""
     page = collections.mark_explicit(page, [response])
     for track in norm.normalize_list(page, norm.track, "library shuffle track"):

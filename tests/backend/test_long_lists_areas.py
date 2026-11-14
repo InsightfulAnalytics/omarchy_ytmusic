@@ -1,11 +1,11 @@
-"""No ceilings (G1) with lane A's slices: what the two lanes change in the
-same reads holds together. Shuffle all's `more` pages and the library in
-its order carry the explicit badges (G4), an album over 200 songs keeps its
-rest, its explicit marks and its shelf pins (G2), and tracksFor routes
-every kind: uploads (S10), the library in its order and the server shuffle
-(G1), Liked Music, mixes.
+"""Long lists across areas: what the library, uploads and podcasts change in
+the same reads holds together. Shuffle all's `more` pages and the library in
+its order carry the explicit badges, an album over 200 songs keeps its
+rest, its explicit marks and its shelf pins, and tracksFor routes
+every kind: uploads, the library in its order and the server shuffle,
+Liked Music, mixes.
 
-Hand-built in the served shapes, as test_ceilings and test_menus_lists.
+Hand-built in the served shapes, as test_long_lists and test_menus_lists.
 """
 
 import pytest
@@ -14,7 +14,7 @@ import ytm
 import ytm_collections as collections
 import ytm_play as play
 import ytm_raw as raw
-from test_ceilings import AlbumYT, big, queue_more, queue_song, vid  # noqa: F401 (big is a fixture)
+from test_long_lists import AlbumYT, big, queue_more, queue_song, vid  # noqa: F401 (big is a fixture)
 from test_library import call, panel_continuation, panel_track, watch_panel, worker_for
 from test_menus_lists import BADGE, explicit_ids
 
@@ -118,5 +118,5 @@ def test_more_and_the_library_order_need_the_account_as_before():
 
 
 def test_collections_keep_one_explicit_marker():
-    # G4's helper is the one the library's readers use.
+    # helper is the one the library's readers use.
     assert collections.mark_explicit([{"videoId": "a"}], []) == [{"videoId": "a"}]

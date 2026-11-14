@@ -1,4 +1,4 @@
-"""S16: account identities (accounts, switchAccount), the content location
+"""Account identities (accounts, switchAccount), the content location
 and what a brand account cannot do. Every response is hand-built with fake
 names and ids: the account switcher is private, so nothing is recorded."""
 
@@ -250,7 +250,7 @@ def test_switching_to_the_identity_in_use_changes_nothing(signed_in):
 
 @pytest.mark.parametrize("refused", [False, True])
 def test_a_switch_forgets_your_channel(signed_in, refused):
-    # S9 x S16: your channel (myChannel, the off-disk rule) is the identity's
+    # Your channel (myChannel, the off-disk rule) is the identity's
     # own, so after a switch (or a refused one, which builds the client
     # again) it is read afresh from the new client's account menu.
     worker = ytm.Worker()

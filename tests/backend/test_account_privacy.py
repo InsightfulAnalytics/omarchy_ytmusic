@@ -1,7 +1,7 @@
-"""P1 final review fixes (worker side): mpv's cookie copy follows a sign-out
-or sign-in made without a shell (priv-3), a typed search never goes out
-with the account (acct-3), an upload or a batch of plays that waited on a
-lane is refused when the identity changed meanwhile (acct-4, acct-5), whole
+"""Account and privacy edge cases (worker side): mpv's cookie copy follows a sign-out
+or sign-in made without a shell, a typed search never goes out
+with the account, an upload or a batch of plays that waited on a
+lane is refused when the identity changed meanwhile, whole
 reads run on a lane of their own (pages-lane-hol-timeouts), and a read that
 outlives its client keeps nothing for the new one
 (shuffle-memo-generation-at-write)."""
@@ -22,7 +22,7 @@ import ytm_raw as raw
 import ytm_search as search
 import ytm_uploads as uploads
 import ytm_users as users
-from test_ceilings import shuffle_pages
+from test_long_lists import shuffle_pages
 from test_history import FakeYT as HistoryYT
 from test_library import LibraryYT, call, page_type
 from test_search import FakeClient, response, shelf, song_row, continuation
@@ -33,7 +33,7 @@ BRAND_ID = "123456789012345678901"
 BRAND_KEY = "0:" + hashlib.sha1(BRAND_ID.encode()).hexdigest()[:12]
 
 
-# ---- priv-3: mpv's copy of the cookies ---------------------------------------------------------
+# ---- mpv's copy of the cookies ---------------------------------------------------------
 
 
 class Runs:
@@ -82,7 +82,7 @@ def test_a_sign_in_from_the_command_line_refreshes_mpvs_copy(monkeypatch, capsys
     assert [ytm.MPV_SCRIPT, "cookies"] not in runs.commands, "a failed sign-in changed no session"
 
 
-# ---- acct-3: search as you type is signed out --------------------------------------------------
+# ---- search as you type is signed out --------------------------------------------------
 
 
 class Untouchable:
@@ -174,7 +174,7 @@ def test_the_anonymous_client_is_one_per_location(monkeypatch):
     assert made == [{"language": "en"}, {"language": "en", "location": "DE"}]
 
 
-# ---- acct-1: an ordered uploads read --------------------------------------------------------------
+# ---- an ordered uploads read --------------------------------------------------------------
 
 
 @pytest.mark.parametrize("method,browse_id", [("uploadSongs", uploads.SONGS_ID), ("uploadAlbums", uploads.ALBUMS_ID),
@@ -199,7 +199,7 @@ def test_an_ordered_uploads_read_drops_every_cached_copy_of_that_list(tmp_path, 
     assert cache.get(other, {}) is not None, "another list stays"
 
 
-# ---- acct-4 and acct-5: requests that waited on a lane --------------------------------------------
+# ---- requests that waited on a lane --------------------------------------------
 
 
 def test_identity_keys_as_the_shell_holds_them():
@@ -405,7 +405,7 @@ def test_a_session_check_that_passes_for_an_old_client_marks_nothing():
 @pytest.mark.parametrize("checked", [False, True])
 def test_a_channel_lookup_outliving_its_client_keeps_the_new_ones_channel(checked):
     # myChannel's menu read (known_own_channel) on a session checked another
-    # way (a switch of identity, S16); Worker.load() runs while it is out.
+    # way (a switch of identity); Worker.load() runs while it is out.
     # `checked`: the new client's session was checked by the switch too.
     old = raw.install(UsersYT(menu=account_menu(link("ACCOUNT_BOX", "Old", page_type("UCold", "USER_CHANNEL")))))
     new = raw.install(UsersYT(menu=MENU))

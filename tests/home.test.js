@@ -79,7 +79,7 @@ test("See all routes by endpoint", () => {
   assert.deepEqual(target({ browseId: "MPADUCx", params: "disc" }), { type: "artistAlbums", browseId: "MPADUCx", params: "disc", title: "Shelf" })
   assert.deepEqual(target({ browseId: "UCsimilar", params: null, pageType: "MUSIC_PAGE_TYPE_ARTIST" }, "Similar"),
     { type: "artist", channelId: "UCsimilar", name: "Similar" })
-  // A mood category opens its mood page (S6).
+  // A mood category opens its mood page.
   assert.deepEqual(target({ browseId: "FEmusic_moods_and_genres_category", params: "p" }, "Chill"),
     { type: "mood", id: "p", params: "p", title: "Chill" })
   // Everything else is a browse page, which decides by renderer.
@@ -93,7 +93,7 @@ test("See all routes by endpoint", () => {
   const ref = Model.pageRef(recaps)
   assert.equal(ref.method, "browsePage")
   assert.deepEqual(ref.params, { browseId: "UCrecap", params: "rp" })
-  // ... also once a profile route for user channels exists (S9).
+  // ... also once a profile route for user channels exists.
   Model.ROUTES.push({ pageType: "MUSIC_PAGE_TYPE_USER_CHANNEL", target: (ep, id) => ({ type: "profile", channelId: id }) })
   try {
     assert.equal(target({ browseId: "UCrecap", params: "rp", pageType: "MUSIC_PAGE_TYPE_USER_CHANNEL" }).type, "browse")
@@ -165,7 +165,7 @@ test("a shelf's strapline heads it; its rows keep the title", () => {
   assert.equal(rows[2].item.sectionTitle, "Nils Frahm")
 })
 
-test("a podcast opens as its own page (S8)", () => {
+test("a podcast opens as its own page", () => {
   const ref = Model.pageRef({ type: "podcast", browseId: "MPSPPLx", title: "A show" })
   assert.equal(ref.kind, "podcast")
   assert.equal(ref.method, "podcast")

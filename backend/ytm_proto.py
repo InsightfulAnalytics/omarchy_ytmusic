@@ -24,7 +24,7 @@ def unsent(exc):
     """``exc`` (any exception) marked as raised by a MUTATES method before its
     edit went out, e.g. a lookup the edit needed failed: the worker then
     drops nothing from the cache, since YouTube was never asked to change
-    anything (S4). Returns ``exc``."""
+    anything. Returns ``exc``."""
     exc.unsent = True
     return exc
 

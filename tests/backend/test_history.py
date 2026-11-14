@@ -1,4 +1,4 @@
-"""ytm_history (S15): plays reported to YouTube Music history, entries removed.
+"""ytm_history: plays reported to YouTube Music history, entries removed.
 
 Both methods change the account, so every call is pinned against a fake
 client; the real ones are only run live by the dispatching session."""

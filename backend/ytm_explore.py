@@ -1,4 +1,4 @@
-"""Explore (S6): the web's Explore page, Charts, Moods & genres and a mood's playlists.
+"""Explore: the web's Explore page, Charts, Moods & genres and a mood's playlists.
 
 - ``explore({})`` is ``get_explore()`` with its raw rows: a page of kind
   ``explore``. Its first section (key ``entries``) holds the page's
@@ -142,7 +142,7 @@ def items(contents):
             continue
         try:
             value = _item(content)
-            value = raw.pin_fields(content, value)  # G2: Pin to Listen again, as on the web's cards
+            value = raw.pin_fields(content, value)  # Pin to Listen again, as on the web's cards
         except (KeyError, TypeError, ValueError, IndexError, AttributeError) as exc:
             norm.log(f"skipped malformed explore item: {type(exc).__name__}")
             continue

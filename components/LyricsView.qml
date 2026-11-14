@@ -4,7 +4,7 @@ import qs.Commons
 import qs.Ui
 import "../YtmModel.js" as Model
 
-// The Lyrics pane on Now (S11). Time-synced lyrics show every line, the one
+// The Lyrics pane on Now. Time-synced lyrics show every line, the one
 // being sung highlighted and kept in the middle (a click on a line seeks
 // there); others show as plain text. The source is credited below. Lyrics
 // load when the pane is shown, by the song's lyricsId from nowContext, and

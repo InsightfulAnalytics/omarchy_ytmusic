@@ -2,7 +2,7 @@ const test = require("node:test")
 const assert = require("node:assert/strict")
 const Model = require("../YtmModel.js")
 
-// Recommendations (S14): Listen again pins, Home's Not interested and Don't
+// Recommendations: Listen again pins, Home's Not interested and Don't
 // recommend, and the taste builder's marks.
 
 const id11 = n => ("vid" + n).padEnd(11, "x")
@@ -169,8 +169,8 @@ test("taste: marks, the Add row, find, and the note", () => {
 
 test("taste: Library's account menu opens it; its page menu adds and unmarks", () => {
   const library = { page: true, pageKind: "library", signedIn: true }
-  // S9's Your channel, S16's Switch account, Audio quality and Content
-  // location, then S15's Record plays in history, sit between it and Sign out.
+  // Your channel, Switch account, Audio quality and Content
+  // location, then Record plays in history, sit between it and Sign out.
   assert.deepEqual(ids(null, library),
     ["tasteProfile", "myChannel", "switchAccount", "audioQuality", "contentLocation", "recordHistory", "streamAccount", "signOut"])
   assert.ok(!ids(null, { ...library, signedIn: false }).includes("tasteProfile"))
