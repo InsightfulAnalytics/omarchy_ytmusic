@@ -1,5 +1,5 @@
-"""ytm_collections (S3): playlists read whole, Liked Music, albums with their
-shelves, mixes, history, and the per-track fields later slices act on."""
+"""ytm_collections: playlists read whole, Liked Music, albums with their
+shelves, mixes, history, and the per-track fields the row menus act on."""
 
 import pytest
 
@@ -87,7 +87,7 @@ def test_limit_all_reads_to_the_cap_and_is_whole():
     worker = ytm.Worker(FakeYT(get_playlist=playlist_data(1120, 1126)), "ok")
     page = call(worker, "playlist", playlistId="PLx", limit="all")["result"]
     # ytmusicapi is asked for the cap rather than None, so a huge list stops
-    # there instead of being read to its end and cut (see the slice notes).
+    # there instead of being read to its end and cut (see ytm_play).
     assert worker.yt.calls == [("get_playlist", ("PLx",), {"limit": collections.MAX_TRACKS})]
     assert page["truncated"] is False and page["capped"] is False and page["unavailable"] == 6
     assert len(page["tracks"]) == 1120
@@ -466,7 +466,7 @@ def test_registry():
     assert {"playlist", "liked", "album", "history"} <= set(collections.METHODS)
     assert {name: ytm.METHODS[name] for name in collections.METHODS} == collections.METHODS
     assert ytm.LANES["playlist"] == "pages" and ytm.LANES["liked"] == "pages"
-    # G1: an album over 200 songs reads its audio playlist too.
+    # An album over 200 songs reads its audio playlist too.
     assert ytm.LANES["album"] == "pages" and "history" not in ytm.LANES
     assert {"playlist", "liked", "album", "history"} <= ytm.CACHEABLE
     assert ytm.RECORDERS["album"] is collections.RECORDERS["album"]

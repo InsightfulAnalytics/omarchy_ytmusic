@@ -21,9 +21,9 @@ Item {
   property bool showQueueActions: false
   property bool showMenu: false
   property string removeTooltip: "Remove"
-  // S3: the track's number on its album, shown in place of the cover (0: the cover).
+  // The track's number on its album, shown in place of the cover (0: the cover).
   property int number: 0
-  // S13: show the net votes a playlist's song carries (pages; the queue does not).
+  // Show the net votes a playlist's song carries (pages; the queue does not).
   property bool showVotes: false
   property QtObject bar: null
   property var store: null
@@ -120,7 +120,7 @@ Item {
         spacing: Style.space(4)
         visible: subtitle.text !== "" || explicitBadge.visible || votes.visible
 
-        // S13: the song's net votes on a playlist with voting on ("+3").
+        // The song's net votes on a playlist with voting on ("+3").
         Text {
           id: votes
           anchors.verticalCenter: parent.verticalCenter

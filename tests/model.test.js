@@ -16,10 +16,10 @@ test("track urls round-trip through videoIdFromUrl", () => {
 })
 
 test("media title and loadfile options use byte-length quoting", () => {
-  assert.equal(Model.mediaTitle({ title: "Get Lucky", artistText: "Daft Punk" }), "Get Lucky — Daft Punk")
+  assert.equal(Model.mediaTitle({ title: "Get Lucky", artistText: "Daft Punk" }), "Get Lucky · Daft Punk")
   assert.equal(Model.mediaTitle({ title: "Solo" }), "Solo")
-  assert.equal(Model.utf8Length("a—é😀"), 1 + 3 + 2 + 4)
-  const title = "Hello, World — A=B"
+  assert.equal(Model.utf8Length("a€é😀"), 1 + 3 + 2 + 4)
+  const title = "Hello, World · A=B"
   assert.equal(Model.loadfileOptions({ title: "Hello, World", artistText: "A=B" }),
     `force-media-title=%${Buffer.byteLength(title)}%${title}`)
   assert.equal(Model.loadfileOptions({}), "")
@@ -84,7 +84,7 @@ test("repeat modes map to mpv's loop properties", () => {
 })
 
 test("shuffle reorders only upcoming entries and unshuffle restores them", () => {
-  // mpv semantics (spike S7): moving an entry up puts it exactly at the target index.
+  // mpv semantics: moving an entry up puts it exactly at the target index.
   const apply = (list, commands) => commands.reduce((out, [, from, to]) => {
     assert.ok(from > to, "reorderCommands only moves entries up")
     const next = out.slice()
@@ -136,7 +136,7 @@ test("shuffled play is a seeded permutation starting at index 0", () => {
   assert.deepEqual(a.commands.at(-2), ["playlist-play-index", 0])
 })
 
-test("moveArgs matches mpv's insert-before semantics (spike S7)", () => {
+test("moveArgs matches mpv's insert-before semantics", () => {
   // Observed: playlist-move 3 1 put entry 3 at index 1; playlist-move 1 3 put entry 1 at index 2.
   assert.deepEqual(Model.moveArgs(3, 1), ["playlist-move", 3, 1])
   assert.deepEqual(Model.moveArgs(1, 2), ["playlist-move", 1, 3])
@@ -219,7 +219,7 @@ test("flattenSearch groups results under headers", () => {
   const song = { type: "track", videoId: id11(1) }
   const album = { type: "album", browseId: "MPREb_1" }
   const rows = Model.flattenSearch({ top: [album], songs: [song], albums: [], artists: [], playlists: [], videos: [] })
-  // S7: each group ends in its Show all row (tests/search.test.js).
+  // Each group ends in its Show all row (tests/search.test.js).
   assert.deepEqual(rows.map(r => r.header ? "# " + r.title : r.item.type), ["# Top result", "album", "# Songs", "track", "action"])
   const filtered = Model.flattenSearch({ items: [song, song] }, "songs")
   assert.deepEqual(filtered.map(r => r.header ? "#" : "i"), ["#", "i", "i"])
@@ -375,7 +375,7 @@ test("suggestions: two matching recent searches, then YouTube's, never the typed
   const recent = ["daft punk get lucky", "daft punk live", "daft punk tron", "air"]
   const remote = [{ text: "daft punk" }, { text: "Daft Punk Get Lucky" }, { text: "daft punk one more time", fromHistory: true }, { text: "daft punk da funk" }]
   const list = Model.suggestionList(recent, remote, "Daft Punk", 4)
-  // S7: one of your YouTube searches is `remote`.
+  // One of your YouTube searches is `remote`.
   assert.deepEqual(list, [
     { text: "daft punk get lucky", recent: true },
     { text: "daft punk live", recent: true },
@@ -385,7 +385,7 @@ test("suggestions: two matching recent searches, then YouTube's, never the typed
   const rows = Model.suggestionRows(list, 1)
   assert.equal(rows[0].title, "Suggestions")
   assert.deepEqual(rows.slice(1).map(r => r.item.selected), [false, true, false, false])
-  // S7: recent and past searches can be removed (x); YouTube's completions cannot.
+  // Recent and past searches can be removed (x); YouTube's completions cannot.
   assert.deepEqual(rows.slice(1).map(r => [r.item.type, r.item.removable, r.item.remote]),
     [["query", true, false], ["query", true, false], ["query", true, true], ["query", false, false]])
   assert.deepEqual(Model.suggestionRows([], -1), [])

@@ -2,7 +2,7 @@ const test = require("node:test")
 const assert = require("node:assert/strict")
 const Model = require("../YtmModel.js")
 
-// G2 (the Listen again pin on podcast pages and episode rows) with G3 (a
+// The Listen again pin on podcast pages and episode rows with (a
 // podcast's orders, filters and Find in show): both on the same page.
 
 const pins = { pin: "PIN", unpin: "UNPIN" }

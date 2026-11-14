@@ -3,7 +3,7 @@ import qs.Commons
 import qs.Ui
 import "../YtmModel.js" as Model
 
-// The Related pane on Now (S11): the web's Related tab for the song
+// The Related pane on Now: the web's Related tab for the song
 // playing (you might also like, recommended playlists, other performances,
 // similar artists, the artist's albums, about the artist) as page rows.
 // Rows play and open as on any page; it loads when the pane is shown, by
@@ -59,7 +59,7 @@ Item {
     store.loadCollection(ref, function(reply) {
       if (root.refKey !== key) return
       root.loading = false
-      // P1: asked before the Store was emptied (another identity): again.
+      // Asked before the Store was emptied (another identity): again.
       if (reply.stale) {
         root.load()
         return

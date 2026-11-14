@@ -2,7 +2,7 @@ const test = require("node:test")
 const assert = require("node:assert/strict")
 const Model = require("../YtmModel.js")
 
-// Library actions (S4): Save, Subscribe, a song's Save to library, Like and Dislike.
+// Library actions: Save, Subscribe, a song's Save to library, Like and Dislike.
 
 const id11 = n => ("vid" + n).padEnd(11, "x")
 const song = (n, extra = {}) => ({ type: "track", videoId: id11(n), title: "Song " + n, artistText: "A",
@@ -105,7 +105,7 @@ test("S: the row's item, else the page; nothing on an item without anything to s
   assert.equal(Model.saveAction(album), "save")
   assert.equal(Model.saveAction(artist), "subscribe")
   assert.equal(Model.saveAction(song(1, { libraryTokens: tokens })), "saveSong")
-  assert.equal(Model.saveAction({ type: "profile", channelId: "UCuser" }), "subscribe", "S9: profiles subscribe")
+  assert.equal(Model.saveAction({ type: "profile", channelId: "UCuser" }), "subscribe", "profiles subscribe")
 })
 
 test("worker params: albums by page, playlists by id, artists by page, songs by token", () => {

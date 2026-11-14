@@ -1,6 +1,6 @@
-// No ceilings (G1) with lane A's slices: uploads (S10), saved podcasts
-// (S8), Liked Music's chips and the Autoplay caption (G4). What one lane
-// built for its lists holds for the other's.
+// Long lists across areas: uploads, saved podcasts,
+// Liked Music's chips and the Autoplay caption. What one area
+// built for its lists holds for the others.
 const test = require("node:test")
 const assert = require("node:assert/strict")
 const Model = require("../YtmModel.js")
@@ -42,7 +42,7 @@ test("Enter on an uploaded song: the songs in hand past the queue's 500 play on;
   assert.equal(Model.librarySongsPartial("songs", songs).more.kind, "librarySongs")
 })
 
-test("an uploaded artist or album read in part goes on through its own tracksFor (S10's reader)", () => {
+test("an uploaded artist or album read in part goes on through its own tracksFor (the uploads reader)", () => {
   const artist = { type: "artist", channelId: ARTIST_ID, name: "Someone", upload: true }
   const read = { tracks: Array.from({ length: 500 }, (_, i) => upload(i)), complete: false, total: null }
   const partial = Model.itemPartial(artist, read)

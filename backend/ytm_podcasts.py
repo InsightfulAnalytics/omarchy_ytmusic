@@ -1,4 +1,4 @@
-"""Podcasts (S8): shows, episodes, channels, Episodes for Later, New
+"""Podcasts: shows, episodes, channels, Episodes for Later, New
 episodes, and the library's podcasts and channels.
 
 Reads (all CACHEABLE, on the pages lane):
@@ -9,7 +9,7 @@ Reads (all CACHEABLE, on the pages lane):
   pages up to PAGE_EPISODES episodes (at most MAX_HTTP requests); ``cursor``
   reads the next ones. Header ``{browseId, podcastId, author {name, id},
   description, saved}``; one section, Episodes (tracks of kind ``episode``).
-  G3: ``orders`` (Latest, Oldest, Popular, Creator provided) and ``filters``
+  ``orders`` (Latest, Oldest, Popular, Creator provided) and ``filters``
   (In progress, Unplayed, Played) as served, ``{index, title, selected}``;
   ``order`` / ``filter`` (indexes) read the list again in them, and a filter
   nothing matches gives the served ``message``. Every episode row (here and
@@ -28,7 +28,7 @@ Reads (all CACHEABLE, on the pages lane):
   keyed by what it holds, never by its title. Latest episodes' See all
   carries the page type CHANNEL_EPISODES, which the shell routes to
   ``channelEpisodes``. Header ``{channelId, subscribeId, subscribed,
-  subscribers}``; its cover is the avatar (G3: not the banner). Its episode
+  subscribers}``; its cover is the avatar (not the banner). Its episode
   rows link no podcast in their subtitle; each
   names the one its menu's BROADCAST entry goes to (menu_podcast), titled
   from the Podcasts row.
@@ -220,7 +220,7 @@ def episode_item(data, podcast=None, name_of=None):
     from the raw row, how much of it was played (progress_of: ``progress``,
     ``progressText``, ``resumeSec``) and ``podcast`` (given, else the row's
     linked credit, else the podcast its menu goes to, named by ``name_of``:
-    a channel's episode rows link nothing in their subtitle). G3: also the
+    a channel's episode rows link nothing in their subtitle). Also the
     start of its description (``description``, at most DESCRIPTION_MAX
     characters), which Find in show matches; every episode row ytm_raw
     reads comes here (artist pages, See all grids)."""
@@ -235,7 +235,7 @@ def episode_item(data, podcast=None, name_of=None):
         credit = {"name": name, "id": browse_id} if name else None
     value = norm.episode(dict(parsed, date=_date(runs), duration=None, duration_seconds=seconds, podcast=credit))
     value.update(progress_of(progress, seconds))
-    value["description"] = description_start(raw.text(data.get("description")))  # G3: Find in show (every run)
+    value["description"] = description_start(raw.text(data.get("description")))  # Find in show (every run)
     return _with_page(value)
 
 
@@ -247,7 +247,7 @@ def _items(contents, podcast=None, name_of=None):
             continue
         try:
             value = episode_item(content[MMRIR], podcast, name_of) if MMRIR in content else raw.item(content)
-            value = raw.pin_fields(content, value)  # G2: each row's Pin to Listen again
+            value = raw.pin_fields(content, value)  # each row's Pin to Listen again
         except _PARSE_ERRORS as exc:
             norm.log(f"skipped malformed podcast item: {type(exc).__name__}")
             continue
@@ -277,7 +277,7 @@ def _thumbnails(header):
         or nav(header, ["foregroundThumbnail", "musicThumbnailRenderer", "thumbnail", "thumbnails"], True)
 
 
-# ---- G3 (podcasts more): avatars, descriptions, episode orders and filters ----------------
+# ---- avatars, descriptions, episode orders and filters ----------------
 
 
 def channel_avatar(header):
@@ -426,7 +426,6 @@ def served_message(shelf):
         if isinstance(data, dict):
             return raw.text(data.get("text")) or None
     return None
-# ---- end G3
 
 
 def _like_menu_toggle(header):
@@ -445,7 +444,7 @@ def _like_menu_toggle(header):
 
 def podcast_saved(header):
     """Whether a podcast header says the show is in the library: its library
-    toggle (matched by its like endpoint, as S4's library_toggle), else the
+    toggle (matched by its like endpoint, as library_toggle), else the
     menu's; signed out, the toggle opens a sign-in dialog and the menu's
     still names the like (False). None when neither is there."""
     for button in header.get("buttons") or []:
@@ -472,7 +471,7 @@ def episode_saved(header):
 
 
 def _with_pin(out, header):
-    """G2: a page header ``out`` with ``pin`` (``{pinned, listenAgainTokens}``)
+    """A page header ``out`` with ``pin`` (``{pinned, listenAgainTokens}``)
     when the served header's menu has Pin to Listen again (signed in), as an
     album's or an artist's has; without the key otherwise."""
     pin = raw.buttons_pin(header)
@@ -486,7 +485,7 @@ def _with_pin(out, header):
 
 def _cached_title(worker, browse_id, extra=None):
     """The podcast's title from its first page's disk copy (a cursor page
-    carries no header), or None. G3: the copy in the same order and filter
+    carries no header), or None. The copy in the same order and filter
     (``extra``) first, then the plain one."""
     keys = [dict({"browseId": browse_id}, **extra)] if extra else []
     for key in keys + [{"browseId": browse_id}]:
@@ -512,12 +511,12 @@ def podcast_header(browse_id, header):
     description = raw.text(nav(header, ["description", "musicDescriptionShelfRenderer", "description"], True))
     out = {"browseId": browse_id, "podcastId": podcast_id(browse_id), "author": author,
            "description": description or None, "saved": podcast_saved(header)}
-    return _with_pin(out, header)  # G2
+    return _with_pin(out, header)
 
 
 def m_podcast(worker, params):
     """``{browseId | playlistId, order?, filter?, cursor?}``: a podcast page
-    (see the module docstring). G3: ``order`` and ``filter`` are indexes of
+    (see the module docstring). ``order`` and ``filter`` are indexes of
     the page's ``orders`` and ``filters``; the list is read again in them
     (reloaded) and its cursor pages go on in them."""
     given = opt_str(params, "browseId") or opt_str(params, "playlistId")
@@ -527,7 +526,7 @@ def m_podcast(worker, params):
     browse_id = PODCAST_PREFIX + pid
     body = {"browseId": browse_id}
     cursor = opt_cursor(params)
-    order, chosen = _option_index(params, "order"), _option_index(params, "filter")  # G3
+    order, chosen = _option_index(params, "order"), _option_index(params, "filter")
     yt = worker.yt
     if cursor:
         extra = {k: v for k, v in (("order", order), ("filter", chosen)) if v is not None}
@@ -542,14 +541,14 @@ def m_podcast(worker, params):
         raise WorkerError("NOT_FOUND", "YouTube Music has no such podcast")
     title = raw.text(header.get("title")) or ""
     credit = {"name": title, "id": browse_id} if title else None
-    response, http = reloaded(yt, body, base, order, chosen)  # G3
+    response, http = reloaded(yt, body, base, order, chosen)
     shelf = episode_shelf(response)
     items, cursor = [], None
     if shelf is not None:
         items, cursor = pages.fetch(yt, "browse", body, "ctoken", lambda _: shelf, _episodes(credit),
                                     min_items=PAGE_EPISODES, max_http=MAX_HTTP, first=(response, http))
     page = _podcast_page(browse_id, title, items, cursor, podcast_header(browse_id, header), _thumbnails(header))
-    # G3: the orders and filters the list is in now, and a served message
+    # The orders and filters the list is in now, and a served message
     # ("No episodes match the filters you applied.").
     orders, filters = _order_options(response), _filter_options(response)
     page.update(orders=_listed(orders), order=_selected(orders), filters=_listed(filters), filter=_selected(filters),
@@ -659,7 +658,7 @@ def build_episode(video_id, response):
         "description": description,
         "descriptionRuns": description_runs(runs, video_id), "episode": episode,
     }
-    _with_pin(header_out, header)  # G2
+    _with_pin(header_out, header)
     return norm.page("episode", video_id, title, header_out["date"], thumbnails, sections, header=header_out)
 
 
@@ -682,7 +681,7 @@ def _section_key(items):
         if kind == "track":
             kind = "episodes" if item.get("kind") == "episode" else "videos" if item.get("kind") == "video" else "songs"
         else:
-            # S9: a profile page's people too (your channel's Artists on repeat).
+            # A profile page's people too (your channel's Artists on repeat).
             kind = {"podcast": "podcasts", "playlist": "playlists", "album": "albums", "artist": "artists",
                     "profile": "profiles", "channel": "channels"}.get(kind, kind)
         kinds.add(kind)

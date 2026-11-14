@@ -20,21 +20,21 @@ Item {
   property string query: ""
   // "" = everything, grouped; otherwise a ytmusicapi search filter.
   property string filter: ""
-  // S7: "" (YouTube Music), "library" or "uploads" (signed in); `exact`
+  // "" (YouTube Music), "library" or "uploads" (signed in); `exact`
   // searches the words as typed (no spelling fix). A filtered result
   // (or uploads) grows by searchMore() while it has a cursor.
   property string scope: ""
   property bool exact: false
   property bool searchingMore: false
   property string searchMoreError: ""
-  // G1: a filtered list loads to its end (radiohead's songs: about 530); at
+  // A filtered list loads to its end (radiohead's songs: about 530); at
   // 2000 it says so (Model.capMessage).
   readonly property int maxSearchItems: 2000
   property var result: null
   property bool searching: false
   property string searchError: ""
   property int lastSearchMs: 0
-  // P1 (acct-3): the shown search was typed, not submitted (read signed
+  // The shown search was typed, not submitted (read signed
   // out); `signedIn` is Service's. A signed-in search joins the account's
   // search history, as the web's submitted ones do, so words typed with a
   // pause are searched signed out, and the account searches them once they
@@ -59,8 +59,8 @@ Item {
     if (track && track.type === "track" && track.videoId) trackHinted(track)
   }
 
-  // S7: `searchScope` undefined keeps the current scope; `exactly` is for
-  // this search only (a new one is corrected again). P1 (acct-3): `whileTyping`
+  // `searchScope` undefined keeps the current scope; `exactly` is for
+  // this search only (a new one is corrected again). `whileTyping`
   // is a search the words were not submitted for (search as you type): signed
   // in, it is read signed out, and a library or uploads one waits for Enter
   // (nothing is searched; another scope or filter is only set, and what was
@@ -147,7 +147,7 @@ Item {
     })
   }
 
-  // ---- search: more of a filtered list (S7) -----------------------------------
+  // ---- search: more of a filtered list -----------------------------------
   // The next page by the result's cursor (never cached). A reply for a
   // search that has been replaced meanwhile is dropped. After a failure
   // only an explicit Load more (Enter, a click) tries again.
@@ -158,7 +158,7 @@ Item {
     var seq = _seq
     var key = Model.searchKey(query, filter, scope, exact, typed)
     var params = { query: query, filter: filter || null, scope: scope || null, exact: exact, cursor: current.cursor }
-    // P1: a typed list's cursor belongs to the signed-out client that read it.
+    // A typed list's cursor belongs to the signed-out client that read it.
     if (typed) params.anonymous = true
     searchingMore = true
     searchMoreError = ""
@@ -187,7 +187,7 @@ Item {
     _searches = next
   }
 
-  // ---- search: the session ended (S7) ------------------------------------------
+  // ---- search: the session ended ------------------------------------------
   // A library or uploads search belongs to the session. Service calls this
   // when signedIn goes false (expired, invalid, signed out) and reset() on
   // an account change: the scoped search is dropped, so the next search
@@ -222,7 +222,7 @@ Item {
   function forgetQuery(text) {
     recent = Model.forgetQuery(recent, text)
     _saveRecent()
-    // S7: a recent search can be removed from the completions too.
+    // A recent search can be removed from the completions too.
     var key = String(text || "").trim().toLowerCase()
     suggestions = suggestions.filter(function(s) { return s.remote || s.text.toLowerCase() !== key })
   }
@@ -244,7 +244,7 @@ Item {
   // [{ text, recent, remote? }] for the text being typed: matching recent searches,
   // then YouTube Music's. One request at a time (the latest text wins);
   // answers are kept for the session, so backspacing asks nothing.
-  // S7: suggestionEntities are the rich rows (artists, songs, albums) for
+  // suggestionEntities are the rich rows (artists, songs, albums) for
   // the same text.
   property var suggestions: []
   property var suggestionEntities: []
@@ -264,7 +264,7 @@ Item {
       return
     }
     var cached = _suggestCache[q.toLowerCase()]
-    suggestions = Model.suggestionList(recent, cached ? cached.items : [], q)  // G1: every served completion
+    suggestions = Model.suggestionList(recent, cached ? cached.items : [], q)  // every served completion
     suggestionEntities = cached ? cached.entities : []
     if (cached || _suggesting || !worker) return
     _suggesting = true
@@ -288,7 +288,7 @@ Item {
     _suggestCache = next
   }
 
-  // ---- your YouTube searches (S7) ----------------------------------------------------
+  // ---- your YouTube searches ----------------------------------------------------
   // The empty field lists them (signed in) with the recent searches above.
   // Asked for at most once a minute while the field is shown empty; a
   // search made since makes the next ask go to YouTube.
@@ -362,7 +362,7 @@ Item {
   readonly property int collectionTtlMs: 5 * 60 * 1000
   readonly property int unseenMs: 10 * 60 * 1000
   readonly property int maxCollections: 8
-  // G1: long See all lists load to their end (Bach's singles: 3033); at
+  // Long See all lists load to their end (Bach's singles: 3033); at
   // 10,000 the page says so (Model.pageRows). Only the visible rows have
   // delegates, and the sweep bounds what is held.
   readonly property int maxCollectionItems: 10000
@@ -400,11 +400,11 @@ Item {
   }
 
   // ref: Model.pageRef(item). `callback` may run twice: with the disk-cached
-  // copy, then the fresh one. A kind no slice registered answers
+  // copy, then the fresh one. A kind nothing registered answers
   // BAD_REQUEST "Cannot open this item yet" (never a guessed method).
   // fresh: ask YouTube only (after an edit whose outcome is unknown, when the
   // disk copy may predate it), so a failure is reported instead of the copy.
-  // P1: a reply asked for before reset() (another identity, a sign-in, a
+  // A reply asked for before reset() (another identity, a sign-in, a
   // location) is not kept: the callback gets { ok: false, stale: true }
   // once, and the caller asks again if it still wants the page.
   function loadCollection(ref, callback, fresh) {
@@ -435,7 +435,7 @@ Item {
         root._remember(ref, data)
         root.requestThumbs(Model.collectThumbs(data))
       } else if (Model.noChannel(reply)) {
-        root.myChannelMissing = true  // S9: the account menu hides Your channel
+        root.myChannelMissing = true  // the account menu hides Your channel
       }
       callback(reply)
     }
@@ -491,9 +491,9 @@ Item {
     }, 60000)
   }
 
-  // ---- collections (S3) ------------------------------------------------------------
+  // ---- collections ------------------------------------------------------------
   // A whole read (limit "all": every song of a playlist or Liked Music, up
-  // to 5000, about 50 requests on the worker's whole lane, P1) gets 120 s;
+  // to 5000, about 50 requests on the worker's whole lane) gets 120 s;
   // any other page 30 s. (History asks for 200: Model's PAGE_KINDS.history.)
   readonly property int wholeTimeoutMs: 120000
 
@@ -510,7 +510,7 @@ Item {
     return entry ? entry.data : null
   }
 
-  // ---- home (S5) --------------------------------------------------------------------
+  // ---- home --------------------------------------------------------------------
   // The Home feed of each chip (the worker's homeFeed). homeChip is the
   // chosen chip's served params, "" for All. A chip's feed is { shelves,
   // chips, cursor, hasMore, capped, loading, loadingMore, moreError,
@@ -713,7 +713,7 @@ Item {
   // `pending(true)` runs before the disk copy is handled when that refresh
   // follows, `pending(false)` once it has answered (after handling it, if
   // it worked). `timeoutMs` (default 30 s) applies to each request. A disk
-  // copy that answers after reset() is followed by nothing (P1): it was
+  // copy that answers after reset() is followed by nothing: it was
   // the session's before.
   function _cachedThenFresh(method, params, handle, pending, timeoutMs) {
     var wait = timeoutMs > 0 ? timeoutMs : 30000
@@ -778,7 +778,7 @@ Item {
     _collections = next
   }
 
-  // ---- explore (S6) -----------------------------------------------------------------
+  // ---- explore -----------------------------------------------------------------
   // The Explore tab's page (the worker's `explore`), asked when the tab is
   // shown and kept Model.EXPLORE_TTL_MS (30 min): a disk copy first, then the
   // fresh one (force: only the fresh one). `explore` is replaced on every
@@ -823,11 +823,11 @@ Item {
 
   // ---- sweep (F2) -------------------------------------------------------------------
   // Every minute while anything is cached: drop collections past their TTL
-  // or unseen for 10 min (S6: or their longer TTL), searches past theirs,
-  // library lists (S2) unseen for 10 min, the now contexts and lyrics (S11)
-  // of songs other than the one playing, and Home's feeds (S5) of chips
-  // other than the chosen one unseen for 10 min. Explore (S6) is one page
-  // with its own TTL and is not swept. A slice with its own keyed cache
+  // or unseen for 10 min (or their longer TTL), searches past theirs,
+  // library lists unseen for 10 min, the now contexts and lyrics
+  // of songs other than the one playing, and Home's feeds of chips
+  // other than the chosen one unseen for 10 min. Explore is one page
+  // with its own TTL and is not swept. A section with its own keyed cache
   // adds it here and to sweepWanted.
   readonly property bool sweepWanted: collectionCount > 0 || searchCacheSize > 0 || libraryListCount > 0
     || nowSweepWanted || homeFeedCount > 1
@@ -838,7 +838,7 @@ Item {
     var droppedCollections = false
     for (var key in _collections) {
       var entry = _collections[key]
-      var expired = t - entry.at >= _ttl(entry.ref) || t - entry.seen >= _unseenFor(entry.ref)  // S6
+      var expired = t - entry.at >= _ttl(entry.ref) || t - entry.seen >= _unseenFor(entry.ref)
       if (expired && !_appending[key]) droppedCollections = true
       else collections[key] = entry
     }
@@ -852,7 +852,7 @@ Item {
     if (droppedSearches) _searches = searches
     _sweepLibraryLists(t)
     _sweepNow(t)
-    sweepHome(t)  // S5
+    sweepHome(t)
   }
 
   Timer {
@@ -864,9 +864,9 @@ Item {
 
   // ---- library ------------------------------------------------------------------
   // Every playlist in the library (the Playlists chip and the playlist
-  // picker), in the order YouTube has saved for the account (S2:
+  // picker), in the order YouTube has saved for the account (
   // playlistOrders are the served ones, playlistOrder the one they came in;
-  // P1, acct-1: only O sends one, setLibraryOrder).
+  // only O sends one, setLibraryOrder).
   readonly property int libraryTtlMs: 5 * 60 * 1000
   property var playlists: []
   property bool libraryLoading: false
@@ -883,7 +883,7 @@ Item {
 
   // force: skip both the memory and the disk cache (after an edit).
   function loadLibrary(force) {
-    // S2: Recent activity lists playlists too (the worker drops its copy
+    // Recent activity lists playlists too (the worker drops its copy
     // with the same edits).
     if (force) forgetCollection("libraryLanding")
     _loadPlaylists(force, null)
@@ -936,7 +936,7 @@ Item {
     libraryAt = 0
   }
 
-  // ---- library (S2) ----------------------------------------------------------------
+  // ---- library ----------------------------------------------------------------
   // The Library tab's chip lists other than Playlists (that one is
   // `playlists` above): chip -> { items, cursor, hasMore, capped, order,
   // orders, current, header, message, loading, error, at, seenAt, seq,
@@ -950,7 +950,7 @@ Item {
   // The sweep drops a list unseen for 10 min, except the one shown
   // (libraryShown, set by LibraryView) and one still loading.
   //
-  // P1 (acct-1): an order goes to YouTube only when O picks one
+  // An order goes to YouTube only when O picks one
   // (setLibraryOrder: straight to YouTube, which saves it on the account as
   // the web's sort menu does). Every other load (a chip shown, the picker,
   // a refresh, another identity) sends none and shows the order YouTube
@@ -958,7 +958,7 @@ Item {
   // again changed the saved sort of any identity or account it was sent as,
   // and undid a sort picked on the web or the phone.
   readonly property int libraryListTtlMs: 5 * 60 * 1000
-  // G1: a real library fits (3755 songs live); at 10,000 the list says so
+  // A real library fits (3755 songs live); at 10,000 the list says so
   // and how to reach the rest (Model.capMessage).
   readonly property int maxLibraryItems: 10000
   property var libraryLists: ({})
@@ -1077,7 +1077,7 @@ Item {
     }
     if (!entry.cursor) {
       if (!explicit || !entry.hasMore) return
-      if (!entry.refreshing) _loadList(chip, null, true)  // P1: in the saved order, which O's became
+      if (!entry.refreshing) _loadList(chip, null, true)  // in the saved order, which O's became
       _patchList(chip, { moreWanted: true })
       return
     }
@@ -1110,7 +1110,7 @@ Item {
 
   // O on a chip: the list is read again in `order`, from YouTube itself
   // (YouTube saves it on the account, as the web's sort menu does). The
-  // only place an order is sent from (acct-1). The pick is noted first, so
+  // only place an order is sent from. The pick is noted first, so
   // the view's list key has moved before the rows do.
   function setLibraryOrder(chip, order) {
     if (order === undefined || order === null) return
@@ -1153,7 +1153,7 @@ Item {
     likes = next
   }
 
-  // ---- actions (S4) ------------------------------------------------------------------
+  // ---- actions ------------------------------------------------------------------
   // What the panel knows of the library beyond the lists it read: albums,
   // playlists and mixes saved (by playlistId, and an album's browseId too),
   // channels subscribed to (by the channelId rows and pages use), songs in
@@ -1186,7 +1186,7 @@ Item {
     var list = page ? Model.libraryList(page) : null
     return Model.subscribedState(channelId, {
       subscribed: subscribed, fallback: fallback,
-      subscriptions: (list ? list.items : []).concat(libraryChannelItems()).concat(libraryProfileItems()),  // S8, S9
+      subscriptions: (list ? list.items : []).concat(libraryChannelItems()).concat(libraryProfileItems()),
       subscriptionsComplete: !!list && !list.cursor && !list.hasMore
     })
   }
@@ -1253,9 +1253,9 @@ Item {
     disliked = ({})
   }
 
-  // ---- podcasts (S8) ------------------------------------------------------------------
+  // ---- podcasts ------------------------------------------------------------------
   // What the panel knows of the saved podcasts and Episodes for Later beyond
-  // the lists it read, as S4 does for albums: an edit made here (podcastId
+  // the lists it read, as for albums: an edit made here (podcastId
   // or videoId -> boolean; null forgets it), then the page's own header
   // (fallback), then the Podcasts chip's list or the Episodes for Later page
   // held. An episode saved here keeps the setVideoId its reply named, which
@@ -1324,11 +1324,11 @@ Item {
     episodeSetIds = ({})
   }
 
-  // ---- profiles (S9) -----------------------------------------------------------------
+  // ---- profiles -----------------------------------------------------------------
   // Your channel: the worker found no channel in the account menu
   // (myChannel's NOT_FOUND, noChannel), so Library's account menu hides it.
   // Every profile on the library's Profiles page held is subscribed to:
-  // subscribedState counts them with the Subscriptions list, as S8's
+  // subscribedState counts them with the Subscriptions list, as with
   // Channels. reset() clears it (a new account may have a channel).
   property bool myChannelMissing: false
 
@@ -1341,7 +1341,7 @@ Item {
     myChannelMissing = false
   }
 
-  // ---- uploads (S10) ------------------------------------------------------------------
+  // ---- uploads ------------------------------------------------------------------
   // The Uploads chip's songs are libraryLists.uploads (uploadSongs). A
   // delete takes its song (an album: its songs) off that list at once and
   // puts them back when the worker says no; an upload or a delete that went
@@ -1374,9 +1374,9 @@ Item {
     else staleLibraryList("uploads")
   }
 
-  // ---- now (S11) ----------------------------------------------------------------------
+  // ---- now ----------------------------------------------------------------------
   // The song playing's nowContext (Service reads one per track while a panel
-  // is open; S12 reuses it for autoplay) and lyrics, both keyed by videoId:
+  // is open; autoplay reuses it) and lyrics, both keyed by videoId:
   // a memo of 20 for 10 min, and an LRU of 20 lyrics (by when the Lyrics
   // pane last showed them) for 30 min. The sweep spares the song playing
   // (`nowKeep`, set by the service), so that song alone keeps no timer going.
@@ -1463,7 +1463,7 @@ Item {
     if (_holdsOther(lyricsFailed, nowKeep)) lyricsFailed = _onlyKey(lyricsFailed, nowKeep)
   }
 
-  // ---- recommendations (S14) ---------------------------------------------------------
+  // ---- recommendations ---------------------------------------------------------
   // What is pinned to Listen again by an edit made here (pinKey -> true /
   // false; forgotten again, null, when its outcome is unknown), over what
   // rows and page headers say; and Home's cards that Not interested or
@@ -1543,7 +1543,7 @@ Item {
     homeUndo = null
   }
 
-  // ---- song tokens (G2) ------------------------------------------------------------------
+  // ---- song tokens ------------------------------------------------------------------
   // Each queued song's library and Listen again tokens with their states
   // (videoId -> Model.liveTokensOf), which the queue itself never holds:
   // Service.remember strips them from what mpv, session.json, queue.json
@@ -1646,7 +1646,7 @@ Item {
     }
   }
 
-  // Counted up by reset() (P1): a reply asked for before it belongs to the
+  // Counted up by reset(): a reply asked for before it belongs to the
   // session, identity or location before, and is not kept (loadCollection,
   // _cachedThenFresh; Service's nowContext).
   property int resetEpoch: 0
@@ -1662,7 +1662,7 @@ Item {
     _collections = ({})
     _appending = ({})
     _searches = ({})
-    // search (S7): your searches and the library scopes belong to the account.
+    // search: your searches and the library scopes belong to the account.
     leaveScope()
     pastSearches = []
     pastSearchesAt = 0
@@ -1678,18 +1678,18 @@ Item {
     _playlistsAsked = null
     _librarySeq++
     libraryLists = ({})
-    libraryPicks = ({})  // P1 (acct-1): picked on the identity before
+    libraryPicks = ({})  // picked on the identity before
     _listSeq++
-    _resetHome()  // home (S5)
-    // S6: Explore is the account's too (Top songs, the region).
+    _resetHome()  // home
+    // Explore is the account's too (Top songs, the region).
     _exploreSeq++
     explore = ({ page: null, loading: false, error: "", at: 0 })
     likes = ({})
-    _resetActions()  // S4
-    _resetPodcasts()  // S8
-    _resetProfiles()  // S9
-    _resetRecommendations()  // S14
-    _resetSongTokens()  // G2
+    _resetActions()
+    _resetPodcasts()
+    _resetProfiles()
+    _resetRecommendations()
+    _resetSongTokens()
     _nowContexts = ({})
     // A failure may have come from the old session. Pending loads clear
     // themselves (every request is answered, at the latest by its timeout).

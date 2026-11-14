@@ -2,7 +2,7 @@ const test = require("node:test")
 const assert = require("node:assert/strict")
 const Model = require("../YtmModel.js")
 
-// Up next (S12): autoplay picks, per-entry origins, tuner replacement,
+// Up next: autoplay picks, per-entry origins, tuner replacement,
 // trimming and the queue.json state.
 
 const id11 = s => (s + "xxxxxxxxxxx").slice(0, 11)

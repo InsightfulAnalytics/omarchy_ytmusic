@@ -9,7 +9,7 @@ and Play all endpoints, and rows without contents. This module keeps them:
   calls made inside the block, on this thread only. Nothing is kept outside
   a block, so a 12-request ``get_playlist(limit=None)`` costs no extra memory.
   ``capture(endpoints, each=fn)`` hands each response to ``fn(endpoint,
-  response)`` instead of keeping it (S3: a 50-request whole read holds none).
+  response)`` instead of keeping it (a 50-request whole read holds none).
 - ``parse_row``/``item``/``menu_token`` read rows, items and menus by
   renderer, endpoint and icon, never by their (localized) titles.
 
@@ -206,7 +206,7 @@ def text(value):
     return joined or None
 
 
-# S3: the explicit badge, matched by its icon (labels are localized).
+# The explicit badge, matched by its icon (labels are localized).
 EXPLICIT_BADGE = "MUSIC_EXPLICIT_BADGE"
 
 
@@ -265,7 +265,7 @@ def parse_row(row, extra=None):
     rows stay aligned with the response (ytmusicapi's parse_mixed_content skips
     rows without contents). ``more`` is the See all endpoint, ``play`` the
     header's Play all endpoint. Unknown renderers give an empty row.
-    ``extra`` is passed on to ``items`` (S14: Home's menu tokens).
+    ``extra`` is passed on to ``items`` (Home's menu tokens).
     """
     out = {"title": None, "items": [], "more": None, "play": None, "layout": None}
     if not isinstance(row, dict) or not row:
@@ -288,9 +288,9 @@ def parse_row(row, extra=None):
 def items(contents, extra=None):
     """Normalized items of a contents/items list; unknown or malformed ones are dropped.
     ``extra(content, item)`` (optional) returns the item with more of its
-    raw renderer read (S14: ``feedback_fields``); when that fails, the item
+    raw renderer read (``feedback_fields``); when that fails, the item
     is kept as it was read. Without one, ``pin_fields`` reads each item's
-    Listen again pin (G2: See all pages, artist shelves, Related)."""
+    Listen again pin (See all pages, artist shelves, Related)."""
     out = []
     for content in contents or []:
         try:
@@ -326,7 +326,7 @@ def item(renderer):
     if key == MRLIR:
         return _list_row(data)
     if key == MMRIR:
-        # G3: every episode row through S8's reader (its date, length, played
+        # Every episode row through reader (its date, length, played
         # part and page), not parse_episode's (the view count as its date).
         # Imported here: ytm_podcasts imports this module.
         import ytm_podcasts
@@ -382,7 +382,7 @@ def _two_row(data):
     if "watchEndpoint" in endpoint:
         song = parse_song(data)
         song["videoType"] = nav(endpoint, ["watchEndpoint", *VIDEO_TYPE], True)
-        song.update(song_menu(data))  # G2: Save to library and the pin, as on list rows
+        song.update(song_menu(data))  # Save to library and the pin, as on list rows
         return norm.track(song)
     return None
 
@@ -501,7 +501,7 @@ def menu_token(menu, icons):
     return None
 
 
-# ---- Listen again pins and recommendation feedback (S14) ---------------------------
+# ---- Listen again pins and recommendation feedback ---------------------------
 # Matched by icon, never by text. KEEP is "Pin to Listen again", a toggle:
 # isToggled when the item is pinned, its default endpoint pins and its
 # toggled one unpins. KEEP_OFF is the same toggle served on an item that is
@@ -648,7 +648,7 @@ def feedback_fields(content, value):
     return value
 
 
-# ---- pins and song tokens on every row (G2) ---------------------------------------------
+# ---- pins and song tokens on every row ---------------------------------------------
 # The web offers Pin to Listen again in the menu of nearly every card and
 # row (albums, playlists, artists, podcasts, episodes, songs, videos), not
 # only on Home's. ``items`` reads it for every row it parses (pin_fields);

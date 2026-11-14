@@ -1,8 +1,8 @@
-// S10 with G2 and G3: uploads (S10) get none of the song tokens' menu
-// entries (G2's Save to library and Pin to Listen again on the song
+// Uploads get none of the song tokens' menu
+// entries (Save to library and Pin to Listen again on the song
 // playing, queue rows and every list), even when a list or a nowContext
 // brings tokens with them, since the web's upload menus have neither. The
-// cookies option stays on upload loadfiles only, next to S8's start.
+// cookies option stays on upload loadfiles only, next to start.
 const test = require("node:test")
 const assert = require("node:assert/strict")
 const Model = require("../YtmModel.js")
@@ -34,7 +34,7 @@ test("an upload carrying tokens still offers no Save to library or Pin, anywhere
       assert.ok(!got.includes("saveSong") && !got.includes("pin") && !got.includes("save"), JSON.stringify([ctx, got]))
     }
   }
-  // The uploads chip's song menu is S10's, tokens or not.
+  // The uploads chip's song menu is its own, tokens or not.
   assert.deepEqual(ids(withTokens, { pageKind: "library" }), ids(upload(1), { pageKind: "library" }))
   assert.equal(Model.saveAction(withTokens, {}), "", "S does nothing to an upload")
   assert.equal(Model.saveTarget(withTokens, {}), "")
@@ -42,7 +42,7 @@ test("an upload carrying tokens still offers no Save to library or Pin, anywhere
   assert.equal(Model.songLibraryParams(withTokens, true), null)
   assert.equal(Model.canPin(withTokens, false), false)
   assert.equal(Model.canPin(uploadAlbum, false), false)
-  // A public song with the same tokens keeps both (G2).
+  // A public song with the same tokens keeps both.
   const pub = song(1, tokens)
   assert.ok(ids(pub, { pageKind: "queue" }).includes("saveSong") && ids(pub, { pageKind: "queue" }).includes("pin"))
   assert.equal(Model.saveAction(pub, {}), "saveSong")
@@ -73,10 +73,10 @@ test("S on Now with an upload: says why without reading its menu", () => {
                "YouTube Music offers no library control for uploads")
   assert.equal(Model.nowSaveNotice(upload(1), { signedIn: false }), "Sign in to use your library")
   assert.equal(Model.nowSaveNotice(song(1), { signedIn: true, menu: { state: "loading" } }),
-               "Its menu is still loading; try again in a moment", "a song keeps G2's notices")
+               "Its menu is still loading; try again in a moment", "a song keeps its notices")
 })
 
-test("loadfileOptions: the cookies option on uploads only, next to S8's start", () => {
+test("loadfileOptions: the cookies option on uploads only, next to the episode start", () => {
   Model.setUploadCookies("/run/user/1000/omarchy-ytmusic/cookies-mpv.txt")
   try {
     const up = Model.loadfileOptions(upload(1, tokens), { seconds: 30 })
@@ -89,7 +89,7 @@ test("loadfileOptions: the cookies option on uploads only, next to S8's start", 
   }
 })
 
-test("G3's podcast menus and the find title leave the upload menus alone", () => {
+test("The podcast menus and the find title leave the upload menus alone", () => {
   const got = ids(uploadAlbum, { pageKind: "uploadAlbum", page: true })
   assert.ok(got.includes("deleteUpload"), JSON.stringify(got))
   assert.ok(!got.includes("episodeOrder") && !got.includes("episodeFilter"))

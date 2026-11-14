@@ -1,4 +1,4 @@
-"""Uploads (S10) next to the pins and song tokens on every row (G2).
+"""Uploads next to the pins and song tokens on every row.
 
 ``raw.items`` now reads each row's Listen again pin by default and song
 cards read their whole song menu; an uploaded song's menu serves neither

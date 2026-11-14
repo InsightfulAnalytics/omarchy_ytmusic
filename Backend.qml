@@ -29,7 +29,7 @@ Item {
   // Settings for the worker's `configure` method, written before anything
   // else after every start (and again whenever they change). null = none.
   property var configureParams: null
-  // S16: the identity of the session the worker acts as ({ key, brand, own,
+  // The identity of the session the worker acts as ({ key, brand, own,
   // authUser }; null signed out or before the first ready), from its ready
   // event and the replies of _identityMethods. No names.
   property var identity: null
@@ -137,7 +137,7 @@ Item {
     if (message.event === "ready") {
       workerState = "ready"
       auth = message.auth || "none"
-      identity = message.identity || null  // S16
+      identity = message.identity || null
       _mutates = message.mutates || []
       _configure()
       var queued = _queue
@@ -151,7 +151,7 @@ Item {
       return
     }
     if (message.ok && message.result && typeof message.result.auth === "string") auth = message.result.auth
-    var asked = _pending[message.id]  // S16: replies that say which identity the worker acts as
+    var asked = _pending[message.id]  // replies that say which identity the worker acts as
     if (message.ok && message.result && asked && _identityMethods.indexOf(asked.method) >= 0)
       identity = message.result.identity || null
     else if (!message.ok && message.error && message.error.code === "AUTH_EXPIRED") auth = "expired"

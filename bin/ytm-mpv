@@ -14,7 +14,7 @@
 #   ytm-mpv status               print unit state and socket path
 #   ytm-mpv socket               print the IPC socket path
 #   ytm-mpv cookies              refresh (or, signed out, remove) mpv's copy
-#                                of the session cookies (the shell, S10)
+#                                of the session cookies (the shell)
 #   ytm-mpv exec [--volume N] [--quality low|normal|high]
 #                                run mpv in the foreground (used by the unit)
 set -euo pipefail
@@ -25,12 +25,12 @@ RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/omarchy-ytmusic"
 SOCKET="$RUNTIME_DIR/mpv.sock"
 CONFIG_DIR="${YTM_CONFIG_DIR:-$HOME/.config/omarchy-ytmusic}"
 COOKIES="$CONFIG_DIR/cookies.txt"
-# S10: what mpv's yt-dlp gets as --cookies (uploads, and the opt-in below):
+# What mpv's yt-dlp gets as --cookies (uploads, and the opt-in below):
 # a copy of the session's cookies.txt, never the file itself, because
 # yt-dlp writes its cookie jar back into that file when it exits. It lives
 # in the unit's runtime directory (0700), so it goes when mpv stops.
 MPV_COOKIES="$RUNTIME_DIR/cookies-mpv.txt"
-# The shell's preferences (S16: the audio quality, prefs.quality).
+# The shell's preferences (the audio quality, prefs.quality).
 PREFS="${XDG_CACHE_HOME:-$HOME/.cache}/omarchy-ytmusic/player.json"
 
 MPRIS=/etc/mpv/scripts/mpris.so
@@ -59,7 +59,7 @@ while (( $# > 0 )); do
 done
 [[ $volume =~ ^[0-9]+$ ]] || volume=70
 
-# S16: the audio quality saved in player.json (high when unset or unreadable).
+# The audio quality saved in player.json (high when unset or unreadable).
 prefs_quality() {
   local found=
   [[ -r $PREFS ]] && found=$(grep -o '"quality" *: *"[a-z]*"' "$PREFS" 2>/dev/null | head -n 1 || true)

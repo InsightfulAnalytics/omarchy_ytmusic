@@ -1,4 +1,4 @@
-"""Albums, playlists, mixes, Liked Music and History (S3).
+"""Albums, playlists, mixes, Liked Music and History.
 
 - ``playlist({playlistId, limit?, related?})``: a playlist's songs and
   header. ``limit`` is 200 by default (ytmusicapi reads 100 songs a request
@@ -11,7 +11,7 @@
   MIX_TRACKS songs (explicit ones marked from the responses), titled as the
   queue header names it.
 - ``liked({limit?, filter?})``: Liked Music, read the same way (signed in).
-  G4: its mood and genre chips (Party, Chill, Rock, ...) as ``filters``
+  Its mood and genre chips (Party, Chill, Rock, ...) as ``filters``
   (``[{index, title, selected}]``, titles as served; ``index`` is the
   chip's served id, its uniqueId) and ``filter`` (the chosen one, None for
   all); ``filter`` reads the page and reloads it with that chip (two
@@ -20,10 +20,10 @@
   worker.
 - ``album({browseId})``: the songs with their numbers, the header (artists,
   description, likeStatus, audio playlist) and the Other versions and
-  recommendations shelves, under their served titles. G1: past the 200
+  recommendations shelves, under their served titles. Past the 200
   rows YouTube serves of an album page, the songs come from its audio
   playlist (album_rest).
-- Album, playlist and Liked Music headers carry ``pin`` (S14): the header
+- Album, playlist and Liked Music headers carry ``pin``: the header
   menu's Listen again toggle, ``{pinned, listenAgainTokens: {pin, unpin}}``
   (raw.header_pin), or None.
 - ``history({limit?})``: the last songs played (200, all YouTube serves in
@@ -92,11 +92,11 @@ class _Reading:
     def __init__(self):
         self.more = None
         self.related_title = None
-        # S4: the header's library toggle (saved or not; None when it has none).
+        # The header's library toggle (saved or not; None when it has none).
         self.saved = None
-        # S14: the header's Listen again pin (raw.header_pin), or None.
+        # The header's Listen again pin (raw.header_pin), or None.
         self.pin = None
-        # G2: the related shelf's card pins (raw.card_pins).
+        # The related shelf's card pins (raw.card_pins).
         self.card_pins = {}
 
     def __call__(self, endpoint, response):
@@ -105,13 +105,13 @@ class _Reading:
         if self.saved is None:
             self.saved = actions.library_toggle(response)
         if self.pin is None:
-            self.pin = raw.header_pin(response)  # S14
+            self.pin = raw.header_pin(response)
         songs = nav(response, PLAYLIST_ITEMS, True) or nav(response, CONTINUATION_ITEMS, True)
         if songs:
             self.more = get_continuation_token(songs) is not None
         elif self.related_title is None and nav(response, SECTION_LIST_CONTINUATION, True):
             self.related_title = _carousel_title(response)
-            self.card_pins.update(raw.card_pins([response]))  # G2
+            self.card_pins.update(raw.card_pins([response]))
 
 
 def _read(fetch):
@@ -145,11 +145,11 @@ def read_list(worker, kind, playlist_id, limit, related=False):
     page = norm.collection(kind, data, playlist_id, limit=asked, more=reading.more,
                            titles={"related": reading.related_title})
     if kind == "playlist" and reading.saved is not None:
-        # S4: a playlist that is not yours says whether it is in the library.
+        # A playlist that is not yours says whether it is in the library.
         page["header"]["likeStatus"] = actions.like_status(reading.saved)
-    # S14: Pin to / Unpin from Listen again (the page menu's).
+    # Pin to / Unpin from Listen again (the page menu's).
     page["header"]["pin"] = reading.pin
-    shelf_pins(page, reading.card_pins)  # G2
+    shelf_pins(page, reading.card_pins)
     if limit is None:
         page["capped"] = page["truncated"]
         if len(page["tracks"]) > MAX_TRACKS:
@@ -181,7 +181,7 @@ def explicit_videos(response):
     return out
 
 
-# ---- G4: explicit badges on watch playlists ------------------------------------------------
+# ---- explicit badges on watch playlists ------------------------------------------------
 # ytmusicapi's watch tracks have no isExplicit: Start radio, autoplay and a
 # tuner chip's queue mark theirs from the 'next' responses they read.
 
@@ -195,7 +195,6 @@ def mark_explicit(tracks, responses):
         badged |= explicit_videos(response)
     return [dict(t, isExplicit=True) if isinstance(t, dict) and t.get("videoId") in badged else t
             for t in tracks or []]
-# ---- end G4
 
 
 def read_mix(worker, mix_id):
@@ -238,7 +237,7 @@ def m_playlist(worker, params):
     return read_list(worker, "playlist", playlist_id, limit, related)
 
 
-# ---- G4: Liked Music's mood and genre chips ------------------------------------------------
+# ---- Liked Music's mood and genre chips ------------------------------------------------
 # The page's chipCloud (sectionList header): each chip reloads the songs
 # shelf filtered to it (browseSectionListReloadEndpoint). The chips are
 # made from your likes and their order changes between reads (live, two
@@ -333,16 +332,15 @@ def read_liked_filtered(worker, chosen, limit):
     page["filters"] = liked_filters(base, chosen)
     page["filter"] = chosen
     return page
-# ---- end G4
 
 
 def m_liked(worker, params):
     worker.require_auth()
     limit = opt_limit(params, "limit", PAGE_TRACKS, high=MAX_TRACKS)
-    chosen = _filter_id(params)  # G4
+    chosen = _filter_id(params)
     if chosen is not None:
         return read_liked_filtered(worker, chosen, limit)
-    # G4: the chips of the page get_liked_songs reads first.
+    # The chips of the page get_liked_songs reads first.
     first = []
 
     def keep_first(endpoint, response):
@@ -360,22 +358,22 @@ def m_album(worker, params):
     browse_id = req_str(params, "browseId")
     with raw.capture(("browse",)) as cap:
         data = worker.yt.get_album(browse_id)
-    # S4: ytmusicapi 1.12.2 reads the header's library button without its
+    # Ytmusicapi 1.12.2 reads the header's library button without its
     # isToggled, so every album came back INDIFFERENT; the raw header decides.
     saved = actions.library_toggle(cap.first("browse"))
     if saved is not None:
         data = dict(data, likeStatus=actions.like_status(saved))
     titles = album_titles(cap.first("browse"))
     pin = raw.header_pin(cap.first("browse"))
-    # G1: an album over ALBUM_PAGE_ROWS songs gets the rest from its audio playlist.
+    # An album over ALBUM_PAGE_ROWS songs gets the rest from its audio playlist.
     data, whole = album_rest(worker, data)
     page = norm.collection("album", data, browse_id, titles=titles)
     if not whole:
         # The page says how many it shows; Play reads the audio playlist (tracksFor).
         page["truncated"], page["capped"], page["unavailable"] = True, True, None
-    # S14: Pin to / Unpin from Listen again (the page menu's).
+    # Pin to / Unpin from Listen again (the page menu's).
     page["header"]["pin"] = pin
-    return shelf_pins(page, raw.card_pins([cap.first("browse")]))  # G2
+    return shelf_pins(page, raw.card_pins([cap.first("browse")]))
 
 
 def m_history(worker, params):
@@ -384,7 +382,7 @@ def m_history(worker, params):
     return {"items": norm.normalize_list(worker.yt.get_history()[:limit], norm.track, "history item")}
 
 
-# ---- albums over 200 songs (G1) ---------------------------------------------------------------
+# ---- albums over 200 songs ---------------------------------------------------------------
 # YouTube serves an album page's first ALBUM_PAGE_ROWS rows and nothing more
 # (no continuation: "Load (Remastered Deluxe Box Set)" counts 233 songs and
 # serves 200). Its audio playlist (OLAK5uy_...) holds every song, row for
@@ -438,7 +436,7 @@ METHODS = {"playlist": m_playlist, "liked": m_liked, "album": m_album, "history"
 # The cache key holds limit and related, so a whole read and a first read
 # are separate entries (edits drop both: INVALIDATES match on playlistId).
 CACHEABLE = {"playlist", "liked", "album", "history"}
-# A whole read is long, and so is an album over 200 songs (G1: it reads its
+# A whole read is long, and so is an album over 200 songs (it reads its
 # audio playlist too, two or three more requests); history is one request.
 # A whole read (limit "all") of playlist or liked runs on the "whole" lane
 # instead (ytm.lane_of).
@@ -451,7 +449,7 @@ RECORDERS = {
 MUTATES = set()
 
 
-# ---- pins on the shelves under the songs (G2) --------------------------------------------
+# ---- pins on the shelves under the songs --------------------------------------------
 
 
 def shelf_pins(page, pins):

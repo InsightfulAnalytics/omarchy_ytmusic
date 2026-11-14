@@ -5,12 +5,12 @@
   the Lyrics and Related tab ids, the song/video twin (``counterpart``), the
   queue header's "Playing from", its tuner chips and YouTube's own up-next
   list. ``likeStatus`` is a thin alias of it (the shell's refresh after an
-  unsure rating). G2: ``current`` is what the song's own menu offers (Save
+  unsure rating). ``current`` is what the song's own menu offers (Save
   to library, Pin to Listen again, with their tokens).
-- ``upNext`` (autoplay, S12) plays a finite context (an album, a playlist,
+- ``upNext`` (autoplay) plays a finite context (an album, a playlist,
   Liked Music) on as its radio and a radio as it is; ``queueFrom`` is the
   queue a tuner chip (All, Discover, Popular...) plays. Their songs, and
-  nowContext's, carry the explicit badge the responses show (G4).
+  nowContext's, carry the explicit badge the responses show.
 - ``lyrics`` asks the signed-out client for time-synced lyrics (they come
   from the Android client context, which YouTube rejects with HTTP 400 for a
   browser-cookie session) and falls back to the account's plain lyrics
@@ -104,7 +104,7 @@ def _current(tracks, video_id):
     return None, None, None
 
 
-# G2: what the song playing's own menu offers, read from its watch entry as
+# What the song playing's own menu offers, read from its watch entry as
 # norm.track reads any row: Save to library and Pin to Listen again.
 SONG_TOKEN_KEYS = ("inLibrary", "libraryTokens", "pinned", "listenAgainTokens")
 
@@ -123,7 +123,7 @@ def song_tokens(current):
 def now_context(worker, video_id, playlist_id=None):
     with raw.capture(("next",)) as cap:
         data = worker.yt.get_watch_playlist(videoId=video_id, playlistId=playlist_id, limit=CONTEXT_LIMIT)
-    # G4: YouTube's up-next songs with their explicit badges.
+    # YouTube's up-next songs with their explicit badges.
     tracks = collections.mark_explicit([t for t in data.get("tracks") or [] if isinstance(t, dict)], cap.all("next"))
     entry, current, counterpart = _current(tracks, video_id)
     queue = _queue_renderer(cap.first("next"))
@@ -133,7 +133,7 @@ def now_context(worker, video_id, playlist_id=None):
         "videoId": video_id,
         "playlistId": data.get("playlistId"),
         "likeStatus": norm.like_status((current or {}).get("likeStatus")),
-        "current": song_tokens(current),  # G2
+        "current": song_tokens(current),
         "lyricsId": data.get("lyrics"),
         "relatedId": data.get("related"),
         "counterpart": counterpart,
@@ -164,7 +164,7 @@ def m_like_status(worker, params):
     return {"videoId": context["videoId"], "likeStatus": context["likeStatus"]}
 
 
-# ---- up next (S12) -------------------------------------------------------------------
+# ---- up next -------------------------------------------------------------------
 # Autoplay's lists. A finite context (an album's audio playlist, a playlist,
 # Liked Music, a curated RDCLAK list) goes on as its radio, RDAMPL + id: its
 # own window would only hold the songs already queued, which the shell's
@@ -208,7 +208,7 @@ def _upcoming(tracks, video_id):
 
 def _watch(worker, video_id, playlist_id, radio, limit):
     """``(data, responses)``: the watch playlist and every raw 'next'
-    response read for it (G4: continuation pages carry badges too)."""
+    response read for it (continuation pages carry badges too)."""
     with raw.capture(("next",)) as cap:
         data = worker.yt.get_watch_playlist(videoId=video_id, playlistId=playlist_id, radio=radio, limit=limit)
     return data, cap.all("next")
@@ -222,7 +222,7 @@ def m_up_next(worker, params):
     limit = opt_int(params, "limit", 25, high=100)
     seed, playlist_id, radio = up_next_source(video_id, opt_str(params, "playlistId"))
     data, responses = _watch(worker, seed, playlist_id, radio, limit)
-    tracks = collections.mark_explicit([t for t in data.get("tracks") or [] if isinstance(t, dict)], responses)  # G4
+    tracks = collections.mark_explicit([t for t in data.get("tracks") or [] if isinstance(t, dict)], responses)
     return {"playlistId": data.get("playlistId"), "playingFrom": playing_from(responses[0] if responses else None),
             "items": _upcoming(tracks, video_id)}
 
@@ -241,7 +241,7 @@ def m_queue_from(worker, params):
     panel = nav(_queue_renderer(response), QUEUE_PANEL, True)
     if not isinstance(panel, dict):
         raise WorkerError("UPSTREAM", "YouTube Music sent no queue for this chip")
-    tracks = collections.mark_explicit(parse_watch_playlist(panel.get("contents") or []), [response])  # G4
+    tracks = collections.mark_explicit(parse_watch_playlist(panel.get("contents") or []), [response])
     return {"playlistId": panel.get("playlistId") or playlist_id, "playingFrom": playing_from(response),
             "items": _upcoming(tracks, video_id)}
 
@@ -550,7 +550,7 @@ CACHEABLE = {"lyrics", "related", "credits"}
 # the worker, and a lane runs one request at a time, so its as_mobile()
 # switch (not thread-safe) never overlaps another.
 LANES = {"nowContext": "pages", "lyrics": "pages", "related": "pages", "credits": "pages",
-         # S12: autoplay's top-ups and the tuner chips (about 1 s each).
+         # autoplay's top-ups and the tuner chips (about 1 s each).
          "upNext": "pages", "queueFrom": "pages"}
 INVALIDATES = {}
 RECORDERS = {

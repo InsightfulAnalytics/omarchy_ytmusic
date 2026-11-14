@@ -2,7 +2,7 @@ const test = require("node:test")
 const assert = require("node:assert/strict")
 const Model = require("../YtmModel.js")
 
-// Podcasts (S8): the pages, the Podcasts chip, resume, chapters and saving.
+// Podcasts: the pages, the Podcasts chip, resume, chapters and saving.
 
 const episode = (n, extra = {}) => ({ type: "track", kind: "episode", videoId: ("ep" + n).padEnd(11, "x"), title: "Episode " + n,
   artists: [{ name: "Show", id: "MPSPPLshow" }], artistText: "Show", podcast: { name: "Show", id: "MPSPPLshow" },

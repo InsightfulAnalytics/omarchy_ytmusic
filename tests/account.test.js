@@ -1,4 +1,4 @@
-// S16: account identities, audio quality and content location (YtmModel's "account" section).
+// Account identities, audio quality and content location (YtmModel's "account" section).
 const test = require("node:test")
 const assert = require("node:assert/strict")
 const Model = require("../YtmModel.js")
@@ -74,7 +74,7 @@ test("prefs round trip: location and quality are kept and sent to the worker", (
 })
 
 test("Library's M menu: Switch account, Audio quality, Content location, then Record plays and Sign out", () => {
-  // S14's Add artists you like comes first, then S9's Your channel.
+  // Add artists you like comes first, then Your channel.
   assert.deepEqual(ids(Model.menuActions(null, library)),
     ["tasteProfile", "myChannel", "switchAccount", "audioQuality", "contentLocation", "recordHistory", "streamAccount", "signOut"])
   assert.deepEqual(ids(Model.menuActions(null, Object.assign({}, library, { signedIn: false }))),

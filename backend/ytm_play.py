@@ -9,7 +9,7 @@
 - ``radio`` is YouTube Music's Start radio for a song, an album or
   playlist (Liked Music too: RDAMPLLM, signed in), an artist or a mix (the
   watch playlist with ``radio=True``). Its songs, and a mix's, carry the
-  explicit badge the 'next' responses show (G4).
+  explicit badge the 'next' responses show.
 - ``albumBrowseId`` finds an album page (``MPRE...``) from its audio
   playlist (``OLAK5uy_...``). ytmusicapi reads it from the playlist's whole
   HTML page, so replies are cached and the shell only asks when an item has
@@ -29,7 +29,7 @@ from ytm_proto import WorkerError, choice, opt_bool, opt_int, opt_str, req_str
 
 MAX_TRACKS = 5000
 MIX_TRACKS = 50
-# G1: librarySongs plays the library in its order from a song (MLCT).
+# librarySongs plays the library in its order from a song (MLCT).
 KINDS = ("album", "playlist", "liked", "mix", "artist", "librarySongs")
 # Exactly one of these names what a radio starts from.
 RADIO_SOURCES = ("videoId", "playlistId", "mixId", "browseId", "channelId")
@@ -53,7 +53,7 @@ def _cut(reply, limit):
 
 
 def _album(worker, browse_id, limit=MAX_TRACKS):
-    # G1: an album over 200 songs plays every song (collections.album_read),
+    # An album over 200 songs plays every song (collections.album_read),
     # else its audio playlist as the web does: the read album_read made when
     # it covers the limit or the whole playlist, else a read up to the limit.
     data, whole, read = collections.album_read(worker, worker.yt.get_album(browse_id))
@@ -88,7 +88,7 @@ def _playlist_reply(data, playlist_id, kind, limit, asked):
 
 def _mix(worker, mix_id, limit=MIX_TRACKS):
     # ytmusicapi's limit is a minimum (it reads whole continuation pages).
-    with raw.capture(("next",)) as cap:  # G4: explicit badges
+    with raw.capture(("next",)) as cap:  # explicit badges
         data = worker.yt.get_watch_playlist(playlistId=mix_id, limit=limit)
     tracks = collections.mark_explicit(data.get("tracks"), cap.all("next"))
     items = norm.normalize_list(tracks, norm.track, "mix track")[:limit]
@@ -96,7 +96,7 @@ def _mix(worker, mix_id, limit=MIX_TRACKS):
 
 
 def _artist(worker, channel_id, limit):
-    # The disk-cached artist page when it names the songs playlist (S1).
+    # The disk-cached artist page when it names the songs playlist.
     page = artist.cached_or_fetch(worker, channel_id, "songsPlaylistId")
     songs_id = page["header"].get("songsPlaylistId")
     if songs_id:
@@ -111,7 +111,7 @@ def _place(params, video_key, index_key):
 
 
 def _library_songs(worker, params, limit):
-    """G1: ``{videoId, index?, params?, backVideoId?, backIndex?}``: the
+    """``{videoId, index?, params?, backVideoId?, backIndex?}``: the
     library in its order from that song (ytm_library.ordered_tracks)."""
     video_id, index = _place(params, "videoId", "index")
     back = _place(params, "backVideoId", "backIndex") if params.get("backVideoId") is not None else None
@@ -128,11 +128,11 @@ def route(kind, collection_id):
     MPRE id is its audio playlist, an MLCT... id (librarySongs'
     header.shuffleId) is the library's server shuffle (its first 50 songs in
     two requests, always complete), and any other playlist id is a playlist.
-    S10: an uploaded album or artist (FEmusic_library_privately_owned_...)
+    An uploaded album or artist (FEmusic_library_privately_owned_...)
     reads its upload page.
-    G1: kind librarySongs (also MLCT) is the library in its order.
+    Kind librarySongs (also MLCT) is the library in its order.
     """
-    # G1: a library song played in the list's order (before the shuffle check:
+    # A library song played in the list's order (before the shuffle check:
     # both are MLCT).
     if kind == "librarySongs":
         return "librarySongs", _strip_vl(collection_id)
@@ -149,7 +149,7 @@ def route(kind, collection_id):
     playlist_id = _strip_vl(collection_id)
     if norm.is_mix(playlist_id):
         return "mix", playlist_id
-    # S2: Shuffle all of the library's songs (librarySongs header.shuffleId).
+    # Shuffle all of the library's songs (librarySongs header.shuffleId).
     if library.is_shuffle(playlist_id):
         return "libraryShuffle", playlist_id
     return "playlist", playlist_id
@@ -159,7 +159,7 @@ def m_tracks_for(worker, params):
     """``{kind, id, limit?}``: at most ``limit`` tracks (MAX_TRACKS by default
     and at most). ``complete`` is false when the collection has more.
 
-    G1: ``{kind: "librarySongs", id: "MLCT", videoId, index?, params?,
+    ``{kind: "librarySongs", id: "MLCT", videoId, index?, params?,
     backVideoId?, backIndex?}`` is the library in its order from that song
     (``index`` its place in the list, counting from 1; ``params`` the songs
     page's header.playParams; ``back`` a song about 40 places earlier, for
@@ -181,15 +181,15 @@ def m_tracks_for(worker, params):
     if reader == "mix":
         return _cut(_mix(worker, target), limit)
     if reader == "libraryShuffle":
-        # G1: `more` reads on through the last Shuffle all.
+        # `more` reads on through the last Shuffle all.
         if opt_bool(params, "more"):
             return library.shuffle_more(worker, target, limit)
         return library.shuffle_tracks(worker, target, limit)
-    if reader == "uploadAlbum":  # S10
+    if reader == "uploadAlbum":
         return uploads.album_tracks(worker, target, limit)
-    if reader == "uploadArtist":  # S10
+    if reader == "uploadArtist":
         return uploads.artist_tracks(worker, target, limit)
-    if reader == "librarySongs":  # G1
+    if reader == "librarySongs":
         return _library_songs(worker, params, limit)
     return _playlist(worker, target, limit=limit)
 
@@ -202,7 +202,7 @@ def _radio_source(params):
 
 
 def m_radio(worker, params):
-    """``_radio`` plus ``playingFrom`` (S12): the queue header's name for the
+    """``_radio`` plus ``playingFrom``: the queue header's name for the
     radio ("Karma Police Mix"), read from the same response."""
     with raw.capture(("next",)) as cap:
         reply = _radio(worker, params)
@@ -217,7 +217,7 @@ def _radio(worker, params):
     A song's radio leaves the song itself out."""
     limit = opt_int(params, "limit", 50, high=200)
     key, value = _radio_source(params)
-    # G4: every 'next' response read (continuation pages too) marks the
+    # Every 'next' response read (continuation pages too) marks the
     # explicit songs; m_radio's own capture sees the same responses.
     with raw.capture(("next",)) as cap:
         if key == "videoId":

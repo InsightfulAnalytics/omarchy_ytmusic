@@ -2,7 +2,7 @@ const test = require("node:test")
 const assert = require("node:assert/strict")
 const Model = require("../YtmModel.js")
 
-// An artist page as the worker sends it (S1): the raw rows in order, the
+// An artist page as the worker sends it: the raw rows in order, the
 // ones get_artist named carrying their key, the rest generic.
 const id11 = n => ("vid" + n).padEnd(11, "x")
 const tr = (n, extra = {}) => ({ type: "track", videoId: id11(n), title: "Song " + n, artistText: "Radiohead", available: true, kind: "song", ...extra })

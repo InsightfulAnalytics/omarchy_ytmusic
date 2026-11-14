@@ -1,5 +1,5 @@
 """Your uploads: uploaded songs, albums and artists, their pages, and
-uploading and deleting files (S10).
+uploading and deleting files.
 
 Reads (signed in, CACHEABLE, on the pages lane):
 
@@ -400,7 +400,7 @@ def m_upload_song(worker, params):
     name}``. ``identityKey``: the identity the upload was asked under; an
     upload that waited on the upload lane while the account changed is
     refused, unsent (ytm_account.require_identity_key)."""
-    identities.require_upload_identity(worker)  # S16: never as a brand account
+    identities.require_upload_identity(worker)  # never as a brand account
     identities.require_identity_key(worker, params, "this upload")
     path = upload_path(params)
     worker.require_auth()

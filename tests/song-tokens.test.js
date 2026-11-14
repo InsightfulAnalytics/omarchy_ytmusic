@@ -2,7 +2,7 @@ const test = require("node:test")
 const assert = require("node:assert/strict")
 const Model = require("../YtmModel.js")
 
-// Song tokens (G2): Save to library and Pin to Listen again on the song
+// Song tokens: Save to library and Pin to Listen again on the song
 // playing and every queue row (the queue keeps no tokens; the Store holds
 // them in memory and Service.withLiveTokens puts them back), and the pin on
 // podcast and episode pages.

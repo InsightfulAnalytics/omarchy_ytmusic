@@ -1,4 +1,4 @@
-"""History (S15): plays recorded in YouTube Music history, entries removed from it.
+"""History: plays recorded in YouTube Music history, entries removed from it.
 
 Both methods change the account (MUTATES): the shell sends them with
 retry:false and never sends one again when its outcome is unknown.
@@ -18,11 +18,11 @@ retry:false and never sends one again when its outcome is unknown.
   the first passing failure: the ids after it are ``retry`` with nothing
   sent (the next lookup would meet the same throttle or outage).
 - ``removeHistory({tokens})``: ``remove_history_items(tokens)`` with the
-  ``historyToken`` of History rows (S3; fresh replies only, never cached).
+  ``historyToken`` of History rows (fresh replies only, never cached).
   It succeeds only when YouTube processed every token; otherwise UPSTREAM
   with ``stale: true`` (the page was out of date: the shell puts the row
   back and reads History again). Returns ``{removed}``. ytmusicapi says it
-  does not work for brand accounts (S16 hides it there).
+  does not work for brand accounts (the panel hides it there).
 
 Both drop the cached History. The tracking URL, its parameters and any
 error text that could quote them never reach a reply or a log, and neither
@@ -132,7 +132,7 @@ def m_report_plays(worker, params):
 
 def m_remove_history(worker, params):
     tokens = _tokens(params)
-    # S16: YouTube Music removes history entries of the own account only.
+    # YouTube Music removes history entries of the own account only.
     identities.require_own_identity(worker, "Removing songs from history")
     worker.require_auth()
     if not actions.processed(worker.yt.remove_history_items(feedbackTokens=tokens)):

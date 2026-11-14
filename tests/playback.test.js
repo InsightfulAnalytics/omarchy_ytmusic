@@ -1,4 +1,4 @@
-// S17: playback speed and loudness levelling (YtmModel's "playback" section).
+// Playback speed and loudness levelling (YtmModel's "playback" section).
 const test = require("node:test")
 const assert = require("node:assert/strict")
 const Model = require("../YtmModel.js")
@@ -135,7 +135,7 @@ test("loudness modes, the chooser and the worker's settings", () => {
   const rows = Model.normalizeChoices("youtube")
   assert.deepEqual(rows.map(r => r.value), ["off", "youtube", "dynamic"])
   assert.deepEqual(rows.filter(r => r.icon === "󰄬").map(r => r.value), ["youtube"])
-  // S16 adds quality (and location once one is set).
+  // Quality, and location once one is set.
   assert.deepEqual(Model.workerSettings(Model.parsePrefs("")), { normalize: "off", quality: "high" })
   assert.deepEqual(Model.workerSettings(Model.withPref(Model.parsePrefs(""), "normalize", "youtube")),
     { normalize: "youtube", quality: "high" })

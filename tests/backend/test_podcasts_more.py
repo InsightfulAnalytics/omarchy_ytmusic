@@ -1,10 +1,10 @@
-"""G3 (podcasts more): a podcast's episode orders and filters, episode rows
-read by S8's reader everywhere (artist pages, See all grids), Latest
+"""A podcast's episode orders and filters, episode rows
+read by reader everywhere (artist pages, See all grids), Latest
 episodes' See all on an artist page, a channel's avatar, and artist pages
 YouTube serves with a header only.
 
 Rows and headers are trimmed from anonymous reads (Trevor Jackson's Latest
-episodes, Brandon Sanderson's header-only page); the podcast is the S8
+episodes, Brandon Sanderson's header-only page); the podcast is the
 fixture with stand-in reload tokens (the recorder scrubs the served ones).
 """
 

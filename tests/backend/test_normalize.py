@@ -2,7 +2,7 @@ import ytm_normalize as norm
 
 TRACK_KEYS = {"type", "videoId", "title", "artists", "artistText", "album", "durationSec", "thumb",
               "thumbLarge", "explicit", "likeStatus", "setVideoId", "available", "kind", "played",
-              # S3: what later slices' row menus act on
+              # What the row menus act on
               "trackNumber", "inLibrary", "libraryTokens", "pinned", "listenAgainTokens", "historyToken",
               "voteStatus"}
 
@@ -69,7 +69,7 @@ def test_search_songs_fixture(load_fixture):
 
 
 def test_search_mixed_fixture_is_grouped(load_fixture):
-    # S7: the top section comes only from the raw top result card (ytm_search
+    # The top section comes only from the raw top result card (ytm_search
     # passes it as `top`), never from ytmusicapi's "Top result" label.
     results = load_fixture("search_mixed.json")
     groups = norm.search_grouped(results[1:], top=results[:1])

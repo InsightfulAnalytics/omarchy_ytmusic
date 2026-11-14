@@ -1,4 +1,4 @@
-// S10: uploads. The Uploads chip, the upload pages and routes, the account
+// uploads. The Uploads chip, the upload pages and routes, the account
 // cookies on an uploaded song's loadfile, and Delete upload's confirm.
 const test = require("node:test")
 const assert = require("node:assert/strict")
@@ -53,7 +53,7 @@ test("loadfileOptions adds the account's cookies only for uploaded songs", () =>
     const all = Model.playCollectionCommands([song(1), upload(3)], 0, false, 1, true).commands
     const loads = all.filter(c => c[0] === "loadfile")
     assert.deepEqual(loads.map(c => c[4].includes("ytdl-raw-options-append")), [false, true])
-    // With a start (S8) the options stay one comma-separated list.
+    // With a start the options stay one comma-separated list.
     assert.equal(Model.loadfileOptions(upload(1), { seconds: 30 }), titled(upload(1)) + ",start=30," + cookies)
     // A path with commas or '=' goes in whole (the %n% form, byte length).
     Model.setUploadCookies("/tmp/a,b=c é/cookies.txt")

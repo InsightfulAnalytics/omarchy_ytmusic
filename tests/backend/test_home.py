@@ -1,4 +1,4 @@
-"""ytm_home (S5): the whole Home feed from the raw browse (shelves with their
+"""ytm_home: the whole Home feed from the raw browse (shelves with their
 See all and Play all, chips, continuation pages), its get_home fallback,
 and shelfQueue (a shelf's Play all)."""
 
@@ -184,7 +184,7 @@ def home_key(item):
 def test_a_row_that_raises_is_an_empty_entry(monkeypatch):
     real = raw.parse_row
 
-    def parse_row(row, **kwargs):  # S14: Home passes extra= (raw.feedback_fields)
+    def parse_row(row, **kwargs):  # Home passes extra= (raw.feedback_fields)
         if "boom" in row:
             raise KeyError("x")
         return real(row, **kwargs)

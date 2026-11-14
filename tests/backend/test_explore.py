@@ -1,4 +1,4 @@
-"""ytm_explore (S6): the Explore page, Charts, Moods & genres and a mood's page.
+"""ytm_explore: the Explore page, Charts, Moods & genres and a mood's page.
 
 The fixtures are anonymous raw responses (``bin/ytm record explore``,
 ``charts {"country": "ZZ"}``, ``moods``, ``moodRaw`` with Focus's params;

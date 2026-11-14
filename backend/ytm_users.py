@@ -1,10 +1,10 @@
-"""Profiles (S9): user channels, your own channel, the library's profiles.
+"""Profiles: user channels, your own channel, the library's profiles.
 
 - ``user({channelId})``: a user channel's page (a profile: its videos,
   playlists and whatever else it shows). One raw browse, the request
   get_user sends; get_user keeps only the shelves titled (in English)
   Videos and Playlists, so the rows are read by renderer and keyed by what
-  they hold, as S8's channel page (ytm_podcasts.channel_sections). A row's
+  they hold, as channel page (ytm_podcasts.channel_sections). A row's
   See all is the channel with params, which the shell opens through
   browsePage. Header ``{channelId, subscribeId, subscribed, subscribers,
   own}``; ``own`` (your own channel) has no Subscribe and ``subscribed``
@@ -22,7 +22,7 @@
   library (FEmusic_library_user_profile_channels_list), a music shelf read a
   page at a time like the library's lists; the note YouTube serves under it
   ("Only profiles with music activity are shown.", alone when there are
-  none) is the page's ``message``. G4: the page's served sort orders
+  none) is the page's ``message``. The page's served sort orders
   (Recently saved, A to Z, Z to A) as ``orders`` / ``order``, read and
   applied as ytm_library's lists do (an order's params replace the plain
   list's; YouTube saves the order on the account).
@@ -32,7 +32,7 @@ reaches the disk cache or a log: ``myChannel`` is not cacheable, and
 ``user`` keeps such a page off the disk (ytm_pages.keep_off_disk).
 
 Area module (see AREA_MODULES in ytm.py). The recorder is anonymous: a
-public profile's raw page, trimmed as S8's pages are.
+public profile's raw page, trimmed as pages are.
 """
 
 from ytmusicapi.mixins._utils import prepare_order_params
@@ -164,7 +164,7 @@ def _cards(rows):
 def _avatar(data):
     """The profile's picture: the header's foregroundThumbnail (the square
     avatar the web shows round, as the rows do). Its ``thumbnail`` is the
-    wide banner (S8's podcasts._thumbnails reads that first), the fallback."""
+    wide banner (podcasts._thumbnails reads that first), the fallback."""
     return nav(data, ["foregroundThumbnail", "musicThumbnailRenderer", "thumbnail", "thumbnails"], True) \
         or podcasts._thumbnails(data)
 
@@ -228,7 +228,7 @@ def _profiles_page(items, cursor, message=None, orders=None, order=None):
                      orders=orders, order=order)
 
 
-# ---- G4: the profiles' sort orders --------------------------------------------------------
+# ---- the profiles' sort orders --------------------------------------------------------
 # The page serves Recently saved, A to Z and Z to A; each option's reload
 # token carries ytmusicapi's order params in place of PROFILES_PARAMS, so
 # an order goes into the body as the library's lists send it (one request).
@@ -240,23 +240,22 @@ def profiles_body(order):
     ytm_library.ORDERS; anything else reads the plain list)."""
     params = prepare_order_params(order) if order in library.ORDERS else PROFILES_PARAMS
     return {"browseId": PROFILES_BROWSE_ID, "params": params}
-# ---- end G4
 
 
 def m_library_profiles(worker, params):
     worker.require_auth()
-    order = library.order_param(params)  # G4
+    order = library.order_param(params)
     cursor = opt_cursor(params)
-    body = profiles_body(order)  # G4
+    body = profiles_body(order)
     yt = worker.yt
     if cursor:
         items, cursor = pages.fetch(yt, "browse", body, "ctoken", None, _profiles, cursor=cursor,
                                     min_items=PAGE_ITEMS, max_http=library._budget(0))
         return _profiles_page(items, cursor, order=order)
-    # G4: an ordered read is a saved setting: the cached browsePage copies go.
+    # An ordered read is a saved setting: the cached browsePage copies go.
     first = library._first_page(worker, PROFILES_BROWSE_ID, body, order)
     response = first[0]
-    orders, current = library._orders(first[3], order, offered=())  # G4
+    orders, current = library._orders(first[3], order, offered=())
     message = served_message(response)
     shelf = podcasts._shelf(response, ("musicShelfRenderer",))
     if shelf is None:

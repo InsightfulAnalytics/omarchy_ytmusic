@@ -61,8 +61,8 @@ import ytm_podcasts as podcasts  # noqa: E402
 import ytm_raw as raw  # noqa: E402
 import ytm_search as search  # noqa: E402
 import ytm_streams as streams  # noqa: E402
-import ytm_uploads as uploads  # noqa: E402 - S10
-import ytm_users as users  # noqa: E402 - S9
+import ytm_uploads as uploads  # noqa: E402
+import ytm_users as users  # noqa: E402
 from ytm_proto import (  # noqa: E402, F401 - re-exported for tests and tools
     Fixed,
     Prefixed,
@@ -79,8 +79,8 @@ from ytm_proto import (  # noqa: E402, F401 - re-exported for tests and tools
 )
 
 PROTOCOL = 1
-VERSION = "1.0.0"
-# S7: search and suggestions live in ytm_search; the CLI offers its filters.
+VERSION = "2.0.0"
+# Search and suggestions live in ytm_search; the CLI offers its filters.
 SEARCH_FILTERS = search.FILTERS
 RATINGS = ("LIKE", "DISLIKE", "INDIFFERENT")
 CACHE_MODES = ("prefer", "refresh", "bypass")
@@ -142,7 +142,7 @@ def m_ping(worker, params):
 
 def m_hello(worker, params):
     reply = {"auth": worker.auth, "account": auth.whoami()}
-    identity = identities.identity_summary(worker)  # S16: which identity the worker acts as
+    identity = identities.identity_summary(worker)  # which identity the worker acts as
     if identity is not None:
         reply["identity"] = identity
     return reply
@@ -201,16 +201,16 @@ def m_verify_auth(worker, params):
     return m_hello(worker, params)
 
 
-# search, suggestions and removeSuggestion: ytm_search (S7).
+# search, suggestions and removeSuggestion: ytm_search.
 
 
-# S5: Home is homeFeed (ytm_home); this get_home reader stays as homeLegacy,
+# Home is homeFeed (ytm_home); this get_home reader stays as homeLegacy,
 # the shape Home had before (no See all, Play all or chips).
 def m_home(worker, params):
     return {"shelves": norm.home(worker.yt.get_home(limit=opt_int(params, "limit", 6, high=20)))}
 
 
-# history, playlist, liked and album: ytm_collections (S3).
+# history, playlist, liked and album: ytm_collections.
 
 
 def m_song(worker, params):
@@ -229,12 +229,12 @@ def m_resolve(worker, params):
         raise WorkerError("BAD_REQUEST", "'account' must be true or false")
     if account is None and worker.settings.get("streamAccount") is True:
         account = True
-    # S16: the audio quality (the request's own, else the setting); high is
+    # The audio quality (the request's own, else the setting); high is
     # the resolver's default format.
     quality = streams.validate_quality(params["quality"]) if "quality" in params else worker.settings.get("quality")
     extra = {"quality": quality} if quality not in (None, "high") else {}
     worker.wait_for_warm()
-    # S17: the song's loudness too, while the shell levels by YouTube's.
+    # The song's loudness too, while the shell levels by YouTube's.
     loudness = {"loudness_from": worker.yt} if worker.settings.get("normalize") == "youtube" else {}
     try:
         return worker.resolver().resolve(video_id, account=account, **loudness, **extra)
@@ -254,7 +254,7 @@ def m_rate(worker, params):
     return {"videoId": video_id, "likeStatus": rating}
 
 
-# createPlaylist and addToPlaylist: ytm_edit (S13).
+# createPlaylist and addToPlaylist: ytm_edit.
 
 
 def m_remove_from_playlist(worker, params):
@@ -325,7 +325,7 @@ CORE_LANES = {"resolve": "streams"}
 _PLAYLIST_PAGE = ("browsePage", Prefixed("VL", "playlistId"), "browseId")
 _LIBRARY_PAGES = ("browsePage", Fixed("FEmusic_liked_playlists", "FEmusic_library_landing"), "browseId")
 _LIKED_PAGES = ("browsePage", Fixed("VLLM", "FEmusic_liked_videos"), "browseId")
-# S2 (ytm_library): the landing's recent activity shows playlists, and a
+# The landing's recent activity shows playlists, and a
 # rating can change the library's songs.
 _LANDING = ("libraryLanding", None, None)
 _PLAYLIST_EDIT = [("playlist", "playlistId", "playlistId"), ("libraryPlaylists", None, None), _PLAYLIST_PAGE,
@@ -335,7 +335,7 @@ CORE_INVALIDATES = {
     "removeFromPlaylist": _PLAYLIST_EDIT,
     "deletePlaylist": _PLAYLIST_EDIT,
 }
-CORE_MUTATES = {"rate", "removeFromPlaylist", "deletePlaylist"}  # S13: the other playlist edits are ytm_edit's
+CORE_MUTATES = {"rate", "removeFromPlaylist", "deletePlaylist"}  # the other playlist edits are ytm_edit's
 CORE_RECORDERS = {
     "song": lambda yt, p: yt.get_song(p["videoId"]),
     "watch": lambda yt, p: yt.get_watch_playlist(videoId=p["videoId"], limit=p.get("limit", 25), radio=p.get("radio", False)),
@@ -350,10 +350,10 @@ class _Core:
     INVALIDATES = CORE_INVALIDATES
     RECORDERS = CORE_RECORDERS
     MUTATES = CORE_MUTATES
-    SETTINGS = streams.SETTINGS  # S17: normalize (resolve's loudness)
+    SETTINGS = streams.SETTINGS  # normalize (resolve's loudness)
 
 
-# Area modules, in a fixed order. A slice that rewrites a core method moves it
+# Area modules, in a fixed order. A module that rewrites a core method moves it
 # out of the core tables into its module.
 AREA_MODULES = (pages, play, now, artist, library, collections, actions, home, explore, search, podcasts, users, edit,
                 feedback, history, identities, uploads)
@@ -453,12 +453,12 @@ class Worker:
         self.settings = {}
         # The CLIENT_SETTINGS part of it that self.yt was built with.
         self.built_with = {}
-        # S16: the identity self.yt acts as (ytm_auth.read_identity() when it
+        # The identity self.yt acts as (ytm_auth.read_identity() when it
         # was built; None: the session's own account, or signed out).
         self.identity = None
         # Set by serve(): writes an unsolicited event line (thread-safe).
         self.emit = None
-        # S9: your channel's id, from the account menu verify_session reads
+        # Your channel's id, from the account menu verify_session reads
         # (None when it links none; ytm_users.myChannel), and whether that
         # menu was read for this client.
         self.own_channel = None
@@ -483,7 +483,7 @@ class Worker:
         warm = getattr(self.resolver(), "warm", None)
         if warm is None or (self._warm_thread and self._warm_thread.is_alive()):
             return
-        # S16: the instance for the audio quality set (high: the default one).
+        # The instance for the audio quality set (high: the default one).
         quality = self.settings.get("quality")
         args = (quality,) if quality not in (None, "high") else ()
         # The instance lookups will use: the account's while streamAccount is on.
@@ -511,7 +511,7 @@ class Worker:
         except OSError as exc:
             norm.log(f"could not clear the cache: {exc}")
 
-    # ---- skip_store (S11) ----
+    # ---- skip_store ----
     # Per thread: lanes handle requests beside the main thread. handle()
     # clears it when a request starts.
     _request_state = threading.local()
@@ -522,7 +522,7 @@ class Worker:
         synced ones could not be asked for), so the next request asks again."""
         self._request_state.no_store = True
 
-    # ---- end skip_store (S11) ----
+    # ---- end skip_store ----
 
     def _store(self, name, params, result, guard):
         """Cache a result unless the account or the method's data changed since the
@@ -530,7 +530,7 @@ class Worker:
         if guard is None or guard[0] != self.generation:
             return
         if getattr(self._request_state, "no_store", False):
-            return  # skip_store() (S11)
+            return  # skip_store()
         # A cache that can't be written must never fail the request itself.
         try:
             self.cache().put(name, params, result, epoch=guard[1])
@@ -553,7 +553,7 @@ class Worker:
                 self.invalidate(method, match)
 
     def load(self):
-        # S16: the client settings (location) and the saved identity (a brand
+        # The client settings (location) and the saved identity (a brand
         # account, another login), passed only when there are any.
         settings = self.client_settings()
         identity = auth.read_identity()
@@ -568,7 +568,7 @@ class Worker:
         self.identity = identity if state == "ok" else None
         self.built_with = self.client_settings()
         self.verified = False
-        self.own_channel, self.own_channel_known = None, False  # S9: the new client's account menu names it
+        self.own_channel, self.own_channel_known = None, False  # the new client's account menu names it
         self.generation += 1
         # A new session or identity: stream lookups must not keep the old cookies.
         forget = getattr(self._resolver, "forget_account", None)
@@ -578,7 +578,7 @@ class Worker:
     def client_settings(self, settings=None):
         """The CLIENT_SETTINGS part of ``settings`` (default: the stored ones)."""
         settings = self.settings if settings is None else settings
-        # S16: an empty value is the default, the same as leaving the key out
+        # An empty value is the default, the same as leaving the key out
         # (location "" is YouTube's own guess).
         return {key: settings[key] for key in sorted(CLIENT_SETTINGS) if settings.get(key) not in (None, "")}
 
@@ -632,7 +632,7 @@ class Worker:
         # nothing about the new one, which is checked by its own next call.
         yt, generation = self.yt, self.generation
         try:
-            # S9: the account menu links your channel too (myChannel); it is
+            # The account menu links your channel too (myChannel); it is
             # read from this same response, never with a request of its own.
             with raw.capture(("account/account_menu",)) as menu:
                 yt.get_account_info()
@@ -645,13 +645,13 @@ class Worker:
             return
         if generation != self.generation:
             return
-        users.remember_own_channel(self, menu)  # S9
+        users.remember_own_channel(self, menu)
         self.verified = True
 
     def require_auth(self):
         self.verify_session()
         if self.auth == "expired" and self.identity:
-            # S16: the check ran as a brand account or another login; YouTube may
+            # The check ran as a brand account or another login; YouTube may
             # only have stopped answering as that one (ytm_account.require_session).
             raise WorkerError("AUTH_EXPIRED", "YouTube Music did not answer as the account in use; go back to "
                                               "your own account (Library), or sign in again")
@@ -689,7 +689,7 @@ class Worker:
         request_id = request.get("id") if isinstance(request, dict) else None
         started = time.monotonic()
         raw.reset_http()
-        self._request_state.no_store = False  # skip_store (S11)
+        self._request_state.no_store = False  # skip_store
         name = None
         try:
             if not isinstance(request, dict):
@@ -721,7 +721,7 @@ class Worker:
                 result = method(self, params)
             except Exception as exc:
                 # An edit that may have reached YouTube still makes the cache stale
-                # (S4: not one that failed before it was sent, ytm_proto.unsent).
+                # (not one that failed before it was sent, ytm_proto.unsent).
                 if name in MUTATES and not getattr(exc, "unsent", False) \
                         and classify(exc).code not in ("BAD_REQUEST", "AUTH_REQUIRED", "AUTH_EXPIRED"):
                     self._invalidate(name, params)
@@ -827,7 +827,7 @@ def serve(idle_secs, worker=None, stdin_fd=None, out=None):
 
     ready = {"event": "ready", "protocol": PROTOCOL, "version": VERSION,
              "ytmusicapi": ytmusicapi_version(), "auth": worker.auth, "mutates": sorted(MUTATES)}
-    identity = identities.identity_summary(worker)  # S16
+    identity = identities.identity_summary(worker)
     if identity is not None:
         ready["identity"] = identity
     emit(ready)
@@ -899,8 +899,8 @@ MPV_SCRIPT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file
 
 
 def sync_mpv_cookies():
-    """Make mpv's copy of the session cookies follow the session (S10's
-    ``ytm-mpv cookies``: copied again from a new session, removed once there
+    """Make mpv's copy of the session cookies follow the session
+    (``ytm-mpv cookies``: copied again from a new session, removed once there
     is none), whether or not a shell is running to do it. The mpv unit
     outlives the shell, so without this a sign-out with the shell down left
     the old session's cookies in mpv's runtime directory. Best effort, like
@@ -940,7 +940,7 @@ def cmd_auth(args):
 
 
 def cmd_join(args):
-    """S13: join a collaborative playlist from its invite link. The link's
+    """Join a collaborative playlist from its invite link. The link's
     token goes to YouTube once and is never printed."""
     invite = edit.parse_invite(args.url)
     if invite is None:
@@ -952,7 +952,7 @@ def cmd_join(args):
 
 
 def cmd_upload(args):
-    """S10: upload a song file to your library. YouTube lists it once it has
+    """Upload a song file to your library. YouTube lists it once it has
     processed it, often minutes later."""
     path = os.path.abspath(os.path.expanduser(args.file))
     reply = Worker().handle({"id": 1, "method": "uploadSong", "params": {"path": path}})
@@ -1067,9 +1067,9 @@ def main(argv=None):
     source.add_argument("--clipboard", action="store_true", help="read request headers from the clipboard")
     p.add_argument("--authuser", type=int, default=0, help="Google account index when signed in to several")
     p.add_argument("--keyring", default="GNOMEKEYRING", help="keyring holding the browser's cookie key")
-    p = sub.add_parser("join", help="join a collaborative playlist from its invite link")  # S13
+    p = sub.add_parser("join", help="join a collaborative playlist from its invite link")
     p.add_argument("url")
-    p = sub.add_parser("upload", help="upload a song file (mp3, m4a, wma, flac, ogg) to your library")  # S10
+    p = sub.add_parser("upload", help="upload a song file (mp3, m4a, wma, flac, ogg) to your library")
     p.add_argument("file")
     sub.add_parser("logout", help="delete the saved session")
     sub.add_parser("whoami", help="show the signed-in account")
@@ -1099,7 +1099,7 @@ def main(argv=None):
         else:
             print_json(reply["result"] if reply["ok"] else {"error": reply["error"]})
         if request["method"] == "switchAccount" and reply["ok"] and reply["result"].get("changed"):
-            notify_shell()  # S16: a running shell's worker acts as the new identity too
+            notify_shell()  # a running shell's worker acts as the new identity too
         return 0 if reply["ok"] else 1
     if args.cmd == "auth":
         return cmd_auth(args)

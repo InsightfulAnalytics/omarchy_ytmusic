@@ -1,4 +1,4 @@
-"""Song tokens and pins everywhere (G2).
+"""Song tokens and pins everywhere.
 
 The song playing's own menu in nowContext (``current``), Pin to Listen
 again on every row the worker parses (See all pages, Listen again's above

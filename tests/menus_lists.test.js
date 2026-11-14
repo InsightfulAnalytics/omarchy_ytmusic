@@ -2,7 +2,7 @@ const test = require("node:test")
 const assert = require("node:assert/strict")
 const Model = require("../YtmModel.js")
 
-// Menus and lists (G4): Liked Music's radio and chips, mixes saved into
+// Menus and lists: Liked Music's radio and chips, mixes saved into
 // playlists, a playlist's author, Skip duplicates, the queue's autoplay
 // rows and Remove custom image.
 
@@ -101,7 +101,7 @@ test("a playlist's author is the byline's profile link; A and M open it", () => 
 test("Liked Music's chips are its page's filters, and a chip is a page of its own", () => {
   assert.deepEqual(Model.likedFilters(likedPage()), CHIPS)
   assert.deepEqual(Model.likedFilters(playlistPage({})), [])
-  assert.deepEqual(Model.likedFilters({ type: "page", kind: "podcast", filters: CHIPS }), [], "a podcast's are G3's")
+  assert.deepEqual(Model.likedFilters({ type: "page", kind: "podcast", filters: CHIPS }), [], "a podcast has its own")
   assert.deepEqual(Model.likedFilters(null), [])
   const plain = Model.pageRef(likedRow, Model.pageExtra(null, false, null))
   const chill = Model.pageRef(likedRow, Model.pageExtra(null, false, "Chill"))
@@ -237,7 +237,7 @@ test("the Autoplay caption goes above the first song autoplay added after the cu
   assert.equal(Model.autoplayAdded(q[2], 2, 3), false, "played")
   assert.equal(Model.autoplayAdded(q[3], 3, 0), false)
   assert.equal(Model.AUTOPLAY_CAPTION, "Autoplay")
-  // Origins come from S12's withOrigins.
+  // Origins come from withOrigins.
   const queue = Model.withOrigins([{ entryId: 7, videoId: "v7" }, { entryId: 8, videoId: "v8" }], { 8: { videoId: "v8", origin: "auto" } })
   assert.equal(Model.firstAutoIndex(queue, 0), 1)
 })

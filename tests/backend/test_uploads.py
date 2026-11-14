@@ -1,5 +1,5 @@
 """ytm_uploads: your uploaded songs, albums and artists, uploading and
-deleting (S10).
+deleting.
 
 Hand-built responses only: these pages are private. Their shapes follow the
 served ones: the uploads list pages put Library and Downloads tabs (no rows)

@@ -1,10 +1,10 @@
 // Pure helpers for damir.ytmusic, shared by the QML side and the Node tests
-// (`node --test tests/`). Plain functions only — no `.pragma library` — so the
+// (`node --test tests/`). Plain functions only (no `.pragma library`), so the
 // same file loads in both.
 
 var PLUGIN_ID = "damir.ytmusic"
 
-// www.youtube.com is the only URL form mpv-mpris derives cover art from (S4).
+// www.youtube.com is the only URL form mpv-mpris derives cover art from.
 var WATCH_URL = "https://www.youtube.com/watch?v="
 
 function trackUrl(videoId) {
@@ -21,7 +21,7 @@ function mediaTitle(track) {
   if (!track) return ""
   var title = String(track.title || "")
   var artists = String(track.artistText || "")
-  return artists ? title + " — " + artists : title
+  return artists ? title + " · " + artists : title
 }
 
 function utf8Length(text) {
@@ -37,7 +37,7 @@ function utf8Length(text) {
 }
 
 // Per-file loadfile options. mpv's %n% form carries the value's byte length,
-// so titles with commas, quotes or '=' need no escaping. S8: `start`
+// so titles with commas, quotes or '=' need no escaping. `start`
 // ({ seconds } or { percent }, startOption) starts the file there (an
 // episode's resume point or chapter).
 function loadfileOptions(track, start) {
@@ -165,7 +165,7 @@ function unshuffleOrder(ids, original) {
 
 // playlist-move commands that turn the order `ids` into `target` (the same
 // ids rearranged). Each step moves an entry up into place; mpv puts an entry
-// moved up exactly at the target index (spike S7).
+// moved up exactly at the target index.
 function reorderCommands(ids, target) {
   var list = ids.slice()
   var commands = []
@@ -183,10 +183,10 @@ function reorderCommands(ids, target) {
 
 // Songs from YouTube Music's up-next list worth appending: playable, not in
 // the queue yet (played ones included), songs before videos, at most `max`.
-// S12: nor in `seen` (songs played and trimmed out of the queue; an array or
+// Nor in `seen` (songs played and trimmed out of the queue; an array or
 // a map), nor the song/video twin of a song that is.
 function autoplayPicks(queue, candidates, max, seen) {
-  var known = _knownIds(queue, seen)  // S12
+  var known = _knownIds(queue, seen)
   var songs = []
   var videos = []
   for (var j = 0; j < (candidates || []).length; j++) {
@@ -200,7 +200,7 @@ function autoplayPicks(queue, candidates, max, seen) {
 }
 
 // ---- preferences (player.json, version 2) ------------------------------------------
-// Every key a slice will need, with its default, so a newer file read by an
+// Every key the panel needs, with its default, so a newer file read by an
 // older plugin (or the other way round) keeps what it doesn't know about.
 // Version 1 held autoplay, shuffle and repeat only; it parses the same way.
 
@@ -217,7 +217,7 @@ function _bool(fallback) {
 
 function _speed(value) {
   var n = Number(value)
-  // S17: on the 0.25 step grid (speedStep, the speed chooser).
+  // On the 0.25 step grid (speedStep, the speed chooser).
   return typeof value === "number" && isFinite(n) && n >= 0.5 && n <= 2 ? Math.round(n * 4) / 4 : 1
 }
 
@@ -227,27 +227,27 @@ var PREF_RULES = {
   autoplay: _bool(true),
   shuffle: _bool(false),
   repeat: normalizeRepeat,
-  // S2: the Library chip. P1 (acct-1): no sort orders: YouTube saves the
+  // The Library chip. No sort orders: YouTube saves the
   // one picked with O on the account, and a saved one sent again on every
   // load changed the sort of whichever account it was sent as. A file that
   // still has libraryOrders loses it on the next save.
   libraryChip: function(value) { return typeof value === "string" && CHIP_PATTERN.test(value) ? value : "playlists" },
-  // S6: chart country, ZZ is global.
+  // Chart country, ZZ is global.
   chartsCountry: function(value) { return typeof value === "string" && /^[A-Z]{2}$/.test(value) ? value : "ZZ" },
-  // S16: content location ("" is the account's own) and audio quality.
+  // Content location ("" is the account's own) and audio quality.
   location: function(value) { return typeof value === "string" && /^[A-Z]{2}$/.test(value) ? value : "" },
   quality: _oneOf(["low", "normal", "high"], "high"),
-  // S15: report plays to YouTube Music history (off until turned on).
+  // Report plays to YouTube Music history (off until turned on).
   recordHistory: _bool(false),
   // Stream lookups with the account's cookies (off until turned on).
   streamAccount: _bool(false),
-  // S17: playback speed per kind of entry, and loudness levelling.
+  // Playback speed per kind of entry, and loudness levelling.
   speed: function(value) {
     var v = value && typeof value === "object" ? value : {}
     return { music: _speed(v.music), episode: _speed(v.episode) }
   },
   normalize: _oneOf(["off", "youtube", "dynamic"], "off"),
-  // S11: the pane under Now Playing.
+  // The pane under Now Playing.
   nowPane: _oneOf(["queue", "lyrics", "related"], "queue")
 }
 
@@ -289,7 +289,7 @@ function serializePrefs(prefs) {
   return JSON.stringify(out) + "\n"
 }
 
-// mpv inserts before the target index, so moving down needs target + 1 (S7).
+// mpv inserts before the target index, so moving down needs target + 1.
 function moveArgs(from, to) {
   return ["playlist-move", from, to > from ? to + 1 : to]
 }
@@ -422,7 +422,7 @@ function queueAllCommands(tracks) {
 // Lists in the panel are flat arrays of rows: { header: true, title } or
 // { item, trackIndex? }. trackIndex points into the list a click plays from.
 
-// A search result as rows: searchRows in the search (S7) section (groups in
+// A search result as rows: searchRows in the search section (groups in
 // YouTube's order, Show all rows, spelling rows, Load more).
 function flattenSearch(result, filter, opts) {
   return searchRows(result, filter, opts)
@@ -457,7 +457,7 @@ function nextSelectable(rows, index, delta) {
 }
 
 // A text row ({type: "text", title, icon?}) is read-only page content, such
-// as a credited name or About the artist (S11): the cursor skips it. A text
+// as a credited name or About the artist: the cursor skips it. A text
 // row with `paragraph: true` (a description's paragraph: an artist's About
 // page, a collection's About rows) takes the cursor so the keyboard can
 // scroll through a long text; Enter and the menu do nothing there.
@@ -472,7 +472,7 @@ function joinParts(parts) {
 
 function itemSubtitle(item) {
   if (!item) return ""
-  // S6: a chart row (Top songs, Trending, Top artists) leads with its rank and trend.
+  // A chart row (Top songs, Trending, Top artists) leads with its rank and trend.
   var rank = rankText(item)
   if (item.type === "track") return joinParts([rank, item.artistText, item.kind === "video" ? "Video" : ""])
   if (item.type === "album") return joinParts([item.albumType, item.artistText, item.year])
@@ -484,7 +484,7 @@ function itemSubtitle(item) {
   return joinParts([rank, item.subtitle ? String(item.subtitle) : ""])
 }
 
-// Home's rows (homeRows, shelfTracks): the home (S5) section.
+// Home's rows (homeRows, shelfTracks): the home section.
 
 // History grouped under its "played" labels (Today, Yesterday, …).
 function historyRows(tracks) {
@@ -560,7 +560,7 @@ function ownedPlaylists(playlists) {
   return (playlists || []).filter(function(p) { return p.owned && !isSpecialPlaylist(p) })
 }
 
-// libraryRows(chip, data, playlists), the Library list: see the library (S2) section.
+// libraryRows(chip, data, playlists), the Library list: see the library section.
 
 // Remove one track from a loaded collection (by setVideoId when it has one,
 // since a playlist may hold the same song twice).
@@ -648,9 +648,9 @@ function parseRecent(text) {
 
 // The completions for what's typed: at most two of your recent searches
 // that start with it, then YouTube Music's; never the typed text.
-// S7: one of your YouTube searches (fromHistory) is marked `remote`, also
+// One of your YouTube searches (fromHistory) is marked `remote`, also
 // when it repeats a recent search, so x can remove it from YouTube too.
-// G1: `max` limits YouTube's completions only (none by default: every
+// `max` limits YouTube's completions only (none by default: every
 // one it serves shows, the worker's limit is the only cap); a recent
 // search YouTube also lists stays one entry.
 function suggestionList(recent, remote, typed, max) {
@@ -687,7 +687,7 @@ function recentRows(recent, max) {
   return rows
 }
 
-// `selected` marks the one Tab put into the field. S7: a recent or past
+// `selected` marks the one Tab put into the field. A recent or past
 // search can be removed (x): `remote` ones from YouTube too.
 function suggestionRows(suggestions, selected) {
   var list = suggestions || []
@@ -701,8 +701,8 @@ function suggestionRows(suggestions, selected) {
 
 // ---- caches ---------------------------------------------------------------------
 
-// S7: the scope ("", "library", "uploads") and an exact search (no spelling
-// fix) are part of the key; a plain search keeps its old key. P1 (acct-3):
+// The scope ("", "library", "uploads") and an exact search (no spelling
+// fix) are part of the key; a plain search keeps its old key. 
 // so is a typed search's (`typed`: read signed out while typing), so the
 // account's search for the same words is asked for when they are submitted.
 function searchKey(query, filter, scope, exact, typed) {
@@ -854,13 +854,13 @@ function canonicalJson(value) {
 //   claims(item)  optional: takes over items of another type (checked first)
 //   ttlMs         optional: how long the Store's copy counts as fresh (5 min);
 //                 one longer than Store.unseenMs (10 min) also keeps an
-//                 unseen copy that long (S6 moods)
+//                 unseen copy that long (moods)
 //   view          optional: a name that keeps this kind's pages apart from
-//                 another kind's on the same method and params (S1's about
+//                 another kind's on the same method and params (the about
 //                 page reads the artist method)
-//   subtitle(p)   optional: the header subtitle of a page p (S1)
+//   subtitle(p)   optional: the header subtitle of a page p
 //   partial       optional: the page shows only a sample of its songs, so
-//                 playing it reads the whole list (tracksFor; S1 artist)
+//                 playing it reads the whole list (tracksFor; an artist)
 // }
 var PAGE_KINDS = {
   album: {
@@ -963,7 +963,7 @@ function historyCollection(result) {
 // `browseId` (exact), `pageType` and `prefix`, each optional, plus an
 // optional `when(endpoint, id)`. The most specific match wins (an exact id,
 // then a page type, then the longest prefix; a tie goes to the route added
-// last), so a slice adds a narrower route without touching these.
+// last), so a section adds a narrower route without touching these.
 // `target(endpoint, id)` returns the item to open; null falls through to a
 // browse page.
 var ROUTES = [
@@ -1041,7 +1041,7 @@ function pageRows(page) {
     }
   }
   if (page.message) rows.push({ item: { type: "message", title: String(page.message) } })
-  // G1: a list that reached the Store's cap says so (and how to reach the rest).
+  // A list that reached the Store's cap says so (and how to reach the rest).
   if (page.capped === true) rows.push({ item: { type: "message", title: capMessage(pageItemCount(page), page.orders) } })
   else if (page.cursor || page.hasMore) rows.push({ item: { type: "loadMore", title: "Load more" } })
   return rows
@@ -1302,10 +1302,10 @@ if (typeof module !== "undefined") {
 
 // ==== menu (F3) ===========================================================================
 // One menu for every item (m, '.' or right-click), like the web's three-dot
-// menu. MENU_ACTIONS is a registry: a slice appends its entries in its own
-// section, and menuActions(item, ctx) lists the ones that apply. KEYS is the
+// menu. MENU_ACTIONS is a registry: each section of this file appends its
+// entries, and menuActions(item, ctx) lists the ones that apply. KEYS is the
 // one list of panel keys: Panel dispatches text keys through it, and the ?
-// overlay, the README keys row, Panel.qml's header comment and tooltips are
+// overlay, the keys row of docs/FEATURES.md, Panel.qml's header comment and tooltips are
 // made from it. Whole albums, playlists, mixes and artists play through
 // Service.playItem (the worker's tracksFor), at most QUEUE_CAP at a time.
 
@@ -1522,7 +1522,7 @@ var MENU_ACTIONS = [
   { id: "shuffle", title: "Shuffle", icon: "󰒝",
     applies: function(item, ctx) { return _kindIn(_SHUFFLES)(item) || _pagePlays(ctx) },
     run: function(env) {
-      // An artist row that carries YouTube's shuffle mix (S2: library artists) plays it.
+      // An artist row that carries YouTube's shuffle mix (library artists) plays it.
       var mix = env.ctx && env.ctx.page ? null : artistMix(env.item, "shuffleId")
       if (mix) env.service.playItem(mix, "now")
       else _playMode("shuffle")(env)
@@ -1570,7 +1570,7 @@ var MENU_ACTIONS = [
   { id: "refresh", title: "Refresh", icon: "󰑐",
     applies: function(item, ctx) { return ctx.page === true && ctx.pageKind === "home" },
     run: function(env) { env.owner.refresh(true) } },
-  // Library (M): the account row. S9 and S14-S16 append Your channel,
+  // Library (M): the account row. Later sections append Your channel,
   // Improve recommendations, Record plays, Account, Quality and Location
   // (applies: ctx.page && ctx.pageKind === "library").
   { id: "signOut", title: "Sign out", icon: "󰍃",
@@ -1711,7 +1711,7 @@ function keyHelp() {
 
 var KEYS_NOTE = "Shortcuts are off while typing, and Ctrl or Alt chords do nothing. Back returns to the row and scroll position you left."
 
-// README's Panel keys cell.
+// Panel keys cell of docs/FEATURES.md.
 function keysReadme() {
   return KEYS.map(function(entry) {
     return _keyLabel(entry).map(function(k) { return "`" + k + "`" }).join(" / ") + " " + entry.title
@@ -1771,7 +1771,7 @@ if (typeof module !== "undefined") {
   })
 }
 
-// ==== artist (S1) ==========================================================================
+// ==== artist ==========================================================================
 // Artist pages are sectioned pages (the worker's `artist` method): every
 // shelf of the web page in its served order, each ending in its See all.
 // An artist's albums, singles and shows open as `artistAlbums` (the whole
@@ -1926,16 +1926,16 @@ if (typeof module !== "undefined") {
   })
 }
 
-// ==== library (S2) ==========================================================================
+// ==== library ==========================================================================
 // The Library tab's chips: Playlists (the default), Songs, Albums and
-// Artists (S8 and S10 push Podcasts and Uploads), switched with h / l and
+// Artists (the podcasts and uploads sections push Podcasts and Uploads), switched with h / l and
 // kept in prefs.libraryChip. A chip's list is its worker method's, fetched
 // only once the chip is shown and read about 50 at a time (Store's
 // loadLibraryList / loadLibraryMore). O sends a chip's next sort order
 // (the worker's ids: a_to_z, z_to_a, recently_added, or menu:<n> for an
 // option only the served menu has, Most songs), which YouTube saves on the
 // account as the web's sort menu does; every other load sends none and
-// shows the order YouTube marks selected (P1, acct-1: nothing is kept on
+// shows the order YouTube marks selected (nothing is kept on
 // this machine, so another identity's or account's sort is never sent).
 // Recent activity (the library landing) and Subscriptions open as pages,
 // their orders shown as chips there.
@@ -2103,7 +2103,7 @@ function libraryRows(chip, data, playlists) {
     rows.push(row)
   }
   if (list.message) rows.push({ item: { type: "message", title: String(list.message) } })
-  if (list.capped) rows.push({ item: { type: "message", title: capMessage(items.length, list.orders) } })  // G1
+  if (list.capped) rows.push({ item: { type: "message", title: capMessage(items.length, list.orders) } })
   else if (list.cursor || list.hasMore) rows.push({ item: { type: "loadMore", title: "Load more" } })
   return rows
 }
@@ -2129,7 +2129,7 @@ PAGE_KINDS.liked.claims = function(item) {
 }
 
 // A user channel (Recent activity, Subscriptions) opens as a profile page
-// (S9's PAGE_KINDS.user).
+// (PAGE_KINDS.user).
 
 if (typeof module !== "undefined") {
   Object.assign(module.exports, {
@@ -2149,7 +2149,7 @@ if (typeof module !== "undefined") {
   })
 }
 
-// ==== collections (S3) ======================================================================
+// ==== collections ======================================================================
 // Albums, playlists, mixes, Liked Music and History (the worker's
 // `collection` shape). A playlist or Liked Music first shows 200 to 300
 // songs; when it has more (`truncated`), its songs end in a selectable
@@ -2469,7 +2469,7 @@ if (typeof module !== "undefined") {
   })
 }
 
-// ==== actions (S4) ==========================================================================
+// ==== actions ==========================================================================
 // The web's library toggles on every item: Save to library on albums,
 // playlists and mixes (the worker's rateCollection), Subscribe on artists
 // (subscribe), Save to library on a song through the library tokens its
@@ -2477,12 +2477,12 @@ if (typeof module !== "undefined") {
 // clears it). S saves or subscribes the cursor row, else the page itself;
 // D dislikes the cursor's song, else the one playing, which then skips.
 // What is saved, subscribed, in the library or disliked lives in the
-// Store (its "actions (S4)" section): an edit changes it at once
+// Store (its "actions" section): an edit changes it at once
 // (optimistic) and puts it back when the worker says no (restoreStates).
 // Service.fillMenuState puts it in a menu's ctx: saved, subscribed,
 // inLibrary, liked, disliked and ownItem (the row is your own playlist).
 
-// What can be saved; what can be subscribed to. S9 pushes "profile" and
+// What can be saved; what can be subscribed to. The profiles section pushes "profile" and
 // "channel" to SUBSCRIBE_TYPES (their channelId is the one subscribed to).
 var SAVE_KINDS = ["album", "playlist", "mix"]
 var SUBSCRIBE_TYPES = ["artist"]
@@ -2522,7 +2522,7 @@ function canSubscribe(item) {
   return !!item && typeof item === "object" && SUBSCRIBE_TYPES.indexOf(item.type) >= 0 && !!item.channelId
 }
 
-// A song's library tokens ({ add, remove }, S3), or null. Rows from a disk
+// A song's library tokens ({ add, remove }), or null. Rows from a disk
 // copy and songs in the queue have none.
 function songTokens(track) {
   var tokens = track && track.type === "track" ? track.libraryTokens : null
@@ -2696,7 +2696,7 @@ function subscribedState(channelId, sources) {
 }
 
 // Whether a song is in the library: an edit made here, else what its row
-// said (S3's inLibrary), else null.
+// said (inLibrary), else null.
 function inLibraryState(track, sources) {
   var s = sources || {}
   if (!track || !track.videoId) return null
@@ -2730,7 +2730,7 @@ function staleToken(reply) {
 // The owner's callback for an edit's reply: CollectionView's and
 // LibraryView's editCallback() reload the page or chip shown when the
 // edit's outcome is unknown or a token was stale (they return true when
-// they did). Null for owners without one (Search, Home). G2: `item` is
+// they did). Null for owners without one (Search, Home). `item` is
 // what the edit touches (QueueView reads that song's menu again).
 function editCallbackOf(owner, item) {
   return owner && typeof owner.editCallback === "function" ? owner.editCallback(item) : null
@@ -2827,13 +2827,13 @@ if (typeof module !== "undefined") {
   })
 }
 
-// ==== now (S11) ===========================================================================
+// ==== now ===========================================================================
 // The Now tab's pane under the song playing: Queue, Lyrics or Related (y or
 // the queue header's pane chip cycles them; prefs.nowPane remembers it). The
 // service reads one nowContext per track while a panel is open (like status,
 // lyrics and Related ids, the song/video twin, queue chips, "Playing from",
-// the up-next list) and the Store keeps it in a memo per video, which S12
-// reuses for autoplay. Credits and Related open as pages; lyrics lines are
+// the up-next list) and the Store keeps it in a memo per video, which autoplay
+// reuses. Credits and Related open as pages; lyrics lines are
 // highlighted from mpv's time-pos.
 
 var NOW_PANES = ["queue", "lyrics", "related"]
@@ -2991,7 +2991,7 @@ if (typeof module !== "undefined") {
   })
 }
 
-// ==== up next (S12) =======================================================================
+// ==== up next =======================================================================
 // The queue as the web's Up next. Autoplay tops it up whenever AUTOPLAY_LEFT
 // or fewer entries follow the current one (AUTOPLAY_BATCH songs at a time)
 // and goes on as radio for every context: the song playing's nowContext
@@ -3382,7 +3382,7 @@ if (typeof module !== "undefined") {
   })
 }
 
-// ==== playback (S17) =======================================================================
+// ==== playback =======================================================================
 // Speed and loudness, the mpv way. Speed is mpv's `speed`, SPEED_MIN to
 // SPEED_MAX in SPEED_STEP steps ([ and ], or the Now page menu), remembered
 // per kind of entry in prefs.speed { music, episode } and applied whenever
@@ -3510,10 +3510,10 @@ function streamsWithLoudness(streams) {
   return dropped ? out : streams
 }
 
-// The worker's settings from the prefs (Backend.configureParams); S16 adds
+// The worker's settings from the prefs (Backend.configureParams), with
 // quality and location (accountSettings, in its section).
 function workerSettings(prefs) {
-  return accountSettings(prefs, { normalize: normalizeMode(prefs && prefs.normalize) })  // S16
+  return accountSettings(prefs, { normalize: normalizeMode(prefs && prefs.normalize) })
 }
 
 // The Now page menu (M): Playback speed and Loudness, each a chooser
@@ -3555,13 +3555,13 @@ if (typeof module !== "undefined") {
   })
 }
 
-// ==== home (S5) ============================================================================
+// ==== home ============================================================================
 // Home is the whole feed (the worker's homeFeed): every shelf the web shows,
 // read a page of shelves at a time (Store.loadHomeMore when the cursor nears
 // the end, or the Load more row). A shelf ends in a selectable See all row
 // when it has one, routed like any See all (routeEndpoint: VL to a
 // playlist, MPAD to an artist's releases, UC to an artist, a mood category
-// to its mood page (S6); anything else, such as Listen again, Mixed for
+// to its mood page; anything else, such as Listen again, Mixed for
 // you, New releases, the library landing or a channel with params like
 // Recaps, to a browse page),
 // and in a Play all row when it has a Play all (Service.playShelf: the list
@@ -3575,12 +3575,12 @@ var HOME_ALL_CHIP = { title: "All", params: "" }
 // page, Songs, Artists, Playlists and Videos on repeat; the recap playlists
 // themselves are only on the shelf). It reads as a browse page, as the web
 // opens it; this keeps it there when a profile route for user channels
-// comes (S9), which would otherwise outrank the UC default.
+// comes, which would otherwise outrank the UC default.
 ROUTES.push({ pageType: "MUSIC_PAGE_TYPE_USER_CHANNEL", prefix: "UC", when: function(ep) { return !!ep.params },
   target: function(ep, id) { return { type: "browse", browseId: id, params: ep.params, title: ep.title || "" } } })
 
 // A podcast on a Home shelf (the Podcasts chip has whole shelves of them)
-// opens as its own page (S8's PAGE_KINDS.podcast).
+// opens as its own page (PAGE_KINDS.podcast).
 
 // All, then the served chips ({ title, params }; one without params is left out).
 function homeChipList(served) {
@@ -3699,7 +3699,7 @@ if (typeof module !== "undefined") {
   })
 }
 
-// ==== explore (S6) =========================================================================
+// ==== explore =========================================================================
 // The Explore tab (key 5): the worker's `explore` page as rows. Its entry
 // rows open New releases (a browse page), Charts and Moods & genres; then
 // New albums & singles, Top songs (Premium), Moods & genres (eight
@@ -3947,7 +3947,7 @@ if (typeof module !== "undefined") {
   })
 }
 
-// ==== search (S7) ============================================================================
+// ==== search ============================================================================
 // Search is the web's search. All groups every kind of result in the order
 // YouTube served them, under the top result card, and each group ends in a
 // Show all row that switches to its filter. Songs, Albums, Artists and
@@ -4102,7 +4102,7 @@ function searchRows(result, filter, opts) {
     var items = _listOf(result.items)
     if (items.length) rows.push({ header: true, title: filter ? searchFilterTitle(filter) : o.scope === "uploads" ? "Uploads" : "Results" })
     for (i = 0; i < items.length; i++) rows.push({ item: items[i] })
-    // G1: a list that reached the Store's cap says so.
+    // A list that reached the Store's cap says so.
     if (result.capped === true) rows.push({ item: { type: "message", title: capMessage(items.length) } })
     else if (result.cursor || result.hasMore) rows.push({ item: { type: "loadMore", title: "Load more" } })
     return rows
@@ -4208,7 +4208,7 @@ SEARCH_SCOPES.forEach(function(scope) {
 
 // An uploaded album or artist (the uploads scope) is an album or artist
 // item with the uploads ids and `upload`, as the uploads views list them:
-// S10's PAGE_KINDS uploadAlbum and uploadArtist open it, with their menus.
+// PAGE_KINDS uploadAlbum and uploadArtist open it, with their menus.
 
 if (typeof module !== "undefined") {
   Object.assign(module.exports, {
@@ -4236,7 +4236,7 @@ if (typeof module !== "undefined") {
   })
 }
 
-// ==== podcasts (S8) ==========================================================================
+// ==== podcasts ==========================================================================
 // Podcasts, episodes and podcast channels as pages of their own: a podcast
 // (MPSP...) lists its episodes (tracks of kind "episode", a cursor page at
 // a time), an episode (MPED..., or its videoId) has Play or Resume, Save
@@ -4677,7 +4677,7 @@ function podcastLibraryRows(data) {
   for (var i = 0; i < items.length; i++) rows.push({ item: items[i] })
   if (list.message) rows.push({ item: { type: "message", title: String(list.message) } })
   else if (!items.length && list.at > 0 && list.loading !== true) rows.push({ item: { type: "message", title: "No saved podcasts yet" } })
-  if (list.capped) rows.push({ item: { type: "message", title: capMessage(items.length, list.orders) } })  // G1
+  if (list.capped) rows.push({ item: { type: "message", title: capMessage(items.length, list.orders) } })
   else if (list.cursor || list.hasMore) rows.push({ item: { type: "loadMore", title: "Load more" } })
   return rows
 }
@@ -4844,11 +4844,11 @@ if (typeof module !== "undefined") {
   })
 }
 
-// ==== profiles (S9) ==========================================================================
+// ==== profiles ==========================================================================
 // Profiles (user channels) as pages of their own. A profile's page (the
 // worker's `user`) has its rows as YouTube serves them (Videos, Playlists,
 // and so on), each ending in See all when the web has one (the channel with
-// params, a browse page), and Subscribe / Subscribed: S4's subscribe takes
+// params, a browse page), and Subscribe / Subscribed: subscribe takes
 // any channel, and S and the page menu (M) are the button's twins, shown
 // at once and put back when YouTube says no. Your channel (Library's
 // account menu, M) is `myChannel`: the same page for the channel your
@@ -4894,7 +4894,7 @@ PAGE_KINDS.libraryProfiles = {
 }
 
 // A user channel's own page (no params) is the profile; with params it is
-// one of its lists (a See all, Recaps), which S5's route keeps a browse page.
+// one of its lists (a See all, Recaps), which route keeps a browse page.
 ROUTES.push({ pageType: USER_CHANNEL_PAGE, prefix: "UC", when: function(ep) { return !ep.params },
   target: function(ep, id) { return { type: "profile", channelId: id, name: ep.title || "" } } })
 
@@ -4960,9 +4960,8 @@ function noChannel(reply) {
   return !!reply && reply.ok === false && !!reply.error && reply.error.noChannel === true
 }
 
-// Among Library's account entries, before Switch account as on the web: S14
-// puts its taste builder ahead of it, S16 its entries and S15 Record plays
-// after it, Sign out stays last (ctx.noChannel: the worker said there is
+// Among Library's account entries, before Switch account as on the web: the taste
+// builder goes ahead of it, the account entries and Record plays after it, Sign out stays last (ctx.noChannel: the worker said there is
 // none).
 _insertAfter(MENU_ACTIONS, "refresh", [
   { id: "myChannel", title: "Your channel", icon: PROFILE_ICON,
@@ -4997,8 +4996,8 @@ libraryRows = function(chip, data, playlists) {
 
 // ---- lists of your subscriptions ----------------------------------------------------------
 
-// The pages that list only channels you subscribe to: Subscriptions (S4),
-// Channels (S8) and Profiles. Any subscribe edit drops them from the Store
+// The pages that list only channels you subscribe to: Subscriptions,
+// Channels and Profiles. Any subscribe edit drops them from the Store
 // (and its sweep does after their TTL) while a view may still show one, so
 // that view counts its rows as subscribed (CollectionView.rowSubscribed: the
 // fallback of Store.subscribedState, under any edit made here).
@@ -5029,7 +5028,7 @@ if (typeof module !== "undefined") {
   })
 }
 
-// ==== playlist edit (S13) ==================================================================
+// ==== playlist edit ==================================================================
 // Everything the web lets you do to your own playlist, plus saving albums,
 // playlists and the queue into playlists (the worker's ytm_edit). On your
 // playlist's page: e opens the editor (title, description, privacy;
@@ -5466,10 +5465,10 @@ if (typeof module !== "undefined") {
   })
 }
 
-// ==== recommendations (S14) ================================================================
+// ==== recommendations ================================================================
 // The web's recommendation controls, through the worker's feedback and
 // setTasteProfile:
-// - Pin to / Unpin from Listen again on songs (S3's listenAgainTokens),
+// - Pin to / Unpin from Listen again on songs (listenAgainTokens),
 //   Home's cards (albums, playlists, artists, podcasts: the tokens their
 //   menu came with) and on the page menu (M) of an album, playlist, Liked
 //   Music or artist (the header's pin, withPagePin). YouTube may ignore an
@@ -5484,7 +5483,7 @@ if (typeof module !== "undefined") {
 //   unmarks an artist here, and the "Add N artists" row sends the marked
 //   ones after a second press. Adding is all the API does: the page says
 //   so, as YouTube does not say which artists were picked before.
-// What is pinned lives in the Store ("recommendations (S14)"), keyed by
+// What is pinned lives in the Store ("recommendations" section), keyed by
 // pinKey; Service.fillMenuState puts it in a menu's ctx as `pinned`.
 
 // The shell keeps a Home card's feedback tokens out of what it saves, as
@@ -5821,7 +5820,7 @@ _insertAfter(MENU_ACTIONS, "refresh", [
     run: function(env) { env.panel.push(tasteItem()) } }
 ])
 
-// The taste page (M): the Add row's twin and unmarking (f is S3's find).
+// The taste page (M): the Add row's twin and unmarking (f is find).
 MENU_ACTIONS.push(
   { id: "tasteAdd", title: function(item, ctx) { return tasteAddTitle(ctx.tasteMarked, {}) }, icon: "󰐕",
     confirm: "Really add them? They can't be taken out here. Choose again",
@@ -5870,7 +5869,7 @@ if (typeof module !== "undefined") {
   })
 }
 
-// ==== history (S15) =========================================================================
+// ==== history =========================================================================
 // Plays recorded in YouTube Music history, as the web records them, and
 // entries removed from it. Recording is prefs.recordHistory, off until you
 // turn it on (Library's account row or its M menu); while it is off, the
@@ -5883,7 +5882,7 @@ if (typeof module !== "undefined") {
 // (flushDue), and when a panel opens, so the worker is never started for
 // one song. They are kept in pending-plays.json (PENDING_MAX, none older
 // than PENDING_TTL_MS). An unknown outcome drops the batch: a missing play
-// beats one counted twice (afterReport). History rows carry S3's
+// beats one counted twice (afterReport). History rows carry their
 // historyToken: x pressed twice, or the row menu, removes one at once and
 // puts it back when YouTube says no.
 
@@ -5946,7 +5945,7 @@ function playCheckMs(timePos, speed) {
 // sent? }, oldest first. `sent` marks the batch a reportPlays call has out
 // (written to the file before the call): never in another batch, and
 // dropped when the file is read again, since a reload or crash mid-call
-// left its outcome unknown. P1 (acct-5): `key` is the identity the play was
+// left its outcome unknown. `key` is the identity the play was
 // made under (the worker's identity key, when one had said), sent with its
 // batch so the worker never reports it as another identity.
 
@@ -6034,7 +6033,7 @@ function nextFlushAt(pending, now) {
 
 // What one reportPlays call sends: the oldest ready plays (`force`, as when
 // a panel opens: the waiting ones too), at most REPORT_CALL_MAX, all made
-// under the identity of the oldest (P1: one key a call).
+// under the identity of the oldest (one key a call).
 function reportBatch(pending, now, force) {
   var list = prunePending(pending, now)
   var ready = force === true ? _unsent(list) : readyPlays(list, now)
@@ -6154,7 +6153,7 @@ function removeHistoryPrompt(click) {
 
 // ---- History rows ----------------------------------------------------------------------------
 
-// A History row's token (S3; fresh pages only, a disk copy has none), or "".
+// A History row's token (fresh pages only, a disk copy has none), or "".
 function historyTokenOf(track) {
   var token = track && track.type === "track" ? track.historyToken : null
   return typeof token === "string" && token !== "" ? token : ""
@@ -6207,7 +6206,7 @@ function withHistoryEntry(page, track, index) {
 // ---- menu entries and keys -------------------------------------------------------------------
 
 // History rows: Remove from history (choose again within 4 s), the x twin.
-// S16 sets ctx.canRemoveHistory false for a brand account (YouTube does
+// ctx.canRemoveHistory is false for a brand account (YouTube does
 // not remove history entries there).
 _insertAfter(MENU_ACTIONS, "remove", [
   { id: "removeHistory", title: "Remove from history", icon: "󰅖", key: "remove",
@@ -6288,9 +6287,9 @@ if (typeof module !== "undefined") {
   })
 }
 
-// ==== account (S16) =========================================================================
+// ==== account =========================================================================
 // Library's account menu (M) gains Switch account, Audio quality and Content
-// location, before S15's Record plays and Sign out.
+// location, before Record plays and Sign out.
 // - Switch account lists the session's identities from the worker's
 //   `accounts` (your own account, its brand accounts and, when YouTube lists
 //   them, other Google logins); the worker's `switchAccount` acts as the one
@@ -6662,7 +6661,7 @@ if (typeof module !== "undefined") {
   })
 }
 
-// ==== uploads (S10) ===========================================================================
+// ==== uploads ===========================================================================
 // Your uploads. The Library's Uploads chip starts with Upload a file (an
 // inline path field: Enter uploads, Esc leaves), then Albums and Artists
 // (the albums and artists of your uploads, each a page of its own), then
@@ -6918,7 +6917,7 @@ function uploadLibraryRows(data, opts) {
   }
   if (list.message) rows.push({ item: { type: "message", title: String(list.message) } })
   else if (!items.length && list.at > 0 && list.loading !== true) rows.push({ item: { type: "message", title: "No uploaded songs yet" } })
-  if (list.capped) rows.push({ item: { type: "message", title: capMessage(items.length, list.orders) } })  // G1
+  if (list.capped) rows.push({ item: { type: "message", title: capMessage(items.length, list.orders) } })
   else if (list.cursor || list.hasMore) rows.push({ item: { type: "loadMore", title: "Load more" } })
   return rows
 }
@@ -7008,7 +7007,7 @@ if (typeof module !== "undefined") {
   })
 }
 
-// ==== no ceilings (G1) ======================================================================
+// ==== long lists ========================================================================
 // Whatever the web lets you scroll to or play, the panel reaches too. Long
 // lists load to their end (the Store's caps are 10,000 items; a list that
 // reaches one says so, capMessage). A list longer than the queue takes
@@ -7106,7 +7105,7 @@ function itemPartial(item, result) {
 // Enter on a song of a collection page that holds only the start of its
 // list (a playlist's first 200 to 300 songs): the rest is read when the
 // queue gets there. Null for a whole list, and for Liked Music filtered
-// to a chip (G4: it plays what it shows; tracksFor would read on through
+// to a chip (it plays what it shows; tracksFor would read on through
 // every liked song).
 function collectionPartial(page, item) {
   if (!isCollection(page) || page.truncated !== true || !tracksForParams(item)) return null
@@ -7301,7 +7300,7 @@ if (typeof module !== "undefined") {
   })
 }
 
-// ==== song tokens (G2) ======================================================================
+// ==== song tokens ======================================================================
 // Save to library and Pin to Listen again wherever the web's menus offer
 // them: the song playing and every queue row too. The queue keeps no
 // tokens (Service.remember strips them, so mpv's meta, session.json,
@@ -7312,7 +7311,7 @@ if (typeof module !== "undefined") {
 // Service.withLiveTokens, which also looks in the up-next list of the song
 // playing. Rows elsewhere carry their own (the worker reads the pin on
 // every row now, and the podcast and episode pages' headers). An upload
-// (S10) gets neither, as on the web: no tokens are held or put back for
+// gets neither, as on the web: no tokens are held or put back for
 // it, and its menus and S never offer them.
 
 var LIVE_TOKEN_KEYS = ["inLibrary", "libraryTokens", "pinned", "listenAgainTokens"]
@@ -7336,7 +7335,7 @@ function liveTokensOf(value) {
 // `map` (videoId -> liveTokensOf) with the tokens of `tracks` put in: a
 // copy, or the same map when none of them carries any. A track without
 // tokens (from a disk copy) leaves what the map holds for its song; an
-// upload's are never held (S10: it has no Save or Pin).
+// upload's are never held (it has no Save or Pin).
 function liveTokensPut(map, tracks) {
   var next = null
   for (var i = 0; i < (tracks || []).length; i++) {
@@ -7388,7 +7387,7 @@ function nowContextTokens(context, videoId) {
 // lacks, each pair (with its state) from the first of `sources`
 // (liveTokensOf entries; nulls are skipped) that has it. The track itself
 // when it lacks nothing or no source has what it lacks, and for an upload
-// (S10: the web's upload menus have neither Save to library nor Pin).
+// (the web's upload menus have neither Save to library nor Pin).
 function withLiveTokens(track, sources) {
   if (!track || typeof track !== "object" || !track.videoId || isUploadTrack(track)) return track
   var library = null
@@ -7417,7 +7416,7 @@ function withLiveTokens(track, sources) {
 // nothing to save. o: { signedIn, menu (Service.songMenuState: its own
 // menu "read", "loading", "failed" with a message, or "unread") }. Only a
 // menu that was read and had no library entry is "no library control";
-// an upload (S10) never has one, so its menu is not asked for.
+// an upload never has one, so its menu is not asked for.
 function nowSaveNotice(track, o) {
   var s = o || {}
   var menu = s.menu || {}
@@ -7440,7 +7439,7 @@ function withPagePinCopy(item, page) {
   return withPagePin(out, page)
 }
 
-// S10 with G2: no Save to library and no Pin to Listen again on an upload
+// No Save to library and no Pin to Listen again on an upload
 // (a song, album or artist), whatever tokens a list or a nowContext brings
 // with it: the web's upload menus offer neither, and S does nothing to it.
 var _g2SongTokens = songTokens
@@ -7464,7 +7463,7 @@ if (typeof module !== "undefined") {
   })
 }
 
-// ==== podcasts more (G3) ======================================================================
+// ==== podcasts more ======================================================================
 // A podcast page's episode orders (Latest, Oldest, Popular, Creator
 // provided) and filters (In progress, Unplayed, Played), shown as the web's
 // chip cloud: one sort chip (a click or M's Sort opens its chooser; O
@@ -7483,7 +7482,7 @@ var SORT_ICON = "󰒺"
 var FILTER_ICON = "󰈲"
 var EPISODE_CHOSEN_ICON = "󰄬"
 
-// The params a page is asked with: S3's (its order, Load all) and its
+// The params a page is asked with: (its order, Load all) and its
 // episode filter (an index; null for none).
 var _g3PageExtra = pageExtra
 pageExtra = function(order, all, filter) {
@@ -7613,7 +7612,7 @@ function clearFilterRow(page) {
     : null
 }
 
-// S8's rows, or the episodes Find in show matches (opts.find, opts.loading).
+// rows, or the episodes Find in show matches (opts.find, opts.loading).
 var _g3PodcastRows = podcastRows
 podcastRows = function(page, opts) {
   var o = opts || {}
@@ -7664,8 +7663,8 @@ if (typeof module !== "undefined") {
   })
 }
 
-// ==== menus and lists (G4) =====================================================================
-// The menu and list gaps a completeness audit found:
+// ==== menus and lists =====================================================================
+// Menu and list details:
 // - Start radio from Liked Music (its row, its page's M and R with no row):
 //   YouTube's RDAMPLLM, signed in only.
 // - A mix (RDTMAK, RDAT, RD... rows and pages) offers Shuffle, Save to
@@ -7701,7 +7700,7 @@ radioParams = function(item) {
 
 _SHUFFLES.push("mix")
 
-// An album, a playlist or (G4) a mix can be saved whole into a playlist: an
+// An album, a playlist or a mix can be saved whole into a playlist: an
 // album or playlist by its id (sourcePlaylistOf), a mix by its songs.
 function canSaveWhole(item) {
   return sourcePlaylistOf(item) !== "" || menuKind(item) === "mix"
@@ -7820,7 +7819,7 @@ function skipDuplicatesPrompt(count, total) {
   return what + " already there: Enter again adds them anyway, or choose Skip duplicates"
 }
 
-// S13's options plus (G4) skipDuplicates when `skip` and the playlist is
+// options plus skipDuplicates when `skip` and the playlist is
 // the one YouTube refused (never with Add anyway).
 var _g4PickerAddOptions = pickerAddOptions
 pickerAddOptions = function(state, playlistId, skip) {
@@ -7832,7 +7831,7 @@ pickerAddOptions = function(state, playlistId, skip) {
   return options
 }
 
-// S13's reply handling plus (G4) `skip: true` when Skip duplicates is
+// reply handling plus `skip: true` when Skip duplicates is
 // offered (the prompt then names both choices).
 var _g4PickerAfterReply = pickerAfterReply
 pickerAfterReply = function(state, playlistId, reply, total) {
@@ -7878,8 +7877,8 @@ function skippedNotice(playlistTitle, label, result) {
 // Whether the queue sets autoplay's songs apart (the caption, dimmed rows).
 // Not in a radio (Start radio, Liked Music Mix, a queue autoplay made one)
 // or a queue tuned to a chip other than All: every song after the current
-// one is then that radio's, plain rows as on the web, though S12 marks
-// them "auto" so a chip can replace them.
+// one is then that radio's, plain rows as on the web, though they are
+// marked "auto" so a chip can replace them.
 function autoplaySetApart(context, tuner) {
   return !(context && context.radio === true) && !(tuner && tuner.playlistId)
 }
@@ -7907,7 +7906,7 @@ editorInitial = function(target, settings) {
   return out
 }
 
-// S13's rows plus, when YouTube serves it, Remove custom image (under
+// rows plus, when YouTube serves it, Remove custom image (under
 // Privacy, before Advanced). opts.imageArmed: the first press asks again.
 var _g4EditorRows = editorRows
 editorRows = function(initial, current, opts) {
@@ -7965,8 +7964,8 @@ if (typeof module !== "undefined") {
   })
 }
 
-// ==== final review fixes (P1) =================================================================
-// priv-1: what a list played from a page is called in the queue's context
+// ==== your own channel's name ===========================================================
+// What a list played from a page is called in the queue's context
 // (queue.json, IPC status, "Playing from"). Your own channel's page is
 // titled with the account's name (a brand account's name when acting as
 // one), which must never reach a file or the status: it is "Your channel".

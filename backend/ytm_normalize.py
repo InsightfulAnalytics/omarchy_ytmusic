@@ -103,7 +103,7 @@ def like_status(value):
 
 
 def track_kind(item):
-    # S10: an uploaded song is one wherever it is listed (a playlist, Liked
+    # An uploaded song is one wherever it is listed (a playlist, Liked
     # Music, History, a watch list), by its video type or else by its
     # uploads album or artist ids. It has no entityId there (no Delete).
     if item.get("videoType") == UPLOAD_VIDEO_TYPE or _has_upload_refs(item):
@@ -143,14 +143,14 @@ def _vote_status(value):
 def track(item, album=None, album_thumbs=None):
     """A playable song or video. ``album``/``album_thumbs`` fill gaps in album tracks.
 
-    S3 keeps what the row menus of later slices act on: ``trackNumber`` (album
+    It keeps what the row menus act on: ``trackNumber`` (album
     pages), ``inLibrary`` and ``pinned`` (Listen again) with their feedback
     ``libraryTokens {add, remove}`` and ``listenAgainTokens {pin, unpin}``,
     ``historyToken`` (remove from history) and a collaborative playlist's
     ``voteStatus``. Tokens are account-bound and in fresh replies only: the
     disk cache drops them (ytm_cache.strip_tokens), so does the recorder's
     scrub, and the shell keeps them out of what it saves
-    (Model.withoutTokens). A slice that acts on a token reads it from a
+    (Model.withoutTokens). Code that acts on a token reads it from a
     fresh, non-cached reply.
     """
     video_id = item.get("videoId")
@@ -350,7 +350,7 @@ def episode(item):
 def search_item(item):
     """One search result (ytmusicapi's shape, typed by ``resultType``), or None.
 
-    S7: podcasts, episodes (tracks of kind ``episode``), profiles (with their
+    Podcasts, episodes (tracks of kind ``episode``), profiles (with their
     ``handle``) and stations (a mix playlist) too; an artist keeps YouTube's
     ``shuffleId`` and ``radioId`` mixes, which the row menu plays.
     """
@@ -424,7 +424,7 @@ def search_grouped(results, top=None):
     ``results`` are search results in served order, ``top`` the top result
     card's (its item, then the rows it holds) or a podcast's lead shelf, both
     in ytmusicapi's shape. The top section comes only from what the search
-    module read as the top result (S7: never from a position or the English
+    module read as the top result (never from a position or the English
     "Top result" label), so without ``top`` it is empty. ``order``
     lists the groups in the order YouTube served their first result.
     """
@@ -674,7 +674,7 @@ def page(kind, page_id, title, subtitle=None, thumbnails=None, sections=None, cu
     }
 
 
-# ---- uploads (S10) ----------------------------------------------------------------
+# ---- uploads ----------------------------------------------------------------
 # Your uploaded songs, albums and artists keep their uploads ids
 # (FEmusic_library_privately_owned_...): a song's album and artists, an
 # album's browseId and an artist's channelId open the upload album and

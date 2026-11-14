@@ -1,4 +1,4 @@
-"""No ceilings (G1): the library played in its order, Shuffle all read on
+"""Long lists: the library played in its order, Shuffle all read on
 through the server shuffle, and albums over the 200 rows YouTube serves.
 
 The library's watch queues are private, so they are hand-built in the

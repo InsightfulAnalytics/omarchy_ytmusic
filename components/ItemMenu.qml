@@ -4,7 +4,7 @@ import qs.Ui
 import "../YtmModel.js" as Model
 
 // The row menu (the web's three-dot menu), a chooser (which artist of a
-// song; later slices: country, quality, tuner) and the key help. Covers the
+// song, the Charts country, audio quality, the tuner) and the key help. Covers the
 // panel content while open, like the playlist picker. The menu lists
 // Model.menuActions for an item; Panel runs the one chosen. An action with
 // `confirm` runs on a second press within 4 s.

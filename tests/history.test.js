@@ -1,4 +1,4 @@
-// S15: plays recorded in YouTube Music history, and History entries removed
+// Plays recorded in YouTube Music history, and History entries removed
 // (YtmModel's "history" section).
 const test = require("node:test")
 const assert = require("node:assert/strict")
@@ -221,7 +221,7 @@ test("History rows: the token, the params, and none on a disk copy", () => {
   assert.deepEqual(Model.removeHistoryParams(track), { tokens: ["tok"] })
   assert.equal(Model.historyTokenOf({ type: "track", videoId: "nbCOAPR33ME" }), "")
   assert.equal(Model.removeHistoryParams({ type: "album", historyToken: "tok" }), null)
-  assert.equal(Model.withoutTokens(track).historyToken, undefined, "the queue never keeps it (S3)")
+  assert.equal(Model.withoutTokens(track).historyToken, undefined, "the queue never keeps it")
 })
 
 test("menus: Remove from history on History rows, confirmed; Record plays on Library's account menu", () => {
@@ -236,7 +236,7 @@ test("menus: Remove from history on History rows, confirmed; Record plays on Lib
   assert.ok(!ids(Model.menuActions(row, { pageKind: "playlist", signedIn: true })).includes("removeHistory"))
   assert.ok(!ids(Model.menuActions(row, { pageKind: "history", signedIn: false })).includes("removeHistory"))
   assert.ok(!ids(Model.menuActions(row, Object.assign({ canRemoveHistory: false }, ctx))).includes("removeHistory"),
-    "S16: a brand account")
+    "a brand account")
   const removed = []
   entry.run({ item: row, ctx, index: 4, owner: { removeFromHistory: (i, confirmed) => removed.push([i, confirmed]) } })
   entry.run({ item: row, ctx, index: -1, owner: { removeFromHistory: (i, confirmed) => removed.push([i, confirmed]) } })
@@ -244,7 +244,7 @@ test("menus: Remove from history on History rows, confirmed; Record plays on Lib
 
   const library = { page: true, pageKind: "library", signedIn: true }
   const offMenu = Model.menuActions(null, library)
-  // S14's taste builder comes first, then S9's Your channel and S16's account
+  // taste builder comes first, then Your channel and account
   // entries; Record plays comes right before Sign out, which stays last.
   assert.deepEqual(ids(offMenu),
     ["tasteProfile", "myChannel", "switchAccount", "audioQuality", "contentLocation", "recordHistory", "streamAccount", "signOut"])

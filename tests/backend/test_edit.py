@@ -1,4 +1,4 @@
-"""ytm_edit (S13): playlist editing, moves, adds with duplicates, copies, joins.
+"""ytm_edit: playlist editing, moves, adds with duplicates, copies, joins.
 
 Every edit is pinned against a fake client: the real ones change the account,
 so they only run live on a throwaway playlist. Settings and suggestions are
@@ -582,7 +582,7 @@ def test_an_empty_playlist_of_yours_is_owned_by_its_page():
 
 def test_every_edit_mutates_and_invalidates():
     edits = {"editPlaylist", "movePlaylistItem", "addToPlaylist", "createPlaylist", "joinPlaylist",
-             "removePlaylistImage"}  # G4
+             "removePlaylistImage"}
     assert edit.MUTATES == edits and edits <= ytm.MUTATES
     for name in edits:
         triples = ytm.INVALIDATES[name]

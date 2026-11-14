@@ -2,7 +2,7 @@ const test = require("node:test")
 const assert = require("node:assert/strict")
 const Model = require("../YtmModel.js")
 
-// Podcasts more (G3): a podcast's episode orders and filters, Find in show,
+// Podcasts more: a podcast's episode orders and filters, Find in show,
 // and the artist page's Latest episodes See all.
 
 const episode = (n, extra = {}) => ({ type: "track", kind: "episode", videoId: ("ep" + n).padEnd(11, "x"), title: "Episode " + n,
@@ -21,7 +21,7 @@ test("an order and a filter are params of their own: each is its own page", () =
   assert.deepEqual(Model.pageExtra(null, false, 0), { filter: 0 }, "filter 0 (In progress) is a filter")
   assert.deepEqual(Model.pageExtra(2, false, null), { order: 2 })
   assert.equal(Model.pageExtra(null, false, null), null)
-  assert.deepEqual(Model.pageExtra(null, true), { limit: "all" }, "S3's Load all as before")
+  assert.deepEqual(Model.pageExtra(null, true), { limit: "all" }, "Load all as before")
   const item = { type: "podcast", browseId: "MPSPPLshow" }
   const plain = Model.pageRef(item, Model.pageExtra(null, false, null))
   const unplayed = Model.pageRef(item, Model.pageExtra(null, false, 1))

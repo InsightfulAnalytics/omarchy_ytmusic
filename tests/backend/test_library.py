@@ -1,4 +1,4 @@
-"""ytm_library: the library lists and their sort orders (S2).
+"""ytm_library: the library lists and their sort orders.
 
 Hand-built responses only: these pages are private, so nothing is recorded
 from them. The shapes follow the served ones (grid or music shelf inside an
@@ -311,7 +311,7 @@ def test_an_ordered_first_page_drops_the_cached_browse_pages(tmp_path):
     assert reply["ok"]
     assert cache.get("browsePage", {"browseId": ALBUMS}) is None, "YouTube saved the order: that copy is stale"
     assert cache.get("browsePage", {"browseId": ARTISTS}) is not None
-    # P1 (acct-1): the shell reads in the saved order after an O, so the plain
+    # The shell reads in the saved order after an O, so the plain
     # copy (the order before) goes too, and so does every ordered one.
     assert cache.get("libraryAlbums", {}) is None, "the plain copy is in the order before"
     assert cache.get("libraryAlbums", {"order": "a_to_z"}) is None

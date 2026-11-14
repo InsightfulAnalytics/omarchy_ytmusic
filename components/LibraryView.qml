@@ -3,28 +3,28 @@ import qs.Commons
 import qs.Ui
 import "../YtmModel.js" as Model
 
-// Your account and "new playlist", then the library's chips (S2):
+// Your account and "new playlist", then the library's chips:
 // Playlists (Liked Music, History, Recent activity, your and saved
 // playlists), Songs (Shuffle all, then the songs), Albums and Artists
-// (Subscriptions and, S9, Profiles, then the artists), Podcasts (S8:
+// (Subscriptions and Profiles, then the artists), Podcasts (
 // Episodes for Later with its count, New episodes and Channels, then the
-// saved podcasts), Uploads (S10: Upload a file, Albums and Artists, then
+// saved podcasts), Uploads (Upload a file, Albums and Artists, then
 // your uploaded songs). h / l switch chips (kept in prefs.libraryChip); O
 // sends the chip's next sort order, which YouTube saves on the account
-// (P1: nothing else sends one; the heading names the order YouTube says
+// (nothing else sends one; the heading names the order YouTube says
 // the list is in). A chip's list loads only once it is shown, about 50 at
 // a time: Load more, or the cursor nearing the end.
 //
-// New playlist (S13): a privacy chip (a click, or Alt+Left / Alt+Right in
+// New playlist: a privacy chip (a click, or Alt+Left / Alt+Right in
 // the fields) and an optional description under the name; a pasted
 // playlist invite link joins that playlist instead.
 //
-// Upload a file (S10): Enter on the row opens a path field under the chips;
+// Upload a file: Enter on the row opens a path field under the chips;
 // Enter there uploads the file (Service.uploadFile), Esc or Down leaves it.
 // The path stays in the field until the upload went, so a refused one can
 // be fixed. Hidden for a brand account (it cannot upload).
 //
-// P1 (kb-upload-tab): no field here passes Tab on. Qt's own tab chain
+// No field here passes Tab on. Qt's own tab chain
 // (the kit's TextField takes focus on Tab) would carry the typing into
 // another field, even a hidden one, and Enter there would act on it.
 Item {
@@ -37,11 +37,11 @@ Item {
   readonly property color foreground: bar ? bar.foreground : Color.foreground
   readonly property string fontFamily: bar ? bar.fontFamily : Style.font.family
   readonly property bool signedIn: !!service && service.signedIn
-  // S16: the identity in use (a brand account's own name and photo).
+  // The identity in use (a brand account's own name and photo).
   readonly property var account: service ? service.activeAccount : null
   readonly property string chip: Model.libraryChip(service && service.prefs ? service.prefs.libraryChip : "")
   readonly property bool isPlaylists: chip === "playlists"
-  readonly property bool isUploads: chip === "uploads"  // S10
+  readonly property bool isUploads: chip === "uploads"
   // The chip's list: libraryList's shape (Playlists: its orders and order).
   readonly property var list: !store ? null
     : isPlaylists ? { orders: store.playlistOrders,
@@ -56,19 +56,19 @@ Item {
   // start a new order empty).
   readonly property bool reordering: isPlaylists && !!store && store.libraryLoading && store.playlistsRequested !== null
     && !Model.sameOrder(store.playlistsRequested, store.playlistOrder)
-  // S10: the Uploads chip's rows know the upload row's state.
+  // The Uploads chip's rows know the upload row's state.
   readonly property var rows: !store ? []
     : isUploads ? Model.uploadLibraryRows(list, { canUpload: canUpload, uploading: service ? service.uploading : [] })
     : Model.libraryRows(chip, list, store.playlists)
   readonly property alias results: resultList
   readonly property bool inputFocused: nameField.activeFocus || descriptionField.activeFocus || uploadField.activeFocus
-  // S10: Upload a file's path field is open; a brand account cannot upload.
+  // Upload a file's path field is open; a brand account cannot upload.
   property bool uploadOpen: false
   readonly property bool canUpload: signedIn && !(service && service.identityBrand)
-  // S13: the new playlist's privacy, and whether the name field holds an invite link.
+  // The new playlist's privacy, and whether the name field holds an invite link.
   property string newPrivacy: "PRIVATE"
   readonly property bool joining: !!Model.parseInviteUrl(nameField.text)
-  // S15: plays go to YouTube Music history (the account row's button and
+  // Plays go to YouTube Music history (the account row's button and
   // the M menu turn it on and off).
   readonly property bool recordHistory: !!service && service.recordHistory === true
 
@@ -92,7 +92,7 @@ Item {
     service.setPref("libraryChip", key)
   }
 
-  // O: the chip's next sort order (YouTube saves it on the account; P1:
+  // O: the chip's next sort order (YouTube saves it on the account; 
   // the only load that sends one).
   function cycleOrder() {
     if (!signedIn || !store) return false
@@ -102,7 +102,7 @@ Item {
     return true
   }
 
-  // Enter plays a song (the loaded songs from there; G1: then the rest of
+  // Enter plays a song (the loaded songs from there; then the rest of
   // the library in its order, as the queue gets there), Shuffle all plays
   // YouTube's shuffle of the whole library (and goes on through it), Load
   // more loads the next page; anything else opens as a page.
@@ -115,13 +115,13 @@ Item {
     } else if (item.type === "action") {
       if (item.id === Model.LIBRARY_SHUFFLE && Model.libraryShuffleItem(list))
         service.playItem(Model.libraryShuffleItem(list), "now")
-      else if (item.id === Model.UPLOAD_FILE_ID) openUpload()  // S10
+      else if (item.id === Model.UPLOAD_FILE_ID) openUpload()
     } else if (item.type === "message") {
       return
     } else if (row.trackIndex !== undefined) {
       service.playCollection(Model.libraryTracks(list), row.trackIndex, false,
                              { playlistId: null, title: isUploads ? "Uploaded songs" : Model.LIBRARY_SONGS_TITLE, radio: false },
-                             Model.librarySongsPartial(chip, list))  // G1
+                             Model.librarySongsPartial(chip, list))
     } else {
       root.openRequested(item)
     }
@@ -145,21 +145,21 @@ Item {
                              owner: root, index: index })
   }
 
-  // M: the account row's menu (S14: Add artists you like; S9: Your channel;
-  // S16: Switch account, Audio quality, Content location; S15: Record plays
+  // M: the account row's menu (Add artists you like; Your channel;
+  // Switch account, Audio quality, Content location; Record plays
   // in history; Sign out).
   function pageMenu() {
     return { item: null, ctx: { page: true, pageKind: "library", recordHistory: root.recordHistory,
                                 streamAccount: !!service && service.streamAccount === true,
-                                quality: service ? service.quality : "", location: service ? service.location : "",  // S16
-                                canUseOwnAccount: !!service && service.canUseOwnAccount,  // S16
-                                noChannel: !!root.store && root.store.myChannelMissing },  // S9: hides Your channel
+                                quality: service ? service.quality : "", location: service ? service.location : "",
+                                canUseOwnAccount: !!service && service.canUseOwnAccount,
+                                noChannel: !!root.store && root.store.myChannelMissing },  // hides Your channel
              owner: root, index: -1,
              title: root.signedIn ? (root.account && root.account.name ? root.account.name : "Signed in") : "Not signed in",
              subtitle: root.signedIn ? Model.accountCaption(root.account) : "" }
   }
 
-  // ---- library actions (S4) ---------------------------------------------------------
+  // ---- library actions ---------------------------------------------------------
   // The callback of an edit made from a chip's rows (Model.editCallbackOf):
   // when its outcome is unknown or a song's token was stale, the chip it
   // was made on is read again from YouTube, if it is still the one shown
@@ -177,7 +177,7 @@ Item {
     return true
   }
 
-  // S13: with the privacy chip's privacy and the description; an invite
+  // With the privacy chip's privacy and the description; an invite
   // link joins its playlist.
   function createPlaylist() {
     var name = nameField.text.trim()
@@ -195,7 +195,7 @@ Item {
     newPrivacy = Model.nextOption(Model.PRIVACY_OPTIONS, newPrivacy, dx)
   }
 
-  // ---- uploads (S10) ------------------------------------------------------------------
+  // ---- uploads ------------------------------------------------------------------
 
   function openUpload() {
     if (!canUpload) return
@@ -243,7 +243,7 @@ Item {
     return true
   }
 
-  // P1: Tab or Shift+Tab a field did not use stays in it (a no-op).
+  // Tab or Shift+Tab a field did not use stays in it (a no-op).
   function keepTab(event) {
     if (event.key !== Qt.Key_Tab && event.key !== Qt.Key_Backtab) return false
     event.accepted = true
@@ -265,12 +265,12 @@ Item {
 
   onVisibleChanged: Qt.callLater(refreshShown)
   onSignedInChanged: Qt.callLater(refreshShown)
-  // S16: another identity or location emptied the Store: the chip shown reads again.
+  // Another identity or location emptied the Store: the chip shown reads again.
   Connections {
     target: root.service
     function onAccountEpochChanged() { Qt.callLater(root.refreshShown) }
   }
-  // S10: leaving Uploads, or losing the right to upload (Sign out, a brand
+  // Leaving Uploads, or losing the right to upload (Sign out, a brand
   // account), closes the path field and gives its keys back to the list.
   // This handler runs before isUploads follows the chip, so it reads chip.
   onChipChanged: {
@@ -287,7 +287,7 @@ Item {
     service: root.service
     bar: root.bar
     expired: !!root.service && (root.service.authState === "expired" || root.service.authState === "invalid")
-    canUseOwnAccount: !!root.service && root.service.canUseOwnAccount  // S16
+    canUseOwnAccount: !!root.service && root.service.canUseOwnAccount
   }
 
   Item {
@@ -331,7 +331,7 @@ Item {
         Text {
           width: parent.width
           textFormat: Text.PlainText
-          text: Model.accountCaption(root.account)  // S16: the handle, and Brand account
+          text: Model.accountCaption(root.account)  // the handle, and Brand account
           visible: text !== ""
           color: Qt.darker(root.foreground, 1.4)
           font.family: root.fontFamily
@@ -340,7 +340,7 @@ Item {
         }
       }
 
-      // S15: whether plays go to YouTube Music history, in sight; a click
+      // Whether plays go to YouTube Music history, in sight; a click
       // turns it on or off.
       Button {
         id: recordPlays
@@ -368,7 +368,7 @@ Item {
       }
     }
 
-    // S16: a click on the account (its photo or name) opens its menu, M's twin.
+    // A click on the account (its photo or name) opens its menu, M's twin.
     MouseArea {
       x: accountRow.x
       y: accountRow.y
@@ -404,7 +404,7 @@ Item {
         }
       }
 
-      // S13: the new playlist's privacy (one cycling chip).
+      // The new playlist's privacy (one cycling chip).
       Button {
         id: privacyChip
         anchors.verticalCenter: parent.verticalCenter
@@ -432,7 +432,7 @@ Item {
       }
     }
 
-    // S13: an optional description, once a name is typed.
+    // An optional description, once a name is typed.
     Row {
       id: descriptionRow
       anchors.top: createRow.bottom
@@ -494,7 +494,7 @@ Item {
       }
     }
 
-    // S10: Upload a file's path field.
+    // Upload a file's path field.
     Row {
       id: uploadRow
       anchors.top: chipRow.bottom
@@ -519,7 +519,7 @@ Item {
             root.leaveUpload(event.key === Qt.Key_Escape)
             if (event.key === Qt.Key_Down) resultList.moveCursor(1)
           } else {
-            root.keepTab(event)  // P1: a path field has no completion here
+            root.keepTab(event)  // a path field has no completion here
             return
           }
           event.accepted = true
@@ -551,7 +551,7 @@ Item {
       text: !root.store ? "" : root.listLoading && root.itemCount === 0 ? "Loading your library…"
         : root.listError !== "" ? root.listError
         : !root.isPlaylists && !!root.list && !root.listLoading && root.itemCount === 0 && !root.list.message
-          && root.list.at > 0 && root.chip !== "podcasts" && !root.isUploads ? "Nothing here yet" : ""  // S8, S10: entry rows show
+          && root.list.at > 0 && root.chip !== "podcasts" && !root.isUploads ? "Nothing here yet" : ""  // entry rows show
       color: root.listError !== "" ? Color.urgent : Qt.darker(root.foreground, 1.5)
       font.family: root.fontFamily
       font.pixelSize: Style.font.bodySmall

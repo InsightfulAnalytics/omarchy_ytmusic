@@ -1,4 +1,4 @@
-"""ytm_users (S9): profile pages, your channel and the library's profiles.
+"""ytm_users: profile pages, your channel and the library's profiles.
 
 The profile page is recorded signed out (a public profile found by the
 anonymous 'lofi' search); your channel, its account menu and the library's
@@ -297,7 +297,7 @@ def test_your_channel_comes_from_the_account_menu_the_session_check_reads(tmp_pa
 
 
 def test_a_session_checked_another_way_has_its_account_menu_read_once(tmp_path):
-    # A switch of identity (S16) checks the new one with get_account_info
+    # A switch of identity checks the new one with get_account_info
     # itself and marks the session verified: the menu was never captured.
     cache = caches.DiskCache(tmp_path / "data")
     worker = worker_for({MINE: own_page(), "UCsomeone": channel_page("Someone", [], channel_id="UCsomeone")}, MENU,

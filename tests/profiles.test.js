@@ -2,7 +2,7 @@ const test = require("node:test")
 const assert = require("node:assert/strict")
 const Model = require("../YtmModel.js")
 
-// Profiles (S9): profile pages, Your channel, the library's Profiles row
+// Profiles: profile pages, Your channel, the library's Profiles row
 // and subscribing to a profile.
 
 const profile = (id, extra = {}) => ({ type: "profile", channelId: id, name: "Someone", subtitle: null, thumb: null, ...extra })
@@ -73,7 +73,7 @@ test("Subscribe label by state, and S on a profile subscribes", () => {
   // A profile is its own subscribe channel and page.
   assert.deepEqual(Model.subscribeParams(p, true), { pageChannelId: "UCp", subscribe: true, channelId: "UCp" })
   assert.deepEqual(Model.subscribeParams(p, false), { pageChannelId: "UCp", subscribe: false, channelId: "UCp" })
-  // Optimistic, then rolled back: the S4 state helpers take any channel.
+  // Optimistic, then rolled back: the state helpers take any channel.
   const edit = Model.optimistic({}, "UCp", true)
   assert.equal(Model.subscribedState("UCp", { subscribed: edit.map, fallback: false }), true, "the edit wins over the header")
   assert.equal(Model.subscribedState("UCp", { subscribed: Model.restoreStates(edit.map, edit.previous), fallback: false }), false)
@@ -101,7 +101,7 @@ test("a profile page: Subscribe unless it is your own, and its item for the menu
   assert.equal(Model.canSubscribeProfile(own), false)
   assert.equal(Model.profileHeader(own).own, true)
   assert.equal(Model.canSubscribeProfile(null), false)
-  assert.equal(Model.profileOfPage({ type: "page", kind: "channel", header: { channelId: "UCc" } }), null, "a podcast channel is S8's")
+  assert.equal(Model.profileOfPage({ type: "page", kind: "channel", header: { channelId: "UCc" } }), null, "a podcast channel is its own kind")
   // The page menu (M) on a profile: Subscribe follows the header; Copy link.
   const ctx = { page: true, pageKind: "user", signedIn: true, canSubscribePage: true, subscribed: true }
   const menu = Model.menuActions(Model.profileOfPage(page), ctx)
@@ -138,7 +138,7 @@ test("profile rows say who they are: handle and served subtitle, else Profile", 
 
 test("Library: Your channel leads the account entries, hidden once the worker says there is none", () => {
   const library = { page: true, pageKind: "library", signedIn: true }
-  // After S14's taste builder; before S16's Switch account, as on the web.
+  // After taste builder; before Switch account, as on the web.
   assert.deepEqual(ids(null, library),
     ["tasteProfile", "myChannel", "switchAccount", "audioQuality", "contentLocation", "recordHistory", "streamAccount", "signOut"])
   assert.deepEqual(ids(null, Object.assign({}, library, { noChannel: true })),

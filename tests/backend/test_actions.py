@@ -1,4 +1,4 @@
-"""ytm_actions (S4): save albums and playlists, subscribe, songs in the library.
+"""ytm_actions: save albums and playlists, subscribe, songs in the library.
 
 Every call here is pinned against a fake client: the real ones change the
 account, so they are only run live on throwaway objects."""
@@ -120,7 +120,7 @@ def test_subscribe_and_unsubscribe_any_channel():
     assert reply["ok"] and reply["result"] == {"channelId": "UCsub", "pageChannelId": "UCpage", "subscribed": True}
     reply = call(worker, "subscribe", channelId="UCsub", pageChannelId="UCpage", subscribe=False)
     assert reply["ok"] and reply["result"]["subscribed"] is False
-    # A channel that is no artist page (S9's profiles): its own id, no page.
+    # A channel that is no artist page (profiles): its own id, no page.
     assert call(worker, "subscribe", channelId="UCuser", subscribe=True)["result"]["pageChannelId"] is None
     assert worker.yt.edits() == [("subscribe_artist", ("UCsub",), {}), ("unsubscribe_artists", (["UCsub"],), {}),
                                  ("subscribe_artist", ("UCuser",), {})]

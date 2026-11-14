@@ -393,7 +393,7 @@ def test_client_settings_record_survives_clear(cache):
     assert cache.client_settings() == {} and not (cache.dir / caches.DiskCache.SETTINGS_FILE).exists()
 
 
-# ---- library actions (S4) -----------------------------------------------------------------
+# ---- library actions -----------------------------------------------------------------
 
 
 class Actions(Upstream):
