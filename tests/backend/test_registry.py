@@ -86,9 +86,9 @@ def test_every_core_edit_drops_browse_pages():
         assert any(method == "browsePage" for method, _, _ in ytm.INVALIDATES[name]), name
 
 
-def test_readme_lists_every_method():
-    readme = (ROOT / "README.md").read_text()
+def test_protocol_doc_lists_every_method():
+    readme = (ROOT / "docs" / "DEVELOPMENT.md").read_text()
     section = readme.split("## Worker protocol", 1)[1].split("\n## ", 1)[0]
     listed = set(re.findall(r"`([A-Za-z]+)`", section))
     missing = sorted(set(ytm.METHODS) - listed)
-    assert not missing, f"README's Worker protocol section does not list {missing}"
+    assert not missing, f"docs/DEVELOPMENT.md's Worker protocol section does not list {missing}"

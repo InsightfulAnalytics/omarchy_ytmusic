@@ -1,6 +1,6 @@
 # Learnings
 
-Root causes of the non-obvious problems hit while building this fork, so they are not rediscovered.
+Root causes of the non-obvious problems hit while building the plugin, so they are not rediscovered.
 
 ## Signing in from the browser
 

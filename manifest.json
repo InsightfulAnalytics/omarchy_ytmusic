@@ -2,9 +2,9 @@
   "schemaVersion": 1,
   "id": "damir.ytmusic",
   "name": "YouTube Music",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "author": "Damir Sagi",
-  "description": "YouTube Music in a native bar panel: ytmusicapi for search and library, mpv for audio-only playback. No browser.",
+  "description": "YouTube Music in a native bar panel, with everything the web app offers: search, library and playlist editing, Home, Explore, podcasts and lyrics. ytmusicapi and mpv, no browser.",
   "kinds": [
     "service",
     "bar-widget"
@@ -15,7 +15,7 @@
   },
   "barWidget": {
     "displayName": "YouTube Music",
-    "description": "Now playing, search, playlists and likes for YouTube Music",
+    "description": "YouTube Music: playback, search, your library, Home and Explore",
     "category": "Media",
     "allowMultiple": false,
     "defaultSection": "right"

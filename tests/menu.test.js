@@ -33,16 +33,16 @@ test("menuKind tells songs, albums, playlists, mixes, Liked Music and artists ap
 
 test("menuActions per type", () => {
   const ctx = { signedIn: true, pageKind: "search" }
-  // S4: like, dislike, save and subscribe follow Start radio, as on the web.
+  // Like, dislike, save and subscribe follow Start radio, as on the web.
   assert.deepEqual(ids(Model.menuActions(song, ctx)),
     ["play", "playNext", "addToQueue", "radio", "like", "dislike", "addToPlaylist", "goArtist", "goAlbum", "credits", "share"])
-  // S13: Save to playlist and Copy to new playlist (signed in) follow Add to playlist.
+  // Save to playlist and Copy to new playlist (signed in) follow Add to playlist.
   assert.deepEqual(ids(Model.menuActions(album, ctx)),
     ["play", "shuffle", "playNext", "addToQueue", "radio", "save", "saveToPlaylist", "copyToNewPlaylist", "goArtist", "share"])
   assert.deepEqual(ids(Model.menuActions(playlist, ctx)),
     ["play", "shuffle", "playNext", "addToQueue", "radio", "saveToPlaylist", "copyToNewPlaylist", "share"])
   assert.deepEqual(ids(Model.menuActions(artist, ctx)), ["open", "shuffle", "radio", "subscribe", "share"])
-  // G4: a mix shuffles and saves into a playlist; Liked Music starts its radio.
+  // A mix shuffles and saves into a playlist; Liked Music starts its radio.
   assert.deepEqual(ids(Model.menuActions(mix, ctx)),
     ["play", "shuffle", "playNext", "addToQueue", "save", "saveToPlaylist", "copyToNewPlaylist"])
   assert.deepEqual(ids(Model.menuActions({ type: "liked" }, ctx)), ["play", "shuffle", "playNext", "addToQueue", "radio"])
@@ -57,9 +57,9 @@ test("menuActions per type", () => {
 
 test("menuActions follow ctx: signed out hides account entries; page, queue and current rows", () => {
   assert.ok(!ids(Model.menuActions(song, { signedIn: false })).includes("addToPlaylist"))
-  // S14: the taste builder; S9: Your channel (before Switch account, as on
-  // the web); S16: Switch account, Audio quality and Content location (the
-  // last two signed out too); S15: Record plays in history; all before Sign
+  // The taste builder; Your channel (before Switch account, as on
+  // the web); Switch account, Audio quality and Content location (the
+  // last two signed out too); Record plays in history; all before Sign
   // out.
   assert.deepEqual(ids(Model.menuActions(null, { page: true, pageKind: "library", signedIn: true })),
     ["tasteProfile", "myChannel", "switchAccount", "audioQuality", "contentLocation", "recordHistory", "streamAccount", "signOut"])
@@ -68,7 +68,7 @@ test("menuActions follow ctx: signed out hides account entries; page, queue and 
   // A row's menu on Library or Home has no account or page entries.
   assert.deepEqual(ids(Model.menuActions(playlist, { pageKind: "library", signedIn: true })),
     ["play", "shuffle", "playNext", "addToQueue", "radio", "saveToPlaylist", "copyToNewPlaylist", "share"])
-  assert.deepEqual(ids(Model.menuActions(mix, { pageKind: "home" })), ["play", "shuffle", "playNext", "addToQueue"])  // G4
+  assert.deepEqual(ids(Model.menuActions(mix, { pageKind: "home" })), ["play", "shuffle", "playNext", "addToQueue"])
   // The song playing: no Play, Play next or Add to queue.
   assert.deepEqual(ids(Model.menuActions(song, { signedIn: true, isCurrent: true })),
     ["radio", "like", "dislike", "addToPlaylist", "goArtist", "goAlbum", "credits", "share"])
@@ -80,7 +80,7 @@ test("menuActions follow ctx: signed out hides account entries; page, queue and 
   assert.ok(!ids(Model.menuActions(song, { pageKind: "album" })).includes("goAlbum"))
   // Page menus (M): the header buttons' twins, and Delete for your own playlist.
   const page = ids(Model.menuActions(playlist, { page: true, pageKind: "playlist", owned: true, hasTracks: true }))
-  // S13: Edit playlist (e) after Add to playlist's place; signed out here, so no Save to playlist.
+  // Edit playlist (e) after Add to playlist's place; signed out here, so no Save to playlist.
   assert.deepEqual(page, ["play", "shuffle", "playNext", "addToQueue", "radio", "editPlaylist", "share", "deletePlaylist"])
   assert.ok(!ids(Model.menuActions(playlist, { page: true, owned: false, hasTracks: true })).includes("deletePlaylist"))
   assert.ok(!ids(Model.menuActions(artist, { page: true })).includes("open"))
@@ -88,7 +88,7 @@ test("menuActions follow ctx: signed out hides account entries; page, queue and 
     ["play", "shuffle", "playNext", "addToQueue"])
   assert.deepEqual(ids(Model.menuActions(null, { page: true, pageKind: "home" })), ["refresh"])
   assert.deepEqual(ids(Model.menuActions(null, { page: true, pageKind: "now", queueLength: 1, autoplay: true })),
-    ["autoplay", "speed", "loudness"])  // S17: Playback speed and Loudness
+    ["autoplay", "speed", "loudness"])  // Playback speed and Loudness
   const now = Model.menuActions(song, { page: true, pageKind: "now", isCurrent: true, queueLength: 5, autoplay: false })
   assert.ok(ids(now).includes("clearQueue") && ids(now).includes("radio"))
   assert.equal(now.find(a => a.id === "autoplay").title, "Turn autoplay on")
@@ -329,7 +329,7 @@ test("KEYS: no key is bound twice, and every bound key is in the help", () => {
   for (const key of ["m", ".", "M", "R", "?", "n", "a"]) assert.ok(Model.keyId(key), key)
 })
 
-test("every text key is dispatched in Panel.qml, and the README and header comment come from KEYS", () => {
+test("every text key is dispatched in Panel.qml, and the features doc and header comment come from KEYS", () => {
   const panel = fs.readFileSync(path.join(ROOT, "Panel.qml"), "utf8")
   const runKey = panel.slice(panel.indexOf("function runKey("))
   const body = runKey.slice(0, runKey.indexOf("\n  }\n"))
@@ -337,9 +337,9 @@ test("every text key is dispatched in Panel.qml, and the README and header comme
     assert.ok(body.includes('"' + entry.id + '"'), `Panel.runKey handles ${entry.id}`)
   const comment = Model.keysComment().join("\n")
   assert.ok(panel.includes(comment), "Panel.qml header comment is Model.keysComment():\n" + comment)
-  const readme = fs.readFileSync(path.join(ROOT, "README.md"), "utf8")
+  const features = fs.readFileSync(path.join(ROOT, "docs", "FEATURES.md"), "utf8")
   const row = "| Panel keys | " + Model.keysReadme() + " |"
-  assert.ok(readme.includes(row), "README keys row is Model.keysReadme():\n" + row)
+  assert.ok(features.includes(row), "docs/FEATURES.md keys row is Model.keysReadme():\n" + row)
 })
 
 test("chordAllowed: Ctrl, Alt and Meta chords are not shortcuts", () => {
