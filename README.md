@@ -11,6 +11,7 @@
                                        ███   █▀
 
            ━━━━━━━━  YouTube Music · a native Omarchy plugin  ━━━━━━━━
+```
 
 <div align="center">
 
