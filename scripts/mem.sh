@@ -1,5 +1,5 @@
 #!/bin/bash
-# Report what damir.ytmusic costs in memory right now (PSS incl. swap, MiB).
+# Report what tim.ytmusic costs in memory right now (PSS incl. swap, MiB).
 #
 # The omarchy-shell line is the whole shell process; compare it with the
 # plugin disabled to get the panel's share.

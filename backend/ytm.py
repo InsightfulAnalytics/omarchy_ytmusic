@@ -7,7 +7,7 @@
 #   "secretstorage",
 # ]
 # ///
-"""damir.ytmusic backend: ytmusicapi behind a JSON-lines worker and a CLI.
+"""tim.ytmusic backend: ytmusicapi behind a JSON-lines worker and a CLI.
 
 The shell runs ``ytm.py serve``: one JSON request per stdin line, one JSON
 reply per stdout line. It exits on stdin EOF (so it can never outlive the
@@ -1048,7 +1048,7 @@ def cmd_record(args):
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(prog="ytm", description="YouTube Music backend for damir.ytmusic")
+    parser = argparse.ArgumentParser(prog="ytm", description="YouTube Music backend for tim.ytmusic")
     sub = parser.add_subparsers(dest="cmd", required=True)
     p = sub.add_parser("serve", help="JSON-lines worker for the shell")
     p.add_argument("--idle", type=float, default=180, help="exit after this many idle seconds (0 = never)")
