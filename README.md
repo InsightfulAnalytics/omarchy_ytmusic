@@ -242,8 +242,12 @@ after it closes.
   `positions.json` and `pending-plays.json` with the
   default umask (0644); the 0700 directory keeps them private.
 - Covers are only downloaded over HTTPS from YouTube/Google image hosts.
-- External text never reaches a shell: notifications and processes get
-  argument arrays, mpv titles use byte-length quoting, and the two `sh -c`
+- No song, album or playlist name on a command line, where every local
+  account can read it: the worker sends notifications over the session bus
+  (`backend/ytm_notify.py`) instead of `omarchy-notification-send`.
+- mpv checks TLS certificates (`--tls-verify=yes`; mpv's default is off), as
+  the worker's and yt-dlp's requests already do.
+- External text never reaches a shell: processes get argument arrays, mpv titles use byte-length quoting, and the two `sh -c`
   calls (mkdir for the cache, the tool check) take their arguments as
   positional parameters (`$1`, `$@`: the cache path, fixed tool names).
 - The `ytmusic` IPC target, like all Omarchy shell IPC, answers any process of

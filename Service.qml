@@ -508,7 +508,7 @@ Item {
     for (var k in _notifiedAt) next[k] = _notifiedAt[k]
     next[key] = now
     _notifiedAt = next
-    Quickshell.execDetached(["omarchy-notification-send", "--app-name", "YouTube Music", title, body || ""])
+    sendNotification(title, body, -1, null)
   }
 
   // Where play/pause continues after failures stopped playback: the first
@@ -884,7 +884,18 @@ Item {
   }
 
   function notify(title, body) {
-    Quickshell.execDetached(["omarchy-notification-send", "--app-name", "YouTube Music", "-t", "2500", title, body || ""])
+    sendNotification(title, body, 2500, null)
+  }
+
+  // The worker sends notifications over D-Bus (backend/ytm_notify.py): never
+  // omarchy-notification-send, whose command line (the song, album or
+  // playlist name) every local account can read. execArgv: what a click runs.
+  function sendNotification(title, body, timeoutMs, execArgv) {
+    var params = { title: String(title || ""), body: String(body || ""), timeoutMs: timeoutMs }
+    if (execArgv) params.execArgv = execArgv
+    backend.request("notify", params, function(reply) {
+      if (!reply.ok) console.warn("ytmusic: notification failed: " + reply.error.message)
+    }, 5000)
   }
 
   // ---- edits -------------------------------------------------------------------------
@@ -912,9 +923,7 @@ Item {
     if ((authState === "expired" || authState === "invalid") && !expiryNotified) {
       expiryNotified = true
       var notice = Model.expiryNotice(authState === "expired" ? identity : null)  // perhaps only the identity in use
-      Quickshell.execDetached(["omarchy-notification-send", "--app-name", "YouTube Music",
-        notice.title, notice.body,
-        "--exec", "omarchy-launch-floating-terminal-with-presentation", signInCommand()])
+      sendNotification(notice.title, notice.body, -1, ["omarchy-launch-floating-terminal-with-presentation", signInCommand()])
     }
   }
 

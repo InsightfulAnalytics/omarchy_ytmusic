@@ -54,6 +54,7 @@ import ytm_history as history  # noqa: E402
 import ytm_home as home  # noqa: E402
 import ytm_library as library  # noqa: E402
 import ytm_normalize as norm  # noqa: E402
+import ytm_notify as notify  # noqa: E402
 import ytm_now as now  # noqa: E402
 import ytm_pages as pages  # noqa: E402
 import ytm_play as play  # noqa: E402
@@ -94,7 +95,7 @@ CACHE_MODES = ("prefer", "refresh", "bypass")
 # pool and cookie jar are thread-safe, and ytm_raw keeps its state per thread.)
 # "whole" is no method's lane: a whole read of a pages-lane method (Load all,
 # f) goes there (lane_of), so the pages behind it never wait 15 to 40 s.
-KNOWN_LANES = ("streams", "suggest", "pages", "tracks", "upload", "report", "whole")
+KNOWN_LANES = ("streams", "suggest", "pages", "tracks", "upload", "report", "whole", "notify")
 
 
 def classify(exc):
@@ -356,7 +357,7 @@ class _Core:
 # Area modules, in a fixed order. A module that rewrites a core method moves it
 # out of the core tables into its module.
 AREA_MODULES = (pages, play, now, artist, library, collections, actions, home, explore, search, podcasts, users, edit,
-                feedback, history, identities, uploads)
+                feedback, history, identities, uploads, notify)
 
 
 def merge_registries(sources):

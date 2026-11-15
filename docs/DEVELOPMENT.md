@@ -120,7 +120,8 @@ library lists `libraryPlaylists`, `librarySongs`, `libraryAlbums`,
 `libraryPodcasts`, `libraryChannels`, `user`, `myChannel`, `libraryProfiles`,
 `playlistSuggestions`, `tasteProfile`, `uploadSongs`, `uploadAlbums`,
 `uploadArtists`, `uploadAlbum` and `uploadArtist` (pages), `tracksFor`
-(tracks), `uploadSong` (upload) and `reportPlays` (report). A whole read
+(tracks), `uploadSong` (upload), `reportPlays` (report) and `notify`
+(notify). A whole read
 (`playlist` or `liked` with `"limit": "all"`) runs on a lane of its own
 (whole), so the pages behind it never wait for it. A lane never waits for, or
 delays, the requests around it, and a `"cache": "prefer"`
@@ -149,7 +150,8 @@ Methods: `ping`, `hello`, `reloadAuth`, `verifyAuth`, `configure`, `search`,
 `saveEpisode`, `unsaveEpisode`, `user`, `myChannel`, `libraryProfiles`,
 `feedback`, `tasteProfile`, `setTasteProfile`, `reportPlays`, `removeHistory`,
 `accounts`, `switchAccount`, `uploadSongs`, `uploadAlbums`, `uploadArtists`,
-`uploadAlbum`, `uploadArtist`, `uploadSong`, `deleteUpload`, `shutdown`. Error codes: `AUTH_REQUIRED`,
+`uploadAlbum`, `uploadArtist`, `uploadSong`, `deleteUpload`, `notify` (a desktop
+notification over D-Bus), `shutdown`. Error codes: `AUTH_REQUIRED`,
 `AUTH_EXPIRED`, `BAD_REQUEST`, `NOT_FOUND`, `NETWORK`, `RATE_LIMITED`
 (retryable), `BOT_CHECK` (`resolve`: YouTube's bot check or a 429 refused
 the lookup; not retryable, and the shell pauses background lookups for ten

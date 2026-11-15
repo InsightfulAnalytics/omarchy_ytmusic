@@ -81,3 +81,9 @@ Root causes of the non-obvious problems hit while building the plugin, so they a
   sign-in, location) was kept as the new identity's. The Store counts resets (`resetEpoch`); a
   reply from an older epoch is answered `stale` and never kept, and the view asks again.
 - **Hot reload keeps old compiled QML.** A real UI check needs `omarchy restart shell`.
+- **A process's command line is public; mpv does not check certificates.** Every local account
+  can read `/proc/<pid>/cmdline`, so a song or playlist name passed to
+  `omarchy-notification-send` leaks; the worker sends notifications over the session bus
+  (`ytm_notify`, jeepney) instead. mpv's `--tls-verify` defaults to off, and `--no-config`
+  drops any user setting, so `bin/ytm-mpv` sets it. Both were raised by the marketplace's
+  security review of another fork of this code.
