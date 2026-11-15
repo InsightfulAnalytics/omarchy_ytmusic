@@ -111,6 +111,9 @@ run_mpv() {
   copy_cookies
   local -a args=(
     --no-config
+    # mpv leaves certificate checks off by default (and --no-config drops any
+    # user setting), so without this a network interceptor could swap the audio.
+    --tls-verify=yes
     --script="$ROOT/mpv/ytm-idle.lua"
     --script="$ROOT/mpv/ytm-streams.lua"
     --script="$ROOT/mpv/ytm-levels.lua"
