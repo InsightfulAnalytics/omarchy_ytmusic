@@ -11,6 +11,11 @@ Root causes of the non-obvious problems hit while building the plugin, so they a
 - **VS Code (Electron) stores its own "Chromium Safe Storage" key.** yt-dlp picks the key by label
   only, so it could take VS Code's key and fail to decrypt Chromium's cookies. The view keeps the
   item whose `application` attribute matches the browser.
+- **A login index is not an account.** Identity keys were `authUser:brandHash`, so an upload
+  queued as login 0 of one browser profile still matched after a sign-in from another profile
+  (login 0 again) and would have gone to that account. The key now ends in a hash of the
+  session's SAPISID cookie (`ytm_account.session_tag`); a cookie that rotates (`*PSIDTS`) must
+  not be the one hashed, or every refresh looks like an account change.
 
 ## YouTube Music behaviour
 
@@ -86,4 +91,7 @@ Root causes of the non-obvious problems hit while building the plugin, so they a
   `omarchy-notification-send` leaks; the worker sends notifications over the session bus
   (`ytm_notify`, jeepney) instead. mpv's `--tls-verify` defaults to off, and `--no-config`
   drops any user setting, so `bin/ytm-mpv` sets it. Both were raised by the marketplace's
-  security review of another fork of this code.
+  security review of another fork of this code. wl-copy too: its forked clipboard owner keeps
+  its argv while it owns the clipboard, so a collaboration invite (a bearer link) went to it
+  on the command line. `_wlCopy` writes the text to wl-copy's stdin and closes it (Quickshell
+  closes stdin when `stdinEnabled` turns false), raised by this plugin's own review.

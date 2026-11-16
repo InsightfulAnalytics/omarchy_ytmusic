@@ -776,10 +776,20 @@ Item {
       return false
     }
     _copying = url
-    copier.running = false
-    copier.command = ["wl-copy", url]
-    copier.running = true
+    _wlCopy(copier, url)
     return true
+  }
+
+  // Starts `proc` (a Process with a `text` property) as wl-copy with
+  // `text` on its stdin, never on its command line: every local account
+  // can read /proc/<pid>/cmdline, and wl-copy's forked clipboard owner
+  // keeps its argv for as long as it owns the clipboard.
+  function _wlCopy(proc, text) {
+    proc.running = false
+    proc.text = text
+    proc.command = ["wl-copy"]
+    proc.stdinEnabled = true
+    proc.running = true
   }
 
   // callback(reply) with result { playlistId, browseId }: the album page of
@@ -790,7 +800,15 @@ Item {
 
   Process {
     id: copier
+    property string text: ""
+    stdinEnabled: true
+    // All of it, then EOF (stdin closed): wl-copy owns it from there.
+    onStarted: {
+      write(text)
+      stdinEnabled = false
+    }
     onExited: function(exitCode) {
+      text = ""
       if (exitCode === 0) root.notify("Link copied", root._copying)
       else root.failAction("Couldn't copy the link", "wl-copy failed")
     }
@@ -2601,17 +2619,22 @@ Item {
     }
     _inviteTitle = title
     _inviteCopied = copied || null
-    inviteCopier.running = false
-    inviteCopier.command = ["wl-copy", url]
-    inviteCopier.running = true
+    _wlCopy(inviteCopier, url)
     return true
   }
 
   Process {
     id: inviteCopier
-    // The link is a secret: the notice names the playlist only.
+    // The link is a secret: the notice names the playlist only, and it
+    // goes to wl-copy on stdin (_wlCopy), never on a command line.
+    property string text: ""
+    stdinEnabled: true
+    onStarted: {
+      write(text)
+      stdinEnabled = false
+    }
     onExited: function(exitCode) {
-      inviteCopier.command = []
+      text = ""
       var copied = root._inviteCopied
       root._inviteCopied = null
       if (exitCode === 0) root.notify("Invite link copied", root._inviteTitle)

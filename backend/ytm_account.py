@@ -25,7 +25,9 @@
 A request that waits on a lane (an upload, a batch of plays) carries the
 key of the identity it was asked under (``identityKey``) and is refused,
 unsent, when the worker acts as another one by its turn
-(``require_identity_key``).
+(``require_identity_key``). The key names the Google sign-in session too
+(``session_tag``): a login index alone (normally 0) is the same for every
+account, so signing in again from another browser profile changes the key.
 
 Brand accounts: YouTube Music removes history entries and takes uploads only
 for the session's own account (ytmusicapi's remove_history_items and
@@ -135,12 +137,42 @@ def login_of(worker):
     return auth.session_auth_user(worker.yt)
 
 
+# The cookies that name a Google sign-in session, most specific first. They
+# stay put while the session lasts (the *PSIDTS ones rotate) and every
+# account signed in elsewhere (another browser profile) has others.
+SESSION_COOKIES = ("SAPISID", "__Secure-3PAPISID", "SID", "__Secure-3PSID")
+
+
+def session_tag(client):
+    """A short hash of the Google sign-in session ``client`` sends as (its
+    SAPISID cookie, else the first of SESSION_COOKIES), "" without one.
+
+    Login index 0 of one browser profile and of another are different
+    accounts; this tells them apart without the shell holding a cookie.
+    """
+    headers = getattr(client, "_auth_headers", None) or {}
+    try:
+        cookie = headers.get("cookie") or ""
+    except AttributeError:
+        return ""
+    jar = {}
+    for part in str(cookie).split(";"):
+        name, sep, value = part.strip().partition("=")
+        if sep and name and value:
+            jar.setdefault(name, value)
+    value = next((jar[name] for name in SESSION_COOKIES if name in jar), None)
+    if value is None:
+        return ""
+    return hashlib.sha256(b"ytm-session\0" + value.encode()).hexdigest()[:12]
+
+
 def identity_summary(worker):
     """``{key, brand, own, authUser}`` of the identity the worker acts as; None signed out.
 
     ``own``: the session's own account (no identity saved). No names, and the
-    key holds no id: a hash of the pageId, so the shell can tell identities
-    apart without holding one.
+    key holds no id or cookie: ``login:brand:session``, hashes of the pageId
+    and of the sign-in session (session_tag), so the shell can tell
+    identities apart without holding either.
     """
     if getattr(worker, "auth", None) not in ("ok", "expired"):
         return None
@@ -148,7 +180,8 @@ def identity_summary(worker):
     page_id = chosen.get("pageId")
     login = login_of(worker)
     tag = hashlib.sha1(page_id.encode()).hexdigest()[:12] if page_id else ""
-    return {"key": f"{login}:{tag}", "brand": bool(page_id), "own": not chosen, "authUser": login}
+    session = session_tag(getattr(worker, "yt", None))
+    return {"key": f"{login}:{tag}:{session}", "brand": bool(page_id), "own": not chosen, "authUser": login}
 
 
 def require_identity_key(worker, params, what):
@@ -157,7 +190,8 @@ def require_identity_key(worker, params, what):
     acts as now. A request that waits on a lane runs as whatever client the
     worker holds when its turn comes: an upload queued behind another, or
     plays queued while the worker started as an identity switched from the
-    command line, would otherwise go to another account. Without the key
+    command line, or one queued before a sign-in from another browser
+    profile, would otherwise go to another account. Without the key
     (the command line's own requests) nothing is checked."""
     expected = params.get("identityKey")
     if expected is None:
