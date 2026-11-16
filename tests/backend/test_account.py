@@ -20,6 +20,8 @@ import ytm_cache as caches
 
 OWN = {"name": "Test Person", "handle": "@testperson", "photo": "https://yt3.ggpht.com/own=s48"}
 BRAND_ID = "123456789012345678901"
+# FakeYTMusic's sign-in session (its cookie SID=fake) as identity keys name it.
+SESSION = hashlib.sha256(b"ytm-session\0fake").hexdigest()[:12]
 BRAND = {"name": "Test Brand", "handle": "@testbrand", "photo": "https://yt3.ggpht.com/brand=s48"}
 OTHER_BRAND_ID = "998877665544332211000"
 
@@ -177,7 +179,7 @@ def test_accounts_method_lists_the_identities(signed_in):
     reply = call(worker, "accounts")
     assert reply["ok"], reply
     assert [(i["name"], i["selected"]) for i in reply["result"]["items"]] == [("Test Person", True), ("Test Brand", False)]
-    assert reply["result"]["identity"] == {"key": "0:", "brand": False, "own": True, "authUser": 0}
+    assert reply["result"]["identity"] == {"key": "0::" + SESSION, "brand": False, "own": True, "authUser": 0}
     assert worker.yt.sent == [identities.ACCOUNTS_ENDPOINT]
 
 
@@ -218,7 +220,7 @@ def test_the_choice_is_saved_private_without_names_and_survives_a_restart(signed
     assert FakeYTMusic.built[-1].user == BRAND_ID and again.identity == {"pageId": BRAND_ID, "authUser": None}
     # Back to the own account: the file goes.
     reply = call(again, "switchAccount", pageId=None)
-    assert reply["ok"] and reply["result"]["identity"] == {"key": "0:", "brand": False, "own": True, "authUser": 0}
+    assert reply["ok"] and reply["result"]["identity"] == {"key": "0::" + SESSION, "brand": False, "own": True, "authUser": 0}
     assert not path.exists() and FakeYTMusic.built[-1].user is None and again.generation == 2
 
 
@@ -228,7 +230,7 @@ def test_switch_to_another_login_sets_its_authuser_header(signed_in):
     assert reply["ok"], reply
     client = FakeYTMusic.built[-1]
     assert client.user is None and client._auth_headers["X-Goog-AuthUser"] == "1"
-    assert reply["result"]["identity"] == {"key": "1:", "brand": False, "own": False, "authUser": 1}
+    assert reply["result"]["identity"] == {"key": "1::" + SESSION, "brand": False, "own": False, "authUser": 1}
     assert json.loads((signed_in / "identity.json").read_text())["authUser"] == 1
     assert json.loads((signed_in / "browser.json").read_text())["x-goog-authuser"] == "0", \
         "the saved session is never rewritten"
@@ -319,7 +321,7 @@ def test_an_identity_that_stopped_answering_can_be_left(signed_in):
     reply = call(worker, "switchAccount", pageId=None)
     assert reply["ok"], reply
     assert reply["result"]["changed"] is True and reply["result"]["auth"] == "ok"
-    assert reply["result"]["identity"] == {"key": "0:", "brand": False, "own": True, "authUser": 0}
+    assert reply["result"]["identity"] == {"key": "0::" + SESSION, "brand": False, "own": True, "authUser": 0}
     assert not (signed_in / "identity.json").exists() and worker.identity is None and worker.auth == "ok"
     assert call(worker, "hello")["result"]["auth"] == "ok"
     assert call(ytm.Worker(), "hello")["result"]["identity"]["own"] is True, "a new worker starts as the own account"
@@ -393,11 +395,11 @@ def test_the_ready_event_says_which_identity(signed_in):
         assert lines and lines[0]["event"] == "ready"
         return lines[0]
 
-    assert ready_of(ytm.Worker())["identity"] == {"key": "0:", "brand": False, "own": True, "authUser": 0}
+    assert ready_of(ytm.Worker())["identity"] == {"key": "0::" + SESSION, "brand": False, "own": True, "authUser": 0}
     auth.save_identity({"pageId": BRAND_ID, "authUser": None})
     ready = ready_of(ytm.Worker())
     tag = hashlib.sha1(BRAND_ID.encode()).hexdigest()[:12]
-    assert ready["identity"] == {"key": f"0:{tag}", "brand": True, "own": False, "authUser": 0}
+    assert ready["identity"] == {"key": f"0:{tag}:{SESSION}", "brand": True, "own": False, "authUser": 0}
     assert BRAND_ID not in json.dumps(ready)
 
 

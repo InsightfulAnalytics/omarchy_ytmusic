@@ -30,7 +30,7 @@ from test_uploads import ResponseStatus, music_file, songs_page, upload_row, wor
 from test_users import MENU, MINE, YT as UsersYT, account_menu, link
 
 BRAND_ID = "123456789012345678901"
-BRAND_KEY = "0:" + hashlib.sha1(BRAND_ID.encode()).hexdigest()[:12]
+BRAND_KEY = "0:" + hashlib.sha1(BRAND_ID.encode()).hexdigest()[:12] + ":"  # fakes send no cookie
 
 
 # ---- mpv's copy of the cookies ---------------------------------------------------------
@@ -204,23 +204,57 @@ def test_an_ordered_uploads_read_drops_every_cached_copy_of_that_list(tmp_path, 
 
 def test_identity_keys_as_the_shell_holds_them():
     worker = ytm.Worker(HistoryYT(), "ok")
-    assert identities.identity_summary(worker)["key"] == "0:"
+    assert identities.identity_summary(worker)["key"] == "0::"
     worker.identity = {"pageId": BRAND_ID, "authUser": None}
     assert identities.identity_summary(worker)["key"] == BRAND_KEY
+
+
+class Cookied:
+    """A client signed in to one browser profile's Google session (its cookie)."""
+
+    def __init__(self, cookie, auth_user="0"):
+        self._auth_headers = {"cookie": cookie, "x-goog-authuser": auth_user}
+
+
+def test_the_key_names_the_sign_in_session_not_only_the_login_index():
+    profile_a = "SID=a1; __Secure-1PSIDTS=t1; SAPISID=sapA/x; HSID=h"
+    profile_b = "SID=b1; __Secure-1PSIDTS=t1; SAPISID=sapB/y; HSID=h"
+    tag_a = identities.session_tag(Cookied(profile_a))
+    assert len(tag_a) == 12 and tag_a != identities.session_tag(Cookied(profile_b)), "login 0 of two profiles"
+    rotated = "SID=a1; __Secure-1PSIDTS=t2; SAPISID=sapA/x; HSID=h2"
+    assert identities.session_tag(Cookied(rotated)) == tag_a, "a rotating cookie leaves the key alone"
+    assert identities.session_tag(Cookied("SID=only")) != "", "SID when there is no SAPISID"
+    assert identities.session_tag(Cookied("NID=x")) == "" and identities.session_tag(object()) == ""
+    worker = ytm.Worker(Cookied(profile_a), "ok")
+    key = identities.identity_summary(worker)["key"]
+    assert key == f"0::{tag_a}" and "sapA" not in key
+
+
+def test_an_upload_queued_before_a_sign_in_from_another_profile_is_not_sent(tmp_path):
+    path = music_file(tmp_path, "song.mp3")
+    worker = uploads_worker(upload_song=ResponseStatus.SUCCEEDED)
+    worker.yt._auth_headers = {"cookie": "SAPISID=accountA", "x-goog-authuser": "0"}
+    asked = identities.identity_summary(worker)["key"]
+    # Signed in again from another browser profile while it waited: login 0 again, another account.
+    worker.yt._auth_headers = {"cookie": "SAPISID=accountB", "x-goog-authuser": "0"}
+    refused = call(worker, "uploadSong", path=str(path), identityKey=asked)
+    assert refused["error"]["code"] == "BAD_REQUEST" and worker.yt.calls == [], "nothing sent to account B"
+    worker.yt._auth_headers = {"cookie": "SAPISID=accountA", "x-goog-authuser": "0"}
+    assert call(worker, "uploadSong", path=str(path), identityKey=asked)["ok"], "the same session: sent"
 
 
 def test_an_upload_asked_as_one_identity_is_not_sent_as_another(tmp_path):
     path = music_file(tmp_path, "song.mp3")
     worker = uploads_worker(upload_song=ResponseStatus.SUCCEEDED)
-    sent = call(worker, "uploadSong", path=str(path), identityKey="0:")
+    sent = call(worker, "uploadSong", path=str(path), identityKey="0::")
     assert sent["ok"], sent
     assert len(worker.yt.calls) == 1
     # Another login took over while the upload waited behind another (authUser 1).
     worker.identity = {"pageId": None, "authUser": 1}
-    refused = call(worker, "uploadSong", path=str(path), identityKey="0:")
+    refused = call(worker, "uploadSong", path=str(path), identityKey="0::")
     assert refused["error"]["code"] == "BAD_REQUEST" and "changed" in refused["error"]["message"]
     assert len(worker.yt.calls) == 1 and worker.yt.requests == [], "nothing sent, not even the session check"
-    assert call(worker, "uploadSong", path=str(path), identityKey="1:")["ok"], "asked as that login: sent"
+    assert call(worker, "uploadSong", path=str(path), identityKey="1::")["ok"], "asked as that login: sent"
     assert call(worker, "uploadSong", path=str(path))["ok"], "the command line's own upload names no identity"
     assert call(worker, "uploadSong", path=str(path), identityKey=7)["error"]["code"] == "BAD_REQUEST"
 
@@ -229,7 +263,7 @@ def test_an_upload_waiting_while_the_session_signed_out_is_not_sent(tmp_path):
     path = music_file(tmp_path, "song.mp3")
     worker = uploads_worker(upload_song=ResponseStatus.SUCCEEDED)
     worker.auth = "none"
-    reply = call(worker, "uploadSong", path=str(path), identityKey="0:")
+    reply = call(worker, "uploadSong", path=str(path), identityKey="0::")
     assert reply["error"]["code"] == "BAD_REQUEST" and worker.yt.calls == []
 
 
@@ -237,7 +271,7 @@ def test_plays_made_as_one_identity_are_not_reported_as_another():
     yt = HistoryYT()
     worker = ytm.Worker(yt, "ok")
     worker.identity = {"pageId": BRAND_ID, "authUser": None}  # switched from the command line meanwhile
-    reply = call(worker, "reportPlays", videoIds=["nbCOAPR33ME"], identityKey="0:")
+    reply = call(worker, "reportPlays", videoIds=["nbCOAPR33ME"], identityKey="0::")
     assert reply["error"]["code"] == "BAD_REQUEST" and yt.calls == []
     assert call(worker, "reportPlays", videoIds=["nbCOAPR33ME"], identityKey=BRAND_KEY)["ok"]
     assert [c[1] for c in yt.calls] == ["get_song", "add_history_item"]

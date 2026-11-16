@@ -640,7 +640,10 @@ minutes), `UPSTREAM` (unexpected response; ytmusicapi may need an update),
   Anything else is final, including a ping that failed on its way, since it
   may have arrived. Two requests per play; the tracking URL never reaches a
   reply or a log. `identityKey` (here and in `uploadSong`) is the
-  `identity.key` the plays were made, or the upload asked for, under: when
+  `identity.key` the plays were made, or the upload asked for, under
+  (`login:brand:session`, the last two hashes of the brand account's pageId
+  and of the session's SAPISID cookie, so login 0 of another browser
+  profile is another key): when
   the worker acts as another identity by the time the call leaves its lane,
   it answers `BAD_REQUEST` with nothing sent (the shell then drops those
   plays). `removeHistory({tokens})` removes History entries by their
