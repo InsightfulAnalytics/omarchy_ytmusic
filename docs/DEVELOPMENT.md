@@ -762,7 +762,7 @@ What the shell, mpv and YouTube were found to do, which the design relies on:
   which would stay alive as a 24 MiB parent. It falls back to `uv run` when no
   environment exists for the current dependencies yet.
 - **Playback measurements (2026-09-10).** mpv playing audio: ~73 MiB PSS.
-  Every track change runs yt-dlp + deno (JS challenge) inside the mpv unit for
+  Every track change runs yt-dlp + deno (JS challenge; node since Omarchy's yt-dlp) inside the mpv unit for
   a few seconds, peaking ~340-410 MiB; a `MemoryHigh` below that throttled
   resolves to 7.5 s, so the unit only has `MemoryMax=768M`. Track start
   (loadfile → audible) 2.6-3.9 s; `play` via IPC adds the search (~0.8 s warm).

@@ -125,12 +125,13 @@ this plugin, idle                                                     0 MiB
 ## Install
 
 ```bash
-omarchy-pkg-add uv deno    # mpv, mpv-mpris, yt-dlp and wl-clipboard already come with Omarchy
+omarchy-pkg-add uv    # mpv, mpv-mpris, yt-dlp (with node) and wl-clipboard already come with Omarchy
 omarchy plugin add https://github.com/InsightfulAnalytics/omarchy_ytmusic.git --enable
 ```
 
 `uv` runs the ytmusicapi helper (it builds its own Python environment on
-first use), `deno` is yt-dlp's solver for YouTube's JavaScript challenge and
+first use), node (or deno, if you have it) runs yt-dlp's solver for YouTube's
+JavaScript challenge and
 `wl-copy` (wl-clipboard) puts Copy link on the clipboard; if one is missing,
 the panel shows a banner with an **Install** button. `omarchy plugin update`
 pulls new versions.

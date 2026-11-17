@@ -1001,12 +1001,14 @@ def cmd_selftest(args):
     def tools():
         import shutil
 
-        missing = [tool for tool in ("mpv", "yt-dlp", "deno") if shutil.which(tool) is None]
+        missing = [tool for tool in ("mpv", "yt-dlp") if shutil.which(tool) is None]
+        if not (shutil.which("deno") or shutil.which("node")):
+            missing.append("deno")  # or node: yt-dlp's JS challenge solver runs on either
         if not any(os.path.exists(p) for p in ("/etc/mpv/scripts/mpris.so", "/usr/lib/mpv-mpris/mpris.so")):
             missing.append("mpv-mpris")
         if missing:
             raise RuntimeError(f"missing {', '.join(missing)}; install with: omarchy-pkg-add {' '.join(missing)}")
-        return "mpv, mpv-mpris, yt-dlp, deno"
+        return "mpv, mpv-mpris, yt-dlp, " + ("deno" if shutil.which("deno") else "node")
 
     check("tools", tools)
     if args.online:

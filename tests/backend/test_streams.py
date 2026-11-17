@@ -89,6 +89,14 @@ def test_account_cookies_only_when_opted_in(config_dir, monkeypatch):
     assert streams.Resolver().options()["cookiefile"] == str(config_dir / "cookies.txt")
 
 
+def test_the_challenge_solver_may_run_on_node_as_well_as_deno():
+    """yt-dlp enables only deno by default; Omarchy's yt-dlp brings node instead."""
+    opts = streams.Resolver().options()
+    assert list(opts["js_runtimes"]) == ["deno", "node"]
+    opts["js_runtimes"]["node"]["path"] = "/x"
+    assert streams.JS_RUNTIMES["node"] == {}, "each instance gets its own copy"
+
+
 class FakeResolver:
     def __init__(self, result=None, error=None):
         self.result = result

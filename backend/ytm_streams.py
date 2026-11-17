@@ -9,9 +9,13 @@ one fails. Like mpv, this streams without the account unless
 YTM_STREAM_WITH_ACCOUNT=1 or the request asks for it (``account: true``,
 e.g. for uploads); each mode has its own yt-dlp instance.
 
-Uploaded songs play only as the account, and yt-dlp reaches them only
-with its JS challenge solver (yt-dlp-ejs). The worker's environment has
-plain yt-dlp, so an upload's lookup may fail here; the shell then lets mpv's
+YouTube's JS challenge is solved by yt-dlp-ejs with deno or node
+(JS_RUNTIMES): yt-dlp enables only deno by default, and Omarchy's yt-dlp
+package replaced deno with node (its /etc/yt-dlp.conf, which the embedded
+yt-dlp does not read).
+
+Uploaded songs play only as the account, and an upload's lookup may still
+fail here; the shell then lets mpv's
 yt-dlp load it with the account's cookies (a per-file
 ``ytdl-raw-options-append``) and stops asking for uploads this session.
 
@@ -31,6 +35,8 @@ import ytm_normalize as norm
 from ytm_proto import WorkerError
 
 FORMAT = "bestaudio[acodec=opus]/bestaudio/best"
+# yt-dlp's js_runtimes option: deno first, else node (whichever is on PATH).
+JS_RUNTIMES = {"deno": {}, "node": {}}
 WATCH_URL = "https://www.youtube.com/watch?v="
 DEFAULT_LIFETIME = 5 * 3600
 _EXPIRE = re.compile(r"[?&/]expire[=/](\d+)")
@@ -113,6 +119,7 @@ class Resolver:
             "skip_download": True,
             "noplaylist": True,
             "logger": _Quiet(),
+            "js_runtimes": {name: dict(conf) for name, conf in JS_RUNTIMES.items()},
         }
         if self.wants_account(account):
             opts["cookiefile"] = str(auth.cookies_path())
