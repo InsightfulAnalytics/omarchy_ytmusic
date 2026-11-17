@@ -459,6 +459,8 @@ class Worker:
         self.identity = None
         # Set by serve(): writes an unsolicited event line (thread-safe).
         self.emit = None
+        # True under serve(): the shell's requests, not the command line's.
+        self.serving = False
         # Your channel's id, from the account menu verify_session reads
         # (None when it links none; ytm_users.myChannel), and whether that
         # menu was read for this client.
@@ -799,6 +801,9 @@ def serve(idle_secs, worker=None, stdin_fd=None, out=None):
 
     worker = worker or Worker()
     worker.emit = emit
+    # Requests come from the shell, which stamps lane-waiting edits with
+    # the identity they were asked under (ytm_account.require_identity_key).
+    worker.serving = True
     lanes = {}
     state = {"busy": 0, "last": time.monotonic()}
     state_lock = threading.Lock()

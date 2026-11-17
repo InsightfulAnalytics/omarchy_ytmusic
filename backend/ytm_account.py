@@ -184,7 +184,7 @@ def identity_summary(worker):
     return {"key": f"{login}:{tag}:{session}", "brand": bool(page_id), "own": not chosen, "authUser": login}
 
 
-def require_identity_key(worker, params, what):
+def require_identity_key(worker, params, what, required=False):
     """BAD_REQUEST (nothing sent) when ``params.identityKey``, the identity
     the shell asked under (identity_summary's key), is not the one the worker
     acts as now. A request that waits on a lane runs as whatever client the
@@ -192,9 +192,14 @@ def require_identity_key(worker, params, what):
     plays queued while the worker started as an identity switched from the
     command line, or one queued before a sign-in from another browser
     profile, would otherwise go to another account. Without the key
-    (the command line's own requests) nothing is checked."""
+    (the command line's own requests) nothing is checked, unless
+    ``required`` and the request came through serve() (the shell, whose
+    requests wait on lanes): then it is refused, unsent, too."""
     expected = params.get("identityKey")
     if expected is None:
+        if required and getattr(worker, "serving", False):
+            raise unsent(WorkerError("BAD_REQUEST", f"{what[0].upper()}{what[1:]} names no account "
+                                                    "(identityKey); nothing was sent"))
         return
     if not isinstance(expected, str) or len(expected) > 64:
         raise WorkerError("BAD_REQUEST", "'identityKey' must be an identity key")

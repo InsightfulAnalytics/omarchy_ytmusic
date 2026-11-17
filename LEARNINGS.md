@@ -15,7 +15,10 @@ Root causes of the non-obvious problems hit while building the plugin, so they a
   queued as login 0 of one browser profile still matched after a sign-in from another profile
   (login 0 again) and would have gone to that account. The key now ends in a hash of the
   session's SAPISID cookie (`ytm_account.session_tag`); a cookie that rotates (`*PSIDTS`) must
-  not be the one hashed, or every refresh looks like an account change.
+  not be the one hashed, or every refresh looks like an account change. A key is only as good as
+  its presence: the shell stamped uploads only once the worker had reported an identity, so
+  one asked during a cold start went unchecked. The shell now asks for no upload until the key
+  is known, and the worker refuses an unkeyed `uploadSong` under `serve`.
 
 ## YouTube Music behaviour
 

@@ -259,6 +259,18 @@ def test_an_upload_asked_as_one_identity_is_not_sent_as_another(tmp_path):
     assert call(worker, "uploadSong", path=str(path), identityKey=7)["error"]["code"] == "BAD_REQUEST"
 
 
+def test_the_shell_cannot_upload_without_naming_the_account(tmp_path):
+    """An upload asked before the shell knew the identity carried no key, and
+    so was checked against nothing when its turn on the lane came."""
+    path = music_file(tmp_path, "song.mp3")
+    worker = uploads_worker(upload_song=ResponseStatus.SUCCEEDED)
+    worker.serving = True  # as under serve(): the shell's request
+    refused = call(worker, "uploadSong", path=str(path))
+    assert refused["error"]["code"] == "BAD_REQUEST" and "identityKey" in refused["error"]["message"]
+    assert worker.yt.calls == [] and worker.yt.requests == [], "nothing sent"
+    assert call(worker, "uploadSong", path=str(path), identityKey="0::")["ok"]
+
+
 def test_an_upload_waiting_while_the_session_signed_out_is_not_sent(tmp_path):
     path = music_file(tmp_path, "song.mp3")
     worker = uploads_worker(upload_song=ResponseStatus.SUCCEEDED)

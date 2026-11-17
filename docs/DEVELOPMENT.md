@@ -687,7 +687,8 @@ minutes), `UPSTREAM` (unexpected response; ytmusicapi may need an update),
   come from the page's sort state (`recently_added`, `a_to_z`, `z_to_a`),
   and an `order` is saved on your account as on the other library lists.
   Edits (in `MUTATES`): `uploadSong({path, identityKey?})` (upload lane; the
-  shell waits 10 min) takes a full path (`~` expanded) to an mp3, m4a, wma, flac or ogg
+  shell waits 10 min; `identityKey` is required under `serve`, and the shell
+  asks for no upload before the worker has reported its identity) takes a full path (`~` expanded) to an mp3, m4a, wma, flac or ogg
   file (any case) under 300 MB, refuses a brand account, sends an upper-case
   suffix through a lower-case symlink in `~/.cache/omarchy-ytmusic/upload-tmp`
   (removed after; ytmusicapi checks the suffix case-sensitively) and answers
