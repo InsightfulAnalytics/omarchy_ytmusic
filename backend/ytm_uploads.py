@@ -399,9 +399,10 @@ def m_upload_song(worker, params):
     """``{path, identityKey?}``: uploads the file; ``{ok, processing: true,
     name}``. ``identityKey``: the identity the upload was asked under; an
     upload that waited on the upload lane while the account changed is
-    refused, unsent (ytm_account.require_identity_key)."""
+    refused, unsent (ytm_account.require_identity_key). Required from the
+    shell (serve()); the command line's own upload waits on no lane."""
     identities.require_upload_identity(worker)  # never as a brand account
-    identities.require_identity_key(worker, params, "this upload")
+    identities.require_identity_key(worker, params, "this upload", required=True)
     path = upload_path(params)
     worker.require_auth()
     with sendable(path) as sent:

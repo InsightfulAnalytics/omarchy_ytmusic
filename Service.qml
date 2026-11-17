@@ -3287,8 +3287,19 @@ Item {
     Quickshell.execDetached([rootDir + "/bin/ytm-mpv", "cookies"])
   }
 
-  // false when nothing was sent (signed out, a path that cannot be a music
-  // file: the notice says why).
+  // Why an upload cannot be asked for yet ("" when it can): before the
+  // worker first says which identity it acts as there is no key to stamp
+  // the upload with, and an unstamped one that waits on the upload lane
+  // could go to whichever account is signed in by its turn. Asking starts
+  // the worker, so a moment later the key is there.
+  function uploadWaitProblem() {
+    if (!signedIn || _identityKey !== "") return ""
+    backend.request("ping", {}, null, 20000)
+    return "Your account is still loading; try the upload again in a moment"
+  }
+
+  // false when nothing was sent (signed out, the account not loaded yet, a
+  // path that cannot be a music file: the notice says why).
   function uploadFile(path, callback) {
     var text = String(path || "").trim()
     if (!signedIn) {
@@ -3300,13 +3311,18 @@ Item {
       failAction("Cannot upload that file", problem)
       return false
     }
+    var waiting = uploadWaitProblem()
+    if (waiting !== "") {
+      failAction("Nothing uploaded yet", waiting)
+      return false
+    }
     var name = Model.uploadFileName(text)
     uploading = uploading.concat([name])
     notify("Uploading", name)
-    // The identity it is asked as; one that waits on the upload
-    // lane while the account changes is refused by the worker, unsent.
-    var params = { path: text }
-    if (_identityKey !== "") params.identityKey = _identityKey
+    // The identity it is asked as (always known here); one that waits on
+    // the upload lane while the account changes is refused by the worker,
+    // unsent, and so is one without a key.
+    var params = { path: text, identityKey: _identityKey }
     backend.request("uploadSong", params, function(reply) {
       var left = root.uploading.slice()
       var at = left.indexOf(name)
@@ -4167,6 +4183,7 @@ Item {
     // A music file (its full path, or one from ~/) to your uploads.
     function upload(path: string): string {
       var problem = Model.uploadPathProblem(path)
+      if (problem === "" && root.signedIn) problem = root.uploadWaitProblem()
       return problem !== "" ? problem : root.uploadFile(path) ? "ok" : "unhandled"
     }
   }
