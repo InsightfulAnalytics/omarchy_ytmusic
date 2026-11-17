@@ -55,6 +55,12 @@ Root causes of the non-obvious problems hit while building the plugin, so they a
 
 ## Playback
 
+- **Omarchy's yt-dlp swapped deno for node.** Its 2026-11 update packaged yt-dlp with a nodejs
+  dependency and `/etc/yt-dlp.conf` (`--js-runtimes node`), and removed yt-dlp-ejs and deno. The
+  plugin required deno, so the banner asked for it, and the worker's embedded yt-dlp (which reads
+  no system config, and enables only deno by default) lost its challenge solver. The worker now
+  passes `js_runtimes` deno and node, and the tool check takes either.
+
 - **The worker's yt-dlp needs `yt-dlp[default]`.** Plain `yt-dlp` from PyPI has no `yt-dlp-ejs`, so
   YouTube's JavaScript challenge cannot be solved even with deno installed. The failed load marks
   the solver unavailable for the life of the YoutubeDL instance, and every lookup after that falls

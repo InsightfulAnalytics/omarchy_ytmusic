@@ -3915,10 +3915,12 @@ Item {
 
   // ---- required tools ------------------------------------------------------------
   // Omarchy ships mpv, mpv-mpris, yt-dlp and wl-clipboard (wl-copy, for
-  // Copy link); uv (runs the ytmusicapi helper) and deno (yt-dlp's solver for
-  // YouTube's JavaScript challenge) usually have to be added. Checked at
-  // start and whenever a panel opens.
-  readonly property var requiredTools: ["uv", "mpv", "yt-dlp", "deno", "wl-copy"]
+  // Copy link); uv (runs the ytmusicapi helper) usually has to be added.
+  // yt-dlp solves YouTube's JavaScript challenge with deno or node
+  // ("deno|node": either will do; Omarchy's yt-dlp brings node, and the
+  // banner names the first when both are missing). Checked at start and
+  // whenever a panel opens.
+  readonly property var requiredTools: ["uv", "mpv", "yt-dlp", "deno|node", "wl-copy"]
   // Tools whose package has another name.
   readonly property var toolPackages: ({ "wl-copy": "wl-clipboard" })
   property var missingTools: []
@@ -3941,7 +3943,8 @@ Item {
   Process {
     id: toolCheck
     command: ["sh", "-c",
-      "for t in \"$@\"; do command -v \"$t\" >/dev/null 2>&1 || echo \"$t\"; done; "
+      "for t in \"$@\"; do found=; for a in $(printf %s \"$t\" | tr '|' ' '); do "
+        + "command -v \"$a\" >/dev/null 2>&1 && found=1; done; [ -n \"$found\" ] || echo \"${t%%|*}\"; done; "
         + "[ -e /etc/mpv/scripts/mpris.so ] || [ -e /usr/lib/mpv-mpris/mpris.so ] || echo mpv-mpris",
       "sh"].concat(root.requiredTools)
     stdout: SplitParser {

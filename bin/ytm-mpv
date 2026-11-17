@@ -5,7 +5,7 @@
 # reloads and shell restarts. The shell talks to it over the JSON IPC socket.
 #
 # Memory: mpv itself stays around 70-80 MiB, but every track change runs
-# yt-dlp and deno (YouTube's JS challenge) inside this unit for a few seconds,
+# yt-dlp and deno or node (YouTube's JS challenge) inside this unit for a few seconds,
 # peaking around 340 MiB. A MemoryHigh below that throttles the resolve
 # (7.5 s instead of ~2-3.5 s), so there is only a MemoryMax against runaways.
 #
