@@ -1050,8 +1050,13 @@ def cmd_join(args):
 
 def cmd_upload(args):
     """Upload a song file to your library. YouTube lists it once it has
-    processed it, often minutes later."""
-    path = os.path.abspath(os.path.expanduser(args.file))
+    processed it, often minutes later. ``-`` reads the file's path from
+    stdin, off the command line other local accounts can read."""
+    name = sys.stdin.readline().rstrip("\n") if args.file == "-" else args.file
+    if not name:
+        print("Give the file's path on stdin: echo ~/Music/song.mp3 | ytm upload -", file=sys.stderr)
+        return 2
+    path = os.path.abspath(os.path.expanduser(name))
     reply = Worker().handle({"id": 1, "method": "uploadSong", "params": {"path": path}})
     print_json(reply["result"] if reply["ok"] else {"error": reply["error"]})
     if reply["ok"]:
@@ -1170,7 +1175,7 @@ def main(argv=None):
     p.add_argument("value", nargs="?", metavar="-", help="read the link from stdin")
     p.add_argument("--clipboard", action="store_true", help="read the link from the clipboard")
     p = sub.add_parser("upload", help="upload a song file (mp3, m4a, wma, flac, ogg) to your library")
-    p.add_argument("file")
+    p.add_argument("file", help="the file, or - to read its path from stdin (a command line is public)")
     sub.add_parser("logout", help="delete the saved session")
     sub.add_parser("whoami", help="show the signed-in account")
     p = sub.add_parser("selftest", help="check the installation")

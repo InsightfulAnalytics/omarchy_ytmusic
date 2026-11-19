@@ -55,7 +55,10 @@ Item {
     releaseTimer.stop()
     var id = _nextId++
     params = params || {}
-    if (_mutates.indexOf(method) !== -1 && params.identityKey === undefined && identity && typeof identity.key === "string") {
+    // A read with an order is one too: on your library's pages YouTube
+    // saves the order (ytm_pages.sort_client).
+    var edits = _mutates.indexOf(method) !== -1 || (params.order !== undefined && params.order !== null)
+    if (edits && params.identityKey === undefined && identity && typeof identity.key === "string") {
       var stamped = ({})
       for (var key in params) stamped[key] = params[key]
       stamped.identityKey = identity.key

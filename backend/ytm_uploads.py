@@ -226,7 +226,7 @@ def m_upload_songs(worker, params):
                                     min_items=PAGE_ITEMS, max_http=library._budget(0))
         return _page("uploadSongs", SONGS_ID, "Uploaded songs", items, cursor, order=order)
     try:
-        first = pages.first_page(worker.yt, "browse", body)
+        first = pages.first_page(pages.sort_client(worker, params, SONGS_ID, order), "browse", body)
     finally:
         _forget_order(worker, SONGS_ID, order)
     response = first[0]
@@ -241,11 +241,14 @@ def m_upload_songs(worker, params):
 
 
 def _whole_list(worker, params, browse_id, read, normalize, method, title, layout, what):
+    """``read``: the name of the ytmusicapi method, called on the client
+    pages.sort_client picks (an order is saved on the account)."""
     worker.require_auth()
     order = opt_order(params, ORDERS)
     try:
+        yt = pages.sort_client(worker, params, browse_id, order)
         with raw.capture(("browse",)) as cap:
-            values = read(limit=LIST_MAX, order=order)
+            values = getattr(yt, read)(limit=LIST_MAX, order=order)
     finally:
         _forget_order(worker, browse_id, order)
     orders, current = orders_of(cap.first("browse"), order)
@@ -256,13 +259,13 @@ def _whole_list(worker, params, browse_id, read, normalize, method, title, layou
 
 def m_upload_albums(worker, params):
     """``{order?}``: every album of your uploads (one grid section)."""
-    return _whole_list(worker, params, ALBUMS_ID, worker.yt.get_library_upload_albums, norm.upload_album,
+    return _whole_list(worker, params, ALBUMS_ID, "get_library_upload_albums", norm.upload_album,
                        "uploadAlbums", "Uploaded albums", "grid", "album")
 
 
 def m_upload_artists(worker, params):
     """``{order?}``: every artist of your uploads (one shelf section)."""
-    return _whole_list(worker, params, ARTISTS_ID, worker.yt.get_library_upload_artists, norm.upload_artist,
+    return _whole_list(worker, params, ARTISTS_ID, "get_library_upload_artists", norm.upload_artist,
                        "uploadArtists", "Uploaded artists", "shelf", "artist")
 
 
@@ -401,18 +404,29 @@ def _trusted_devices():
     return devices
 
 
+def _others_can_place(folder, uid):
+    """Whether another account could have given an entry of ``folder`` (an
+    fstat) its name there: the folder is not yours (or root's), so its owner
+    moved it in; or others may write to it without the sticky bit, so any
+    of them may rename an entry of yours into the name you gave."""
+    if folder.st_uid not in (uid, 0):
+        return True
+    return bool(folder.st_mode & (stat.S_IWGRP | stat.S_IWOTH)) and not folder.st_mode & stat.S_ISVTX
+
+
 def _link_problem(link, folder, uid, devices):
     """Why the link ``link`` (an fstat) in ``folder`` (an fstat) must not be
-    followed, or None: it is another account's, on a file system whose
-    owners prove nothing, or in a folder others can write to without the
-    sticky bit (where another account could rename a link of yours into
-    the name you gave)."""
+    followed, or None: it is another account's; on a file system whose
+    owners prove nothing; has other names (a hard link to it, made where
+    you did not put it); or sits where another account could have put it
+    (_others_can_place)."""
     if link.st_uid not in (uid, 0):
         return "a link another account made"
     if link.st_dev not in devices:
         return "a link outside your system and home drives"
-    if folder.st_mode & (stat.S_IWGRP | stat.S_IWOTH) and not folder.st_mode & stat.S_ISVTX \
-            and folder.st_uid != uid:
+    if link.st_nlink > 1:
+        return "a link with other names (hard links)"
+    if _others_can_place(folder, uid):
         return "a link in a folder other accounts can change"
     return None
 
@@ -449,6 +463,11 @@ def _resolve(path, shown):
                     target = os.readlink("", dir_fd=step)
                 elif pending and not stat.S_ISDIR(st.st_mode):
                     raise NotADirectoryError(name)
+                elif not pending and st.st_uid == uid and _others_can_place(os.fstat(fd), uid):
+                    # A file of yours another account could have renamed
+                    # into the name you gave (one of your private files).
+                    raise WorkerError("BAD_REQUEST", f"{shown} is in a folder other accounts can change; "
+                                                     "upload a copy from a folder of your own")
                 else:
                     target = None
             except BaseException:

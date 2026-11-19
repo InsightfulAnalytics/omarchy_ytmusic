@@ -660,7 +660,14 @@ minutes), `UPSTREAM` (unexpected response; ytmusicapi may need an update),
   names one); `Worker.handle` refuses one without it or under another
   identity with `BAD_REQUEST`, nothing sent, and strips the key before the
   method runs. Lane edits (`uploadSong`, `reportPlays`) check it on the
-  client they send with. The command line's own calls name none. `removeHistory({tokens})` removes History entries by their
+  client they send with. The command line's own calls name none. Two more
+  count as edits: a read with an `order` on a page whose order YouTube
+  saves (`ytm_pages.sort_client`: Backend.qml stamps any request with an
+  order, and the first page goes through the client checked), and
+  `switchAccount` (the shell stamps the key; the worker also refuses,
+  under `session_lock`, while browser.json is not the session its client
+  sends as, since a login index means nothing across sessions).
+  `removeHistory({tokens})` removes History entries by their
   `historyToken` (fresh replies only) through `remove_history_items`; a
   token YouTube does not process is `UPSTREAM` with `stale: true` (the page
   was out of date, and the shell reads History again). ytmusicapi notes that
@@ -724,9 +731,11 @@ minutes), `UPSTREAM` (unexpected response; ytmusicapi may need an update),
   The path is looked up one name at a time (`_resolve`: O_NOFOLLOW from
   the folder before, a link followed by hand only when `_link_problem`
   finds none: it belongs to you or root, sits on the root's or the home's
-  file system (a share or USB disk may report any owner), in a folder no
-  one else can change or one with the sticky bit). A link another account
-  planted is refused, and so is a hard-linked file of yours while
+  file system (a share or USB disk may report any owner), has one name,
+  and sits in a folder of yours or root's that no one else can write to,
+  or one with the sticky bit). A file of yours in a folder others can
+  change is refused too (they could have renamed one of your private
+  files into the name), and so is a hard-linked file of yours while
   `fs.protected_hardlinks` is off. `Worker.load` reads identity.json,
   browser.json and cookies.txt under `ytm_auth.session_lock` (an flock the
   CLI's sign-in, sign-out, switch and visitor-id writes take too).

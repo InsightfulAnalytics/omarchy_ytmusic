@@ -47,7 +47,15 @@ Root causes of the non-obvious problems hit while building the plugin, so they a
 - **A link's owner proves something only on your own disk.** Following only links you own still
   trusted shares and USB disks, which may report every file as yours, and folders others can
   write to without the sticky bit, where another account can rename your link. `_link_problem`
-  checks all three before `_resolve` follows a link by hand.
+  checks all three before `_resolve` follows a link by hand, plus the folder's owner (its owner
+  can move your link in) and the link's own hard links. A file of yours gets the folder check too.
+- **A read can be an edit.** Sorting a library page saves the order on the account, so an
+  ordered read is bound like an edit (`ytm_pages.sort_client`), and so is `switchAccount`, whose
+  login index only means something within the session it was read from. When a new class of
+  check lands, list every request that changes the account, not only the ones in `MUTATES`.
+- **Notification servers link bare URLs.** Escaping `<` and entities is not enough: Omarchy's
+  server makes any `https?://` in the text a link and opens it when a replayed card is clicked.
+  `inert()` puts a word joiner after a scheme's colon.
 - **mpv's ytdl hook is a command line.** It runs `yt-dlp ... -- <watch URL>` for every track
   without a stream, so other local accounts could read each video id from /proc, and it needed
   the session's cookies (which yt-dlp wrote back on exit). mpv now runs `--ytdl=no` and asks the

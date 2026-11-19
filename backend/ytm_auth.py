@@ -201,6 +201,28 @@ def session_auth_user(client):
         return 0
 
 
+def cookie_header_tag(cookie):
+    """session_tag_of the cookies in a Cookie header ("a=1; b=2")."""
+    jar = {}
+    for part in str(cookie or "").split(";"):
+        name, sep, value = part.strip().partition("=")
+        if sep and name and value:
+            jar.setdefault(name, value)
+    return session_tag_of(jar)
+
+
+def saved_session_tag():
+    """The session tag of the Cookie header browser.json holds now; None
+    without a readable file."""
+    try:
+        saved = json.loads(browser_path().read_text())
+    except (OSError, ValueError):
+        return None
+    if not isinstance(saved, dict):
+        return None
+    return cookie_header_tag(next((v for k, v in saved.items() if k.lower() == "cookie"), ""))
+
+
 def saved_auth_user():
     """The Google login index the saved session was imported as (browser.json's
     x-goog-authuser; ``ytm auth --authuser N``), 0 when unknown."""

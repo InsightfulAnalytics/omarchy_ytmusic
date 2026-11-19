@@ -510,6 +510,60 @@ def test_every_shell_edit_is_checked_reads_are_not():
     assert worker.yt.calls == []
 
 
+@pytest.mark.parametrize("method", ["uploadSongs", "uploadAlbums", "uploadArtists"])
+def test_a_sort_is_saved_only_as_the_identity_it_was_asked_under(method):
+    """An order on your library's pages is saved on the account: from the
+    shell it names its identity and goes through the client checked."""
+    def fresh():
+        worker = uploads_worker(songs_page([upload_row(1)], selected="a_to_z"),
+                                get_library_upload_albums=[], get_library_upload_artists=[])
+        worker.serving = True
+        return worker
+
+    for key, problem in ((None, "not known yet"), (BRAND_KEY, "changed")):
+        worker = fresh()
+        params = {"order": "a_to_z"} if key is None else {"order": "a_to_z", "identityKey": key}
+        reply = call(worker, method, **params)
+        assert reply["error"]["code"] == "BAD_REQUEST" and problem in reply["error"]["message"]
+        assert worker.yt.requests == [] and worker.yt.calls == [], "no sort saved"
+    worker = fresh()
+    asked = worker.yt
+    assert call(worker, method, order="a_to_z", identityKey="0::")["ok"]
+    assert asked.requests or asked.calls
+    assert call(fresh(), method)["ok"], "a read in the saved order names nothing"
+
+
+def test_a_sort_goes_through_the_client_checked_not_one_swapped_in():
+    worker = uploads_worker(get_library_upload_albums=[], get_library_upload_artists=[])
+    worker.serving = True
+    checked = worker.yt
+    later = type(checked)(get_library_upload_albums=[], get_library_upload_artists=[])
+    real_bound = identities.Bound
+
+    def bound_then_swap(w):  # a switch loads another client right after the check
+        view = real_bound(w)
+        w.yt = later
+        return view
+
+    identities.Bound = bound_then_swap
+    try:
+        assert call(worker, "uploadAlbums", order="a_to_z", identityKey="0::")["ok"]
+    finally:
+        identities.Bound = real_bound
+    assert [c[0] for c in checked.calls] == ["get_library_upload_albums"] and later.calls == []
+
+
+def test_the_shell_names_its_identity_on_every_ordered_read():
+    text = open(os.path.join(os.path.dirname(__file__), "..", "..", "Backend.qml")).read()
+    assert "params.order !== undefined && params.order !== null" in text
+
+
+def test_the_cache_ignores_the_identity_key(tmp_path):
+    cache = caches.DiskCache(tmp_path / "data")
+    cache.put("browsePage", {"browseId": "FEmusic_library_x", "identityKey": "0::"}, {"type": "page"})
+    assert cache.get("browsePage", {"browseId": "FEmusic_library_x"}) is not None
+
+
 def test_plays_counted_before_the_account_was_known_are_never_sent():
     yt = HistoryYT()
     worker = serving(yt)

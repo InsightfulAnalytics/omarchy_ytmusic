@@ -152,12 +152,7 @@ def session_tag(client):
         cookie = headers.get("cookie") or ""
     except AttributeError:
         return ""
-    jar = {}
-    for part in str(cookie).split(";"):
-        name, sep, value = part.strip().partition("=")
-        if sep and name and value:
-            jar.setdefault(name, value)
-    return auth.session_tag_of(jar)
+    return auth.cookie_header_tag(cookie)
 
 
 def identity_summary(worker):
@@ -331,6 +326,14 @@ def _switch_error(exc, chosen):
     return WorkerError("UPSTREAM", "YouTube Music did not answer as that account; still using the previous one")
 
 
+def _same_session(worker):
+    """BAD_REQUEST (nothing changed) when browser.json is no longer the
+    session the worker's client sends as."""
+    if auth.saved_session_tag() != session_tag(worker.yt):
+        raise unsent(WorkerError("BAD_REQUEST", "The saved session changed since the account list was read; "
+                                                "nothing was switched. Open the list again"))
+
+
 def m_switch_account(worker, params):
     page_id = params.get("pageId")
     auth_user = params.get("authUser")
@@ -340,21 +343,36 @@ def m_switch_account(worker, params):
         raise WorkerError("BAD_REQUEST", str(exc)) from exc
     # Not the identity in use: the switch checks the new one itself.
     require_session(worker)
-    # The session's own login needs no header of its own: only the pageId.
-    if chosen and chosen["authUser"] == auth.saved_auth_user():
-        chosen = auth.checked_identity(chosen["pageId"], None)
-    previous = worker.identity
-    if chosen == previous:
-        return {"identity": identity_summary(worker), "changed": False, "auth": worker.auth}
-    auth.save_identity(chosen)
-    worker.load()
+    # Asked from the shell's account list: as the identity that list was
+    # read as (the key the shell stamps), else nothing is switched.
+    require_identity_key(worker, params, "this switch")
+    # An identity is an index into a session: it is saved, and the client
+    # loaded, under the session lock and only while browser.json is still
+    # the session the worker's client sends as. A sign-in (from another
+    # browser profile, say) that landed before this worker reloaded would
+    # otherwise turn "login 1" of the old session into login 1 of the new
+    # one: another Google account.
+    with auth.session_lock():
+        _same_session(worker)
+        # The session's own login needs no header of its own: only the pageId.
+        if chosen and chosen["authUser"] == auth.saved_auth_user():
+            chosen = auth.checked_identity(chosen["pageId"], None)
+        previous = worker.identity
+        if chosen == previous:
+            return {"identity": identity_summary(worker), "changed": False, "auth": worker.auth}
+        auth.save_identity(chosen)
+        worker.load()
     worker.clear_cache()
     try:
         info = worker.yt.get_account_info()
     except Exception as exc:  # noqa: BLE001 - any failure: back to the identity before
         norm.log(f"switchAccount: the new identity did not answer ({type(exc).__name__}); restored the previous one")
-        auth.save_identity(previous)
-        worker.load()
+        with auth.session_lock():
+            # Only onto the session it was chosen in (a sign-in meanwhile
+            # removed identity.json with the old session).
+            if auth.saved_session_tag() == session_tag(worker.yt):
+                auth.save_identity(previous)
+            worker.load()
         worker.clear_cache()
         raise _switch_error(exc, chosen) from exc
     worker.verified = True

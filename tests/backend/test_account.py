@@ -250,6 +250,28 @@ def test_switching_to_the_identity_in_use_changes_nothing(signed_in):
     assert len(FakeYTMusic.built) == 1 and not (signed_in / "identity.json").exists()
 
 
+def test_a_switch_after_a_sign_in_the_worker_has_not_taken_in_changes_nothing(signed_in):
+    """Login 1 of the old session is not login 1 of a new one (another
+    browser profile): the list it was picked from is out of date."""
+    worker = ytm.Worker()
+    (signed_in / "browser.json").write_text(json.dumps({"cookie": "SID=another-profile", "x-goog-authuser": "0"}))
+    built = len(FakeYTMusic.built)
+    reply = call(worker, "switchAccount", authUser=1)
+    assert reply["error"]["code"] == "BAD_REQUEST" and "session changed" in reply["error"]["message"]
+    assert not (signed_in / "identity.json").exists() and len(FakeYTMusic.built) == built
+    assert worker.generation == 1 and worker.identity is None
+
+
+def test_a_switch_from_the_shell_is_as_the_identity_its_list_was_read_as(signed_in):
+    worker = ytm.Worker()
+    worker.serving = True
+    reply = call(worker, "switchAccount", authUser=1, identityKey="1:abcdefabcdef:" + SESSION)
+    assert reply["error"]["code"] == "BAD_REQUEST" and "changed" in reply["error"]["message"]
+    assert not (signed_in / "identity.json").exists()
+    assert call(worker, "switchAccount", authUser=1, identityKey="0::" + SESSION)["ok"]
+    assert call(worker, "switchAccount", pageId=None)["ok"], "a key is checked when sent (the command line has none)"
+
+
 @pytest.mark.parametrize("refused", [False, True])
 def test_a_switch_forgets_your_channel(signed_in, refused):
     # Your channel (myChannel, the off-disk rule) is the identity's

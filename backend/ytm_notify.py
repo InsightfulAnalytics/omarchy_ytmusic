@@ -44,16 +44,24 @@ def _text(params, key, required):
 
 # The notification server reads the body (and Omarchy's the summary too) as
 # markup, decoding entities more than once and turning <a href> into a
-# link. Titles come from YouTube, where anyone names their uploads and
-# playlists: no character that could become markup goes through.
+# link; it also makes any bare http(s):// URL in the text a link (and a
+# card replayed from its history opens the first one on a click). Titles
+# come from YouTube, where anyone names their uploads and playlists: no
+# character that could become markup, and no URL, goes through.
 _ENTITY = re.compile(r"&(?=#?[0-9A-Za-z]+;)")
+# A scheme's "://", with anything a decoder or a reader might skip between
+# the colon and the slashes: a word joiner after the colon breaks it.
+_SCHEME = re.compile(r"(?i)([a-z][a-z0-9+.\-]*):(?=\s*/)")
 
 
 def inert(text):
-    """``text`` that no markup parser reads as a tag or an entity, however
-    many times it decodes it: < and > become ‹ and ›, an & that starts an
-    entity (&lt;) becomes ＆, and any other & is escaped (&amp;)."""
+    """``text`` that no markup parser reads as a tag, an entity or a link,
+    however many times it decodes it: < and > become ‹ and ›, an & that
+    starts an entity (&lt;) becomes ＆, any other & is escaped (&amp;), and
+    a scheme's colon (https:) gets a word joiner after it, so no "://" is
+    left to find."""
     text = _ENTITY.sub("\uff06", text).replace("<", "\u2039").replace(">", "\u203a")
+    text = _SCHEME.sub("\\1:\u2060", text)
     return text.replace("&", "&amp;")
 
 

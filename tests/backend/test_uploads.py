@@ -7,6 +7,7 @@ before the selected Uploads tab, serve no sort menu, and name their orders
 in frameworkUpdates as musicFormBooleanChoice entities with opaque tokens.
 """
 
+import io
 import os
 from pathlib import Path
 
@@ -652,6 +653,12 @@ def test_cli_upload_resolves_a_relative_path(tmp_path, monkeypatch):
     monkeypatch.setattr(ytm, "Worker", Worker)
     assert ytm.main(["upload", "a.mp3"]) == 0
     assert seen[0]["method"] == "uploadSong" and seen[0]["params"] == {"path": str(tmp_path / "a.mp3")}
+    # "-": the path from stdin, off the command line.
+    monkeypatch.setattr("sys.stdin", io.StringIO("my song.mp3\n"))
+    assert ytm.main(["upload", "-"]) == 0
+    assert seen[1]["params"] == {"path": str(tmp_path / "my song.mp3")}
+    monkeypatch.setattr("sys.stdin", io.StringIO(""))
+    assert ytm.main(["upload", "-"]) == 2 and len(seen) == 2
 
 
 def test_a_link_another_account_made_is_never_followed(tmp_path, monkeypatch):
@@ -711,19 +718,41 @@ def test_a_link_on_a_drive_whose_owners_prove_nothing_is_not_followed(tmp_path, 
 
 def test_a_link_in_a_folder_others_can_change_is_not_followed(tmp_path, monkeypatch):
     """Without the sticky bit another account could rename a link of yours
-    into the name you gave."""
+    into the name you gave; into a folder of its own, it can move one."""
     trust(monkeypatch, tmp_path)
     real = music_file(tmp_path, "real.mp3")
     shared = tmp_path / "shared"
     shared.mkdir()
     (shared / "song.mp3").symlink_to(real)
     shared.chmod(0o777)
-    folder_owner = os.stat(shared).st_uid
-    monkeypatch.setattr(uploads, "_link_problem", wrap_owner(uploads._link_problem, folder_owner + 1))
-    reply = upload_reply(worker_for(), shared / "song.mp3")
-    assert "folder other accounts can change" in reply["error"]["message"]
+    assert "folder other accounts can change" in upload_reply(worker_for(), shared / "song.mp3")["error"]["message"]
     shared.chmod(0o1777)  # sticky: only a link's owner renames it
     assert upload_reply(worker_for(upload_song=ResponseStatus.SUCCEEDED), shared / "song.mp3")["ok"]
+    shared.chmod(0o755)
+    monkeypatch.setattr(uploads, "_link_problem", wrap_owner(uploads._link_problem, os.getuid() + 4242))
+    reply = upload_reply(worker_for(), shared / "song.mp3")
+    assert "folder other accounts can change" in reply["error"]["message"], "their folder, your link moved in"
+
+
+def test_a_link_with_other_names_is_not_followed(tmp_path, monkeypatch):
+    trust(monkeypatch, tmp_path)
+    real = music_file(tmp_path, "real.mp3")
+    link = tmp_path / "music" / "link.mp3"
+    link.symlink_to(real)
+    os.link(link, tmp_path / "music" / "again.mp3", follow_symlinks=False)  # a hard link to the link itself
+    assert "other names" in upload_reply(worker_for(), link)["error"]["message"]
+
+
+def test_a_file_of_yours_in_a_folder_others_can_change_is_refused(tmp_path):
+    shared = tmp_path / "shared"
+    shared.mkdir()
+    (shared / "song.mp3").write_bytes(b"mp3")
+    shared.chmod(0o777)
+    seen = {}
+    reply = upload_reply(worker_for(upload_song=reading(seen)), shared / "song.mp3")
+    assert "folder other accounts can change" in reply["error"]["message"] and seen == {}
+    shared.chmod(0o1777)
+    assert upload_reply(worker_for(upload_song=reading(seen)), shared / "song.mp3")["ok"]
 
 
 def wrap_owner(problem, folder_uid):

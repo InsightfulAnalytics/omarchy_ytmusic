@@ -195,9 +195,14 @@ omarchy-shell ytmusic volume 60
 omarchy-shell ytmusic search "query"            # open the panel on the results
 omarchy-shell ytmusic like|unlike|toggleLike    # the song playing
 omarchy-shell ytmusic shuffle|repeat|autoplay|recordPlays
-bin/ytm upload ~/Music/song.mp3                 # a file to your uploads
+bin/ytm upload ~/Music/song.mp3                 # a file to your uploads (- reads the path from stdin)
 wl-paste | bin/ytm join -    # join a collaborative playlist from its invite link (or: bin/ytm join --clipboard)
 ```
+
+Anything typed as an argument (a search, a file name) is on that command's
+command line while it runs, which other accounts on this computer can read.
+The panel never puts your text there; for a file name you would rather keep
+off it, use the panel's upload field or `bin/ytm upload -`.
 
 ## How it works
 
@@ -259,6 +264,7 @@ after it closes.
   swapping a file in a shared folder after it was checked changes nothing.
   A link on the path is followed only when it is yours, on your own disk,
   in a folder only you can change; anything else asks for the file itself.
+  A file of yours in a folder other accounts can change is refused.
 - mpv checks TLS certificates (`--tls-verify=yes`; mpv's default is off), as
   the worker's and yt-dlp's requests already do.
 - External text never reaches a shell: processes get argument arrays, mpv titles use byte-length quoting, and the two `sh -c`

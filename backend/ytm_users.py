@@ -253,7 +253,7 @@ def m_library_profiles(worker, params):
                                     min_items=PAGE_ITEMS, max_http=library._budget(0))
         return _profiles_page(items, cursor, order=order)
     # An ordered read is a saved setting: the cached browsePage copies go.
-    first = library._first_page(worker, PROFILES_BROWSE_ID, body, order)
+    first = library._first_page(worker, PROFILES_BROWSE_ID, body, order, params)
     response = first[0]
     orders, current = library._orders(first[3], order, offered=())
     message = served_message(response)

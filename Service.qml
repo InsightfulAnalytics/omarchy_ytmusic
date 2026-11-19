@@ -2328,6 +2328,14 @@ Item {
   function _sendSwitch(params, item) {
     if (switching) return false
     switching = true
+    // As the identity the list was read as: the worker switches nothing
+    // under another one (a switch or sign-in made meanwhile).
+    if (_identityKey !== "") {
+      var stamped = ({})
+      for (var key in params) stamped[key] = params[key]
+      stamped.identityKey = _identityKey
+      params = stamped
+    }
     backend.request("switchAccount", params, function(reply) {
       root.switching = false
       if (!reply.ok) {
