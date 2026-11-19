@@ -301,6 +301,9 @@ Item {
       loading = false
       return
     }
+    // An order picked as another identity (or before any) is never sent
+    // as this one: the page reads in its saved order.
+    if (_orderOutlived()) _dropOrder()
     var key = refKey
     store.loadCollection(ref, function(reply) {
       // The view may be gone by then (Back to an empty stack), or going:
@@ -325,16 +328,16 @@ Item {
         if (wanted) root.loadMore(true)
         root._pageLoaded()
         root._findMore()
+      } else if (root._orderOutlived()) {
+        // Refused: picked as another identity. The page in its saved order.
+        root._dropOrder()
+        root.load(fresh)
       } else if (root.full && Model.canLoadAll(root.page)) {
         // Load all failed over the first read: that stays, and its Load
         // all row says why (Enter tries again).
         root.full = false
         root.ref = root._refFor(root.order, false, root.filter)
         root.moreError = reply.error.message
-      } else if (root._orderOutlived()) {
-        // Refused: picked as another identity. The page in its saved order.
-        root._dropOrder()
-        root.load(fresh)
       } else {
         root.error = reply.error.message
       }
@@ -350,6 +353,10 @@ Item {
       if (!explicit || !page.hasMore) return
       _moreWanted = true
       if (!loading && !refreshing) load(true)
+      return
+    }
+    if (_orderOutlived()) {  // the next page would carry another identity's order
+      load(true)
       return
     }
     var key = refKey
@@ -409,7 +416,7 @@ Item {
 
   // The order was picked as another identity than the one in use now.
   function _orderOutlived() {
-    return order !== null && orderKey !== "" && !!service && orderKey !== service._identityKey
+    return order !== null && !!service && orderKey !== service._identityKey
   }
 
   function _dropOrder() {

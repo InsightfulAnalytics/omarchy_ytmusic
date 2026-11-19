@@ -2273,6 +2273,8 @@ Item {
         }
         root.accounts = { items: items, at: Date.now() }
         root._nameFrom(items)
+        // The chooser builds its rows from the reply: the tagged ones.
+        reply = { ok: true, result: { items: items, identity: reply.result ? reply.result.identity : null } }
       }
       for (var i = 0; i < waiting.length; i++) waiting[i](reply)
     })

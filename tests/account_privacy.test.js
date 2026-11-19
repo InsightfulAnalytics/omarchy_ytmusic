@@ -108,6 +108,7 @@ test("a switch names the identity its account list was read as", () => {
   const fs = require("node:fs")
   const service = fs.readFileSync(require("node:path").join(__dirname, "..", "Service.qml"), "utf8")
   assert.ok(service.includes("row.listKey = listKey"), "Service.loadAccounts tags each row")
+  assert.ok(service.includes("reply = { ok: true, result: { items: items,"), "and hands the chooser the tagged rows")
 })
 
 test("an order on a page goes with the identity it was picked under", () => {
@@ -116,6 +117,9 @@ test("an order on a page goes with the identity it was picked under", () => {
   assert.ok(view.includes("extra.identityKey = orderKey"), "every read in the order names it")
   assert.ok(/orderKey = service && typeof service\._identityKey === "string"/.test(view), "taken when O picks it")
   assert.ok(view.includes("if (root._orderOutlived()) root._dropOrder()"), "dropped after a switch")
+  assert.ok(view.includes("    if (_orderOutlived()) _dropOrder()\n    var key = refKey"), "checked before every read")
+  assert.ok(/return order !== null && !!service && orderKey !== service\._identityKey/.test(view),
+            "a pick with no key yet counts as another identity's once one is known")
   const ref = Model.pageRef({ type: "page", browseId: "FEmusic_library_landing" }, { order: 1, identityKey: OWN })
   assert.ok(!ref || ref.params.identityKey === OWN)
 })
