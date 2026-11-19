@@ -221,12 +221,13 @@ def m_upload_songs(worker, params):
     order = opt_order(params, ORDERS)
     cursor = opt_cursor(params)
     body = _body(SONGS_ID, order)
+    yt = pages.sort_client(worker, params, SONGS_ID, order)  # its pages carry the order too
     if cursor:
-        items, cursor = pages.fetch(worker.yt, "browse", body, "ctoken", None, songs_of, cursor=cursor,
+        items, cursor = pages.fetch(yt, "browse", body, "ctoken", None, songs_of, cursor=cursor,
                                     min_items=PAGE_ITEMS, max_http=library._budget(0))
         return _page("uploadSongs", SONGS_ID, "Uploaded songs", items, cursor, order=order)
     try:
-        first = pages.first_page(pages.sort_client(worker, params, SONGS_ID, order), "browse", body)
+        first = pages.first_page(yt, "browse", body)
     finally:
         _forget_order(worker, SONGS_ID, order)
     response = first[0]
@@ -235,7 +236,7 @@ def m_upload_songs(worker, params):
     if container is None:
         return _page("uploadSongs", SONGS_ID, "Uploaded songs", [], None, orders, current,
                      message=empty_message(response) or "No uploaded songs yet")
-    items, cursor = pages.fetch(worker.yt, "browse", body, "ctoken", lambda _: container, songs_of,
+    items, cursor = pages.fetch(yt, "browse", body, "ctoken", lambda _: container, songs_of,
                                 min_items=PAGE_ITEMS, max_http=library._budget(first[1]), first=first)
     return _page("uploadSongs", SONGS_ID, "Uploaded songs", items, cursor, orders, current)
 

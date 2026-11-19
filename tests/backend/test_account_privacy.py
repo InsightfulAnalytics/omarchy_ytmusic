@@ -553,6 +553,15 @@ def test_a_sort_goes_through_the_client_checked_not_one_swapped_in():
     assert [c[0] for c in checked.calls] == ["get_library_upload_albums"] and later.calls == []
 
 
+def test_the_pages_after_an_ordered_first_page_name_the_identity_too():
+    """They carry the order in their body as well."""
+    worker = uploads_worker(songs_page([upload_row(1)], token="next", selected="a_to_z"))
+    worker.serving = True
+    reply = call(worker, "uploadSongs", order="a_to_z", cursor="next")
+    assert reply["error"]["code"] == "BAD_REQUEST" and "not known yet" in reply["error"]["message"], reply
+    assert worker.yt.requests == []
+
+
 def test_the_shell_names_its_identity_on_every_ordered_read():
     text = open(os.path.join(os.path.dirname(__file__), "..", "..", "Backend.qml")).read()
     assert "params.order !== undefined && params.order !== null" in text

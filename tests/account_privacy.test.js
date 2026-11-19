@@ -100,3 +100,22 @@ test("your own channel's page is played as Your channel, never by its name", () 
   assert.equal(text.indexOf("Owner Name"), -1)
   assert.equal(Model.playingFrom({ title: "Your channel" }, null), "Your channel")
 })
+
+test("a switch names the identity its account list was read as", () => {
+  const row = { brand: false, pageId: null, authUser: 1, listKey: OWN }
+  assert.deepEqual(Model.switchParams(row), { pageId: null, authUser: 1, identityKey: OWN })
+  assert.deepEqual(Model.switchParams(Object.assign({}, row, { listKey: "not a key" })), { pageId: null, authUser: 1 })
+  const fs = require("node:fs")
+  const service = fs.readFileSync(require("node:path").join(__dirname, "..", "Service.qml"), "utf8")
+  assert.ok(service.includes("row.listKey = listKey"), "Service.loadAccounts tags each row")
+})
+
+test("an order on a page goes with the identity it was picked under", () => {
+  const fs = require("node:fs")
+  const view = fs.readFileSync(require("node:path").join(__dirname, "..", "components", "CollectionView.qml"), "utf8")
+  assert.ok(view.includes("extra.identityKey = orderKey"), "every read in the order names it")
+  assert.ok(/orderKey = service && typeof service\._identityKey === "string"/.test(view), "taken when O picks it")
+  assert.ok(view.includes("if (root._orderOutlived()) root._dropOrder()"), "dropped after a switch")
+  const ref = Model.pageRef({ type: "page", browseId: "FEmusic_library_landing" }, { order: 1, identityKey: OWN })
+  assert.ok(!ref || ref.params.identityKey === OWN)
+})

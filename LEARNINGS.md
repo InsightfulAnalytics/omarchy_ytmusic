@@ -53,6 +53,10 @@ Root causes of the non-obvious problems hit while building the plugin, so they a
   ordered read is bound like an edit (`ytm_pages.sort_client`), and so is `switchAccount`, whose
   login index only means something within the session it was read from. When a new class of
   check lands, list every request that changes the account, not only the ones in `MUTATES`.
+  Stamp the key when the user acts, not when the request is sent: a view that replays its
+  state (a sort kept for Back or a refresh, an account list left open) would otherwise send an
+  old choice under the new identity's key. `CollectionView.orderKey` and the account rows'
+  `listKey` carry the key from the press.
 - **Notification servers link bare URLs.** Escaping `<` and entities is not enough: Omarchy's
   server makes any `https?://` in the text a link and opens it when a replayed card is clicked.
   `inert()` puts a word joiner after a scheme's colon.

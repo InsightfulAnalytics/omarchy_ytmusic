@@ -6529,6 +6529,8 @@ function accountsFresh(accounts, now) {
 function switchParams(item) {
   var params = { pageId: item && item.brand === true && item.pageId ? String(item.pageId) : null }
   if (item && typeof item.authUser === "number") params.authUser = item.authUser
+  // The identity the account list was read as (Service.loadAccounts).
+  if (item && isIdentityKey(item.listKey)) params.identityKey = item.listKey
   return params
 }
 

@@ -2259,7 +2259,18 @@ Item {
       var waiting = root._accountsWaiting
       root._accountsWaiting = []
       if (reply.ok) {
-        var items = reply.result && Array.isArray(reply.result.items) ? reply.result.items : []
+        var listed = reply.result && Array.isArray(reply.result.items) ? reply.result.items : []
+        // Each row names the identity the list was read as: a switch from
+        // it is refused, unsent, once that is no longer the one in use.
+        var listKey = reply.result && reply.result.identity && typeof reply.result.identity.key === "string"
+            ? reply.result.identity.key : ""
+        var items = []
+        for (var n = 0; n < listed.length; n++) {
+          var row = ({})
+          for (var field in listed[n]) row[field] = listed[n][field]
+          row.listKey = listKey
+          items.push(row)
+        }
         root.accounts = { items: items, at: Date.now() }
         root._nameFrom(items)
       }
@@ -2328,9 +2339,10 @@ Item {
   function _sendSwitch(params, item) {
     if (switching) return false
     switching = true
-    // As the identity the list was read as: the worker switches nothing
-    // under another one (a switch or sign-in made meanwhile).
-    if (_identityKey !== "") {
+    // As the identity the list was read as (Model.switchParams takes the
+    // row's), else the one in use: the worker switches nothing under
+    // another one (a switch or sign-in made meanwhile).
+    if (params.identityKey === undefined && _identityKey !== "") {
       var stamped = ({})
       for (var key in params) stamped[key] = params[key]
       stamped.identityKey = _identityKey
