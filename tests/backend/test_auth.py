@@ -84,6 +84,40 @@ def test_load_client_remembers_visitor_id(config_dir):
     assert path.read_text() == before
 
 
+def test_a_visitor_id_goes_only_into_the_session_it_came_with(config_dir):
+    """A sign-in that replaced browser.json after the client was made keeps its file."""
+    config_dir.mkdir(parents=True)
+    path = config_dir / "browser.json"
+    path.write_text(json.dumps({"cookie": "SID=new"}))
+
+    class Old:
+        headers = {"X-Goog-Visitor-Id": "OLD-VISITOR"}
+        _auth_headers = {"cookie": "SID=old"}
+
+    auth.remember_visitor_id(path, Old())
+    assert json.loads(path.read_text()) == {"cookie": "SID=new"}
+    Old._auth_headers = {"cookie": "SID=new"}
+    auth.remember_visitor_id(path, Old())
+    assert json.loads(path.read_text())["x-goog-visitor-id"] == "OLD-VISITOR"
+
+
+def test_session_lock_is_reentrant_in_a_thread_and_shared_across_processes(config_dir):
+    import subprocess
+    import sys
+
+    with auth.session_lock():
+        with auth.session_lock():  # a prune inside Worker.load's lock
+            pass
+        probe = subprocess.run(
+            [sys.executable, "-c",
+             "import fcntl, os, sys; fd = os.open(sys.argv[1], os.O_RDWR)\n"
+             "try:\n    fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB); print('free')\n"
+             "except BlockingIOError:\n    print('held')",
+             str(config_dir / ".session.lock")], capture_output=True, text=True, check=True)
+        assert probe.stdout.strip() == "held", "still held after the inner block"
+    assert not (config_dir / ".session.lock").is_symlink()
+
+
 def test_sign_in_saves_visitor_id(config_dir, monkeypatch):
     fake_setup(monkeypatch)
     auth.import_from_headers("cookie: SID=a; __Secure-3PAPISID=b\n", factory=VisitorClient)

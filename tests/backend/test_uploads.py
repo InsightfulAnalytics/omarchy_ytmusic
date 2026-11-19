@@ -516,7 +516,13 @@ def test_what_is_not_a_regular_file_is_refused_without_reading_it(tmp_path, kind
     assert reply["error"]["code"] == "BAD_REQUEST" and worker.yt.calls == []
 
 
-def test_a_symlink_the_user_names_is_followed_once(tmp_path):
+def trust(monkeypatch, tmp_path):
+    """tmp_path's file system (a tmpfs) as one whose owners are real."""
+    monkeypatch.setattr(uploads, "_trusted_devices", lambda: {os.stat(tmp_path).st_dev})
+
+
+def test_a_symlink_the_user_names_is_followed_once(tmp_path, monkeypatch):
+    trust(monkeypatch, tmp_path)
     real = music_file(tmp_path, "real.ogg")
     real.write_bytes(b"ogg")
     link = tmp_path / "music" / "link.ogg"
@@ -656,6 +662,7 @@ def test_a_link_another_account_made_is_never_followed(tmp_path, monkeypatch):
     planted = tmp_path / "music" / "song.mp3"
     planted.parent.mkdir()
     planted.symlink_to(private)
+    trust(monkeypatch, tmp_path)
     real_uid = os.getuid()
     monkeypatch.setattr(uploads.os, "getuid", lambda: real_uid + 4242)  # the link is now someone else's
     seen = {}
@@ -667,7 +674,8 @@ def test_a_link_another_account_made_is_never_followed(tmp_path, monkeypatch):
     assert "link another account made" in upload_reply(worker_for(), folder_link / "x.mp3")["error"]["message"]
 
 
-def test_your_own_links_are_followed_relative_or_not(tmp_path):
+def test_your_own_links_are_followed_relative_or_not(tmp_path, monkeypatch):
+    trust(monkeypatch, tmp_path)
     album = tmp_path / "library" / "album"
     album.mkdir(parents=True)
     (album / "track.flac").write_bytes(b"flac")
@@ -688,3 +696,50 @@ def test_a_link_loop_and_an_unencodable_path_are_refused(tmp_path):
     odd = {"path": "/tmp/\ud800.mp3"}
     assert isinstance(ytm.PREPARES["uploadSong"](odd), ytm.WorkerError), "serve() keeps running"
     assert call(worker_for(), "uploadSong", path="/tmp/\ud800.mp3")["error"]["code"] == "BAD_REQUEST"
+
+
+def test_a_link_on_a_drive_whose_owners_prove_nothing_is_not_followed(tmp_path, monkeypatch):
+    """A share or a USB disk may show every file as yours."""
+    real = music_file(tmp_path, "real.mp3")
+    link = tmp_path / "music" / "link.mp3"
+    link.symlink_to(real)
+    monkeypatch.setattr(uploads, "_trusted_devices", lambda: {-1})
+    reply = upload_reply(worker_for(upload_song=ResponseStatus.SUCCEEDED), link)
+    assert reply["error"]["code"] == "BAD_REQUEST" and "outside your system and home drives" in reply["error"]["message"]
+    assert upload_reply(worker_for(upload_song=ResponseStatus.SUCCEEDED), real)["ok"], "the file itself still goes"
+
+
+def test_a_link_in_a_folder_others_can_change_is_not_followed(tmp_path, monkeypatch):
+    """Without the sticky bit another account could rename a link of yours
+    into the name you gave."""
+    trust(monkeypatch, tmp_path)
+    real = music_file(tmp_path, "real.mp3")
+    shared = tmp_path / "shared"
+    shared.mkdir()
+    (shared / "song.mp3").symlink_to(real)
+    shared.chmod(0o777)
+    folder_owner = os.stat(shared).st_uid
+    monkeypatch.setattr(uploads, "_link_problem", wrap_owner(uploads._link_problem, folder_owner + 1))
+    reply = upload_reply(worker_for(), shared / "song.mp3")
+    assert "folder other accounts can change" in reply["error"]["message"]
+    shared.chmod(0o1777)  # sticky: only a link's owner renames it
+    assert upload_reply(worker_for(upload_song=ResponseStatus.SUCCEEDED), shared / "song.mp3")["ok"]
+
+
+def wrap_owner(problem, folder_uid):
+    """_link_problem as if the folder belonged to ``folder_uid``."""
+    def wrapped(link, folder, uid, devices):
+        fake = os.stat_result((folder.st_mode, folder.st_ino, folder.st_dev, folder.st_nlink, folder_uid,
+                               folder.st_gid, folder.st_size, 0, 0, 0))
+        return problem(link, fake, uid, devices)
+    return wrapped
+
+
+def test_a_hard_linked_file_of_yours_is_refused_without_the_kernels_protection(tmp_path, monkeypatch):
+    real = music_file(tmp_path, "real.mp3")
+    second = tmp_path / "music" / "second.mp3"
+    os.link(real, second)
+    monkeypatch.setattr(uploads, "_hardlinks_protected", lambda: False)
+    assert "hard links" in upload_reply(worker_for(), second)["error"]["message"]
+    monkeypatch.setattr(uploads, "_hardlinks_protected", lambda: True)
+    assert upload_reply(worker_for(upload_song=ResponseStatus.SUCCEEDED), second)["ok"]

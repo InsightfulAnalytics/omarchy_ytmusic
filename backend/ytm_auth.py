@@ -68,20 +68,34 @@ def ensure_config_dir():
     return path
 
 
+_session_lock_depth = threading.local()
+
+
 @contextlib.contextmanager
 def session_lock():
-    """Held while the session files change (a sign-in's swap, a sign-out, a
-    prune of cookies.txt), across processes (the worker, the CLI): one
-    never interleaves with another. An flock on a file in the 0700 config
-    folder."""
+    """Held while the session files are read together (Worker.load) or
+    change (a sign-in's swap, a sign-out, a switch's identity.json, a prune
+    of cookies.txt, the visitor id), across processes (the worker, the
+    CLI): one never interleaves with another. An flock on a file in the
+    0700 config folder; reentrant within a thread (a second flock on a new
+    descriptor would wait for the first)."""
+    if getattr(_session_lock_depth, "n", 0):
+        _session_lock_depth.n += 1
+        try:
+            yield
+        finally:
+            _session_lock_depth.n -= 1
+        return
     import fcntl
 
     directory = ensure_config_dir()
     fd = os.open(directory / ".session.lock", os.O_RDWR | os.O_CREAT | os.O_CLOEXEC | os.O_NOFOLLOW, 0o600)
     try:
         fcntl.flock(fd, fcntl.LOCK_EX)
+        _session_lock_depth.n = 1
         yield
     finally:
+        _session_lock_depth.n = 0
         os.close(fd)
 
 
@@ -234,12 +248,12 @@ def read_identity():
 def save_identity(chosen):
     """Keep ``chosen`` (a ``checked_identity()`` dict or None) in identity.json, 0600;
     the session's own account removes the file."""
-    if not chosen:
-        identity_path().unlink(missing_ok=True)
-        return
-    ensure_config_dir()
-    record = {"version": 1, "pageId": chosen.get("pageId"), "authUser": chosen.get("authUser")}
-    write_private(identity_path(), json.dumps(record, sort_keys=True) + "\n")
+    with session_lock():
+        if not chosen:
+            identity_path().unlink(missing_ok=True)
+            return
+        record = {"version": 1, "pageId": chosen.get("pageId"), "authUser": chosen.get("authUser")}
+        write_private(identity_path(), json.dumps(record, sort_keys=True) + "\n")
 
 
 # ---- end identity ------------------------------------------------------------
@@ -253,13 +267,24 @@ def remember_visitor_id(path, client):
     """
     try:
         visitor_id = (getattr(client, "headers", None) or {}).get("X-Goog-Visitor-Id")
-        saved = json.loads(Path(path).read_text())
-    except (OSError, ValueError, AttributeError):
+        sent = str((getattr(client, "_auth_headers", None) or {}).get("cookie") or "")
+    except AttributeError:
         return
-    if not visitor_id or any(key.lower() == "x-goog-visitor-id" for key in saved):
+    if not visitor_id:
         return
-    saved["x-goog-visitor-id"] = visitor_id
-    write_private(Path(path), json.dumps(saved, indent=4, sort_keys=True) + "\n")
+    # Under the session lock, and only into the session the client was made
+    # from: a sign-in that swapped browser.json meanwhile keeps its own.
+    with session_lock():
+        try:
+            saved = json.loads(Path(path).read_text())
+        except (OSError, ValueError):
+            return
+        if not isinstance(saved, dict) or any(key.lower() == "x-goog-visitor-id" for key in saved):
+            return
+        if sent and str(saved.get("cookie") or "") != sent:
+            return
+        saved["x-goog-visitor-id"] = visitor_id
+        write_private(Path(path), json.dumps(saved, indent=4, sort_keys=True) + "\n")
 
 
 def whoami():

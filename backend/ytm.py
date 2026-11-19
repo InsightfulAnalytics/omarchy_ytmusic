@@ -610,19 +610,23 @@ class Worker:
         # The client settings (location) and the saved identity (a brand
         # account, another login), passed only when there are any.
         settings = self.client_settings()
-        identity = auth.read_identity()
-        kwargs = {}
-        if settings:
-            kwargs["settings"] = settings
-        if identity:
-            kwargs["identity"] = identity
-        try:
-            auth.prune_cookie_file()  # a cookies.txt from before it kept YouTube's cookies only
-        except OSError as exc:
-            norm.log(f"could not prune cookies.txt: {type(exc).__name__}")
-        yt, state = auth.load_client(**kwargs)
+        # The identity, the session and its cookies read together, under the
+        # lock a sign-in, sign-out or switch holds while it changes them: a
+        # load never pairs one session's files with another's.
+        with auth.session_lock():
+            identity = auth.read_identity()
+            kwargs = {}
+            if settings:
+                kwargs["settings"] = settings
+            if identity:
+                kwargs["identity"] = identity
+            try:
+                auth.prune_cookie_file()  # a cookies.txt from before it kept YouTube's cookies only
+            except OSError as exc:
+                norm.log(f"could not prune cookies.txt: {type(exc).__name__}")
+            yt, state = auth.load_client(**kwargs)
+            cookies = auth.read_cookie_set() if state == "ok" else None
         raw.install(yt)
-        cookies = auth.read_cookie_set() if state == "ok" else None
         with self.swap_lock:
             self.yt, self.auth = yt, state
             self.cookies = cookies

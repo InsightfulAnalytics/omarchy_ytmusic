@@ -722,8 +722,14 @@ minutes), `UPSTREAM` (unexpected response; ytmusicapi may need an update),
   as the queue entry's `owner`: the lookup is refused, unsent, as another
   identity). mpv gets no cookies for them: the stream URL plays without.
   The path is looked up one name at a time (`_resolve`: O_NOFOLLOW from
-  the folder before, a link followed by hand only when it belongs to you or
-  root), so a link another account planted in a shared folder is refused.
+  the folder before, a link followed by hand only when `_link_problem`
+  finds none: it belongs to you or root, sits on the root's or the home's
+  file system (a share or USB disk may report any owner), in a folder no
+  one else can change or one with the sticky bit). A link another account
+  planted is refused, and so is a hard-linked file of yours while
+  `fs.protected_hardlinks` is off. `Worker.load` reads identity.json,
+  browser.json and cookies.txt under `ytm_auth.session_lock` (an flock the
+  CLI's sign-in, sign-out, switch and visitor-id writes take too).
 - **`resolve({videoId, account?, identityKey?, quality?})`** says which yt-dlp instance it used
   (`account: true|false`); without a saved session it is always signed out.
   yt-dlp signs in as the browser's first Google login, so the account is

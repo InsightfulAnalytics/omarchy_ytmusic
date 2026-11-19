@@ -379,14 +379,53 @@ def _checked(st, name):
 MAX_LINKS = 40  # as the kernel's own limit for one lookup
 
 
+def _hardlinks_protected():
+    """fs.protected_hardlinks (systemd sets it): no account may hard link a
+    file it can neither read nor write, so a file of yours never gets a
+    name from another account."""
+    try:
+        return Path("/proc/sys/fs/protected_hardlinks").read_text().strip() == "1"
+    except OSError:
+        return False
+
+
+def _trusted_devices():
+    """The file systems whose owners are real: the root's and your home's.
+    A network share, a USB disk or a FUSE mount may report any owner (all
+    files as yours, or as root), so a link there proves nothing."""
+    devices = {os.stat("/").st_dev}
+    try:
+        devices.add(os.stat(os.path.expanduser("~")).st_dev)
+    except OSError:
+        pass
+    return devices
+
+
+def _link_problem(link, folder, uid, devices):
+    """Why the link ``link`` (an fstat) in ``folder`` (an fstat) must not be
+    followed, or None: it is another account's, on a file system whose
+    owners prove nothing, or in a folder others can write to without the
+    sticky bit (where another account could rename a link of yours into
+    the name you gave)."""
+    if link.st_uid not in (uid, 0):
+        return "a link another account made"
+    if link.st_dev not in devices:
+        return "a link outside your system and home drives"
+    if folder.st_mode & (stat.S_IWGRP | stat.S_IWOTH) and not folder.st_mode & stat.S_ISVTX \
+            and folder.st_uid != uid:
+        return "a link in a folder other accounts can change"
+    return None
+
+
 def _resolve(path, shown):
     """An O_PATH descriptor of what ``path`` names, looked up one name at a
     time: each name is opened with O_NOFOLLOW from the folder before it, and
-    a symbolic link is followed by hand, only when it belongs to you (or
-    root). In a folder another account can write to, that account could
-    otherwise put a link named like a song that points at one of your
-    files. Every step holds what it opened, so nothing is looked up twice."""
+    a symbolic link is followed by hand, only when _link_problem finds none.
+    In a folder another account can write to, that account could otherwise
+    put a link named like a song that points at one of your files. Every
+    step holds what it opened, so nothing is looked up twice."""
     uid = os.getuid()
+    devices = _trusted_devices()
     flags = os.O_PATH | os.O_CLOEXEC
     pending = list(PurePosixPath(path).parts[1:])
     fd = os.open("/", flags | os.O_DIRECTORY)
@@ -397,30 +436,36 @@ def _resolve(path, shown):
             if name in ("", "."):
                 continue
             step = os.open(name, flags | os.O_NOFOLLOW | (os.O_DIRECTORY if name == ".." else 0), dir_fd=fd)
-            st = os.fstat(step)
-            if stat.S_ISLNK(st.st_mode):
-                try:
-                    if st.st_uid not in (uid, 0):
-                        raise WorkerError("BAD_REQUEST", f"{shown} goes through a link another account made "
-                                                         f"({name}); give the file itself")
+            try:
+                st = os.fstat(step)
+                if stat.S_ISLNK(st.st_mode):
+                    problem = _link_problem(st, os.fstat(fd), uid, devices)
+                    if problem:
+                        raise WorkerError("BAD_REQUEST", f"{shown} goes through {problem} ({name}); "
+                                                         "give the file itself")
                     links += 1
                     if links > MAX_LINKS:
                         raise WorkerError("BAD_REQUEST", f"{shown} goes through too many links")
                     target = os.readlink("", dir_fd=step)
-                finally:
-                    os.close(step)
-                parts = list(PurePosixPath(target).parts)
-                if target.startswith("/"):
-                    os.close(fd)
-                    fd = os.open("/", flags | os.O_DIRECTORY)
-                    parts = parts[1:]
-                pending[:0] = parts
-                continue
-            if pending and not stat.S_ISDIR(st.st_mode):
+                elif pending and not stat.S_ISDIR(st.st_mode):
+                    raise NotADirectoryError(name)
+                else:
+                    target = None
+            except BaseException:
                 os.close(step)
-                raise NotADirectoryError(name)
-            os.close(fd)
-            fd = step
+                raise
+            if target is None:
+                os.close(fd)
+                fd = step
+                continue
+            os.close(step)
+            parts = list(PurePosixPath(target).parts)
+            if target.startswith("/"):
+                root = os.open("/", flags | os.O_DIRECTORY)
+                os.close(fd)
+                fd = root
+                parts = parts[1:]
+            pending[:0] = parts
         return fd
     except BaseException:
         os.close(fd)
@@ -468,6 +513,10 @@ def open_upload(params):
         if (opened.st_dev, opened.st_ino) != (first.st_dev, first.st_ino):
             raise WorkerError("BAD_REQUEST", f"{path.name} changed while it was opened; nothing was sent")
         _checked(opened, path.name)
+        if opened.st_nlink > 1 and opened.st_uid == os.getuid() and not _hardlinks_protected():
+            # Without the kernel's protection another account may give one
+            # of your files a second name (a song's) in a folder it writes.
+            raise WorkerError("BAD_REQUEST", f"{path.name} has other names (hard links); upload a copy")
     except BaseException:
         os.close(fd)
         raise

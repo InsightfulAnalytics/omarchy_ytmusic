@@ -38,6 +38,16 @@ Root causes of the non-obvious problems hit while building the plugin, so they a
   swap it in between. `ytm_account.Bound` takes the client, identity and generation together
   under `Worker.swap_lock`, the lane sends through that client, and refuses if the generation
   moved first.
+- **yt-dlp reads its cookie file late.** Given `cookiefile`, it reads the file the first time a
+  lookup needs cookies, not when the instance is built, and writes it back on close. So a
+  sign-in that replaced cookies.txt after the identity check signed the lookup in as the new
+  session. The worker now reads YouTube's cookies with the client, under the session lock, and
+  puts them in yt-dlp's jar itself (`_fill_jar`); a lookup whose cookies are not the session the
+  client sends as is refused.
+- **A link's owner proves something only on your own disk.** Following only links you own still
+  trusted shares and USB disks, which may report every file as yours, and folders others can
+  write to without the sticky bit, where another account can rename your link. `_link_problem`
+  checks all three before `_resolve` follows a link by hand.
 - **mpv's ytdl hook is a command line.** It runs `yt-dlp ... -- <watch URL>` for every track
   without a stream, so other local accounts could read each video id from /proc, and it needed
   the session's cookies (which yt-dlp wrote back on exit). mpv now runs `--ytdl=no` and asks the
