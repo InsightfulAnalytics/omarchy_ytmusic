@@ -24,17 +24,29 @@ answers the song's loudness (see the loudness section below). The setting
 ``quality`` picks the yt-dlp format (see the quality section).
 """
 
-import os
 import re
 import threading
 import time
 from collections import OrderedDict
 
-import ytm_auth as auth
 import ytm_normalize as norm
 from ytm_proto import WorkerError
 
 FORMAT = "bestaudio[acodec=opus]/bestaudio/best"
+
+
+def stream_url_ok(url):
+    """Only an https URL on YouTube's video servers (googlevideo.com; an
+    upload streams from a *.c.youtube.com host) is handed to mpv, which
+    would open any protocol it is given (file://, lavfi, edl, ...)."""
+    from urllib.parse import urlsplit
+
+    try:
+        parts = urlsplit(url)
+    except ValueError:
+        return False
+    host = (parts.hostname or "").lower()
+    return parts.scheme == "https" and host.endswith((".googlevideo.com", ".c.youtube.com"))
 # yt-dlp's js_runtimes option: deno first, else node (whichever is on PATH).
 JS_RUNTIMES = {"deno": {}, "node": {}}
 WATCH_URL = "https://www.youtube.com/watch?v="
@@ -55,10 +67,6 @@ def parse_expiry(url, now=None):
     if match:
         return int(match.group(1))
     return int((now if now is not None else time.time()) + DEFAULT_LIFETIME)
-
-
-def stream_with_account():
-    return os.environ.get("YTM_STREAM_WITH_ACCOUNT") == "1"
 
 
 class _Quiet:
@@ -93,6 +101,18 @@ def _error(exc):
     return StreamError("UPSTREAM", message)
 
 
+def _fill_jar(ydl, records):
+    """Put ``records`` (ytm_auth.cookie_record dicts) in yt-dlp's cookie jar."""
+    from http.cookiejar import Cookie
+
+    jar = ydl.cookiejar
+    for r in records:
+        domain = r["domain"]
+        jar.set_cookie(Cookie(0, r["name"], r["value"], None, False, domain, True, domain.startswith("."),
+                              r["path"] or "/", True, bool(r["secure"]), r["expires"] or None, not r["expires"],
+                              None, None, {}))
+
+
 class Resolver:
     """Two yt-dlp instances for the worker's lifetime, each imported and built
     on first use: an anonymous one and one with the account's cookies."""
@@ -106,12 +126,15 @@ class Resolver:
         # The songs' loudness, for the worker's lifetime.
         self.loudness = Loudness()
 
-    def wants_account(self, account=None):
-        """Whether a lookup uses the account: asked for (or the default) and signed in."""
-        use = stream_with_account() if account is None else bool(account)
-        return use and auth.cookies_path().exists()
+    @staticmethod
+    def wants_account(account=None, cookies=None):
+        """Whether a lookup uses the account: asked for, with the session's cookies."""
+        return bool(account) and cookies is not None and bool(cookies.records)
 
-    def options(self, account=None, fmt=FORMAT):
+    def options(self, fmt=FORMAT):
+        """yt-dlp's options; never a cookie file (it would read it whenever it
+        first needs it, and write it back when it closes): an account
+        instance gets its cookies in memory (_fill_jar)."""
         opts = {
             "format": fmt,
             "quiet": True,
@@ -121,23 +144,24 @@ class Resolver:
             "logger": _Quiet(),
             "js_runtimes": {name: dict(conf) for name, conf in JS_RUNTIMES.items()},
         }
-        if self.wants_account(account):
-            opts["cookiefile"] = str(auth.cookies_path())
         return opts
 
-    def _client(self, account=False, fmt=FORMAT):
-        # One instance per mode and format (the audio quality), each
-        # built on first use.
-        key = (account, fmt)
+    def _client(self, cookies=None, fmt=FORMAT):
+        # One instance per format (the audio quality) and session (the
+        # cookies' tag; "" signed out), each built on first use.
+        key = (cookies.tag if cookies is not None else "", fmt, cookies is not None)
         with self._lock:
             if key not in self._ydl:
-                opts = self.options(account, fmt)
+                opts = self.options(fmt)
                 if self._factory is None:
                     import yt_dlp
 
-                    self._ydl[key] = yt_dlp.YoutubeDL(opts)
+                    ydl = yt_dlp.YoutubeDL(opts)
                 else:
-                    self._ydl[key] = self._factory(opts)
+                    ydl = self._factory(opts)
+                if cookies is not None:
+                    _fill_jar(ydl, cookies.records)
+                self._ydl[key] = ydl
             return self._ydl[key]
 
     def forget_account(self):
@@ -145,26 +169,28 @@ class Resolver:
         the cookie file once, so after a sign-in or an identity change the
         next account lookup builds one with the new file."""
         with self._lock:
-            for key in [key for key in self._ydl if key[0]]:
+            for key in [key for key in self._ydl if key[2]]:
                 del self._ydl[key]
 
-    def warm(self, quality=None, account=None):
+    def warm(self, quality=None, cookies=None):
         try:
-            self._client(self.wants_account(account), format_for(quality))
+            self._client(cookies if self.wants_account(True, cookies) else None, format_for(quality))
         except Exception as exc:  # noqa: BLE001 - resolve() reports it properly later
             norm.log(f"could not load yt-dlp: {type(exc).__name__}: {exc}")
 
-    def resolve(self, video_id, account=None, loudness_from=None, quality=None):
-        """The stream URL; ``account`` None means the YTM_STREAM_WITH_ACCOUNT default.
+    def resolve(self, video_id, account=None, loudness_from=None, quality=None, cookies=None):
+        """The stream URL; with ``account`` and ``cookies`` (a CookieSet) the
+        lookup signs in with those cookies, else it is anonymous.
 
         With ``loudness_from`` (a ytmusicapi client) the reply also
         carries ``loudnessDb``: a number, or None when YouTube gave none or
         the lookup failed (it never fails the lookup itself). ``quality``
         (low, normal, high; None is high) picks the format.
         """
-        use_account = self.wants_account(account)
+        use_account = self.wants_account(account, cookies)
         try:
-            info = self._client(use_account, format_for(quality)).extract_info(WATCH_URL + video_id, download=False)
+            ydl = self._client(cookies if use_account else None, format_for(quality))
+            info = ydl.extract_info(WATCH_URL + video_id, download=False)
         except Exception as exc:  # noqa: BLE001 - yt-dlp raises DownloadError and friends
             raise _error(exc) from exc
         url = info.get("url")
@@ -173,6 +199,8 @@ class Resolver:
             url = requested[0].get("url") if requested else None
         if not url:
             raise StreamError("UPSTREAM", "YouTube returned no playable audio stream")
+        if not stream_url_ok(url):
+            raise StreamError("UPSTREAM", "YouTube returned a stream from an unexpected place")
         result = {
             "videoId": video_id,
             "url": url,

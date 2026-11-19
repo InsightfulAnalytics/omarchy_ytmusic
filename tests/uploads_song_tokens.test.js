@@ -76,17 +76,12 @@ test("S on Now with an upload: says why without reading its menu", () => {
                "Its menu is still loading; try again in a moment", "a song keeps its notices")
 })
 
-test("loadfileOptions: the cookies option on uploads only, next to the episode start", () => {
-  Model.setUploadCookies("/run/user/1000/omarchy-ytmusic/cookies-mpv.txt")
-  try {
-    const up = Model.loadfileOptions(upload(1, tokens), { seconds: 30 })
-    assert.match(up, /,start=30,ytdl-raw-options-append=%\d+%cookies=\/run\/user\/1000\/omarchy-ytmusic\/cookies-mpv\.txt$/)
-    const pub = Model.loadfileOptions(song(1, tokens), { seconds: 30 })
-    assert.match(pub, /,start=30$/)
-    assert.ok(!/cookies|ADD|PIN/.test(pub) && !/ADD|PIN/.test(up), "no token in a loadfile")
-  } finally {
-    Model.setUploadCookies("")
-  }
+test("loadfileOptions: no cookies on any song, next to the episode start", () => {
+  const up = Model.loadfileOptions(upload(1, tokens), { seconds: 30 })
+  assert.match(up, /,start=30$/)
+  const pub = Model.loadfileOptions(song(1, tokens), { seconds: 30 })
+  assert.match(pub, /,start=30$/)
+  assert.ok(!/cookies|ADD|PIN/.test(pub) && !/cookies|ADD|PIN/.test(up), "no token or cookie in a loadfile")
 })
 
 test("The podcast menus and the find title leave the upload menus alone", () => {

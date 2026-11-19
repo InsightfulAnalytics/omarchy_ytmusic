@@ -2,6 +2,8 @@
 command line. Pinned against a fake connection: the real one shows a
 notification on the desktop."""
 
+import html
+import re
 import json
 
 import pytest
@@ -42,9 +44,32 @@ def test_message_is_a_notify_call_with_the_text_as_parameters():
     assert isinstance(msg, Message)
     assert msg.header.fields[3] == "Notify"  # HeaderFields.member
     app, replaces, icon, title, body, actions, hints, timeout = msg.body
-    assert (app, replaces, icon, actions, timeout) == ("YouTube Music", 0, "", [], 2500)
+    assert (app, replaces, icon, actions, timeout) == ("YouTube Music", 0, "", ["default", ""], 2500)
     assert (title, body) == ("Added to My secret mix", "-rf --hint=x")
     assert hints == {"urgency": ("y", 0)}
+
+
+@pytest.mark.parametrize("text,shown", [
+    ("Tom & Jerry", "Tom &amp; Jerry"),
+    ('&lt;a href="https://x/"&gt;Session expired&lt;/a&gt;',
+     '\uff06lt;a href="https:\u2060//x/"\uff06gt;Session expired\uff06lt;/a\uff06gt;'),
+    ("<a href=https://x>y</a>", "\u2039a href=https:\u2060//x\u203ay\u2039/a\u203a"),
+    ("Free download https://evil.example/x", "Free download https:\u2060//evil.example/x"),
+    ("HTTP://A.example and ftp://b", "HTTP:\u2060//A.example and ftp:\u2060//b"),
+    ("Live: 10:30 / ratio 2:1", "Live: 10:30 / ratio 2:1"),
+    ("a &amp;lt; b", "a \uff06amp;lt; b"),
+])
+def test_remote_text_never_becomes_markup(text, shown):
+    """A title from YouTube in a notification: the server decodes entities
+    more than once and turns <a href> into a link."""
+    title, body = notify.message({"title": text, "body": text}).body[3:5]
+    assert title == shown and body == shown
+    decoded = body
+    for _ in range(3):
+        decoded = html.unescape(decoded)
+    assert "<" not in decoded and ">" not in decoded, "no tag after any number of decodes"
+    # Omarchy's notification server links any match of this (Markup.js, Detect.js).
+    assert not re.search(r"https?://", decoded, re.I), "no URL to link"
 
 
 def test_exec_argv_becomes_the_click_hint():

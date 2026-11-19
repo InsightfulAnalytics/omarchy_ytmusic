@@ -77,6 +77,7 @@ from ytm_proto import (  # noqa: E402, F401 - re-exported for tests and tools
     opt_str,
     req_list,
     req_str,
+    unsent,
 )
 
 PROTOCOL = 1
@@ -228,17 +229,43 @@ def m_resolve(worker, params):
     account = params.get("account")
     if account is not None and not isinstance(account, bool):
         raise WorkerError("BAD_REQUEST", "'account' must be true or false")
+    asked = account is True
     if account is None and worker.settings.get("streamAccount") is True:
         account = True
+    # One view of the worker for the whole lookup (ytm_account.Bound): the
+    # identity checked, the cookies yt-dlp signs in with and the client the
+    # loudness request goes through all belong together. An upload's lookup
+    # names the identity it was queued under and is refused, unsent, under
+    # another one.
+    bound = identities.require_identity_key(worker, params, "this song")
+    cookies = None
+    if account:
+        # yt-dlp signs in as the browser's first Google login: never for
+        # another identity (a brand account, another login), which YouTube
+        # would then see fetching what this one plays. The cookies must be
+        # the session the client sends as (cookies.txt replaced by a
+        # sign-in that load() has not taken in yet is not).
+        chosen = bound.identity or {}
+        problem = None
+        if chosen.get("pageId") or identities.login_of(bound) != 0:
+            problem = ("Uploaded songs play only as your browser's first Google account, not a brand account or "
+                       "another login")
+        elif bound.cookies is None or bound.cookies.tag != identities.session_tag(bound.yt):
+            problem = "The saved session is changing; try again in a moment"
+        if problem and asked:
+            raise unsent(WorkerError("BAD_REQUEST", problem))
+        cookies = None if problem else bound.cookies
     # The audio quality (the request's own, else the setting); high is
     # the resolver's default format.
     quality = streams.validate_quality(params["quality"]) if "quality" in params else worker.settings.get("quality")
     extra = {"quality": quality} if quality not in (None, "high") else {}
     worker.wait_for_warm()
     # The song's loudness too, while the shell levels by YouTube's.
-    loudness = {"loudness_from": worker.yt} if worker.settings.get("normalize") == "youtube" else {}
+    loudness = {"loudness_from": bound.yt} if worker.settings.get("normalize") == "youtube" else {}
+    if cookies is not None:
+        bound.still("this song")
     try:
-        return worker.resolver().resolve(video_id, account=account, **loudness, **extra)
+        return worker.resolver().resolve(video_id, account=cookies is not None, cookies=cookies, **loudness, **extra)
     except streams.StreamError as exc:
         raise WorkerError(exc.code, exc.message, exc.retryable) from exc
 
@@ -363,7 +390,8 @@ AREA_MODULES = (pages, play, now, artist, library, collections, actions, home, e
 def merge_registries(sources):
     """The merged tables of ``sources``; raises ValueError on a duplicate or a stray name."""
     merged = {"METHODS": {}, "CACHEABLE": set(), "LANES": {}, "INVALIDATES": {}, "RECORDERS": {},
-              "MUTATES": set(), "SETTINGS": {}, "CLIENT_SETTINGS": set(), "NO_INVALIDATES": {}}
+              "MUTATES": set(), "SETTINGS": {}, "CLIENT_SETTINGS": set(), "NO_INVALIDATES": {},
+              "PREPARES": {}}
     owner = {}
     for source in sources:
         label = getattr(source, "__name__", repr(source))
@@ -374,7 +402,7 @@ def merge_registries(sources):
                 if (kind, name) in owner:
                     raise ValueError(f"{kind} {name!r} is registered by {owner[(kind, name)]} and {label}")
                 owner[(kind, name)] = label
-        for table in ("CACHEABLE", "LANES", "INVALIDATES", "MUTATES", "NO_INVALIDATES"):
+        for table in ("CACHEABLE", "LANES", "INVALIDATES", "MUTATES", "NO_INVALIDATES", "PREPARES"):
             stray = [name for name in getattr(source, table, ()) if name not in methods]
             if stray:
                 raise ValueError(f"{label}.{table} names methods it does not register: {stray}")
@@ -390,6 +418,10 @@ def merge_registries(sources):
         merged["SETTINGS"].update(getattr(source, "SETTINGS", {}))
         merged["CLIENT_SETTINGS"] |= set(getattr(source, "CLIENT_SETTINGS", ()))
         merged["NO_INVALIDATES"].update(getattr(source, "NO_INVALIDATES", {}))
+        merged["PREPARES"].update(getattr(source, "PREPARES", {}))
+    unlaned = [name for name in merged["PREPARES"] if name not in merged["LANES"]]
+    if unlaned:
+        raise ValueError(f"PREPARES names methods on no lane: {unlaned}")
     for name, triples in merged["INVALIDATES"].items():
         for triple in triples:
             ok = len(triple) == 3 and triple[0] in merged["CACHEABLE"] and (
@@ -423,6 +455,11 @@ RECORDERS = _REGISTRY["RECORDERS"]
 MUTATES = _REGISTRY["MUTATES"]
 SETTINGS = _REGISTRY["SETTINGS"]
 CLIENT_SETTINGS = _REGISTRY["CLIENT_SETTINGS"]
+# method -> fn(params), run by serve() on the main thread as a laned request
+# arrives; what it returns reaches the method through Worker.prepared().
+PREPARES = _REGISTRY["PREPARES"]
+# The request key serve() keeps that in: not a string, so no JSON request can hold it.
+PREPARED = object()
 NO_INVALIDATES = _REGISTRY["NO_INVALIDATES"]
 
 
@@ -442,6 +479,10 @@ class Worker:
     def __init__(self, client=None, auth_state="none", resolver=None, cache=None, thumbs=None):
         self.verified = False
         self._lock = threading.Lock()
+        # Held while load() swaps the client, the auth state, the identity and
+        # the generation, and while a lane takes all four together
+        # (ytm_account.bind): a lane never sees half a swap.
+        self.swap_lock = threading.RLock()
         self._resolver = resolver
         self._warm_thread = None
         self._cache = cache
@@ -461,6 +502,10 @@ class Worker:
         self.emit = None
         # True under serve(): the shell's requests, not the command line's.
         self.serving = False
+        # YouTube's cookies from cookies.txt (ytm_auth.CookieSet), read by
+        # load() with the client: the only cookies yt-dlp's account lookups
+        # get (in memory; it is never given the file).
+        self.cookies = None
         # Your channel's id, from the account menu verify_session reads
         # (None when it links none; ytm_users.myChannel), and whether that
         # menu was read for this client.
@@ -490,7 +535,7 @@ class Worker:
         quality = self.settings.get("quality")
         args = (quality,) if quality not in (None, "high") else ()
         # The instance lookups will use: the account's while streamAccount is on.
-        kwargs = {"account": True} if self.settings.get("streamAccount") is True else {}
+        kwargs = {"cookies": self.cookies} if self.settings.get("streamAccount") is True and self.cookies else {}
         self._warm_thread = threading.Thread(target=warm, args=args, kwargs=kwargs, daemon=True)
         self._warm_thread.start()
 
@@ -524,6 +569,12 @@ class Worker:
         disk cache: a stand-in after a passing failure (plain lyrics when the
         synced ones could not be asked for), so the next request asks again."""
         self._request_state.no_store = True
+
+    def prepared(self):
+        """What the method's PREPARES hook returned when serve() received the
+        request this thread is handling (None: no hook ran, as on the
+        command line)."""
+        return getattr(self._request_state, "prepared", None)
 
     # ---- end skip_store ----
 
@@ -559,20 +610,31 @@ class Worker:
         # The client settings (location) and the saved identity (a brand
         # account, another login), passed only when there are any.
         settings = self.client_settings()
-        identity = auth.read_identity()
-        kwargs = {}
-        if settings:
-            kwargs["settings"] = settings
-        if identity:
-            kwargs["identity"] = identity
-        yt, state = auth.load_client(**kwargs)
+        # The identity, the session and its cookies read together, under the
+        # lock a sign-in, sign-out or switch holds while it changes them: a
+        # load never pairs one session's files with another's.
+        with auth.session_lock():
+            identity = auth.read_identity()
+            kwargs = {}
+            if settings:
+                kwargs["settings"] = settings
+            if identity:
+                kwargs["identity"] = identity
+            try:
+                auth.prune_cookie_file()  # a cookies.txt from before it kept YouTube's cookies only
+            except OSError as exc:
+                norm.log(f"could not prune cookies.txt: {type(exc).__name__}")
+            yt, state = auth.load_client(**kwargs)
+            cookies = auth.read_cookie_set() if state == "ok" else None
         raw.install(yt)
-        self.yt, self.auth = yt, state
-        self.identity = identity if state == "ok" else None
-        self.built_with = self.client_settings()
-        self.verified = False
-        self.own_channel, self.own_channel_known = None, False  # the new client's account menu names it
-        self.generation += 1
+        with self.swap_lock:
+            self.yt, self.auth = yt, state
+            self.cookies = cookies
+            self.identity = identity if state == "ok" else None
+            self.built_with = self.client_settings()
+            self.verified = False
+            self.own_channel, self.own_channel_known = None, False  # the new client's account menu names it
+            self.generation += 1
         # A new session or identity: stream lookups must not keep the old cookies.
         forget = getattr(self._resolver, "forget_account", None)
         if forget is not None:
@@ -693,6 +755,7 @@ class Worker:
         started = time.monotonic()
         raw.reset_http()
         self._request_state.no_store = False  # skip_store
+        self._request_state.prepared = request.get(PREPARED) if isinstance(request, dict) else None
         name = None
         try:
             if not isinstance(request, dict):
@@ -704,6 +767,14 @@ class Worker:
             params = request.get("params") or {}
             if not isinstance(params, dict):
                 raise WorkerError("BAD_REQUEST", "'params' must be an object")
+            # An edit from the shell names the identity it was asked under,
+            # and is refused, unsent, without it or under another one. Lane
+            # edits (an upload, a batch of plays) check it themselves, on the
+            # client they then send with (ytm_account.bind).
+            if self.serving and name in MUTATES and name not in LANES:
+                identities.require_identity_key(self, params, "this change", required=True)
+            if name in MUTATES and name not in LANES and "identityKey" in params:
+                params = {k: v for k, v in params.items() if k != "identityKey"}
             mode = "bypass"
             guard = None
             if name in CACHEABLE:
@@ -858,6 +929,9 @@ def serve(idle_secs, worker=None, stdin_fd=None, out=None):
                 if hit is not None:
                     emit(hit)
                 else:
+                    prepare = PREPARES.get(request["method"])
+                    if prepare is not None:
+                        request[PREPARED] = prepare(request.get("params"))
                     submit(request)
                 continue
             emit(worker.handle(request))
@@ -945,10 +1019,27 @@ def cmd_auth(args):
     return 0
 
 
+def secret_input(args):
+    """``what`` from stdin (``-``) or the clipboard (``--clipboard``), never
+    from the command line: every local account can read a process's argv."""
+    if args.clipboard:
+        return subprocess.run(["wl-paste", "--no-newline"], capture_output=True, text=True, check=False).stdout
+    if args.value == "-":
+        return sys.stdin.read()
+    return None
+
+
 def cmd_join(args):
-    """Join a collaborative playlist from its invite link. The link's
-    token goes to YouTube once and is never printed."""
-    invite = edit.parse_invite(args.url)
+    """Join a collaborative playlist from its invite link, read from stdin
+    or the clipboard. The link's token goes to YouTube once and is never
+    printed."""
+    text = secret_input(args)
+    if text is None:
+        print("Give the invite link on stdin or from the clipboard, never as an argument (other accounts on "
+              "this computer can read a command line):\n  wl-paste | ytm join -\n  ytm join --clipboard",
+              file=sys.stderr)
+        return 2
+    invite = edit.parse_invite(text.strip())
     if invite is None:
         print("Not a playlist invite link (https://music.youtube.com/playlist?list=...&jct=...)", file=sys.stderr)
         return 2
@@ -959,8 +1050,13 @@ def cmd_join(args):
 
 def cmd_upload(args):
     """Upload a song file to your library. YouTube lists it once it has
-    processed it, often minutes later."""
-    path = os.path.abspath(os.path.expanduser(args.file))
+    processed it, often minutes later. ``-`` reads the file's path from
+    stdin, off the command line other local accounts can read."""
+    name = sys.stdin.readline().rstrip("\n") if args.file == "-" else args.file
+    if not name:
+        print("Give the file's path on stdin: echo ~/Music/song.mp3 | ytm upload -", file=sys.stderr)
+        return 2
+    path = os.path.abspath(os.path.expanduser(name))
     reply = Worker().handle({"id": 1, "method": "uploadSong", "params": {"path": path}})
     print_json(reply["result"] if reply["ok"] else {"error": reply["error"]})
     if reply["ok"]:
@@ -1066,7 +1162,7 @@ def main(argv=None):
     p.add_argument("--limit", type=int, default=20)
     p = sub.add_parser("call", help="call any worker method")
     p.add_argument("method", choices=sorted(METHODS))
-    p.add_argument("params", nargs="?", default="{}", help="JSON object")
+    p.add_argument("params", nargs="?", default="{}", help="JSON object, or - to read it from stdin (for tokens)")
     p.add_argument("--reply", action="store_true", help="print the whole reply (cached, age, http, ms)")
     p = sub.add_parser("auth", help="sign in (default: import from a Chromium profile)")
     source = p.add_mutually_exclusive_group()
@@ -1075,10 +1171,11 @@ def main(argv=None):
     source.add_argument("--clipboard", action="store_true", help="read request headers from the clipboard")
     p.add_argument("--authuser", type=int, default=0, help="Google account index when signed in to several")
     p.add_argument("--keyring", default="GNOMEKEYRING", help="keyring holding the browser's cookie key")
-    p = sub.add_parser("join", help="join a collaborative playlist from its invite link")
-    p.add_argument("url")
+    p = sub.add_parser("join", help="join a collaborative playlist from its invite link (stdin or clipboard)")
+    p.add_argument("value", nargs="?", metavar="-", help="read the link from stdin")
+    p.add_argument("--clipboard", action="store_true", help="read the link from the clipboard")
     p = sub.add_parser("upload", help="upload a song file (mp3, m4a, wma, flac, ogg) to your library")
-    p.add_argument("file")
+    p.add_argument("file", help="the file, or - to read its path from stdin (a command line is public)")
     sub.add_parser("logout", help="delete the saved session")
     sub.add_parser("whoami", help="show the signed-in account")
     p = sub.add_parser("selftest", help="check the installation")
@@ -1097,7 +1194,7 @@ def main(argv=None):
                        "params": {"query": " ".join(args.query), "filter": args.filter, "limit": args.limit}}
         else:
             try:
-                params = json.loads(args.params)
+                params = json.loads(sys.stdin.read() if args.params == "-" else args.params)
             except ValueError:
                 parser.error("params must be a JSON object")
             request = {"id": 1, "method": args.method, "params": params}

@@ -183,15 +183,18 @@ def _container(response):
     return None
 
 
-def _first_page(worker, browse_id, body, order):
+def _first_page(worker, browse_id, body, order, params=None, yt=None):
     """The first page in ``order`` (a ytm_pages.first_page result). An ordered
     request is also a saved setting on these pages: what it made stale goes
     (ytm_pages.forget_order: the page's browsePage copies and the cached
     first pages of the methods that read it, this one's too, so a later
     read in the saved order never comes from a copy in the order before),
-    whether or not it worked (it may have applied)."""
+    whether or not it worked (it may have applied). ``params``: the
+    request's, for the identity it was asked under (pages.sort_client);
+    ``yt``: the client that picked, when the caller already has it."""
     try:
-        return pages.first_page(worker.yt, "browse", body, _menu_index(order))
+        yt = yt or pages.sort_client(worker, params, browse_id, order)
+        return pages.first_page(yt, "browse", body, _menu_index(order))
     finally:
         if order is not None and pages.saves_order(browse_id):
             pages.forget_order(worker, browse_id)
@@ -220,11 +223,14 @@ def _read_list(worker, params, method, parse, layout, offered=ORDERS, header_of=
     order = order_param(params)
     cursor = opt_cursor(params)
     body = _body(browse_id, order)
+    # Every request of an ordered read (its pages carry the order too) goes
+    # through the client checked against the identity it was asked under.
+    yt = pages.sort_client(worker, params, browse_id, order)
     if cursor:
-        items, cursor = pages.fetch(worker.yt, "browse", body, "ctoken", None, parse, cursor=cursor,
+        items, cursor = pages.fetch(yt, "browse", body, "ctoken", None, parse, cursor=cursor,
                                     min_items=PAGE_ITEMS, max_http=_budget(0))
         return _page(method, browse_id, items, cursor, order=order, layout=layout)
-    first = _first_page(worker, browse_id, body, order)
+    first = _first_page(worker, browse_id, body, order, params, yt)
     response, _, _, base = first
     orders, current = _orders(base, order, offered)
     container = _container(response)
@@ -233,7 +239,7 @@ def _read_list(worker, params, method, parse, layout, offered=ORDERS, header_of=
         return _page(method, browse_id, [], None, orders, current, message=message if kind == "message" else None,
                      layout=layout)
     header = header_of(container) if header_of else None
-    items, cursor = pages.fetch(worker.yt, "browse", body, "ctoken", lambda _: container, parse,
+    items, cursor = pages.fetch(yt, "browse", body, "ctoken", lambda _: container, parse,
                                 min_items=PAGE_ITEMS, max_http=_budget(first[1]), first=first)
     return _page(method, browse_id, items, cursor, orders, current, header=header, layout=layout)
 
@@ -345,7 +351,8 @@ def m_library_playlists(worker, params):
         return {"items": items, "orders": orders, "order": current}
     browse_id = BROWSE_IDS["libraryPlaylists"]
     body = _body(browse_id, order)
-    first = _first_page(worker, browse_id, body, order)
+    yt = pages.sort_client(worker, params, browse_id, order)
+    first = _first_page(worker, browse_id, body, order, params, yt)
     orders, current = _orders(first[3], order)
     container = _container(first[0])
     items = []

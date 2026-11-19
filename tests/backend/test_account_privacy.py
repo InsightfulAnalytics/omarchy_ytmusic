@@ -266,7 +266,7 @@ def test_the_shell_cannot_upload_without_naming_the_account(tmp_path):
     worker = uploads_worker(upload_song=ResponseStatus.SUCCEEDED)
     worker.serving = True  # as under serve(): the shell's request
     refused = call(worker, "uploadSong", path=str(path))
-    assert refused["error"]["code"] == "BAD_REQUEST" and "identityKey" in refused["error"]["message"]
+    assert refused["error"]["code"] == "BAD_REQUEST" and "not known yet" in refused["error"]["message"]
     assert worker.yt.calls == [] and worker.yt.requests == [], "nothing sent"
     assert call(worker, "uploadSong", path=str(path), identityKey="0::")["ok"]
 
@@ -470,3 +470,206 @@ def test_a_channel_lookup_outliving_its_client_keeps_the_new_ones_channel(checke
     assert users.known_own_channel(worker) == MINE
     assert worker.own_channel == MINE and worker.own_channel_known is True, "never the old client's channel"
     assert new.menus() == ["account/account_menu"], "the new client's own menu was read"
+
+
+# ---- every edit is bound to the identity it was asked under ---------------------------------
+
+
+def serving(yt):
+    worker = ytm.Worker(yt, "ok")
+    worker.serving = True  # as under serve(): the shell's requests
+    return worker
+
+
+def test_an_edit_from_the_shell_names_its_account_or_is_not_sent():
+    yt = HistoryYT()
+    worker = serving(yt)
+    sent = []
+    worker_rate = lambda w, p: sent.append(dict(p)) or {"ok": True}  # noqa: E731
+    original = ytm.METHODS["rate"]
+    ytm.METHODS["rate"] = worker_rate
+    try:
+        cold = call(worker, "rate", videoId="nbCOAPR33ME", rating="LIKE")
+        assert cold["error"]["code"] == "BAD_REQUEST" and "not known yet" in cold["error"]["message"]
+        other = call(worker, "rate", videoId="nbCOAPR33ME", rating="LIKE", identityKey=BRAND_KEY)
+        assert other["error"]["code"] == "BAD_REQUEST" and "changed" in other["error"]["message"]
+        assert sent == [], "nothing sent either time"
+        assert call(worker, "rate", videoId="nbCOAPR33ME", rating="LIKE", identityKey="0::")["ok"]
+        assert sent == [{"videoId": "nbCOAPR33ME", "rating": "LIKE"}], "the key itself never reaches the method"
+        worker.serving = False
+        assert call(worker, "rate", videoId="nbCOAPR33ME", rating="LIKE")["ok"], "the command line names none"
+    finally:
+        ytm.METHODS["rate"] = original
+
+
+def test_every_shell_edit_is_checked_reads_are_not():
+    worker = serving(HistoryYT())
+    for name in sorted(ytm.MUTATES - set(ytm.LANES)):
+        reply = call(worker, name)
+        assert reply["error"]["code"] == "BAD_REQUEST" and "not known yet" in reply["error"]["message"], name
+    assert worker.yt.calls == []
+
+
+@pytest.mark.parametrize("method", ["uploadSongs", "uploadAlbums", "uploadArtists"])
+def test_a_sort_is_saved_only_as_the_identity_it_was_asked_under(method):
+    """An order on your library's pages is saved on the account: from the
+    shell it names its identity and goes through the client checked."""
+    def fresh():
+        worker = uploads_worker(songs_page([upload_row(1)], selected="a_to_z"),
+                                get_library_upload_albums=[], get_library_upload_artists=[])
+        worker.serving = True
+        return worker
+
+    for key, problem in ((None, "not known yet"), (BRAND_KEY, "changed")):
+        worker = fresh()
+        params = {"order": "a_to_z"} if key is None else {"order": "a_to_z", "identityKey": key}
+        reply = call(worker, method, **params)
+        assert reply["error"]["code"] == "BAD_REQUEST" and problem in reply["error"]["message"]
+        assert worker.yt.requests == [] and worker.yt.calls == [], "no sort saved"
+    worker = fresh()
+    asked = worker.yt
+    assert call(worker, method, order="a_to_z", identityKey="0::")["ok"]
+    assert asked.requests or asked.calls
+    assert call(fresh(), method)["ok"], "a read in the saved order names nothing"
+
+
+def test_a_sort_goes_through_the_client_checked_not_one_swapped_in():
+    worker = uploads_worker(get_library_upload_albums=[], get_library_upload_artists=[])
+    worker.serving = True
+    checked = worker.yt
+    later = type(checked)(get_library_upload_albums=[], get_library_upload_artists=[])
+    real_bound = identities.Bound
+
+    def bound_then_swap(w):  # a switch loads another client right after the check
+        view = real_bound(w)
+        w.yt = later
+        return view
+
+    identities.Bound = bound_then_swap
+    try:
+        assert call(worker, "uploadAlbums", order="a_to_z", identityKey="0::")["ok"]
+    finally:
+        identities.Bound = real_bound
+    assert [c[0] for c in checked.calls] == ["get_library_upload_albums"] and later.calls == []
+
+
+def test_the_pages_after_an_ordered_first_page_name_the_identity_too():
+    """They carry the order in their body as well."""
+    worker = uploads_worker(songs_page([upload_row(1)], token="next", selected="a_to_z"))
+    worker.serving = True
+    reply = call(worker, "uploadSongs", order="a_to_z", cursor="next")
+    assert reply["error"]["code"] == "BAD_REQUEST" and "not known yet" in reply["error"]["message"], reply
+    assert worker.yt.requests == []
+
+
+def test_the_shell_names_its_identity_on_every_ordered_read():
+    text = open(os.path.join(os.path.dirname(__file__), "..", "..", "Backend.qml")).read()
+    assert "params.order !== undefined && params.order !== null" in text
+
+
+def test_the_cache_ignores_the_identity_key(tmp_path):
+    cache = caches.DiskCache(tmp_path / "data")
+    cache.put("browsePage", {"browseId": "FEmusic_library_x", "identityKey": "0::"}, {"type": "page"})
+    assert cache.get("browsePage", {"browseId": "FEmusic_library_x"}) is not None
+
+
+def test_plays_counted_before_the_account_was_known_are_never_sent():
+    yt = HistoryYT()
+    worker = serving(yt)
+    reply = call(worker, "reportPlays", videoIds=["nbCOAPR33ME"])
+    assert reply["error"]["code"] == "BAD_REQUEST" and yt.calls == []
+    assert call(worker, "reportPlays", videoIds=["nbCOAPR33ME"], identityKey="0::")["ok"]
+
+
+def test_a_switch_between_the_check_and_the_send_sends_nothing(tmp_path):
+    """load() runs on the main thread while a lane works: the client checked
+    is the client used, and a swap after the check refuses the request."""
+    path = music_file(tmp_path, "song.mp3")
+    worker = uploads_worker(upload_song=ResponseStatus.SUCCEEDED)
+    worker.serving = True
+    first = worker.yt
+
+    def switched():  # the session check, as another identity loads meanwhile
+        with worker.swap_lock:
+            worker.yt = HistoryYT("b")
+            worker.generation += 1
+
+    worker.require_auth = switched
+    reply = call(worker, "uploadSong", path=str(path), identityKey="0::")
+    assert reply["error"]["code"] == "BAD_REQUEST" and "changed" in reply["error"]["message"]
+    assert first.calls == [] and worker.yt.calls == [], "neither account got the file"
+
+
+def test_plays_go_through_the_client_that_was_checked():
+    a, b = HistoryYT("a"), HistoryYT("b")
+    worker = serving(a)
+
+    def swap_on_first_song(video_id):  # another identity loads while the batch is out
+        worker.yt = b
+        a.on_song = None
+
+    a.on_song = swap_on_first_song
+    reply = call(worker, "reportPlays", videoIds=["nbCOAPR33ME", "aaaaaaaaaaa"], identityKey="0::")
+    assert reply["ok"] and {c[0] for c in a.calls} == {"a"} and b.calls == [], "the whole batch as a"
+
+
+def test_a_tracking_url_off_youtube_gets_no_cookies():
+    import ytm_history as history
+
+    for url in ("http://s.youtube.com/api/stats/playback?x", "https://evil.example/api?x",
+                "https://s.youtube.com.evil.example/x", "file:///etc/passwd"):
+        yt = HistoryYT(songs={"nbCOAPR33ME": {"videoDetails": {"videoId": "nbCOAPR33ME"},
+                                              "playbackTracking": {"videostatsPlaybackUrl": {"baseUrl": url}}}})
+        assert history.report_one(yt, "nbCOAPR33ME") == {"videoId": "nbCOAPR33ME", "ok": False, "retry": False}
+        assert [c[1] for c in yt.calls] == ["get_song"], url
+
+
+# ---- streams with the account -----------------------------------------------------------------
+
+
+class AccountResolver:
+    def __init__(self):
+        self.asked = []
+
+    def resolve(self, video_id, account=None, **kwargs):
+        self.asked.append(bool(account))
+        return {"videoId": video_id, "url": "https://r1.googlevideo.com/v?expire=9", "expires": 9,
+                "account": bool(account)}
+
+
+def with_cookies(worker):
+    worker.cookies = auth.CookieSet([auth.cookie_record(".youtube.com", "PREF", "x")])  # tag "", as HistoryYT's
+    return worker
+
+
+def test_account_lookups_only_as_the_browsers_first_login():
+    resolver = AccountResolver()
+    worker = with_cookies(ytm.Worker(HistoryYT(), "ok", resolver=resolver))
+    assert call(worker, "resolve", videoId="nbCOAPR33ME", account=True)["ok"]
+    worker.identity = {"pageId": BRAND_ID, "authUser": None}
+    refused = call(worker, "resolve", videoId="nbCOAPR33ME", account=True)
+    assert refused["error"]["code"] == "BAD_REQUEST" and "first Google account" in refused["error"]["message"]
+    worker.identity = {"pageId": None, "authUser": 1}
+    assert call(worker, "resolve", videoId="nbCOAPR33ME", account=True)["error"]["code"] == "BAD_REQUEST"
+    worker.settings = {"streamAccount": True}
+    assert call(worker, "resolve", videoId="nbCOAPR33ME")["ok"], "the setting: anonymous instead"
+    assert resolver.asked == [True, False]
+
+
+def test_an_upload_queued_as_one_identity_is_not_looked_up_as_another():
+    resolver = AccountResolver()
+    worker = with_cookies(ytm.Worker(HistoryYT(), "ok", resolver=resolver))
+    reply = call(worker, "resolve", videoId="nbCOAPR33ME", account=True, identityKey=BRAND_KEY)
+    assert reply["error"]["code"] == "BAD_REQUEST" and resolver.asked == []
+    assert call(worker, "resolve", videoId="nbCOAPR33ME", account=True, identityKey="0::")["ok"]
+
+
+def test_only_youtube_stream_urls_reach_mpv():
+    import ytm_streams as streams
+
+    for url in ("file:///etc/passwd", "av://lavfi:sine", "http://r1.googlevideo.com/v", "https://evil.example/v",
+                "https://googlevideo.com.evil.example/v", "edl://x"):
+        assert not streams.stream_url_ok(url), url
+    assert streams.stream_url_ok("https://rr3---sn-abc.googlevideo.com/videoplayback?expire=1")
+    assert streams.stream_url_ok("https://rr1---sn-abc.c.youtube.com/videoplayback?expire=1"), "an upload's"
+    assert not streams.stream_url_ok("https://www.youtube.com/watch?v=x") and not streams.stream_url_ok("https://c.youtube.com.evil/x")

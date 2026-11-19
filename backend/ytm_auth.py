@@ -17,6 +17,7 @@ history Omarchy stores in plain text.
 """
 
 import contextlib
+import hashlib
 import json
 import os
 import re
@@ -65,6 +66,37 @@ def ensure_config_dir():
     path.mkdir(mode=0o700, parents=True, exist_ok=True)
     os.chmod(path, 0o700)
     return path
+
+
+_session_lock_depth = threading.local()
+
+
+@contextlib.contextmanager
+def session_lock():
+    """Held while the session files are read together (Worker.load) or
+    change (a sign-in's swap, a sign-out, a switch's identity.json, a prune
+    of cookies.txt, the visitor id), across processes (the worker, the
+    CLI): one never interleaves with another. An flock on a file in the
+    0700 config folder; reentrant within a thread (a second flock on a new
+    descriptor would wait for the first)."""
+    if getattr(_session_lock_depth, "n", 0):
+        _session_lock_depth.n += 1
+        try:
+            yield
+        finally:
+            _session_lock_depth.n -= 1
+        return
+    import fcntl
+
+    directory = ensure_config_dir()
+    fd = os.open(directory / ".session.lock", os.O_RDWR | os.O_CREAT | os.O_CLOEXEC | os.O_NOFOLLOW, 0o600)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX)
+        _session_lock_depth.n = 1
+        yield
+    finally:
+        _session_lock_depth.n = 0
+        os.close(fd)
 
 
 def write_private(path, text):
@@ -169,6 +201,28 @@ def session_auth_user(client):
         return 0
 
 
+def cookie_header_tag(cookie):
+    """session_tag_of the cookies in a Cookie header ("a=1; b=2")."""
+    jar = {}
+    for part in str(cookie or "").split(";"):
+        name, sep, value = part.strip().partition("=")
+        if sep and name and value:
+            jar.setdefault(name, value)
+    return session_tag_of(jar)
+
+
+def saved_session_tag():
+    """The session tag of the Cookie header browser.json holds now; None
+    without a readable file."""
+    try:
+        saved = json.loads(browser_path().read_text())
+    except (OSError, ValueError):
+        return None
+    if not isinstance(saved, dict):
+        return None
+    return cookie_header_tag(next((v for k, v in saved.items() if k.lower() == "cookie"), ""))
+
+
 def saved_auth_user():
     """The Google login index the saved session was imported as (browser.json's
     x-goog-authuser; ``ytm auth --authuser N``), 0 when unknown."""
@@ -216,12 +270,12 @@ def read_identity():
 def save_identity(chosen):
     """Keep ``chosen`` (a ``checked_identity()`` dict or None) in identity.json, 0600;
     the session's own account removes the file."""
-    if not chosen:
-        identity_path().unlink(missing_ok=True)
-        return
-    ensure_config_dir()
-    record = {"version": 1, "pageId": chosen.get("pageId"), "authUser": chosen.get("authUser")}
-    write_private(identity_path(), json.dumps(record, sort_keys=True) + "\n")
+    with session_lock():
+        if not chosen:
+            identity_path().unlink(missing_ok=True)
+            return
+        record = {"version": 1, "pageId": chosen.get("pageId"), "authUser": chosen.get("authUser")}
+        write_private(identity_path(), json.dumps(record, sort_keys=True) + "\n")
 
 
 # ---- end identity ------------------------------------------------------------
@@ -235,13 +289,24 @@ def remember_visitor_id(path, client):
     """
     try:
         visitor_id = (getattr(client, "headers", None) or {}).get("X-Goog-Visitor-Id")
-        saved = json.loads(Path(path).read_text())
-    except (OSError, ValueError, AttributeError):
+        sent = str((getattr(client, "_auth_headers", None) or {}).get("cookie") or "")
+    except AttributeError:
         return
-    if not visitor_id or any(key.lower() == "x-goog-visitor-id" for key in saved):
+    if not visitor_id:
         return
-    saved["x-goog-visitor-id"] = visitor_id
-    write_private(Path(path), json.dumps(saved, indent=4, sort_keys=True) + "\n")
+    # Under the session lock, and only into the session the client was made
+    # from: a sign-in that swapped browser.json meanwhile keeps its own.
+    with session_lock():
+        try:
+            saved = json.loads(Path(path).read_text())
+        except (OSError, ValueError):
+            return
+        if not isinstance(saved, dict) or any(key.lower() == "x-goog-visitor-id" for key in saved):
+            return
+        if sent and str(saved.get("cookie") or "") != sent:
+            return
+        saved["x-goog-visitor-id"] = visitor_id
+        write_private(Path(path), json.dumps(saved, indent=4, sort_keys=True) + "\n")
 
 
 def whoami():
@@ -253,11 +318,12 @@ def whoami():
 
 def logout():
     removed = []
-    for name in (*SESSION_FILES, IDENTITY_FILE):  # the identity goes with the session
-        path = config_dir() / name
-        if path.exists():
-            path.unlink()
-            removed.append(name)
+    with session_lock():
+        for name in (*SESSION_FILES, IDENTITY_FILE):  # the identity goes with the session
+            path = config_dir() / name
+            if path.exists():
+                path.unlink()
+                removed.append(name)
     return removed
 
 
@@ -267,6 +333,85 @@ def logout():
 def cookie_record(domain, name, value, path="/", secure=True, expires=0):
     return {"domain": domain, "path": path or "/", "secure": bool(secure),
             "expires": int(expires or 0), "name": name, "value": value or ""}
+
+
+def youtube_domain(domain):
+    """Whether a cookie of ``domain`` belongs to YouTube (cookies.txt keeps
+    only those: yt-dlp's YouTube sign-in needs no other, and a .google.com
+    cookie would open the rest of the Google account)."""
+    host = str(domain or "").lower().lstrip(".")
+    return host == "youtube.com" or host.endswith(".youtube.com")
+
+
+# The cookies that name a Google sign-in session, most specific first. They
+# stay put while the session lasts (the *PSIDTS ones rotate) and every
+# account signed in elsewhere (another browser profile) has others.
+SESSION_COOKIES = ("SAPISID", "__Secure-3PAPISID", "SID", "__Secure-3PSID")
+
+
+def session_tag_of(jar):
+    """A short hash of the sign-in session ``jar`` (name -> value) belongs to,
+    "" without one of SESSION_COOKIES."""
+    value = next((jar[name] for name in SESSION_COOKIES if jar.get(name)), None)
+    if value is None:
+        return ""
+    return hashlib.sha256(b"ytm-session\0" + str(value).encode()).hexdigest()[:12]
+
+
+class CookieSet:
+    """YouTube's cookies from cookies.txt, read once (Worker.load) and held
+    in memory: ``records`` (cookie_record dicts) and the session ``tag``."""
+
+    def __init__(self, records):
+        self.records = records
+        self.tag = session_tag_of({r["name"]: r["value"] for r in records if youtube_domain(r["domain"])})
+
+
+def read_cookie_set(path=None):
+    """cookies.txt's YouTube cookies as a CookieSet; None without any."""
+    path = path or cookies_path()
+    try:
+        text = path.read_text()
+    except OSError:
+        return None
+    records = []
+    for line in text.splitlines():
+        if line.startswith("#HttpOnly_"):
+            line = line[len("#HttpOnly_"):]
+        if not line.strip() or line.startswith("#"):
+            continue
+        fields = line.split("\t")
+        if len(fields) != 7 or not youtube_domain(fields[0]):
+            continue
+        domain, _flag, cookie_path, secure, expires, name, value = fields
+        try:
+            expiry = int(expires or 0)
+        except ValueError:
+            expiry = 0
+        records.append(cookie_record(domain, name, value, cookie_path, secure == "TRUE", expiry))
+    return CookieSet(records) if records else None
+
+
+def prune_cookie_file(path=None):
+    """Drop every non-YouTube cookie from cookies.txt (one written before
+    cookies.txt kept YouTube's only); True when it was rewritten."""
+    path = path or cookies_path()
+    if not path.exists():
+        return False
+    # Under the session lock: a sign-in swapping cookies.txt in meanwhile
+    # would otherwise get the old session's cookies written back over it.
+    with session_lock():
+        try:
+            text = path.read_text()
+        except OSError:
+            return False
+        lines = text.splitlines()
+        kept = [line for line in lines
+                if not line.strip() or line.startswith("#") or youtube_domain(line.split("\t", 1)[0])]
+        if len(kept) == len(lines):
+            return False
+        write_private(path, "\n".join(kept) + "\n")
+    return True
 
 
 def cookies_txt(cookies):
@@ -349,12 +494,14 @@ def commit_session(write_browser, cookies, method, factory=None):
         account = norm.account(info)
         account.update({"method": method, "createdAt": int(time.time())})
         write_private(staging / "account.json", json.dumps(account, indent=2) + "\n")
-        for name in SESSION_FILES:
-            os.chmod(staging / name, 0o600)
-            os.replace(staging / name, directory / name)
-        # A new session starts as its own account (the brand accounts
-        # and logins of the old one may not be its own).
-        identity_path().unlink(missing_ok=True)
+        # A new session starts as its own account (the brand accounts and
+        # logins of the old one may not be its own): the identity goes
+        # first, so no load ever pairs the new session with the old one.
+        with session_lock():
+            identity_path().unlink(missing_ok=True)
+            for name in SESSION_FILES:
+                os.chmod(staging / name, 0o600)
+                os.replace(staging / name, directory / name)
         return account
     finally:
         shutil.rmtree(staging, ignore_errors=True)
@@ -449,7 +596,7 @@ def import_from_browser(browser="chromium", profile=None, authuser=0, keyring="G
     header = "; ".join(f"{c.name}={c.value}" for c in youtube
                        if c.domain in (".youtube.com", "youtube.com", "music.youtube.com"))
     file_cookies = [cookie_record(c.domain, c.name, c.value, c.path, c.secure, c.expires)
-                    for c in jar if c.domain.endswith(("youtube.com", "google.com"))]
+                    for c in jar if youtube_domain(c.domain)]
     raw = headers_raw(header, authuser)
     return commit_session(lambda path: _setup_browser_json(path, raw), file_cookies,
                           f"browser:{browser}", factory)

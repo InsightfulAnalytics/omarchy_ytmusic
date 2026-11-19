@@ -9,8 +9,9 @@ const Model = require("../YtmModel.js")
 const NOW = Date.UTC(2026, 10, 11, 12, 0, 0)
 const MIN = 60 * 1000
 const id11 = n => ("v" + String(n).padStart(10, "0")).slice(0, 11)
-const OWN = "0:"
-const BRAND = "0:0123456789ab"
+// The worker's keys (login:brandHash:sessionHash, ytm_account.identity_summary).
+const OWN = "0::abcdef012345"
+const BRAND = "0:0123456789ab:abcdef012345"
 
 // ---- ------------------------------------------------------------------------------
 
@@ -48,11 +49,12 @@ test("a play keeps the identity key it was made under, through the file", () => 
   let pending = Model.withPendingPlay([], id11(1), NOW - 3 * MIN, OWN)
   pending = Model.withPendingPlay(pending, id11(2), NOW - 2 * MIN, "")
   pending = Model.withPendingPlay(pending, id11(3), NOW - MIN, BRAND)
-  assert.deepEqual(pending.map(p => p.key), [OWN, undefined, BRAND])
+  assert.deepEqual(pending.map(p => p.key), [OWN, BRAND], "a play made before any identity was known is not kept")
   const back = Model.parsePlayState(Model.playStateText({ plays: pending, notice: true }, NOW), NOW)
   assert.deepEqual(back.plays, pending)
-  const odd = Model.prunePending([{ videoId: id11(4), at: NOW, key: "Tim's account" }, { videoId: id11(5), at: NOW, key: 7 }], NOW)
-  assert.deepEqual(odd.map(p => "key" in p), [false, false], "only an identity key is kept (no name)")
+  const odd = Model.prunePending([{ videoId: id11(4), at: NOW, key: "Tim's account" }, { videoId: id11(5), at: NOW, key: 7 },
+    { videoId: id11(6), at: NOW, key: "0:" }, { videoId: id11(7), at: NOW, key: "0:0123456789ab" }], NOW)
+  assert.deepEqual(odd, [], "no name, no number, no key of the old forms: such plays are dropped")
 })
 
 test("a batch holds the plays of one identity, and its params name it", () => {
@@ -60,16 +62,14 @@ test("a batch holds the plays of one identity, and its params name it", () => {
     { videoId: id11(1), at: NOW - 20 * MIN, key: OWN },
     { videoId: id11(2), at: NOW - 19 * MIN, key: BRAND },
     { videoId: id11(3), at: NOW - 18 * MIN, key: OWN },
-    { videoId: id11(4), at: NOW - 17 * MIN },
   ]
   const batch = Model.reportBatch(pending, NOW, true)
   assert.deepEqual(batch.map(p => p.videoId), [id11(1), id11(3)])
   assert.deepEqual(Model.reportParams(batch), { videoIds: [id11(1), id11(3)], identityKey: OWN })
   const rest = pending.filter(p => p.key !== OWN)
   assert.deepEqual(Model.reportBatch(rest, NOW, true).map(p => p.videoId), [id11(2)])
-  const unknown = [{ videoId: id11(4), at: NOW - MIN }]
-  assert.deepEqual(Model.reportParams(Model.reportBatch(unknown, NOW, true)), { videoIds: [id11(4)] },
-                   "a play made before any worker said who it acts as goes as before")
+  const unknown = Model.prunePending([{ videoId: id11(4), at: NOW - MIN }], NOW)
+  assert.deepEqual(Model.reportBatch(unknown, NOW, true), [], "a play made before any worker said who it acts as never goes")
   assert.deepEqual(Model.reportParams([]), { videoIds: [] })
 })
 
@@ -99,4 +99,27 @@ test("your own channel's page is played as Your channel, never by its name", () 
   const text = Model.queueStateText({ pid: 1, context: { playlistId: null, title: Model.contextTitle({ kind: "myChannel" }, null, "Owner Name"), radio: false } })
   assert.equal(text.indexOf("Owner Name"), -1)
   assert.equal(Model.playingFrom({ title: "Your channel" }, null), "Your channel")
+})
+
+test("a switch names the identity its account list was read as", () => {
+  const row = { brand: false, pageId: null, authUser: 1, listKey: OWN }
+  assert.deepEqual(Model.switchParams(row), { pageId: null, authUser: 1, identityKey: OWN })
+  assert.deepEqual(Model.switchParams(Object.assign({}, row, { listKey: "not a key" })), { pageId: null, authUser: 1 })
+  const fs = require("node:fs")
+  const service = fs.readFileSync(require("node:path").join(__dirname, "..", "Service.qml"), "utf8")
+  assert.ok(service.includes("row.listKey = listKey"), "Service.loadAccounts tags each row")
+  assert.ok(service.includes("reply = { ok: true, result: { items: items,"), "and hands the chooser the tagged rows")
+})
+
+test("an order on a page goes with the identity it was picked under", () => {
+  const fs = require("node:fs")
+  const view = fs.readFileSync(require("node:path").join(__dirname, "..", "components", "CollectionView.qml"), "utf8")
+  assert.ok(view.includes("extra.identityKey = orderKey"), "every read in the order names it")
+  assert.ok(/orderKey = service && typeof service\._identityKey === "string"/.test(view), "taken when O picks it")
+  assert.ok(view.includes("if (root._orderOutlived()) root._dropOrder()"), "dropped after a switch")
+  assert.ok(view.includes("    if (_orderOutlived()) _dropOrder()\n    var key = refKey"), "checked before every read")
+  assert.ok(/return order !== null && !!service && orderKey !== service\._identityKey/.test(view),
+            "a pick with no key yet counts as another identity's once one is known")
+  const ref = Model.pageRef({ type: "page", browseId: "FEmusic_library_landing" }, { order: 1, identityKey: OWN })
+  assert.ok(!ref || ref.params.identityKey === OWN)
 })

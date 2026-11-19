@@ -28,7 +28,7 @@ Plugin id `tim.ytmusic` · the Omarchy logo is from [basecamp/omarchy](https://g
 
 YouTube Music in the Omarchy bar, without a browser: a native panel inside
 `omarchy-shell`, [ytmusicapi](https://github.com/sigma67/ytmusicapi) for
-search and your library, and mpv with yt-dlp for audio-only streaming.
+search and your library, yt-dlp (inside the worker) for the audio streams, and mpv to play them.
 Nothing is downloaded to disk.
 
 Version 2.0.0. Not affiliated with YouTube or Google: it uses the unofficial
@@ -195,9 +195,14 @@ omarchy-shell ytmusic volume 60
 omarchy-shell ytmusic search "query"            # open the panel on the results
 omarchy-shell ytmusic like|unlike|toggleLike    # the song playing
 omarchy-shell ytmusic shuffle|repeat|autoplay|recordPlays
-bin/ytm upload ~/Music/song.mp3                 # a file to your uploads
-bin/ytm join 'https://music.youtube.com/playlist?list=PL...&jct=...'   # join a collaborative playlist
+bin/ytm upload ~/Music/song.mp3                 # a file to your uploads (- reads the path from stdin)
+wl-paste | bin/ytm join -    # join a collaborative playlist from its invite link (or: bin/ytm join --clipboard)
 ```
+
+Anything typed as an argument (a search, a file name) is on that command's
+command line while it runs, which other accounts on this computer can read.
+The panel never puts your text there; for a file name you would rather keep
+off it, use the panel's upload field or `bin/ytm upload -`.
 
 ## How it works
 
@@ -227,9 +232,10 @@ after it closes.
 - The session lives in `~/.config/omarchy-ytmusic/` (0700; `browser.json`,
   `cookies.txt`, `account.json` 0600). The shell reads only `account.json`
   (name, handle, photo) and `identity.json` (ids only, below), nothing
-  else there; the worker reads the session, and mpv's yt-dlp only
-  a copy of `cookies.txt` (for uploaded songs, and for every song
-  while **Play with your account** is on), by file path. `identity.json`
+  else there; only the worker reads the session. `cookies.txt` holds
+  YouTube's cookies only (no other Google cookie). mpv never gets cookies
+  and never runs yt-dlp: the worker looks every stream up in-process, and
+  mpv plays the URL it hands over. `identity.json`
   (0600) holds only the ids of the identity in use (a brand account's
   pageId, a login index); the names of the session's identities stay in
   the worker's replies and the shell's memory (`accounts` is not cached),
@@ -243,9 +249,22 @@ after it closes.
   `positions.json` and `pending-plays.json` with the
   default umask (0644); the 0700 directory keeps them private.
 - Covers are only downloaded over HTTPS from YouTube/Google image hosts.
-- No song, album or playlist name on a command line, where every local
-  account can read it: the worker sends notifications over the session bus
-  (`backend/ytm_notify.py`) instead of `omarchy-notification-send`.
+- No song, video id, invite link or other private text on a command line,
+  where every local account can read it: the worker sends notifications
+  over the session bus (`backend/ytm_notify.py`), the clipboard gets text on
+  wl-copy's stdin, `bin/ytm join` and the `join` IPC read the invite link
+  from stdin or the clipboard, and mpv runs no yt-dlp (`--ytdl=no`).
+- Notification text from YouTube cannot become markup or a link, and a
+  click on one of ours never opens a URL found in its text.
+- Every edit names the account it was asked under: the worker refuses one,
+  sending nothing, when another identity is in use by its turn (a switch,
+  a sign-in from another browser profile) or before any was known, and
+  uploads and plays go through the very client that was checked.
+- An upload opens the file once and sends that open file: renaming or
+  swapping a file in a shared folder after it was checked changes nothing.
+  A link on the path is followed only when it is yours, on your own disk,
+  in a folder only you can change; anything else asks for the file itself.
+  A file of yours in a folder other accounts can change is refused.
 - mpv checks TLS certificates (`--tls-verify=yes`; mpv's default is off), as
   the worker's and yt-dlp's requests already do.
 - External text never reaches a shell: processes get argument arrays, mpv titles use byte-length quoting, and the two `sh -c`

@@ -28,10 +28,15 @@ Edits (MUTATES; the shell sends them with retry false):
 
 - ``uploadSong({path})`` on the ``upload`` lane (a synchronous POST of the
   whole file, no timeout of its own): refused under a brand account
-  (ytm_account.require_upload_identity), then the path is checked: ``~``
-  expanded, absolute, a regular file of an accepted type (any case) under
-  300 MB. ytmusicapi checks the suffix case-sensitively, so ``SONG.MP3`` is
-  sent through a ``SONG.mp3`` symlink in <cache>/upload-tmp, removed after.
+  (ytm_account.require_upload_identity). The file is opened once
+  (``open_upload``; under serve() as the request arrives, before it waits
+  on the lane) and every check is made on that open file: a regular file
+  of an accepted type (by its name, any case) under 300 MB. What is sent
+  is that same file: ytmusicapi reopens it by name, so it gets a symlink in
+  a private folder under <cache>/upload-tmp that points at the open
+  descriptor (/proc/self/fd/N), named with the suffix in lower case (its
+  check is case-sensitive), removed after. A name swapped meanwhile in a
+  folder another account can write to changes nothing.
   ``{ok, processing: true, name}``: YouTube lists the song once it has
   processed it, minutes later.
 - ``deleteUpload({entityId})``: delete_upload_entity (a song's ``t_po_...``
@@ -45,8 +50,9 @@ hand-built responses.
 import contextlib
 import os
 import shutil
+import stat
 import tempfile
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 from ytmusicapi.mixins._utils import prepare_order_params
 from ytmusicapi.navigation import FRAMEWORK_MUTATIONS, MRLIR, nav
@@ -215,12 +221,13 @@ def m_upload_songs(worker, params):
     order = opt_order(params, ORDERS)
     cursor = opt_cursor(params)
     body = _body(SONGS_ID, order)
+    yt = pages.sort_client(worker, params, SONGS_ID, order)  # its pages carry the order too
     if cursor:
-        items, cursor = pages.fetch(worker.yt, "browse", body, "ctoken", None, songs_of, cursor=cursor,
+        items, cursor = pages.fetch(yt, "browse", body, "ctoken", None, songs_of, cursor=cursor,
                                     min_items=PAGE_ITEMS, max_http=library._budget(0))
         return _page("uploadSongs", SONGS_ID, "Uploaded songs", items, cursor, order=order)
     try:
-        first = pages.first_page(worker.yt, "browse", body)
+        first = pages.first_page(yt, "browse", body)
     finally:
         _forget_order(worker, SONGS_ID, order)
     response = first[0]
@@ -229,17 +236,20 @@ def m_upload_songs(worker, params):
     if container is None:
         return _page("uploadSongs", SONGS_ID, "Uploaded songs", [], None, orders, current,
                      message=empty_message(response) or "No uploaded songs yet")
-    items, cursor = pages.fetch(worker.yt, "browse", body, "ctoken", lambda _: container, songs_of,
+    items, cursor = pages.fetch(yt, "browse", body, "ctoken", lambda _: container, songs_of,
                                 min_items=PAGE_ITEMS, max_http=library._budget(first[1]), first=first)
     return _page("uploadSongs", SONGS_ID, "Uploaded songs", items, cursor, orders, current)
 
 
 def _whole_list(worker, params, browse_id, read, normalize, method, title, layout, what):
+    """``read``: the name of the ytmusicapi method, called on the client
+    pages.sort_client picks (an order is saved on the account)."""
     worker.require_auth()
     order = opt_order(params, ORDERS)
     try:
+        yt = pages.sort_client(worker, params, browse_id, order)
         with raw.capture(("browse",)) as cap:
-            values = read(limit=LIST_MAX, order=order)
+            values = getattr(yt, read)(limit=LIST_MAX, order=order)
     finally:
         _forget_order(worker, browse_id, order)
     orders, current = orders_of(cap.first("browse"), order)
@@ -250,13 +260,13 @@ def _whole_list(worker, params, browse_id, read, normalize, method, title, layou
 
 def m_upload_albums(worker, params):
     """``{order?}``: every album of your uploads (one grid section)."""
-    return _whole_list(worker, params, ALBUMS_ID, worker.yt.get_library_upload_albums, norm.upload_album,
+    return _whole_list(worker, params, ALBUMS_ID, "get_library_upload_albums", norm.upload_album,
                        "uploadAlbums", "Uploaded albums", "grid", "album")
 
 
 def m_upload_artists(worker, params):
     """``{order?}``: every artist of your uploads (one shelf section)."""
-    return _whole_list(worker, params, ARTISTS_ID, worker.yt.get_library_upload_artists, norm.upload_artist,
+    return _whole_list(worker, params, ARTISTS_ID, "get_library_upload_artists", norm.upload_artist,
                        "uploadArtists", "Uploaded artists", "shelf", "artist")
 
 
@@ -348,25 +358,189 @@ def artist_tracks(worker, browse_id, limit=MAX_TRACKS):
 # ---- methods: edits --------------------------------------------------------------------------------
 
 
-def upload_path(params):
-    """The file ``params.path`` names, checked as YouTube Music would take it."""
+class OpenUpload:
+    """The file an upload sends, open (``fd``) and checked: ``name`` as
+    YouTube gets it (suffix in lower case), ``shown`` as the user gave it."""
+
+    def __init__(self, fd, name, shown, size):
+        self.fd, self.name, self.shown, self.size = fd, name, shown, size
+
+    def close(self):
+        if self.fd is not None:
+            os.close(self.fd)
+            self.fd = None
+
+
+def _checked(st, name):
+    if stat.S_ISDIR(st.st_mode):
+        raise WorkerError("BAD_REQUEST", f"{name} is a folder; give a music file")
+    if not stat.S_ISREG(st.st_mode):
+        raise WorkerError("BAD_REQUEST", f"{name} is not a regular file")
+    if st.st_size >= MAX_BYTES:
+        raise WorkerError("BAD_REQUEST", f"{name} is 300 MB or more; YouTube Music takes smaller files")
+
+
+MAX_LINKS = 40  # as the kernel's own limit for one lookup
+
+
+def _hardlinks_protected():
+    """fs.protected_hardlinks (systemd sets it): no account may hard link a
+    file it can neither read nor write, so a file of yours never gets a
+    name from another account."""
+    try:
+        return Path("/proc/sys/fs/protected_hardlinks").read_text().strip() == "1"
+    except OSError:
+        return False
+
+
+def _trusted_devices():
+    """The file systems whose owners are real: the root's and your home's.
+    A network share, a USB disk or a FUSE mount may report any owner (all
+    files as yours, or as root), so a link there proves nothing."""
+    devices = {os.stat("/").st_dev}
+    try:
+        devices.add(os.stat(os.path.expanduser("~")).st_dev)
+    except OSError:
+        pass
+    return devices
+
+
+def _others_can_place(folder, uid):
+    """Whether another account could have given an entry of ``folder`` (an
+    fstat) its name there: the folder is not yours (or root's), so its owner
+    moved it in; or others may write to it without the sticky bit, so any
+    of them may rename an entry of yours into the name you gave."""
+    if folder.st_uid not in (uid, 0):
+        return True
+    return bool(folder.st_mode & (stat.S_IWGRP | stat.S_IWOTH)) and not folder.st_mode & stat.S_ISVTX
+
+
+def _link_problem(link, folder, uid, devices):
+    """Why the link ``link`` (an fstat) in ``folder`` (an fstat) must not be
+    followed, or None: it is another account's; on a file system whose
+    owners prove nothing; has other names (a hard link to it, made where
+    you did not put it); or sits where another account could have put it
+    (_others_can_place)."""
+    if link.st_uid not in (uid, 0):
+        return "a link another account made"
+    if link.st_dev not in devices:
+        return "a link outside your system and home drives"
+    if link.st_nlink > 1:
+        return "a link with other names (hard links)"
+    if _others_can_place(folder, uid):
+        return "a link in a folder other accounts can change"
+    return None
+
+
+def _resolve(path, shown):
+    """An O_PATH descriptor of what ``path`` names, looked up one name at a
+    time: each name is opened with O_NOFOLLOW from the folder before it, and
+    a symbolic link is followed by hand, only when _link_problem finds none.
+    In a folder another account can write to, that account could otherwise
+    put a link named like a song that points at one of your files. Every
+    step holds what it opened, so nothing is looked up twice."""
+    uid = os.getuid()
+    devices = _trusted_devices()
+    flags = os.O_PATH | os.O_CLOEXEC
+    pending = list(PurePosixPath(path).parts[1:])
+    fd = os.open("/", flags | os.O_DIRECTORY)
+    links = 0
+    try:
+        while pending:
+            name = pending.pop(0)
+            if name in ("", "."):
+                continue
+            step = os.open(name, flags | os.O_NOFOLLOW | (os.O_DIRECTORY if name == ".." else 0), dir_fd=fd)
+            try:
+                st = os.fstat(step)
+                if stat.S_ISLNK(st.st_mode):
+                    problem = _link_problem(st, os.fstat(fd), uid, devices)
+                    if problem:
+                        raise WorkerError("BAD_REQUEST", f"{shown} goes through {problem} ({name}); "
+                                                         "give the file itself")
+                    links += 1
+                    if links > MAX_LINKS:
+                        raise WorkerError("BAD_REQUEST", f"{shown} goes through too many links")
+                    target = os.readlink("", dir_fd=step)
+                elif pending and not stat.S_ISDIR(st.st_mode):
+                    raise NotADirectoryError(name)
+                elif not pending and st.st_uid == uid and _others_can_place(os.fstat(fd), uid):
+                    # A file of yours another account could have renamed
+                    # into the name you gave (one of your private files).
+                    raise WorkerError("BAD_REQUEST", f"{shown} is in a folder other accounts can change; "
+                                                     "upload a copy from a folder of your own")
+                else:
+                    target = None
+            except BaseException:
+                os.close(step)
+                raise
+            if target is None:
+                os.close(fd)
+                fd = step
+                continue
+            os.close(step)
+            parts = list(PurePosixPath(target).parts)
+            if target.startswith("/"):
+                root = os.open("/", flags | os.O_DIRECTORY)
+                os.close(fd)
+                fd = root
+                parts = parts[1:]
+            pending[:0] = parts
+        return fd
+    except BaseException:
+        os.close(fd)
+        raise
+
+
+def open_upload(params):
+    """The file ``params.path`` names, opened once and checked as YouTube
+    Music would take it; an OpenUpload the caller closes.
+
+    The name is resolved once (_resolve: O_PATH, so no FIFO or device is
+    opened for real, and no link another account made is followed), and the
+    type is checked on what it found; that object is then opened for
+    reading through /proc/self/fd, which reopens it and never looks the
+    name up again, and is checked again (same inode, a regular file, the
+    size). Nothing after this uses the path.
+    """
     text = req_str(params, "path")
     if len(text) > 4096 or "\0" in text:
         raise WorkerError("BAD_REQUEST", "'path' is not a file path")
     path = Path(os.path.expanduser(text))
     if not path.is_absolute():
         raise WorkerError("BAD_REQUEST", "Give the file's full path (it may start with ~)")
-    if not path.exists():
-        raise WorkerError("BAD_REQUEST", f"No such file: {path.name}")
-    if path.is_dir():
-        raise WorkerError("BAD_REQUEST", f"{path.name} is a folder; give a music file")
-    if not path.is_file():
-        raise WorkerError("BAD_REQUEST", f"{path.name} is not a regular file")
     if path.suffix[1:].lower() not in EXTENSIONS:
         raise WorkerError("BAD_REQUEST", "YouTube Music takes " + ", ".join(EXTENSIONS[:-1]) + f" or {EXTENSIONS[-1]} files")
-    if path.stat().st_size >= MAX_BYTES:
-        raise WorkerError("BAD_REQUEST", f"{path.name} is 300 MB or more; YouTube Music takes smaller files")
-    return path
+    try:
+        probe = _resolve(path, path.name)
+    except (FileNotFoundError, NotADirectoryError):
+        raise WorkerError("BAD_REQUEST", f"No such file: {path.name}") from None
+    except OSError as exc:
+        raise WorkerError("BAD_REQUEST", f"Cannot open {path.name}: {exc.strerror or 'refused'}") from None
+    except ValueError:  # a name the file system cannot hold (a lone surrogate)
+        raise WorkerError("BAD_REQUEST", "'path' is not a file path") from None
+    try:
+        first = os.fstat(probe)
+        _checked(first, path.name)
+        try:
+            fd = os.open(f"/proc/self/fd/{probe}", os.O_RDONLY | os.O_CLOEXEC | os.O_NOCTTY)
+        except OSError as exc:
+            raise WorkerError("BAD_REQUEST", f"Cannot read {path.name}: {exc.strerror or 'refused'}") from None
+    finally:
+        os.close(probe)
+    try:
+        opened = os.fstat(fd)
+        if (opened.st_dev, opened.st_ino) != (first.st_dev, first.st_ino):
+            raise WorkerError("BAD_REQUEST", f"{path.name} changed while it was opened; nothing was sent")
+        _checked(opened, path.name)
+        if opened.st_nlink > 1 and opened.st_uid == os.getuid() and not _hardlinks_protected():
+            # Without the kernel's protection another account may give one
+            # of your files a second name (a song's) in a folder it writes.
+            raise WorkerError("BAD_REQUEST", f"{path.name} has other names (hard links); upload a copy")
+    except BaseException:
+        os.close(fd)
+        raise
+    return OpenUpload(fd, path.stem + path.suffix.lower(), path.name, opened.st_size)
 
 
 def tmp_root():
@@ -374,21 +548,33 @@ def tmp_root():
 
 
 @contextlib.contextmanager
-def sendable(path):
-    """``path`` as ytmusicapi accepts it: itself, or (an upper-case suffix) a
-    symlink named with the suffix in lower case, in a folder of its own under
-    tmp_root(), removed afterwards. YouTube gets that name as the file's."""
-    if path.suffix == path.suffix.lower():
-        yield path
-        return
+def sendable(upload):
+    """A path ytmusicapi's upload_song can be given for ``upload`` (an open
+    OpenUpload): a symlink named ``upload.name`` to /proc/self/fd/<fd>, in
+    a folder of its own (0700) under tmp_root(), removed afterwards.
+    ytmusicapi checks, sizes and opens that name; each of those follows the
+    descriptor's magic link to the file already open, never the original
+    path. YouTube gets ``upload.name`` as the file's name."""
     caches.private_dir(tmp_root())
     folder = Path(tempfile.mkdtemp(dir=tmp_root()))
-    link = folder / (path.stem + path.suffix.lower())
+    link = folder / upload.name
     try:
-        link.symlink_to(path.resolve())
+        link.symlink_to(f"/proc/self/fd/{upload.fd}")
         yield link
     finally:
         shutil.rmtree(folder, ignore_errors=True)
+
+
+def prepare_upload(params):
+    """serve()'s PREPARES hook: the file, opened as the request arrives,
+    before it waits on the upload lane (or the WorkerError that opening it
+    raised, raised in turn when the request runs)."""
+    try:
+        return open_upload(params if isinstance(params, dict) else {})
+    except WorkerError as exc:
+        return exc
+    except Exception as exc:  # noqa: BLE001 - never let one request end serve()'s loop
+        return WorkerError("BAD_REQUEST", f"Cannot open that file ({type(exc).__name__})")
 
 
 def _succeeded(result):
@@ -401,17 +587,27 @@ def m_upload_song(worker, params):
     upload that waited on the upload lane while the account changed is
     refused, unsent (ytm_account.require_identity_key). Required from the
     shell (serve()); the command line's own upload waits on no lane."""
-    identities.require_upload_identity(worker)  # never as a brand account
-    identities.require_identity_key(worker, params, "this upload", required=True)
-    path = upload_path(params)
-    worker.require_auth()
-    with sendable(path) as sent:
-        result = worker.yt.upload_song(str(sent))
+    prepared = worker.prepared()  # opened as the request arrived (serve), else None
+    try:
+        # The client checked is the client that sends (ytm_account.Bound).
+        bound = identities.require_identity_key(worker, params, "this upload", required=True)
+        identities.require_upload_identity(bound)  # never as a brand account
+        if isinstance(prepared, Exception):
+            raise prepared
+        upload = prepared or open_upload(params)
+        prepared = upload
+        worker.require_auth()
+        bound.still("this upload")
+        with sendable(upload) as sent:
+            result = bound.yt.upload_song(str(sent))
+    finally:
+        if isinstance(prepared, OpenUpload):
+            prepared.close()
     if not _succeeded(result):
         status = getattr(result, "status_code", None)
         raise WorkerError("UPSTREAM", "YouTube Music did not take the file"
                           + (f" (HTTP {status})" if isinstance(status, int) else ""))
-    return {"ok": True, "processing": True, "name": path.name}
+    return {"ok": True, "processing": True, "name": upload.shown}
 
 
 def m_delete_upload(worker, params):
@@ -442,6 +638,9 @@ CACHEABLE = set(READS)
 # deleteUpload is one quick request, answered in order like the other edits
 # (not behind an upload of several minutes).
 LANES = dict({name: "pages" for name in READS}, uploadSong="upload")
+# Run by serve() on the main thread as the request arrives: the file is
+# opened then, not after the request waited behind another upload.
+PREPARES = {"uploadSong": prepare_upload}
 # Every uploads read, the browse pages of the three lists, and the library
 # lists an upload may show in (its songs, albums and artists, Recent activity).
 _UPLOADS = [(name, None, None) for name in READS] + [

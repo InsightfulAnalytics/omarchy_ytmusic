@@ -113,7 +113,10 @@ class DiskCache:
         private_dir(self.dir)
 
     def key(self, method, params):
-        canonical = json.dumps(params or {}, sort_keys=True, separators=(",", ":"))
+        # The identity a request was asked under is checked, not cached by:
+        # the cache is cleared whenever the identity changes.
+        params = {k: v for k, v in (params or {}).items() if k != "identityKey"}
+        canonical = json.dumps(params, sort_keys=True, separators=(",", ":"))
         return f"{self.prefix}{method}-{hashlib.sha1(canonical.encode()).hexdigest()[:20]}.json"
 
     def epoch(self, method):
@@ -133,7 +136,7 @@ class DiskCache:
 
     def put(self, method, params, result, now=None, epoch=None):
         """Store ``result``; skipped (returns False) when ``epoch`` is no longer current."""
-        stored_params = {k: v for k, v in (params or {}).items() if k != "cursor"}
+        stored_params = {k: v for k, v in (params or {}).items() if k not in ("cursor", "identityKey")}
         entry = {"method": method, "params": stored_params, "at": now if now is not None else time.time(),
                  "result": strip_cursors(strip_tokens(result))}
         data = json.dumps(entry, ensure_ascii=False, separators=(",", ":")).encode()

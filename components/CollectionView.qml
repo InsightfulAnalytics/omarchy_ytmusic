@@ -69,6 +69,13 @@ Item {
   // The sort order asked for (an `index` of page.orders: a position, or an
   // artistAlbums option title), null for the page's own.
   property var order: null
+  // The identity `order` was picked under (O, setOrder; "" none). Every
+  // read in that order names it: on your library's pages YouTube saves the
+  // order on the account, so a read made after a switch or a sign-in
+  // (a refresh, Back, the reload after the Store emptied) is refused by the
+  // worker rather than saving an old pick on the account now in use, and
+  // the view drops the order (_orderOutlived).
+  property string orderKey: ""
   property var page: null
   property bool loading: false
   property string error: ""
@@ -265,11 +272,12 @@ Item {
     _opened = entry
     var view = entry ? entry.view : null
     order = view && view.order !== undefined ? view.order : null
+    orderKey = view && typeof view.orderKey === "string" ? view.orderKey : ""
     filter = view && view.filter !== undefined ? view.filter : null
     full = !!view && view.full === true
     aboutOpen = !!view && view.aboutOpen === true
     closeFind()
-    ref = entry ? Model.pageRef(entry.item, Model.pageExtra(order, full, filter)) : null
+    ref = _refFor(order, full, filter)
     page = null
     error = ""
     loading = false
@@ -293,6 +301,9 @@ Item {
       loading = false
       return
     }
+    // An order picked as another identity (or before any) is never sent
+    // as this one: the page reads in its saved order.
+    if (_orderOutlived()) _dropOrder()
     var key = refKey
     store.loadCollection(ref, function(reply) {
       // The view may be gone by then (Back to an empty stack), or going:
@@ -301,6 +312,7 @@ Item {
       // Asked before the Store was emptied (another identity, a
       // location): the page is read again as the one in use.
       if (reply.stale) {
+        if (root._orderOutlived()) root._dropOrder()
         root.load(fresh)
         return
       }
@@ -316,11 +328,15 @@ Item {
         if (wanted) root.loadMore(true)
         root._pageLoaded()
         root._findMore()
+      } else if (root._orderOutlived()) {
+        // Refused: picked as another identity. The page in its saved order.
+        root._dropOrder()
+        root.load(fresh)
       } else if (root.full && Model.canLoadAll(root.page)) {
         // Load all failed over the first read: that stays, and its Load
         // all row says why (Enter tries again).
         root.full = false
-        root.ref = Model.pageRef(root.entry.item, Model.pageExtra(root.order, false, root.filter))
+        root.ref = root._refFor(root.order, false, root.filter)
         root.moreError = reply.error.message
       } else {
         root.error = reply.error.message
@@ -339,6 +355,10 @@ Item {
       if (!loading && !refreshing) load(true)
       return
     }
+    if (_orderOutlived()) {  // the next page would carry another identity's order
+      load(true)
+      return
+    }
     var key = refKey
     loadingMore = true
     moreError = ""
@@ -353,8 +373,8 @@ Item {
 
   // For Back: the sort order, Load all, the About row and the list's place.
   function viewState() {
-    return { order: order, full: full, aboutOpen: aboutOpen, list: resultList.viewState(), edits: _editsState(),
-             filter: filter }
+    return { order: order, orderKey: orderKey, full: full, aboutOpen: aboutOpen, list: resultList.viewState(),
+             edits: _editsState(), filter: filter }
   }
 
   function restore(view) {
@@ -363,10 +383,13 @@ Item {
     var wantsAll = view.full === true
     var wantsFilter = view.filter !== undefined ? view.filter : null
     if (((view.order !== undefined && view.order !== order) || wantsAll !== full || wantsFilter !== filter) && entry) {
-      if (view.order !== undefined) order = view.order
+      if (view.order !== undefined) {
+        order = view.order
+        orderKey = typeof view.orderKey === "string" ? view.orderKey : ""
+      }
       full = wantsAll
       filter = wantsFilter
-      ref = Model.pageRef(entry.item, Model.pageExtra(order, full, filter))
+      ref = _refFor(order, full, filter)
       _pendingView = view.list || null
       load(false)
       return
@@ -382,6 +405,26 @@ Item {
     resultList.restoreView(view)
   }
 
+  // The page's ref in that order, Load all and filter; an order goes with
+  // the identity it was picked under (orderKey).
+  function _refFor(order, all, filter) {
+    if (!entry) return null
+    var extra = Model.pageExtra(order, all, filter)
+    if (extra && extra.order !== undefined && orderKey !== "") extra.identityKey = orderKey
+    return Model.pageRef(entry.item, extra)
+  }
+
+  // The order was picked as another identity than the one in use now.
+  function _orderOutlived() {
+    return order !== null && !!service && orderKey !== service._identityKey
+  }
+
+  function _dropOrder() {
+    order = null
+    orderKey = ""
+    ref = _refFor(null, full, filter)
+  }
+
   // O: the next of the page's sort orders (nothing when it has none).
   function cycleOrder() {
     if (ref && ref.kind === "charts") return chooseCountry()  // O picks the chart country
@@ -395,7 +438,8 @@ Item {
   function setOrder(index) {
     if (!entry || loading || index === currentOrder) return
     order = index
-    ref = Model.pageRef(entry.item, Model.pageExtra(index, full, filter))
+    orderKey = service && typeof service._identityKey === "string" ? service._identityKey : ""
+    ref = _refFor(index, full, filter)
     error = ""
     loadingMore = false
     moreError = ""
@@ -655,7 +699,7 @@ Item {
     if (!entry || !canLoadAll || loading) return false
     full = true
     moreError = ""
-    ref = Model.pageRef(entry.item, Model.pageExtra(order, true, filter))
+    ref = _refFor(order, true, filter)
     load(false)
     return true
   }
@@ -1123,7 +1167,7 @@ Item {
     var value = index === undefined ? null : index
     if (!entry || loading || value === filter) return false
     filter = value
-    ref = Model.pageRef(entry.item, Model.pageExtra(order, full, filter))
+    ref = _refFor(order, full, filter)
     error = ""
     loadingMore = false
     moreError = ""

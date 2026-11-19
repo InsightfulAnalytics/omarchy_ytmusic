@@ -137,10 +137,7 @@ def login_of(worker):
     return auth.session_auth_user(worker.yt)
 
 
-# The cookies that name a Google sign-in session, most specific first. They
-# stay put while the session lasts (the *PSIDTS ones rotate) and every
-# account signed in elsewhere (another browser profile) has others.
-SESSION_COOKIES = ("SAPISID", "__Secure-3PAPISID", "SID", "__Secure-3PSID")
+SESSION_COOKIES = auth.SESSION_COOKIES
 
 
 def session_tag(client):
@@ -155,15 +152,7 @@ def session_tag(client):
         cookie = headers.get("cookie") or ""
     except AttributeError:
         return ""
-    jar = {}
-    for part in str(cookie).split(";"):
-        name, sep, value = part.strip().partition("=")
-        if sep and name and value:
-            jar.setdefault(name, value)
-    value = next((jar[name] for name in SESSION_COOKIES if name in jar), None)
-    if value is None:
-        return ""
-    return hashlib.sha256(b"ytm-session\0" + value.encode()).hexdigest()[:12]
+    return auth.cookie_header_tag(cookie)
 
 
 def identity_summary(worker):
@@ -184,29 +173,73 @@ def identity_summary(worker):
     return {"key": f"{login}:{tag}:{session}", "brand": bool(page_id), "own": not chosen, "authUser": login}
 
 
+class Bound:
+    """One consistent view of the worker taken under its swap_lock: the
+    client (``yt``), its identity, auth state and generation. A lane that
+    checked a request's identity against it sends through ``yt`` (that
+    identity's client, whatever load() swaps in meanwhile) and calls
+    ``still`` right before sending."""
+
+    def __init__(self, worker):
+        lock = getattr(worker, "swap_lock", None)
+        with lock if lock is not None else _NO_LOCK:
+            self.yt = getattr(worker, "yt", None)
+            self.cookies = getattr(worker, "cookies", None)  # cookies.txt as load() read it
+            self.identity = getattr(worker, "identity", None)
+            self.auth = getattr(worker, "auth", None)
+            self.generation = getattr(worker, "generation", 0)
+        self.worker = worker
+
+    def summary(self):
+        return identity_summary(self)
+
+    def still(self, what):
+        """BAD_REQUEST, unsent, when the worker has loaded another client
+        since (a switch, a sign-in or sign-out, a location change): the
+        request was asked for under what is gone now."""
+        if getattr(self.worker, "generation", 0) != self.generation:
+            raise unsent(WorkerError("BAD_REQUEST", f"The account in use changed while {what} waited; "
+                                                    "nothing was sent"))
+
+
+class _NoLock:
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+
+_NO_LOCK = _NoLock()
+
+
 def require_identity_key(worker, params, what, required=False):
-    """BAD_REQUEST (nothing sent) when ``params.identityKey``, the identity
-    the shell asked under (identity_summary's key), is not the one the worker
-    acts as now. A request that waits on a lane runs as whatever client the
-    worker holds when its turn comes: an upload queued behind another, or
-    plays queued while the worker started as an identity switched from the
-    command line, or one queued before a sign-in from another browser
-    profile, would otherwise go to another account. Without the key
-    (the command line's own requests) nothing is checked, unless
-    ``required`` and the request came through serve() (the shell, whose
-    requests wait on lanes): then it is refused, unsent, too."""
+    """The Bound view the request is checked against; BAD_REQUEST (nothing
+    sent) when ``params.identityKey``, the identity the shell asked under
+    (identity_summary's key), is not the one in that view.
+
+    A request runs as whatever client the worker holds when its turn comes:
+    an upload queued behind another, plays queued while the worker started
+    as an identity switched from the command line, an edit queued before a
+    sign-in from another browser profile, would otherwise go to another
+    account. Without the key (the command line's own requests) nothing is
+    checked, unless ``required`` and the request came through serve() (the
+    shell): then it is refused, unsent, too. A lane method sends through
+    the returned view's ``yt`` and calls its ``still`` before sending."""
+    bound = Bound(worker)
     expected = params.get("identityKey")
     if expected is None:
         if required and getattr(worker, "serving", False):
-            raise unsent(WorkerError("BAD_REQUEST", f"{what[0].upper()}{what[1:]} names no account "
-                                                    "(identityKey); nothing was sent"))
-        return
+            raise unsent(WorkerError("BAD_REQUEST", f"The account in use was not known yet when {what} was "
+                                                    "asked for; nothing was sent. Try again"))
+        return bound
     if not isinstance(expected, str) or len(expected) > 64:
-        raise WorkerError("BAD_REQUEST", "'identityKey' must be an identity key")
-    summary = identity_summary(worker)
+        raise unsent(WorkerError("BAD_REQUEST", "'identityKey' must be an identity key"))
+    summary = bound.summary()
     if summary is None or summary["key"] != expected:
         raise unsent(WorkerError("BAD_REQUEST", f"The account in use changed after {what} was asked for; "
                                                 "nothing was sent"))
+    return bound
 
 
 def require_own_identity(worker, what):
@@ -293,6 +326,14 @@ def _switch_error(exc, chosen):
     return WorkerError("UPSTREAM", "YouTube Music did not answer as that account; still using the previous one")
 
 
+def _same_session(worker):
+    """BAD_REQUEST (nothing changed) when browser.json is no longer the
+    session the worker's client sends as."""
+    if auth.saved_session_tag() != session_tag(worker.yt):
+        raise unsent(WorkerError("BAD_REQUEST", "The saved session changed since the account list was read; "
+                                                "nothing was switched. Open the list again"))
+
+
 def m_switch_account(worker, params):
     page_id = params.get("pageId")
     auth_user = params.get("authUser")
@@ -302,21 +343,36 @@ def m_switch_account(worker, params):
         raise WorkerError("BAD_REQUEST", str(exc)) from exc
     # Not the identity in use: the switch checks the new one itself.
     require_session(worker)
-    # The session's own login needs no header of its own: only the pageId.
-    if chosen and chosen["authUser"] == auth.saved_auth_user():
-        chosen = auth.checked_identity(chosen["pageId"], None)
-    previous = worker.identity
-    if chosen == previous:
-        return {"identity": identity_summary(worker), "changed": False, "auth": worker.auth}
-    auth.save_identity(chosen)
-    worker.load()
+    # Asked from the shell's account list: as the identity that list was
+    # read as (the key the shell stamps), else nothing is switched.
+    require_identity_key(worker, params, "this switch")
+    # An identity is an index into a session: it is saved, and the client
+    # loaded, under the session lock and only while browser.json is still
+    # the session the worker's client sends as. A sign-in (from another
+    # browser profile, say) that landed before this worker reloaded would
+    # otherwise turn "login 1" of the old session into login 1 of the new
+    # one: another Google account.
+    with auth.session_lock():
+        _same_session(worker)
+        # The session's own login needs no header of its own: only the pageId.
+        if chosen and chosen["authUser"] == auth.saved_auth_user():
+            chosen = auth.checked_identity(chosen["pageId"], None)
+        previous = worker.identity
+        if chosen == previous:
+            return {"identity": identity_summary(worker), "changed": False, "auth": worker.auth}
+        auth.save_identity(chosen)
+        worker.load()
     worker.clear_cache()
     try:
         info = worker.yt.get_account_info()
     except Exception as exc:  # noqa: BLE001 - any failure: back to the identity before
         norm.log(f"switchAccount: the new identity did not answer ({type(exc).__name__}); restored the previous one")
-        auth.save_identity(previous)
-        worker.load()
+        with auth.session_lock():
+            # Only onto the session it was chosen in (a sign-in meanwhile
+            # removed identity.json with the old session).
+            if auth.saved_session_tag() == session_tag(worker.yt):
+                auth.save_identity(previous)
+            worker.load()
         worker.clear_cache()
         raise _switch_error(exc, chosen) from exc
     worker.verified = True

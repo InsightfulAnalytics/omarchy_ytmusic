@@ -11,6 +11,9 @@ Root causes of the non-obvious problems hit while building the plugin, so they a
 - **VS Code (Electron) stores its own "Chromium Safe Storage" key.** yt-dlp picks the key by label
   only, so it could take VS Code's key and fail to decrypt Chromium's cookies. The view keeps the
   item whose `application` attribute matches the browser.
+- **cookies.txt kept the whole Google account.** It took every `.google.com` cookie from the
+  profile; yt-dlp's YouTube sign-in needs only YouTube's. It now keeps `youtube.com` cookies
+  only, and the worker prunes an older file on load.
 - **A login index is not an account.** Identity keys were `authUser:brandHash`, so an upload
   queued as login 0 of one browser profile still matched after a sign-in from another profile
   (login 0 again) and would have gone to that account. The key now ends in a hash of the
@@ -19,6 +22,53 @@ Root causes of the non-obvious problems hit while building the plugin, so they a
   its presence: the shell stamped uploads only once the worker had reported an identity, so
   one asked during a cold start went unchecked. The shell now asks for no upload until the key
   is known, and the worker refuses an unkeyed `uploadSong` under `serve`.
+- **Check the file you send, and send the file you checked.** `uploadSong` checked the path, then
+  ytmusicapi looked the name up again after a network round trip and opened whatever it named by
+  then: in a folder another account can write to, a symlink to one of your private files. The
+  worker now opens the file once (O_PATH, then a reopen through `/proc/self/fd`), checks that
+  open file, and hands ytmusicapi a symlink to the descriptor. Any library call that takes a
+  path and reopens it needs the same treatment.
+- **A format change needs every validator found.** The identity key went from `login:brand` to
+  `login:brand:session`, and the shell's `_IDENTITY_KEY` regex still allowed one colon, so every
+  pending play silently lost its key and went to the worker unchecked. The JS tests used
+  hand-written keys of the old form, so they passed. Tests now use the worker's real format, and
+  a play without a valid key is dropped rather than sent.
+- **Check and use the same client.** A lane checked the identity against `worker.yt`, then sent
+  through `worker.yt` again after a network round trip, while `load()` on the main thread could
+  swap it in between. `ytm_account.Bound` takes the client, identity and generation together
+  under `Worker.swap_lock`, the lane sends through that client, and refuses if the generation
+  moved first.
+- **yt-dlp reads its cookie file late.** Given `cookiefile`, it reads the file the first time a
+  lookup needs cookies, not when the instance is built, and writes it back on close. So a
+  sign-in that replaced cookies.txt after the identity check signed the lookup in as the new
+  session. The worker now reads YouTube's cookies with the client, under the session lock, and
+  puts them in yt-dlp's jar itself (`_fill_jar`); a lookup whose cookies are not the session the
+  client sends as is refused.
+- **A link's owner proves something only on your own disk.** Following only links you own still
+  trusted shares and USB disks, which may report every file as yours, and folders others can
+  write to without the sticky bit, where another account can rename your link. `_link_problem`
+  checks all three before `_resolve` follows a link by hand, plus the folder's owner (its owner
+  can move your link in) and the link's own hard links. A file of yours gets the folder check too.
+- **A read can be an edit.** Sorting a library page saves the order on the account, so an
+  ordered read is bound like an edit (`ytm_pages.sort_client`), and so is `switchAccount`, whose
+  login index only means something within the session it was read from. When a new class of
+  check lands, list every request that changes the account, not only the ones in `MUTATES`.
+  Stamp the key when the user acts, not when the request is sent: a view that replays its
+  state (a sort kept for Back or a refresh, an account list left open) would otherwise send an
+  old choice under the new identity's key. `CollectionView.orderKey` and the account rows'
+  `listKey` carry the key from the press.
+- **Notification servers link bare URLs.** Escaping `<` and entities is not enough: Omarchy's
+  server makes any `https?://` in the text a link and opens it when a replayed card is clicked.
+  `inert()` puts a word joiner after a scheme's colon.
+- **mpv's ytdl hook is a command line.** It runs `yt-dlp ... -- <watch URL>` for every track
+  without a stream, so other local accounts could read each video id from /proc, and it needed
+  the session's cookies (which yt-dlp wrote back on exit). mpv now runs `--ytdl=no` and asks the
+  shell for a stream through `user-data/ytm/want` from a deferred `on_load` hook. A deferred hook
+  must also end on `playback-abort`, or a skip waits for it.
+- **Notification servers decode markup more than once.** Omarchy's decodes entities up to three
+  times and then re-allows `<a href>`, so escaping a title once is not enough: `ytm_notify.inert`
+  turns `<` `>` and any `&` that starts an entity into look-alikes, and every notification has a
+  default action so a click never opens a URL found in its text.
 
 ## YouTube Music behaviour
 

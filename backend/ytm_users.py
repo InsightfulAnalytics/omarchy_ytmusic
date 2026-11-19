@@ -247,13 +247,13 @@ def m_library_profiles(worker, params):
     order = library.order_param(params)
     cursor = opt_cursor(params)
     body = profiles_body(order)
-    yt = worker.yt
+    yt = pages.sort_client(worker, params, PROFILES_BROWSE_ID, order)
     if cursor:
         items, cursor = pages.fetch(yt, "browse", body, "ctoken", None, _profiles, cursor=cursor,
                                     min_items=PAGE_ITEMS, max_http=library._budget(0))
         return _profiles_page(items, cursor, order=order)
     # An ordered read is a saved setting: the cached browsePage copies go.
-    first = library._first_page(worker, PROFILES_BROWSE_ID, body, order)
+    first = library._first_page(worker, PROFILES_BROWSE_ID, body, order, params, yt)
     response = first[0]
     orders, current = library._orders(first[3], order, offered=())
     message = served_message(response)

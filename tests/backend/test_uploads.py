@@ -7,7 +7,9 @@ before the selected Uploads tab, serve no sort menu, and name their orders
 in frameworkUpdates as musicFormBooleanChoice entities with opaque tokens.
 """
 
+import io
 import os
+from pathlib import Path
 
 import pytest
 from ytmusicapi.continuations import get_continuation_string
@@ -384,6 +386,27 @@ def upload_reply(worker, path):
     return call(worker, "uploadSong", path=str(path))
 
 
+def reading(seen, then=None):
+    """upload_song as ytmusicapi's does it: checks, sizes and opens the name it
+    is given, after ``then()`` (run between the start request and the open,
+    as the network round trip is)."""
+
+    def upload_song(filepath):
+        assert os.path.isfile(filepath)
+        size = os.stat(filepath).st_size
+        if then is not None:
+            then()
+        with open(filepath, "rb") as f:
+            seen.setdefault("sent", []).append((os.path.basename(filepath), size, f.read()))
+        return ResponseStatus.SUCCEEDED
+
+    return upload_song
+
+
+def open_fds():
+    return len(os.listdir("/proc/self/fd"))
+
+
 @pytest.mark.parametrize("name,problem", [("missing.mp3", "No such file"), ("song.wav", "mp3, m4a, wma, flac or ogg"),
                                            ("noext", "mp3, m4a, wma, flac or ogg")])
 def test_upload_song_refuses_what_youtube_would_not_take(tmp_path, name, problem):
@@ -406,17 +429,108 @@ def test_upload_song_refuses_a_folder_a_relative_path_and_an_oversize_file(tmp_p
     reply = upload_reply(worker, big)
     assert reply["error"]["code"] == "BAD_REQUEST" and "300 MB" in reply["error"]["message"]
     monkeypatch.setattr(uploads, "MAX_BYTES", 12)
+    seen = {}
+    worker = worker_for(upload_song=reading(seen))
     assert upload_reply(worker, big)["ok"], "under the limit"
-    assert worker.yt.calls == [("upload_song", (str(big),), {})]
+    assert seen["sent"] == [("big.flac", 11, b"\0" * 11)]
 
 
 def test_upload_song_sends_the_file_and_reports_processing(tmp_path, monkeypatch):
     monkeypatch.setenv("HOME", str(tmp_path))
     path = music_file(tmp_path, "song.m4a")
-    worker = worker_for(upload_song=ResponseStatus.SUCCEEDED)
+    path.write_bytes(b"audio")
+    seen = {}
+    worker = worker_for(upload_song=reading(seen))
     reply = call(worker, "uploadSong", path="~/music/song.m4a")
     assert reply["ok"] and reply["result"] == {"ok": True, "processing": True, "name": "song.m4a"}
-    assert worker.yt.calls == [("upload_song", (str(path),), {})], "~ expanded; a lower-case suffix goes as it is"
+    assert seen["sent"] == [("song.m4a", 5, b"audio")], "~ expanded; the name goes as it is"
+
+
+# ---- the file sent is the file checked ----------------------------------------------------
+# A music file in a folder another account can write to: that account swaps
+# the name for a symlink to one of yours between the check and the send.
+
+
+def test_a_name_swapped_after_the_check_does_not_change_what_is_sent(tmp_path):
+    path = music_file(tmp_path, "song.mp3")
+    path.write_bytes(b"the song")
+    private = tmp_path / "private.key"
+    private.write_bytes(b"SECRET")
+
+    def swap():
+        path.unlink()
+        path.symlink_to(private)
+
+    seen = {}
+    before = open_fds()
+    reply = upload_reply(worker_for(upload_song=reading(seen, then=swap)), path)
+    assert reply["ok"], reply
+    assert seen["sent"] == [("song.mp3", 8, b"the song")], "the file opened and checked, not the new name"
+    assert open_fds() == before, "the descriptor is closed afterwards"
+
+
+def test_the_file_is_opened_as_the_request_arrives_not_after_its_wait(tmp_path):
+    """Under serve() the PREPARES hook opens the file on the main thread; the
+    upload that runs later on the lane sends that file, whatever the name
+    holds by then."""
+    path = music_file(tmp_path, "song.flac")
+    path.write_bytes(b"chosen")
+    request = {"id": 7, "method": "uploadSong", "params": {"path": str(path), "identityKey": "0::"}}
+    request[ytm.PREPARED] = ytm.PREPARES["uploadSong"](request["params"])
+    path.unlink()
+    path.write_bytes(b"swapped in while it waited")
+    seen = {}
+    worker = worker_for(upload_song=reading(seen))
+    worker.serving = True
+    reply = worker.handle(request)
+    assert reply["ok"], reply
+    assert seen["sent"] == [("song.flac", 6, b"chosen")]
+    missing = {"id": 8, "method": "uploadSong", "params": {"path": str(tmp_path / "gone.mp3"), "identityKey": "0::"}}
+    missing[ytm.PREPARED] = ytm.PREPARES["uploadSong"](missing["params"])
+    assert "No such file" in worker.handle(missing)["error"]["message"], "answered in turn"
+
+
+def test_a_refused_upload_closes_the_file_it_opened(tmp_path):
+    path = music_file(tmp_path, "song.mp3")
+    worker = worker_for(upload_song=ResponseStatus.SUCCEEDED)
+    worker.identity = {"pageId": "123456789012345678901", "authUser": 0}  # a brand account: refused
+    request = {"id": 1, "method": "uploadSong", "params": {"path": str(path)}}
+    before = open_fds()
+    request[ytm.PREPARED] = ytm.PREPARES["uploadSong"](request["params"])
+    assert open_fds() == before + 1
+    assert worker.handle(request)["error"]["code"] == "BAD_REQUEST"
+    assert open_fds() == before and worker.yt.calls == []
+
+
+@pytest.mark.parametrize("kind", ["fifo", "dangling", "symlink to a folder"])
+def test_what_is_not_a_regular_file_is_refused_without_reading_it(tmp_path, kind):
+    path = tmp_path / "music" / "song.mp3"
+    path.parent.mkdir(parents=True)
+    if kind == "fifo":
+        os.mkfifo(path)  # opened for reading, it would wait for a writer
+    elif kind == "dangling":
+        path.symlink_to(tmp_path / "nowhere")
+    else:
+        path.symlink_to(tmp_path)
+    worker = worker_for(upload_song=ResponseStatus.SUCCEEDED)
+    reply = upload_reply(worker, path)
+    assert reply["error"]["code"] == "BAD_REQUEST" and worker.yt.calls == []
+
+
+def trust(monkeypatch, tmp_path):
+    """tmp_path's file system (a tmpfs) as one whose owners are real."""
+    monkeypatch.setattr(uploads, "_trusted_devices", lambda: {os.stat(tmp_path).st_dev})
+
+
+def test_a_symlink_the_user_names_is_followed_once(tmp_path, monkeypatch):
+    trust(monkeypatch, tmp_path)
+    real = music_file(tmp_path, "real.ogg")
+    real.write_bytes(b"ogg")
+    link = tmp_path / "music" / "link.ogg"
+    link.symlink_to(real)
+    seen = {}
+    assert upload_reply(worker_for(upload_song=reading(seen)), link)["ok"]
+    assert seen["sent"] == [("link.ogg", 3, b"ogg")], "the name the user gave, the file it named"
 
 
 def test_upload_song_sends_an_upper_case_suffix_through_a_lower_case_symlink(tmp_path):
@@ -424,14 +538,16 @@ def test_upload_song_sends_an_upper_case_suffix_through_a_lower_case_symlink(tmp
     seen = {}
 
     def upload_song(filepath):
-        link = os.path.realpath(filepath)
-        seen.update(path=filepath, target=link, exists=os.path.islink(filepath), name=os.path.basename(filepath))
+        seen.update(path=filepath, exists=os.path.islink(filepath), name=os.path.basename(filepath),
+                    target=os.readlink(filepath), data=Path(filepath).read_bytes())
         return ResponseStatus.SUCCEEDED
 
     worker = worker_for(upload_song=upload_song)
     reply = upload_reply(worker, path)
     assert reply["ok"], reply
-    assert seen["name"] == "Loud Song.mp3" and seen["exists"] and seen["target"] == str(path)
+    assert seen["name"] == "Loud Song.mp3" and seen["exists"] and seen["data"] == b"\0" * 16
+    assert seen["target"].startswith("/proc/self/fd/"), "the open file, not the path"
+    assert reply["result"]["name"] == "Loud Song.MP3", "the reply names it as the user did"
     assert seen["path"].startswith(str(uploads.tmp_root()) + os.sep)
     assert not os.path.lexists(seen["path"]) and list(uploads.tmp_root().iterdir()) == [], "removed afterwards"
     assert path.exists(), "the file itself stays"
@@ -537,3 +653,122 @@ def test_cli_upload_resolves_a_relative_path(tmp_path, monkeypatch):
     monkeypatch.setattr(ytm, "Worker", Worker)
     assert ytm.main(["upload", "a.mp3"]) == 0
     assert seen[0]["method"] == "uploadSong" and seen[0]["params"] == {"path": str(tmp_path / "a.mp3")}
+    # "-": the path from stdin, off the command line.
+    monkeypatch.setattr("sys.stdin", io.StringIO("my song.mp3\n"))
+    assert ytm.main(["upload", "-"]) == 0
+    assert seen[1]["params"] == {"path": str(tmp_path / "my song.mp3")}
+    monkeypatch.setattr("sys.stdin", io.StringIO(""))
+    assert ytm.main(["upload", "-"]) == 2 and len(seen) == 2
+
+
+def test_a_link_another_account_made_is_never_followed(tmp_path, monkeypatch):
+    """In a folder another account can write to, it could name a link like a
+    song and point it at one of your files."""
+    private = tmp_path / "private.key"
+    private.write_bytes(b"SECRET")
+    planted = tmp_path / "music" / "song.mp3"
+    planted.parent.mkdir()
+    planted.symlink_to(private)
+    trust(monkeypatch, tmp_path)
+    real_uid = os.getuid()
+    monkeypatch.setattr(uploads.os, "getuid", lambda: real_uid + 4242)  # the link is now someone else's
+    seen = {}
+    reply = upload_reply(worker_for(upload_song=reading(seen)), planted)
+    assert reply["error"]["code"] == "BAD_REQUEST" and "link another account made" in reply["error"]["message"]
+    assert seen == {}, "nothing read, nothing sent"
+    folder_link = tmp_path / "shared"
+    folder_link.symlink_to(tmp_path / "music")  # a folder link of theirs, anywhere on the path
+    assert "link another account made" in upload_reply(worker_for(), folder_link / "x.mp3")["error"]["message"]
+
+
+def test_your_own_links_are_followed_relative_or_not(tmp_path, monkeypatch):
+    trust(monkeypatch, tmp_path)
+    album = tmp_path / "library" / "album"
+    album.mkdir(parents=True)
+    (album / "track.flac").write_bytes(b"flac")
+    (tmp_path / "music").mkdir()
+    (tmp_path / "music" / "rel.flac").symlink_to("../library/album/track.flac")
+    (tmp_path / "albums").symlink_to(tmp_path / "library")
+    seen = {}
+    worker = worker_for(upload_song=reading(seen))
+    assert upload_reply(worker, tmp_path / "music" / "rel.flac")["ok"]
+    assert upload_reply(worker, tmp_path / "albums" / "album" / ".." / "album" / "track.flac")["ok"]
+    assert [s[2] for s in seen["sent"]] == [b"flac", b"flac"]
+
+
+def test_a_link_loop_and_an_unencodable_path_are_refused(tmp_path):
+    loop = tmp_path / "loop.mp3"
+    loop.symlink_to(loop)
+    assert upload_reply(worker_for(), loop)["error"]["code"] == "BAD_REQUEST"
+    odd = {"path": "/tmp/\ud800.mp3"}
+    assert isinstance(ytm.PREPARES["uploadSong"](odd), ytm.WorkerError), "serve() keeps running"
+    assert call(worker_for(), "uploadSong", path="/tmp/\ud800.mp3")["error"]["code"] == "BAD_REQUEST"
+
+
+def test_a_link_on_a_drive_whose_owners_prove_nothing_is_not_followed(tmp_path, monkeypatch):
+    """A share or a USB disk may show every file as yours."""
+    real = music_file(tmp_path, "real.mp3")
+    link = tmp_path / "music" / "link.mp3"
+    link.symlink_to(real)
+    monkeypatch.setattr(uploads, "_trusted_devices", lambda: {-1})
+    reply = upload_reply(worker_for(upload_song=ResponseStatus.SUCCEEDED), link)
+    assert reply["error"]["code"] == "BAD_REQUEST" and "outside your system and home drives" in reply["error"]["message"]
+    assert upload_reply(worker_for(upload_song=ResponseStatus.SUCCEEDED), real)["ok"], "the file itself still goes"
+
+
+def test_a_link_in_a_folder_others_can_change_is_not_followed(tmp_path, monkeypatch):
+    """Without the sticky bit another account could rename a link of yours
+    into the name you gave; into a folder of its own, it can move one."""
+    trust(monkeypatch, tmp_path)
+    real = music_file(tmp_path, "real.mp3")
+    shared = tmp_path / "shared"
+    shared.mkdir()
+    (shared / "song.mp3").symlink_to(real)
+    shared.chmod(0o777)
+    assert "folder other accounts can change" in upload_reply(worker_for(), shared / "song.mp3")["error"]["message"]
+    shared.chmod(0o1777)  # sticky: only a link's owner renames it
+    assert upload_reply(worker_for(upload_song=ResponseStatus.SUCCEEDED), shared / "song.mp3")["ok"]
+    shared.chmod(0o755)
+    monkeypatch.setattr(uploads, "_link_problem", wrap_owner(uploads._link_problem, os.getuid() + 4242))
+    reply = upload_reply(worker_for(), shared / "song.mp3")
+    assert "folder other accounts can change" in reply["error"]["message"], "their folder, your link moved in"
+
+
+def test_a_link_with_other_names_is_not_followed(tmp_path, monkeypatch):
+    trust(monkeypatch, tmp_path)
+    real = music_file(tmp_path, "real.mp3")
+    link = tmp_path / "music" / "link.mp3"
+    link.symlink_to(real)
+    os.link(link, tmp_path / "music" / "again.mp3", follow_symlinks=False)  # a hard link to the link itself
+    assert "other names" in upload_reply(worker_for(), link)["error"]["message"]
+
+
+def test_a_file_of_yours_in_a_folder_others_can_change_is_refused(tmp_path):
+    shared = tmp_path / "shared"
+    shared.mkdir()
+    (shared / "song.mp3").write_bytes(b"mp3")
+    shared.chmod(0o777)
+    seen = {}
+    reply = upload_reply(worker_for(upload_song=reading(seen)), shared / "song.mp3")
+    assert "folder other accounts can change" in reply["error"]["message"] and seen == {}
+    shared.chmod(0o1777)
+    assert upload_reply(worker_for(upload_song=reading(seen)), shared / "song.mp3")["ok"]
+
+
+def wrap_owner(problem, folder_uid):
+    """_link_problem as if the folder belonged to ``folder_uid``."""
+    def wrapped(link, folder, uid, devices):
+        fake = os.stat_result((folder.st_mode, folder.st_ino, folder.st_dev, folder.st_nlink, folder_uid,
+                               folder.st_gid, folder.st_size, 0, 0, 0))
+        return problem(link, fake, uid, devices)
+    return wrapped
+
+
+def test_a_hard_linked_file_of_yours_is_refused_without_the_kernels_protection(tmp_path, monkeypatch):
+    real = music_file(tmp_path, "real.mp3")
+    second = tmp_path / "music" / "second.mp3"
+    os.link(real, second)
+    monkeypatch.setattr(uploads, "_hardlinks_protected", lambda: False)
+    assert "hard links" in upload_reply(worker_for(), second)["error"]["message"]
+    monkeypatch.setattr(uploads, "_hardlinks_protected", lambda: True)
+    assert upload_reply(worker_for(upload_song=ResponseStatus.SUCCEEDED), second)["ok"]

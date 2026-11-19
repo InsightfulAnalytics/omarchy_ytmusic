@@ -47,11 +47,25 @@ Item {
   property var _mutates: []
 
   // opts.retry === false: never re-send after a worker exit (edits).
+  // An edit (a method the worker reported as mutating) goes with the key of
+  // the identity the worker last said it acts as, taken now: the worker
+  // refuses it, unsent, under any other identity by its turn, and refuses
+  // one with no key (asked before any worker said, at a cold start).
   function request(method, params, callback, timeoutMs, opts) {
     releaseTimer.stop()
     var id = _nextId++
+    params = params || {}
+    // A read with an order is one too: on your library's pages YouTube
+    // saves the order (ytm_pages.sort_client).
+    var edits = _mutates.indexOf(method) !== -1 || (params.order !== undefined && params.order !== null)
+    if (edits && params.identityKey === undefined && identity && typeof identity.key === "string") {
+      var stamped = ({})
+      for (var key in params) stamped[key] = params[key]
+      stamped.identityKey = identity.key
+      params = stamped
+    }
     _pending[id] = {
-      method: method, params: params || {}, callback: callback || null,
+      method: method, params: params, callback: callback || null,
       timeoutMs: timeoutMs || 20000, deadline: 0, retried: false,
       noRetry: !!opts && opts.retry === false
     }

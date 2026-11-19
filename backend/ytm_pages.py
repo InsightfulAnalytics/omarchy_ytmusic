@@ -25,6 +25,7 @@ This file is also an area module (see AREA_MODULES in ytm.py): it registers
 from ytmusicapi.continuations import CONTINUATION_ITEMS, get_continuation_string, get_continuation_token
 from ytmusicapi.navigation import FRAMEWORK_MUTATIONS, nav
 
+import ytm_account as identities
 import ytm_normalize as norm
 import ytm_raw as raw
 from ytm_proto import WorkerError, opt_cursor, opt_order, opt_str, req_str
@@ -305,6 +306,22 @@ def saves_order(browse_id):
     return isinstance(browse_id, str) and browse_id.startswith(SAVED_ORDER_PREFIXES)
 
 
+def sort_client(worker, params, browse_id, order):
+    """The client the first page of ``browse_id`` in ``order`` goes through.
+    On a page whose order YouTube saves (SAVED_ORDER_PREFIXES) that request
+    is an edit of the account, so it is bound like one: from the shell it
+    names the identity it was asked under (Backend.qml stamps a request
+    with an order), and goes through the client checked against it
+    (ytm_account.Bound), never the one a switch or sign-in swapped in while
+    it waited; it is refused, unsent, without the key or under another
+    identity. Any other read goes through ``worker.yt``."""
+    if order is None or not saves_order(browse_id):
+        return worker.yt
+    bound = identities.require_identity_key(worker, params or {}, "this sort", required=True)
+    bound.still("this sort")
+    return bound.yt
+
+
 def forget_order(worker, browse_id):
     """Drop what a re-sort of ``browse_id`` made stale: its cached pages in
     every order, and the methods that read it in the saved order."""
@@ -327,7 +344,7 @@ def m_browse_page(worker, params):
         entries, cursor = fetch(yt, "browse", body, "ctoken", None, _entries, cursor=cursor, enough=_enough)
         return norm.page("browse", browse_id, None, sections=_sections(entries), cursor=cursor, order=order)
     try:
-        first = first_page(yt, "browse", body, order)
+        first = first_page(sort_client(worker, params, browse_id, order), "browse", body, order)
     finally:
         if order is not None and saves_order(browse_id):
             forget_order(worker, browse_id)

@@ -84,6 +84,40 @@ def test_load_client_remembers_visitor_id(config_dir):
     assert path.read_text() == before
 
 
+def test_a_visitor_id_goes_only_into_the_session_it_came_with(config_dir):
+    """A sign-in that replaced browser.json after the client was made keeps its file."""
+    config_dir.mkdir(parents=True)
+    path = config_dir / "browser.json"
+    path.write_text(json.dumps({"cookie": "SID=new"}))
+
+    class Old:
+        headers = {"X-Goog-Visitor-Id": "OLD-VISITOR"}
+        _auth_headers = {"cookie": "SID=old"}
+
+    auth.remember_visitor_id(path, Old())
+    assert json.loads(path.read_text()) == {"cookie": "SID=new"}
+    Old._auth_headers = {"cookie": "SID=new"}
+    auth.remember_visitor_id(path, Old())
+    assert json.loads(path.read_text())["x-goog-visitor-id"] == "OLD-VISITOR"
+
+
+def test_session_lock_is_reentrant_in_a_thread_and_shared_across_processes(config_dir):
+    import subprocess
+    import sys
+
+    with auth.session_lock():
+        with auth.session_lock():  # a prune inside Worker.load's lock
+            pass
+        probe = subprocess.run(
+            [sys.executable, "-c",
+             "import fcntl, os, sys; fd = os.open(sys.argv[1], os.O_RDWR)\n"
+             "try:\n    fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB); print('free')\n"
+             "except BlockingIOError:\n    print('held')",
+             str(config_dir / ".session.lock")], capture_output=True, text=True, check=True)
+        assert probe.stdout.strip() == "held", "still held after the inner block"
+    assert not (config_dir / ".session.lock").is_symlink()
+
+
 def test_sign_in_saves_visitor_id(config_dir, monkeypatch):
     fake_setup(monkeypatch)
     auth.import_from_headers("cookie: SID=a; __Secure-3PAPISID=b\n", factory=VisitorClient)
@@ -139,7 +173,21 @@ def test_browser_import(config_dir, monkeypatch, tmp_path):
     browser_json = json.loads((config_dir / "browser.json").read_text())
     assert browser_json["cookie"] == "SID=abc; __Secure-3PAPISID=def"
     cookies = (config_dir / "cookies.txt").read_text()
-    assert ".google.com\tTRUE" in cookies and "example.com" not in cookies
+    assert ".youtube.com\tTRUE" in cookies, cookies
+    assert "google.com" not in cookies and "example.com" not in cookies, "YouTube's cookies only"
+
+
+def test_an_old_cookie_file_loses_its_google_cookies(config_dir):
+    path = config_dir / "cookies.txt"
+    config_dir.mkdir(parents=True, exist_ok=True)
+    path.write_text("# Netscape HTTP Cookie File\n.youtube.com\tTRUE\t/\tTRUE\t0\tSID\ta\n"
+                    ".google.com\tTRUE\t/\tTRUE\t0\tSID\tg\naccounts.google.com\tFALSE\t/\tTRUE\t0\tLSID\tl\n"
+                    "music.youtube.com\tFALSE\t/\tTRUE\t0\tX\tm\n.notyoutube.com\tTRUE\t/\tTRUE\t0\tY\tn\n")
+    assert auth.prune_cookie_file() is True
+    text = path.read_text()
+    assert "google.com" not in text and "notyoutube" not in text
+    assert "\tSID\ta" in text and "\tX\tm" in text and oct(path.stat().st_mode & 0o777) == "0o600"
+    assert auth.prune_cookie_file() is False, "nothing left to drop"
 
 
 def test_browser_import_needs_signed_in_profile(config_dir, tmp_path):
