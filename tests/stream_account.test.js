@@ -1,5 +1,5 @@
-// Play with your account (prefs.streamAccount): the worker setting, every
-// song's loadfile cookies for mpv's yt-dlp fallback, and the Library menu entry.
+// Play with your account (prefs.streamAccount): the worker setting (mpv gets
+// no cookies) and the Library menu entry.
 const test = require("node:test")
 const assert = require("node:assert/strict")
 const Model = require("../YtmModel.js")
@@ -18,20 +18,12 @@ test("streamAccount is a pref, off until turned on, sent to the worker only when
   assert.equal(Model.parsePrefs(Model.serializePrefs(on)).streamAccount, true, "kept in player.json")
 })
 
-test("with streamAccount every song's loadfile carries the cookies, signed in only", () => {
-  const path = "/run/user/1000/omarchy-ytmusic/cookies-mpv.txt"
-  const value = "cookies=" + path
-  const cookies = "ytdl-raw-options-append=%" + value.length + "%" + value
+test("streamAccount never puts cookies in a loadfile: the worker's lookups use the account", () => {
   try {
-    Model.setUploadCookies(path)
-    assert.equal(Model.loadfileOptions(song), titled(song), "off: a public song has none")
     Model.setStreamAccount(true)
-    assert.equal(Model.loadfileOptions(song), titled(song) + "," + cookies)
-    Model.setUploadCookies("")
-    assert.equal(Model.loadfileOptions(song), titled(song), "signed out: no cookie copy, nothing added")
+    assert.equal(Model.loadfileOptions(song), titled(song))
   } finally {
     Model.setStreamAccount(false)
-    Model.setUploadCookies("")
   }
 })
 

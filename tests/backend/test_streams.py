@@ -58,8 +58,8 @@ def test_resolve_returns_url_and_expiry_and_reuses_one_instance(config_dir, monk
 
 
 def test_requested_formats_fallback_and_missing_url():
-    resolver = streams.Resolver(factory=factory(info={"requested_formats": [{"url": "https://x/a?expire=5"}]}))
-    assert resolver.resolve("v")["url"] == "https://x/a?expire=5"
+    resolver = streams.Resolver(factory=factory(info={"requested_formats": [{"url": "https://x.googlevideo.com/a?expire=5"}]}))
+    assert resolver.resolve("v")["url"] == "https://x.googlevideo.com/a?expire=5"
     with pytest.raises(streams.StreamError) as err:
         streams.Resolver(factory=factory(info={})).resolve("v")
     assert err.value.code == "UPSTREAM"
@@ -109,7 +109,7 @@ class FakeResolver:
 
 
 def test_warm_loads_ytdlp_once_in_the_background():
-    make = factory(info={"url": "https://x/a?expire=5"})
+    make = factory(info={"url": "https://x.googlevideo.com/a?expire=5"})
     resolver = streams.Resolver(factory=make)
     worker = ytm.Worker(object(), "none", resolver=resolver)
     assert worker.handle({"id": 1, "method": "warmStreams"})["ok"]
@@ -137,7 +137,7 @@ def test_account_flag_selects_the_cookie_instance(config_dir, monkeypatch):
     monkeypatch.delenv("YTM_STREAM_WITH_ACCOUNT", raising=False)
     config_dir.mkdir(parents=True)
     (config_dir / "cookies.txt").write_text("# Netscape HTTP Cookie File\n")
-    make = factory(info={"url": "https://x/a?expire=5"})
+    make = factory(info={"url": "https://x.googlevideo.com/a?expire=5"})
     resolver = streams.Resolver(factory=make)
     assert resolver.resolve("v")["account"] is False, "default stays anonymous"
     assert resolver.resolve("v", account=True)["account"] is True
@@ -150,7 +150,7 @@ def test_account_flag_selects_the_cookie_instance(config_dir, monkeypatch):
 
 def test_account_flag_without_a_session_falls_back_to_anonymous(config_dir, monkeypatch):
     monkeypatch.delenv("YTM_STREAM_WITH_ACCOUNT", raising=False)
-    make = factory(info={"url": "https://x/a?expire=5"})
+    make = factory(info={"url": "https://x.googlevideo.com/a?expire=5"})
     assert streams.Resolver(factory=make).resolve("v", account=True)["account"] is False
     assert "cookiefile" not in make.made[0].opts
 
@@ -178,7 +178,7 @@ def test_forget_account_drops_only_the_cookie_instances(config_dir, monkeypatch)
     monkeypatch.delenv("YTM_STREAM_WITH_ACCOUNT", raising=False)
     config_dir.mkdir(parents=True)
     (config_dir / "cookies.txt").write_text("# Netscape HTTP Cookie File\n")
-    make = factory(info={"url": "https://x/a?expire=5"})
+    make = factory(info={"url": "https://x.googlevideo.com/a?expire=5"})
     resolver = streams.Resolver(factory=make)
     resolver.resolve("v")
     resolver.resolve("v", account=True)
@@ -228,7 +228,7 @@ class PlayerClient:
 
 
 def stream_worker(client):
-    resolver = streams.Resolver(factory=factory(info={"url": "https://x/a?expire=5", "format_id": "251"}))
+    resolver = streams.Resolver(factory=factory(info={"url": "https://x.googlevideo.com/a?expire=5", "format_id": "251"}))
     return ytm.Worker(client, "ok", resolver=resolver)
 
 
@@ -247,7 +247,7 @@ def test_loudness_only_when_normalize_is_youtube():
     reply = worker.handle({"id": 3, "method": "configure", "params": {"normalize": "youtube"}})
     assert reply["result"] == {"settings": {"normalize": "youtube"}, "ignored": [], "reloaded": False}
     result = resolve(worker)["result"]
-    assert result["loudnessDb"] == pytest.approx(-1.43, abs=0.001) and result["url"] == "https://x/a?expire=5"
+    assert result["loudnessDb"] == pytest.approx(-1.43, abs=0.001) and result["url"] == "https://x.googlevideo.com/a?expire=5"
     (endpoint, body), = client.requests
     assert endpoint == "player" and body["video_id"] == "nbCOAPR33ME"
     stamp = body["playbackContext"]["contentPlaybackContext"]["signatureTimestamp"]
@@ -316,7 +316,7 @@ def test_loudness_never_fails_the_resolve(failure):
     worker = stream_worker(client)
     worker.handle({"id": 1, "method": "configure", "params": {"normalize": "youtube"}})
     reply = resolve(worker)
-    assert reply["ok"] and reply["result"]["url"] == "https://x/a?expire=5"
+    assert reply["ok"] and reply["result"]["url"] == "https://x.googlevideo.com/a?expire=5"
     assert reply["result"]["loudnessDb"] is None
     assert resolve(worker)["result"]["loudnessDb"] == 1.25, "a failure is not kept: the next resolve asks again"
     assert len(client.requests) == 2
@@ -345,19 +345,31 @@ def test_quality_formats():
     assert streams.format_for("low") == "bestaudio[abr<=70]/worstaudio"
 
 
-def test_quality_formats_match_the_shell_and_the_player_script():
+def test_quality_formats_match_the_shell():
     from conftest import ROOT
 
     model = (ROOT / "YtmModel.js").read_text()
-    player = (ROOT / "bin" / "ytm-mpv").read_text()
     for quality, fmt in streams.QUALITY_FORMATS.items():
         assert f'{quality}: "{fmt}"' in model, f"YtmModel.js QUALITY_FORMATS.{quality}"
-        assert f"'{fmt}'" in player, f"bin/ytm-mpv {quality}"
+
+
+def test_mpv_runs_no_ytdlp_and_gets_no_cookies():
+    """yt-dlp under mpv would put each video id on a command line every local
+    account can read, and would need the session's cookies."""
+    from conftest import ROOT
+
+    player = (ROOT / "bin" / "ytm-mpv").read_text()
+    args = player[player.index("local -a args=("):player.index('exec mpv "${args[@]}"')]
+    assert "--ytdl=no" in args
+    assert "cookies" not in args and "ytdl-raw-options" not in args and "--ytdl-format" not in args
+    script = (ROOT / "mpv" / "ytm-streams.lua").read_text()
+    code = "\n".join(line for line in script.splitlines() if not line.lstrip().startswith("--"))
+    assert "subprocess" not in code and "yt-dlp" not in code, "the stream script starts no process"
 
 
 def test_each_quality_has_its_own_instance_and_format(config_dir, monkeypatch):
     monkeypatch.delenv("YTM_STREAM_WITH_ACCOUNT", raising=False)
-    make = factory(info={"url": "https://x/a?expire=5", "format_id": "249", "abr": 50.1})
+    make = factory(info={"url": "https://x.googlevideo.com/a?expire=5", "format_id": "249", "abr": 50.1})
     resolver = streams.Resolver(factory=make)
     resolver.resolve("v")
     resolver.resolve("v", quality="low")
@@ -430,7 +442,7 @@ def test_upload_items_resolve_with_the_account_instance(config_dir, monkeypatch)
     monkeypatch.delenv("YTM_STREAM_WITH_ACCOUNT", raising=False)
     config_dir.mkdir(parents=True)
     (config_dir / "cookies.txt").write_text("# Netscape HTTP Cookie File\n")
-    make = factory(info={"url": "https://x/a?expire=5", "format_id": "141", "acodec": "mp4a.40.2"})
+    make = factory(info={"url": "https://x.googlevideo.com/a?expire=5", "format_id": "141", "acodec": "mp4a.40.2"})
     worker = ytm.Worker(object(), "none", resolver=streams.Resolver(factory=make))
     song = worker.handle({"id": 1, "method": "resolve", "params": {"videoId": "pubsong0001"}})
     upload = worker.handle({"id": 2, "method": "resolve", "params": {"videoId": "upsong00001", "account": True}})

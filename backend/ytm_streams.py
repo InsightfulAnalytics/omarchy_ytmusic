@@ -35,6 +35,20 @@ import ytm_normalize as norm
 from ytm_proto import WorkerError
 
 FORMAT = "bestaudio[acodec=opus]/bestaudio/best"
+
+
+def stream_url_ok(url):
+    """Only an https URL on YouTube's video servers (googlevideo.com; an
+    upload streams from a *.c.youtube.com host) is handed to mpv, which
+    would open any protocol it is given (file://, lavfi, edl, ...)."""
+    from urllib.parse import urlsplit
+
+    try:
+        parts = urlsplit(url)
+    except ValueError:
+        return False
+    host = (parts.hostname or "").lower()
+    return parts.scheme == "https" and host.endswith((".googlevideo.com", ".c.youtube.com"))
 # yt-dlp's js_runtimes option: deno first, else node (whichever is on PATH).
 JS_RUNTIMES = {"deno": {}, "node": {}}
 WATCH_URL = "https://www.youtube.com/watch?v="
@@ -173,6 +187,8 @@ class Resolver:
             url = requested[0].get("url") if requested else None
         if not url:
             raise StreamError("UPSTREAM", "YouTube returned no playable audio stream")
+        if not stream_url_ok(url):
+            raise StreamError("UPSTREAM", "YouTube returned a stream from an unexpected place")
         result = {
             "videoId": video_id,
             "url": url,

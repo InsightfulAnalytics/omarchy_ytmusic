@@ -184,29 +184,72 @@ def identity_summary(worker):
     return {"key": f"{login}:{tag}:{session}", "brand": bool(page_id), "own": not chosen, "authUser": login}
 
 
+class Bound:
+    """One consistent view of the worker taken under its swap_lock: the
+    client (``yt``), its identity, auth state and generation. A lane that
+    checked a request's identity against it sends through ``yt`` (that
+    identity's client, whatever load() swaps in meanwhile) and calls
+    ``still`` right before sending."""
+
+    def __init__(self, worker):
+        lock = getattr(worker, "swap_lock", None)
+        with lock if lock is not None else _NO_LOCK:
+            self.yt = getattr(worker, "yt", None)
+            self.identity = getattr(worker, "identity", None)
+            self.auth = getattr(worker, "auth", None)
+            self.generation = getattr(worker, "generation", 0)
+        self.worker = worker
+
+    def summary(self):
+        return identity_summary(self)
+
+    def still(self, what):
+        """BAD_REQUEST, unsent, when the worker has loaded another client
+        since (a switch, a sign-in or sign-out, a location change): the
+        request was asked for under what is gone now."""
+        if getattr(self.worker, "generation", 0) != self.generation:
+            raise unsent(WorkerError("BAD_REQUEST", f"The account in use changed while {what} waited; "
+                                                    "nothing was sent"))
+
+
+class _NoLock:
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+
+_NO_LOCK = _NoLock()
+
+
 def require_identity_key(worker, params, what, required=False):
-    """BAD_REQUEST (nothing sent) when ``params.identityKey``, the identity
-    the shell asked under (identity_summary's key), is not the one the worker
-    acts as now. A request that waits on a lane runs as whatever client the
-    worker holds when its turn comes: an upload queued behind another, or
-    plays queued while the worker started as an identity switched from the
-    command line, or one queued before a sign-in from another browser
-    profile, would otherwise go to another account. Without the key
-    (the command line's own requests) nothing is checked, unless
-    ``required`` and the request came through serve() (the shell, whose
-    requests wait on lanes): then it is refused, unsent, too."""
+    """The Bound view the request is checked against; BAD_REQUEST (nothing
+    sent) when ``params.identityKey``, the identity the shell asked under
+    (identity_summary's key), is not the one in that view.
+
+    A request runs as whatever client the worker holds when its turn comes:
+    an upload queued behind another, plays queued while the worker started
+    as an identity switched from the command line, an edit queued before a
+    sign-in from another browser profile, would otherwise go to another
+    account. Without the key (the command line's own requests) nothing is
+    checked, unless ``required`` and the request came through serve() (the
+    shell): then it is refused, unsent, too. A lane method sends through
+    the returned view's ``yt`` and calls its ``still`` before sending."""
+    bound = Bound(worker)
     expected = params.get("identityKey")
     if expected is None:
         if required and getattr(worker, "serving", False):
-            raise unsent(WorkerError("BAD_REQUEST", f"{what[0].upper()}{what[1:]} names no account "
-                                                    "(identityKey); nothing was sent"))
-        return
+            raise unsent(WorkerError("BAD_REQUEST", f"The account in use was not known yet when {what} was "
+                                                    "asked for; nothing was sent. Try again"))
+        return bound
     if not isinstance(expected, str) or len(expected) > 64:
-        raise WorkerError("BAD_REQUEST", "'identityKey' must be an identity key")
-    summary = identity_summary(worker)
+        raise unsent(WorkerError("BAD_REQUEST", "'identityKey' must be an identity key"))
+    summary = bound.summary()
     if summary is None or summary["key"] != expected:
         raise unsent(WorkerError("BAD_REQUEST", f"The account in use changed after {what} was asked for; "
                                                 "nothing was sent"))
+    return bound
 
 
 def require_own_identity(worker, what):

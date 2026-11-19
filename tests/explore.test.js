@@ -222,7 +222,7 @@ test("a chart song's rank stays on the chart: the queue keeps it without", () =>
   assert.equal(Model.withoutRank(plain), plain, "nothing to drop: the same object")
   assert.equal(Model.withoutRank(null), null)
   // Every track the queue takes passes Service.remember.
-  assert.ok(read("Service.qml").includes("next[track.videoId] = Model.withoutRank(Model.withoutTokens(track))"))
+  assert.ok(read("Service.qml").includes("next[track.videoId] = Model.withOwner(Model.withoutRank(Model.withoutTokens(track)), _identityKey)"))
 })
 
 test("a section's songs play with the section as context; the chart playlist without VL", () => {

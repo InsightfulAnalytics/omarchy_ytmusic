@@ -34,35 +34,26 @@ test("the Uploads chip comes last and lists its songs with uploadSongs", () => {
   assert.equal(Model.nextLibraryChip("uploads", 1), "playlists")
 })
 
-test("loadfileOptions adds the account's cookies only for uploaded songs", () => {
-  Model.setUploadCookies("")
-  assert.equal(Model.loadfileOptions(upload(1)), titled(upload(1)), "no cookie path known: nothing")
-  Model.setUploadCookies("/home/u/.config/omarchy-ytmusic/cookies.txt")
-  try {
-    const value = "cookies=/home/u/.config/omarchy-ytmusic/cookies.txt"
-    const cookies = "ytdl-raw-options-append=%" + value.length + "%" + value
-    assert.equal(Model.uploadCookiesOption(upload(1)), cookies)
-    assert.equal(Model.loadfileOptions(upload(1)), titled(upload(1)) + "," + cookies)
-    assert.equal(Model.loadfileOptions(song(1)), titled(song(1)), "a public song: unchanged")
-    assert.equal(Model.uploadCookiesOption(song(1)), "")
-    assert.equal(Model.uploadCookiesOption(uploadAlbum), "", "only songs load as files")
-    // Every loadfile the queue sends carries it (play now, queue, collections, resume).
-    const now = Model.playNowCommands(upload(2), { count: 0, pos: -1 })[0]
-    assert.equal(now[0], "loadfile")
-    assert.ok(now[4].endsWith("," + cookies), now[4])
-    const all = Model.playCollectionCommands([song(1), upload(3)], 0, false, 1, true).commands
-    const loads = all.filter(c => c[0] === "loadfile")
-    assert.deepEqual(loads.map(c => c[4].includes("ytdl-raw-options-append")), [false, true])
-    // With a start the options stay one comma-separated list.
-    assert.equal(Model.loadfileOptions(upload(1), { seconds: 30 }), titled(upload(1)) + ",start=30," + cookies)
-    // A path with commas or '=' goes in whole (the %n% form, byte length).
-    Model.setUploadCookies("/tmp/a,b=c é/cookies.txt")
-    const odd = "cookies=/tmp/a,b=c é/cookies.txt"
-    assert.equal(Model.uploadCookiesOption(upload(1)), "ytdl-raw-options-append=%" + Model.utf8Length(odd) + "%" + odd)
-    assert.equal(Model.utf8Length(odd), odd.length + 1)
-  } finally {
-    Model.setUploadCookies("")
-  }
+test("no loadfile carries cookies: mpv never runs yt-dlp, the worker looks uploads up", () => {
+  assert.equal(Model.loadfileOptions(upload(1)), titled(upload(1)))
+  assert.equal(Model.loadfileOptions(upload(1), { seconds: 30 }), titled(upload(1)) + ",start=30")
+  const now = Model.playNowCommands(upload(2), { count: 0, pos: -1 })[0]
+  assert.equal(now[0], "loadfile")
+  assert.ok(!/cookies|ytdl/.test(JSON.stringify(now)), now[4])
+})
+
+test("an upload remembers the identity it was queued under; nothing else does", () => {
+  const key = "0:0123456789ab:abcdef012345"
+  const owned = Model.withOwner(upload(1), key)
+  assert.equal(Model.ownerOf(owned), key)
+  assert.equal(Model.ownerOf(upload(1)), "", "queued before any identity was known: none")
+  const pub = song(1)
+  const bare = upload(1)
+  assert.equal(Model.withOwner(pub, key), pub, "a public song has no owner")
+  assert.equal(Model.withOwner(bare, ""), bare)
+  assert.equal(Model.withOwner(bare, "not a key"), bare)
+  assert.equal(Model.withOwner(bare, "0:"), bare, "the old two-part form is no key")
+  assert.equal(Model.withOwner(owned, key), owned, "the same object when nothing changes")
 })
 
 test("uploads are recognised by kind and by their ids", () => {
@@ -81,17 +72,9 @@ test("uploads are recognised by kind and by their ids", () => {
 test("an upload listed elsewhere (a playlist, History) plays as the account but cannot be deleted there", () => {
   // The worker gives it kind upload by its video type; only the uploads views give an entityId.
   const listed = upload(6, { entityId: undefined, setVideoId: "S6" })
-  Model.setUploadCookies("/run/user/1000/omarchy-ytmusic/cookies-mpv.txt")
-  try {
-    const value = "cookies=/run/user/1000/omarchy-ytmusic/cookies-mpv.txt"
-    const cookies = "ytdl-raw-options-append=%" + value.length + "%" + value
-    assert.ok(Model.isUploadTrack(listed))
-    assert.equal(Model.loadfileOptions(listed), titled(listed) + "," + cookies)
-    const loads = Model.playCollectionCommands([song(1), listed], 0, false, 1, true).commands.filter(c => c[0] === "loadfile")
-    assert.deepEqual(loads.map(c => c[4].endsWith("," + cookies)), [false, true])
-  } finally {
-    Model.setUploadCookies("")
-  }
+  assert.ok(Model.isUploadTrack(listed), "the shell looks it up with the account, as its owner")
+  assert.equal(Model.ownerOf(Model.withOwner(listed, "0::abcdef012345")), "0::abcdef012345")
+  assert.equal(Model.loadfileOptions(listed), titled(listed), "and mpv gets no cookies for it")
   const playlistIds = ids(listed, { pageKind: "playlist", removable: true })
   assert.ok(!playlistIds.includes("deleteUpload") && !playlistIds.includes("radio") && !playlistIds.includes("save"),
             JSON.stringify(playlistIds))

@@ -32,6 +32,7 @@ Area module (see AREA_MODULES in ytm.py).
 """
 
 import re
+from urllib.parse import urlsplit
 
 import ytm_account as identities
 import ytm_actions as actions
@@ -86,9 +87,21 @@ def _passing(exc):
 
 
 def _tracking_url(song):
+    """The play's tracking URL, only when it is https on a youtube.com host:
+    ytmusicapi sends it with the session's Cookie and authorization headers
+    as they are, so any other host would get them."""
     tracking = song.get("playbackTracking") if isinstance(song, dict) else None
     url = (((tracking or {}).get("videostatsPlaybackUrl") or {}).get("baseUrl")) if isinstance(tracking, dict) else None
-    return url if isinstance(url, str) and url else None
+    if not isinstance(url, str) or not url:
+        return None
+    try:
+        parts = urlsplit(url)
+    except ValueError:
+        return None
+    host = (parts.hostname or "").lower()
+    if parts.scheme != "https" or not (host == "youtube.com" or host.endswith(".youtube.com")):
+        return None
+    return url
 
 
 def report_one(yt, video_id):
@@ -115,11 +128,14 @@ def m_report_plays(worker, params):
     from the command line while the worker was stopped) is refused, unsent
     (ytm_account.require_identity_key), and the shell drops it."""
     video_ids = _video_ids(params)
-    identities.require_identity_key(worker, params, "these plays")
+    # Required from the shell: a play counted before the identity was known
+    # is never sent. The client checked is the one the whole batch goes
+    # through (get_song and add_history_item share it), whatever load()
+    # swaps in while this lane works.
+    bound = identities.require_identity_key(worker, params, "these plays", required=True)
     worker.require_auth()
-    # One client for the whole batch: get_song and add_history_item must
-    # share it, even if the session is swapped while this lane works.
-    yt = worker.yt
+    bound.still("these plays")
+    yt = bound.yt
     results = []
     for video_id in video_ids:
         # Rate limited or offline: the rest wait too (no ping went out for them).

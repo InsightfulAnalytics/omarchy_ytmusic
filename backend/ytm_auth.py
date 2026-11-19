@@ -269,6 +269,31 @@ def cookie_record(domain, name, value, path="/", secure=True, expires=0):
             "expires": int(expires or 0), "name": name, "value": value or ""}
 
 
+def youtube_domain(domain):
+    """Whether a cookie of ``domain`` belongs to YouTube (cookies.txt keeps
+    only those: yt-dlp's YouTube sign-in needs no other, and a .google.com
+    cookie would open the rest of the Google account)."""
+    host = str(domain or "").lower().lstrip(".")
+    return host == "youtube.com" or host.endswith(".youtube.com")
+
+
+def prune_cookie_file(path=None):
+    """Drop every non-YouTube cookie from cookies.txt (one written before
+    cookies.txt kept YouTube's only); True when it was rewritten."""
+    path = path or cookies_path()
+    try:
+        text = path.read_text()
+    except OSError:
+        return False
+    lines = text.splitlines()
+    kept = [line for line in lines
+            if not line.strip() or line.startswith("#") or youtube_domain(line.split("\t", 1)[0])]
+    if len(kept) == len(lines):
+        return False
+    write_private(path, "\n".join(kept) + "\n")
+    return True
+
+
 def cookies_txt(cookies):
     """Netscape cookie file, as read by yt-dlp's ``--cookies``."""
     lines = ["# Netscape HTTP Cookie File"]
@@ -349,12 +374,13 @@ def commit_session(write_browser, cookies, method, factory=None):
         account = norm.account(info)
         account.update({"method": method, "createdAt": int(time.time())})
         write_private(staging / "account.json", json.dumps(account, indent=2) + "\n")
+        # A new session starts as its own account (the brand accounts and
+        # logins of the old one may not be its own): the identity goes
+        # first, so no load ever pairs the new session with the old one.
+        identity_path().unlink(missing_ok=True)
         for name in SESSION_FILES:
             os.chmod(staging / name, 0o600)
             os.replace(staging / name, directory / name)
-        # A new session starts as its own account (the brand accounts
-        # and logins of the old one may not be its own).
-        identity_path().unlink(missing_ok=True)
         return account
     finally:
         shutil.rmtree(staging, ignore_errors=True)
@@ -449,7 +475,7 @@ def import_from_browser(browser="chromium", profile=None, authuser=0, keyring="G
     header = "; ".join(f"{c.name}={c.value}" for c in youtube
                        if c.domain in (".youtube.com", "youtube.com", "music.youtube.com"))
     file_cookies = [cookie_record(c.domain, c.name, c.value, c.path, c.secure, c.expires)
-                    for c in jar if c.domain.endswith(("youtube.com", "google.com"))]
+                    for c in jar if youtube_domain(c.domain)]
     raw = headers_raw(header, authuser)
     return commit_session(lambda path: _setup_browser_json(path, raw), file_cookies,
                           f"browser:{browser}", factory)

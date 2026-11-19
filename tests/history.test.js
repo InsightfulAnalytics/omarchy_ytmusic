@@ -8,7 +8,9 @@ const NOW = Date.UTC(2026, 10, 10, 12, 0, 0)
 const MIN = 60 * 1000
 const ids = actions => actions.map(a => a.id)
 const id11 = n => ("v" + String(n).padStart(10, "0")).slice(0, 11)
-const play = (n, ageMs, extra) => Object.assign({ videoId: id11(n), at: NOW - ageMs }, extra || {})
+// The worker's identity key (login:brand:session): a play without one is never kept.
+const KEY = "0::abcdef012345"
+const play = (n, ageMs, extra) => Object.assign({ videoId: id11(n), at: NOW - ageMs, key: KEY }, extra || {})
 
 test("shouldReport: 10 s of time-pos, a YouTube video, recording on", () => {
   const entry = { key: Model.playKey(3, 1), videoId: "nbCOAPR33ME" }
@@ -96,7 +98,7 @@ test("nextFlushAt: the oldest play's 15 min, or 0", () => {
 
 test("pending plays: at most 200, none older than 24 h, invalid ones dropped", () => {
   let pending = []
-  for (let n = 0; n < 205; n++) pending = Model.withPendingPlay(pending, id11(n), NOW - (205 - n))
+  for (let n = 0; n < 205; n++) pending = Model.withPendingPlay(pending, id11(n), NOW - (205 - n), KEY)
   assert.equal(pending.length, Model.PENDING_MAX)
   assert.equal(pending[0].videoId, id11(5), "the oldest go first")
   assert.equal(pending[199].videoId, id11(204))
@@ -129,7 +131,7 @@ test("afterReport: taken and final ones go, passing ones wait, plays added meanw
   assert.equal(after.reported, 1)
   assert.equal(after.dropped, 1)
   assert.equal(after.waiting, 1, "a passing failure: the shell sends no next batch")
-  assert.deepEqual(after.pending, [{ videoId: c.videoId, at: c.at, retryAt: NOW + Model.REPORT_RETRY_MS }, later])
+  assert.deepEqual(after.pending, [{ videoId: c.videoId, at: c.at, key: KEY, retryAt: NOW + Model.REPORT_RETRY_MS }, later])
   assert.equal(Model.afterReport([a, b], [a, b], { ok: true, result: { results: [
     { videoId: a.videoId, ok: true, retry: false }, { videoId: b.videoId, ok: false, retry: false }] } }, NOW).waiting, 0,
     "taken or final: the next batch may follow")
@@ -186,7 +188,7 @@ test("a batch out in a call is marked sent: in no other batch, and dropped when 
   // The reply: taken, or waiting again without the mark.
   const reply = { ok: true, result: { results: [{ videoId: a.videoId, ok: true }, { videoId: b.videoId, ok: false, retry: true }] } }
   assert.deepEqual(Model.afterReport(out, [a, b], reply, NOW).pending,
-    [{ videoId: b.videoId, at: b.at, retryAt: NOW + Model.REPORT_RETRY_MS }, c])
+    [{ videoId: b.videoId, at: b.at, key: KEY, retryAt: NOW + Model.REPORT_RETRY_MS }, c])
   // A reload mid-call: the file still lists the batch as sent; it goes.
   const text = Model.playStateText({ plays: out, notice: false }, NOW)
   assert.deepEqual(JSON.parse(text).plays.filter(p => p.sent).length, 2)

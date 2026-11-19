@@ -139,7 +139,21 @@ def test_browser_import(config_dir, monkeypatch, tmp_path):
     browser_json = json.loads((config_dir / "browser.json").read_text())
     assert browser_json["cookie"] == "SID=abc; __Secure-3PAPISID=def"
     cookies = (config_dir / "cookies.txt").read_text()
-    assert ".google.com\tTRUE" in cookies and "example.com" not in cookies
+    assert ".youtube.com\tTRUE" in cookies, cookies
+    assert "google.com" not in cookies and "example.com" not in cookies, "YouTube's cookies only"
+
+
+def test_an_old_cookie_file_loses_its_google_cookies(config_dir):
+    path = config_dir / "cookies.txt"
+    config_dir.mkdir(parents=True, exist_ok=True)
+    path.write_text("# Netscape HTTP Cookie File\n.youtube.com\tTRUE\t/\tTRUE\t0\tSID\ta\n"
+                    ".google.com\tTRUE\t/\tTRUE\t0\tSID\tg\naccounts.google.com\tFALSE\t/\tTRUE\t0\tLSID\tl\n"
+                    "music.youtube.com\tFALSE\t/\tTRUE\t0\tX\tm\n.notyoutube.com\tTRUE\t/\tTRUE\t0\tY\tn\n")
+    assert auth.prune_cookie_file() is True
+    text = path.read_text()
+    assert "google.com" not in text and "notyoutube" not in text
+    assert "\tSID\ta" in text and "\tX\tm" in text and oct(path.stat().st_mode & 0o777) == "0o600"
+    assert auth.prune_cookie_file() is False, "nothing left to drop"
 
 
 def test_browser_import_needs_signed_in_profile(config_dir, tmp_path):

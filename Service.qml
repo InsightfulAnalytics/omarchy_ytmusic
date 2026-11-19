@@ -126,7 +126,7 @@ Item {
       if (track && track.videoId) {
         // No feedback tokens in the queue (status, session.json, mpv).
         // Nor a chart song's rank and trend (Explore's rows only).
-        next[track.videoId] = Model.withoutRank(Model.withoutTokens(track))
+        next[track.videoId] = Model.withOwner(Model.withoutRank(Model.withoutTokens(track)), _identityKey)
         changed = true
       }
     }
@@ -173,10 +173,13 @@ Item {
       if (callback) callback(true)
       return
     }
-    // An uploaded song streams with the account; once the worker could
-    // not, mpv's yt-dlp (the loadfile's cookies option) plays them.
-    var upload = Model.isUploadTrack(track || meta[videoId])
-    if (upload && _accountStreamsFailed) {
+    // An uploaded song streams with the account it was queued under
+    // (Model.withOwner): the worker refuses the lookup, unsent, as another
+    // identity, and one with no owner is never looked up with the account.
+    var known = track || meta[videoId]
+    var upload = Model.isUploadTrack(known)
+    var owner = upload ? Model.ownerOf(known) : ""
+    if (upload && (_accountStreamsFailed || owner === "")) {
       if (callback) callback(false)
       return
     }
@@ -187,11 +190,14 @@ Item {
     _resolving[videoId] = callback ? [callback] : []
     resolvingCount++
     var epoch = _qualityEpoch
-    backend.request("resolve", upload ? { videoId: videoId, account: true } : { videoId: videoId }, function(reply) {
+    var authEpoch = _authEpoch
+    backend.request("resolve", upload ? { videoId: videoId, account: true, identityKey: owner } : { videoId: videoId }, function(reply) {
       var waiting = root._resolving[videoId] || []
       delete root._resolving[videoId]
       root.resolvingCount = Math.max(0, root.resolvingCount - 1)
       if (reply.ok && epoch !== root._qualityEpoch) return root._resolveAgain(videoId, waiting)  // old quality
+      // Looked up with the account before a sign-in, sign-out or switch: not kept.
+      if (reply.ok && reply.result.account && authEpoch !== root._authEpoch) reply = { ok: false, error: { code: "STALE", message: "the account changed" } }
       if (reply.ok) root.addStream(videoId, reply.result)
       else console.warn("ytmusic: no stream for " + videoId + ": " + reply.error.message)
       if (!reply.ok && reply.error.code === "BOT_CHECK") root.noteBotCheck()
@@ -256,6 +262,25 @@ Item {
   function addStream(videoId, stream) {
     var next = Model.pruneStreams(streams, nowSec(), 50)
     next[videoId] = Model.streamEntry(stream)  // with its loudness gain when asked for
+    streams = next
+    pushStreams()
+  }
+
+  // Counted up on every sign-in, sign-out and identity change: a lookup
+  // made with the account before one is not kept (resolveStream).
+  property int _authEpoch: 0
+
+  // The account changed: streams looked up with the old one's cookies go,
+  // here and in mpv (a queued upload is looked up again, as its owner).
+  function _accountChanged() {
+    _authEpoch++
+    var next = ({})
+    var dropped = false
+    for (var key in streams) {
+      if (streams[key] && streams[key].account) dropped = true
+      else next[key] = streams[key]
+    }
+    if (!dropped) return
     streams = next
     pushStreams()
   }
@@ -880,7 +905,7 @@ Item {
   // the panel could take the scope back.
   onSignedInChanged: {
     if (!signedIn) storeItem.leaveScope()
-    Qt.callLater(root._syncMpvCookies)
+    _accountChanged()
     if (signedIn) Qt.callLater(root._loadSourceLibrary)
   }
 
@@ -888,7 +913,7 @@ Item {
     storeItem.reset()
     expiryNotified = false
     _accountStreamsFailed = false  // the new session may stream uploads
-    Qt.callLater(root._syncMpvCookies)  // and its cookies go to mpv's copy
+    _accountChanged()
     if (backend.workerState === "stopped") backend.auth = account ? "unknown" : "none"
     else backend.request("reloadAuth", ({}))
   }
@@ -1900,9 +1925,16 @@ Item {
     _counted = next
   }
 
-  // Stamped with the identity the worker last said it acts as.
+  // Stamped with the identity the worker last said it acts as. Before any
+  // worker has said (a shell start while mpv played on), nothing could say
+  // whose play it was: it is not kept, and the worker is asked, so the next
+  // one is.
   function _countPlay(play, videoId) {
     _markCounted(play)
+    if (_identityKey === "") {
+      if (signedIn) backend.request("ping", {}, null, 20000)
+      return
+    }
     _setPendingPlays(Model.withPendingPlay(pendingPlays, videoId, Date.now(), _identityKey))
     flushPlays(false)
   }
@@ -2096,9 +2128,8 @@ Item {
   // - When YouTube stops answering as the brand account or login in use, the
   //   session reads as expired: Library offers your own account
   //   (useOwnAccount), which checks the session itself.
-  // - The audio quality (prefs.quality) is the worker's resolver format and
-  //   mpv's ytdl-format, set over IPC because the player unit's
-  //   --ytdl-format is fixed when it starts (bin/ytm-mpv reads player.json).
+  // - The audio quality (prefs.quality) is the worker's resolver format
+  //   (mpv runs no yt-dlp of its own).
   // - The content location (prefs.location) is the worker's client setting;
   //   a change empties the Store too (the worker clears its disk cache).
 
@@ -2132,11 +2163,6 @@ Item {
   // mpv's ytdl-format (its yt-dlp fallback); "" before the prefs are read.
   readonly property string ytdlFormat: prefsLoaded ? Model.qualityFormat(quality) : ""
 
-  onYtdlFormatChanged: _applyYtdlFormat()
-
-  function _applyYtdlFormat() {
-    if (ytdlFormat !== "" && mpv.up) mpv.command(["set_property", "ytdl-format", ytdlFormat])
-  }
 
   // From the next song on: streams resolved at the old quality are
   // forgotten (the song playing keeps its own) and the next one is
@@ -2196,6 +2222,7 @@ Item {
     _identityKey = key
     accounts = null
     identityInfo = null
+    if (before !== "") _accountChanged()
     if (before !== "" && key !== "") {
       dropPendingPlays()
       _contentChanged()
@@ -2354,11 +2381,6 @@ Item {
       if (!first) dropPendingPlays()
     }
     Qt.callLater(root._nameIdentity)
-  }
-
-  Connections {
-    target: mpv
-    function onReady() { root._applyYtdlFormat() }
   }
 
   Connections {
@@ -2683,6 +2705,31 @@ Item {
 
   // An invite link (Model.parseInviteUrl): join that playlist; false when
   // the text is no invite link or nobody is signed in.
+  // IPC join: the invite link from the clipboard, read on wl-paste's
+  // stdout (never a command line).
+  function joinFromClipboard() {
+    if (missingTools.indexOf("wl-copy") >= 0) {
+      failAction("Couldn't join the playlist", "Reading the clipboard needs wl-paste (" + installCommand + ")")
+      return false
+    }
+    clipboardReader.running = false
+    clipboardReader.running = true
+    return true
+  }
+
+  Process {
+    id: clipboardReader
+    command: ["wl-paste", "--no-newline"]
+    // Read once the output has ended (an empty clipboard: nothing).
+    stdout: StdioCollector {
+      onStreamFinished: {
+        var link = text
+        if (!Model.parseInviteUrl(link)) root.failAction("Couldn't join the playlist", "The clipboard holds no playlist invite link")
+        else root.joinPlaylist(link)
+      }
+    }
+  }
+
   function joinPlaylist(text, callback) {
     var invite = Model.parseInviteUrl(text)
     if (!invite) {
@@ -3270,22 +3317,11 @@ Item {
   // a second press): the row leaves the Uploads chip at once and comes back
   // when the worker says no. Either drops every uploads page held.
   // `uploading`: the file names on their way. `_accountStreamsFailed`: the
-  // worker could not resolve an upload with the account (its yt-dlp lacks
-  // what uploads need), so later uploads go straight to mpv's yt-dlp.
-  // `mpvCookiesPath`: what an upload's loadfile hands mpv's yt-dlp while
-  // signed in: bin/ytm-mpv's copy of the session's cookies.txt in mpv's
-  // runtime directory, never the session file (yt-dlp writes its cookie
-  // jar back into the file it is given, and would bring a signed-out
-  // session's file back). The copy is made again whenever the sign-in
-  // changes and goes on sign-out; signed out, loadfiles carry no cookies.
-  readonly property string mpvCookiesPath: Quickshell.env("XDG_RUNTIME_DIR") + "/omarchy-ytmusic/cookies-mpv.txt"
+  // worker could not resolve an upload with the account, so later uploads
+  // are not looked up again this session (a sign-in or switch resets it).
+  // mpv holds no cookies: every stream comes from the worker.
   property var uploading: []
   property bool _accountStreamsFailed: false
-
-  function _syncMpvCookies() {
-    Model.setUploadCookies(signedIn ? mpvCookiesPath : "")
-    Quickshell.execDetached([rootDir + "/bin/ytm-mpv", "cookies"])
-  }
 
   // Why an upload cannot be asked for yet ("" when it can): before the
   // worker first says which identity it acts as there is no key to stamp
@@ -3701,7 +3737,7 @@ Item {
 
   function onMpvProperty(name, value) {
     if (name === "pause") paused = value === true
-    else if (name === "idle-active") idle = value === true
+    else if (name === "idle-active") { idle = value === true; _retireOldPlayer() }
     else if (name === "playlist-pos") { if (_trimEvent(name, value)) return; playlistPos = typeof value === "number" ? value : -1; queueRefresh.restart() }
     else if (name === "playlist-count") { if (_trimEvent(name, value)) return; playlistCount = typeof value === "number" ? value : 0; queueRefresh.restart() }
     else if (name === "media-title") mediaTitle = value || ""
@@ -3716,6 +3752,22 @@ Item {
       dropStreams(value)
       mpv.command(["set_property", "user-data/ytm/stale", []])
     }
+    else if (name === "user-data/ytm/want") _streamWanted(value)
+  }
+
+  // mpv/ytm-streams.lua holds a load with no fresh stream and asks for one
+  // ({ id, n }): looked up through the worker (mpv never runs yt-dlp), then
+  // pushed (the script goes on with it), or answered unavailable (the load
+  // fails and the queue moves on).
+  property int _unavailableSeq: 0
+
+  function _streamWanted(value) {
+    var id = value && typeof value === "object" ? String(value.id || "") : ""
+    if (!Model.isVideoId(id)) return
+    resolveStream(id, function(ok) {
+      if (ok) root.pushStreams()
+      else mpv.command(["set_property", "user-data/ytm/unavailable", { id: id, n: ++root._unavailableSeq }])
+    })
   }
 
   function onMpvEvent(message) {
@@ -3752,7 +3804,25 @@ Item {
     }
   }
 
+  // A player started by an older version runs yt-dlp itself (its ytdl hook,
+  // which puts video ids on a command line): its hook is turned off at once
+  // and the player is restarted as this version's once it idles.
+  property bool _oldPlayer: false
+
+  function _retireOldPlayer() {
+    if (_oldPlayer && idle && mpv.up) {
+      _oldPlayer = false
+      mpv.stopPlayer()
+    }
+  }
+
   function onMpvReady() {
+    mpv.command(["get_property", "ytdl"], function(reply) {
+      if (!reply || reply.error !== "success" || reply.data !== true) return
+      mpv.command(["set_property", "ytdl", false])
+      root._oldPlayer = true
+      root._retireOldPlayer()
+    })
     applyRepeat()
     _readMpvPid()
     _playbackReady()
@@ -3766,7 +3836,8 @@ Item {
         return
       }
       var merged = ({})
-      for (var key in reply.data) merged[key] = reply.data[key]
+      // Not one looked up with the account: which identity it was is not known here.
+      for (var key in reply.data) if (!(reply.data[key] && reply.data[key].account)) merged[key] = reply.data[key]
       for (var local in root.streams) merged[local] = root.streams[local]
       root.streams = Model.pruneStreams(merged, root.nowSec(), 50)
       root.pushStreams()
@@ -3967,7 +4038,7 @@ Item {
     controlScript: root.rootDir + "/bin/ytm-mpv"
     startVolume: root.volume
     observedProperties: ["pause", "idle-active", "playlist-pos", "playlist-count", "media-title", "duration", "volume", "paused-for-cache", "loop-file", "loop-playlist", "user-data/ytm/stale",
-      "speed"]
+      "user-data/ytm/want", "speed"]
 
     onPropertyUpdated: (name, value) => root.onMpvProperty(name, value)
     onEvent: message => root.onMpvEvent(message)
@@ -4094,7 +4165,8 @@ Item {
     Model.setStreamAccount(streamAccount)
     Quickshell.execDetached(["sh", "-c", "mkdir -p \"$1\" && chmod 700 \"$1\"", "sh", root.cacheDir])
     checkTools()
-    _syncMpvCookies()  // mpv's yt-dlp plays uploads as the account
+    // The copy of the session's cookies an older version kept for mpv.
+    Quickshell.execDetached([rootDir + "/bin/ytm-mpv", "cookies"])
   }
 
   // Waits a few seconds into a song with few left (3 or fewer), so
@@ -4180,9 +4252,9 @@ Item {
     function reloadAuth(): string { return root.reloadAuth() ? "ok" : "unhandled" }
     function signIn(): string { return root.signIn() ? "ok" : "unhandled" }
     function signOut(): string { return root.signOut() ? "ok" : "unhandled" }
-    function join(url: string): string {  // a playlist invite link
-      return !Model.parseInviteUrl(url) ? "invalid" : root.joinPlaylist(url) ? "ok" : "unhandled"
-    }
+    // A playlist invite link, read from the clipboard: never an argument,
+    // which every local account could read on this command's command line.
+    function join(): string { return root.joinFromClipboard() ? "ok" : "unhandled" }
     // A music file (its full path, or one from ~/) to your uploads.
     function upload(path: string): string {
       var problem = Model.uploadPathProblem(path)

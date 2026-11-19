@@ -3489,6 +3489,8 @@ function loudnessGain(loudnessDb) {
 // for the loudness; without that key nobody asked.
 function streamEntry(stream) {
   var entry = { url: stream ? stream.url : "", expires: stream ? stream.expires : 0 }
+  // Looked up with the account's cookies: dropped when the account changes.
+  if (stream && stream.account === true) entry.account = true
   if (stream && stream.loudnessDb !== undefined) entry.gain = loudnessGain(stream.loudnessDb)
   return entry
 }
@@ -5949,13 +5951,20 @@ function playCheckMs(timePos, speed) {
 // made under (the worker's identity key, when one had said), sent with its
 // batch so the worker never reports it as another identity.
 
-var _IDENTITY_KEY = /^[0-9]{1,2}:[0-9a-f]{0,40}$/
+// The worker's identity key: login:brandHash:sessionHash (ytm_account.identity_summary).
+var _IDENTITY_KEY = /^[0-9]{1,2}:[0-9a-f]{0,12}:[0-9a-f]{0,12}$/
+
+function isIdentityKey(key) {
+  return typeof key === "string" && _IDENTITY_KEY.test(key)
+}
 
 function _pendingPlay(play, now) {
   if (!play || typeof play !== "object" || !_VIDEO_ID.test(String(play.videoId || ""))) return null
   if (typeof play.at !== "number" || !isFinite(play.at) || now - play.at >= PENDING_TTL_MS || play.at > now + 60000) return null
   var out = { videoId: String(play.videoId), at: play.at }
-  if (typeof play.key === "string" && _IDENTITY_KEY.test(play.key)) out.key = play.key
+  // A play with no identity is never kept: nothing could say whose it is.
+  if (!isIdentityKey(play.key)) return null
+  out.key = play.key
   if (typeof play.retryAt === "number" && isFinite(play.retryAt) && play.retryAt > now) out.retryAt = play.retryAt
   if (play.sent === true) out.sent = true
   return out
@@ -6747,34 +6756,31 @@ function canDeleteUpload(item) {
 // while signed in, "" otherwise; "" adds nothing). Never the session file
 // itself: yt-dlp writes its cookie jar back into the file --cookies names
 // when it exits, and would bring a signed-out session's file back.
-var _uploadCookies = ""
 
-function setUploadCookies(path) {
-  _uploadCookies = typeof path === "string" ? path : ""
-}
-
-// prefs.streamAccount: every song's loadfile carries the cookies option, not
-// only an upload's, so mpv's yt-dlp fallback is signed in too.
+// prefs.streamAccount: the worker looks songs up with the account
+// (its setting); mpv itself never gets cookies.
 var _streamAccount = false
 
 function setStreamAccount(on) {
   _streamAccount = on === true
 }
 
-// The per-file option that makes mpv's yt-dlp read the account's cookies
-// for an uploaded song ("" for anything else). -append takes its value
-// as is; the %n% form carries a path with commas.
-function uploadCookiesOption(track) {
-  if (_uploadCookies === "" || (!_streamAccount && !isUploadTrack(track))) return ""
-  var value = "cookies=" + _uploadCookies
-  return "ytdl-raw-options-append=%" + utf8Length(value) + "%" + value
+// An uploaded song's owner: the identity key it was queued under (uploads
+// play only as that identity; the worker refuses the lookup as another).
+function withOwner(track, key) {
+  if (!isUploadTrack(track) || !isIdentityKey(key) || track.owner === key) return track
+  var out = {}
+  for (var k in track) out[k] = track[k]
+  out.owner = key
+  return out
 }
 
-var _s10LoadfileOptions = loadfileOptions
-loadfileOptions = function(track, start) {
-  var options = _s10LoadfileOptions(track, start)
-  var cookies = uploadCookiesOption(track)
-  return cookies ? (options ? options + "," : "") + cookies : options
+function ownerOf(track) {
+  return track && isIdentityKey(track.owner) ? track.owner : ""
+}
+
+function isVideoId(id) {
+  return typeof id === "string" && /^[A-Za-z0-9_-]{11}$/.test(id)
 }
 
 // ---- pages and routes -------------------------------------------------------------------------
@@ -6989,9 +6995,11 @@ if (typeof module !== "undefined") {
     isUploadItem: isUploadItem,
     uploadEntityId: uploadEntityId,
     canDeleteUpload: canDeleteUpload,
-    setUploadCookies: setUploadCookies,
-    uploadCookiesOption: uploadCookiesOption,
     setStreamAccount: setStreamAccount,
+    withOwner: withOwner,
+    ownerOf: ownerOf,
+    isVideoId: isVideoId,
+    isIdentityKey: isIdentityKey,
     loadfileOptions: loadfileOptions,
     albumOf: albumOf,
     canSave: canSave,

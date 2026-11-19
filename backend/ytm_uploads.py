@@ -28,10 +28,15 @@ Edits (MUTATES; the shell sends them with retry false):
 
 - ``uploadSong({path})`` on the ``upload`` lane (a synchronous POST of the
   whole file, no timeout of its own): refused under a brand account
-  (ytm_account.require_upload_identity), then the path is checked: ``~``
-  expanded, absolute, a regular file of an accepted type (any case) under
-  300 MB. ytmusicapi checks the suffix case-sensitively, so ``SONG.MP3`` is
-  sent through a ``SONG.mp3`` symlink in <cache>/upload-tmp, removed after.
+  (ytm_account.require_upload_identity). The file is opened once
+  (``open_upload``; under serve() as the request arrives, before it waits
+  on the lane) and every check is made on that open file: a regular file
+  of an accepted type (by its name, any case) under 300 MB. What is sent
+  is that same file: ytmusicapi reopens it by name, so it gets a symlink in
+  a private folder under <cache>/upload-tmp that points at the open
+  descriptor (/proc/self/fd/N), named with the suffix in lower case (its
+  check is case-sensitive), removed after. A name swapped meanwhile in a
+  folder another account can write to changes nothing.
   ``{ok, processing: true, name}``: YouTube lists the song once it has
   processed it, minutes later.
 - ``deleteUpload({entityId})``: delete_upload_entity (a song's ``t_po_...``
@@ -45,6 +50,7 @@ hand-built responses.
 import contextlib
 import os
 import shutil
+import stat
 import tempfile
 from pathlib import Path
 
@@ -348,25 +354,70 @@ def artist_tracks(worker, browse_id, limit=MAX_TRACKS):
 # ---- methods: edits --------------------------------------------------------------------------------
 
 
-def upload_path(params):
-    """The file ``params.path`` names, checked as YouTube Music would take it."""
+class OpenUpload:
+    """The file an upload sends, open (``fd``) and checked: ``name`` as
+    YouTube gets it (suffix in lower case), ``shown`` as the user gave it."""
+
+    def __init__(self, fd, name, shown, size):
+        self.fd, self.name, self.shown, self.size = fd, name, shown, size
+
+    def close(self):
+        if self.fd is not None:
+            os.close(self.fd)
+            self.fd = None
+
+
+def _checked(st, name):
+    if stat.S_ISDIR(st.st_mode):
+        raise WorkerError("BAD_REQUEST", f"{name} is a folder; give a music file")
+    if not stat.S_ISREG(st.st_mode):
+        raise WorkerError("BAD_REQUEST", f"{name} is not a regular file")
+    if st.st_size >= MAX_BYTES:
+        raise WorkerError("BAD_REQUEST", f"{name} is 300 MB or more; YouTube Music takes smaller files")
+
+
+def open_upload(params):
+    """The file ``params.path`` names, opened once and checked as YouTube
+    Music would take it; an OpenUpload the caller closes.
+
+    The name is resolved once, with O_PATH (no FIFO or device is opened for
+    real), and the type is checked on what it found; that object is then
+    opened for reading through /proc/self/fd, which reopens it and never
+    looks the name up again, and is checked again (same inode, a regular
+    file, the size). Nothing after this uses the path.
+    """
     text = req_str(params, "path")
     if len(text) > 4096 or "\0" in text:
         raise WorkerError("BAD_REQUEST", "'path' is not a file path")
     path = Path(os.path.expanduser(text))
     if not path.is_absolute():
         raise WorkerError("BAD_REQUEST", "Give the file's full path (it may start with ~)")
-    if not path.exists():
-        raise WorkerError("BAD_REQUEST", f"No such file: {path.name}")
-    if path.is_dir():
-        raise WorkerError("BAD_REQUEST", f"{path.name} is a folder; give a music file")
-    if not path.is_file():
-        raise WorkerError("BAD_REQUEST", f"{path.name} is not a regular file")
     if path.suffix[1:].lower() not in EXTENSIONS:
         raise WorkerError("BAD_REQUEST", "YouTube Music takes " + ", ".join(EXTENSIONS[:-1]) + f" or {EXTENSIONS[-1]} files")
-    if path.stat().st_size >= MAX_BYTES:
-        raise WorkerError("BAD_REQUEST", f"{path.name} is 300 MB or more; YouTube Music takes smaller files")
-    return path
+    try:
+        probe = os.open(path, os.O_PATH | os.O_CLOEXEC)
+    except (FileNotFoundError, NotADirectoryError):
+        raise WorkerError("BAD_REQUEST", f"No such file: {path.name}") from None
+    except OSError as exc:
+        raise WorkerError("BAD_REQUEST", f"Cannot open {path.name}: {exc.strerror or 'refused'}") from None
+    try:
+        first = os.fstat(probe)
+        _checked(first, path.name)
+        try:
+            fd = os.open(f"/proc/self/fd/{probe}", os.O_RDONLY | os.O_CLOEXEC | os.O_NOCTTY)
+        except OSError as exc:
+            raise WorkerError("BAD_REQUEST", f"Cannot read {path.name}: {exc.strerror or 'refused'}") from None
+    finally:
+        os.close(probe)
+    try:
+        opened = os.fstat(fd)
+        if (opened.st_dev, opened.st_ino) != (first.st_dev, first.st_ino):
+            raise WorkerError("BAD_REQUEST", f"{path.name} changed while it was opened; nothing was sent")
+        _checked(opened, path.name)
+    except BaseException:
+        os.close(fd)
+        raise
+    return OpenUpload(fd, path.stem + path.suffix.lower(), path.name, opened.st_size)
 
 
 def tmp_root():
@@ -374,21 +425,31 @@ def tmp_root():
 
 
 @contextlib.contextmanager
-def sendable(path):
-    """``path`` as ytmusicapi accepts it: itself, or (an upper-case suffix) a
-    symlink named with the suffix in lower case, in a folder of its own under
-    tmp_root(), removed afterwards. YouTube gets that name as the file's."""
-    if path.suffix == path.suffix.lower():
-        yield path
-        return
+def sendable(upload):
+    """A path ytmusicapi's upload_song can be given for ``upload`` (an open
+    OpenUpload): a symlink named ``upload.name`` to /proc/self/fd/<fd>, in
+    a folder of its own (0700) under tmp_root(), removed afterwards.
+    ytmusicapi checks, sizes and opens that name; each of those follows the
+    descriptor's magic link to the file already open, never the original
+    path. YouTube gets ``upload.name`` as the file's name."""
     caches.private_dir(tmp_root())
     folder = Path(tempfile.mkdtemp(dir=tmp_root()))
-    link = folder / (path.stem + path.suffix.lower())
+    link = folder / upload.name
     try:
-        link.symlink_to(path.resolve())
+        link.symlink_to(f"/proc/self/fd/{upload.fd}")
         yield link
     finally:
         shutil.rmtree(folder, ignore_errors=True)
+
+
+def prepare_upload(params):
+    """serve()'s PREPARES hook: the file, opened as the request arrives,
+    before it waits on the upload lane (or the WorkerError that opening it
+    raised, raised in turn when the request runs)."""
+    try:
+        return open_upload(params if isinstance(params, dict) else {})
+    except WorkerError as exc:
+        return exc
 
 
 def _succeeded(result):
@@ -401,17 +462,27 @@ def m_upload_song(worker, params):
     upload that waited on the upload lane while the account changed is
     refused, unsent (ytm_account.require_identity_key). Required from the
     shell (serve()); the command line's own upload waits on no lane."""
-    identities.require_upload_identity(worker)  # never as a brand account
-    identities.require_identity_key(worker, params, "this upload", required=True)
-    path = upload_path(params)
-    worker.require_auth()
-    with sendable(path) as sent:
-        result = worker.yt.upload_song(str(sent))
+    prepared = worker.prepared()  # opened as the request arrived (serve), else None
+    try:
+        # The client checked is the client that sends (ytm_account.Bound).
+        bound = identities.require_identity_key(worker, params, "this upload", required=True)
+        identities.require_upload_identity(bound)  # never as a brand account
+        if isinstance(prepared, Exception):
+            raise prepared
+        upload = prepared or open_upload(params)
+        prepared = upload
+        worker.require_auth()
+        bound.still("this upload")
+        with sendable(upload) as sent:
+            result = bound.yt.upload_song(str(sent))
+    finally:
+        if isinstance(prepared, OpenUpload):
+            prepared.close()
     if not _succeeded(result):
         status = getattr(result, "status_code", None)
         raise WorkerError("UPSTREAM", "YouTube Music did not take the file"
                           + (f" (HTTP {status})" if isinstance(status, int) else ""))
-    return {"ok": True, "processing": True, "name": path.name}
+    return {"ok": True, "processing": True, "name": upload.shown}
 
 
 def m_delete_upload(worker, params):
@@ -442,6 +513,9 @@ CACHEABLE = set(READS)
 # deleteUpload is one quick request, answered in order like the other edits
 # (not behind an upload of several minutes).
 LANES = dict({name: "pages" for name in READS}, uploadSong="upload")
+# Run by serve() on the main thread as the request arrives: the file is
+# opened then, not after the request waited behind another upload.
+PREPARES = {"uploadSong": prepare_upload}
 # Every uploads read, the browse pages of the three lists, and the library
 # lists an upload may show in (its songs, albums and artists, Recent activity).
 _UPLOADS = [(name, None, None) for name in READS] + [

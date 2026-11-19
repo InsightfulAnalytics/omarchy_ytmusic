@@ -17,6 +17,7 @@ Area module (see AREA_MODULES in ytm.py). The text never reaches a log.
 """
 
 import json
+import re
 
 from ytm_proto import WorkerError
 
@@ -41,12 +42,29 @@ def _text(params, key, required):
     return value[:TEXT_MAX]
 
 
+# The notification server reads the body (and Omarchy's the summary too) as
+# markup, decoding entities more than once and turning <a href> into a
+# link. Titles come from YouTube, where anyone names their uploads and
+# playlists: no character that could become markup goes through.
+_ENTITY = re.compile(r"&(?=#?[0-9A-Za-z]+;)")
+
+
+def inert(text):
+    """``text`` that no markup parser reads as a tag or an entity, however
+    many times it decodes it: < and > become ‹ and ›, an & that starts an
+    entity (&lt;) becomes ＆, and any other & is escaped (&amp;)."""
+    text = _ENTITY.sub("\uff06", text).replace("<", "\u2039").replace(">", "\u203a")
+    return text.replace("&", "&amp;")
+
+
 def message(params):
-    """The Notify call for these params (a jeepney Message)."""
+    """The Notify call for these params (a jeepney Message). Its "default"
+    action makes a click on it act on this sender (nothing) rather than
+    open a link found in its text."""
     from jeepney import DBusAddress, new_method_call
 
-    title = _text(params, "title", True)
-    body = _text(params, "body", False)
+    title = inert(_text(params, "title", True))
+    body = inert(_text(params, "body", False))
     timeout = params.get("timeoutMs", -1)
     if not isinstance(timeout, int) or isinstance(timeout, bool) or timeout < -1:
         raise WorkerError("BAD_REQUEST", "'timeoutMs' must be an integer of -1 or more")
@@ -59,7 +77,7 @@ def message(params):
     address = DBusAddress("/org/freedesktop/Notifications", bus_name="org.freedesktop.Notifications",
                           interface="org.freedesktop.Notifications")
     return new_method_call(address, "Notify", "susssasa{sv}i",
-                           (APP_NAME, 0, "", title, body, [], hints, timeout))
+                           (APP_NAME, 0, "", title, body, ["default", ""], hints, timeout))
 
 
 def m_notify(worker, params):

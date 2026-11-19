@@ -25,9 +25,9 @@ checks the manifest the way the plugin installer does.
 | `Panel.qml` | The dropdown (Omarchy `KeyboardPanel`): now playing + queue, keyboard control |
 | `Store.qml` | Last searches, the Explore page (30 min), recently opened pages (8, 5 min, Moods & genres a day, at most 10,000 items each), the Library chips' lists (5 min, at most 10,000 items each; a list that reaches its cap says so), Home's feed per chip (4 chips, 10 min, at most 40 shelves each), the songs' now contexts (20, 10 min) and lyrics (the 20 last shown, 30 min), swept every minute, shared by all panels and kept across panel unloads |
 | `components/` | `NowPlayingView`, `QueueView` (with the pane chip), `LyricsView`, `RelatedView`, `SearchView`, `LibraryView`, `HomeView`, `ExploreView`, `CollectionView`, `PlaylistPicker`, `PlaylistEditor`, `ItemMenu` (row menu, chooser, key help), `SignInCard`, `ResultList`, `TrackRow`, `CollectionRow`, `CoverArt`, `ConfirmGate`, `ExplicitBadge` |
-| `bin/ytm-mpv` | Starts/stops the detached mpv player (systemd user unit), with `player.json`'s audio quality as its `ytdl-format`; keeps mpv's copy of the session cookies (`cookies`) |
+| `bin/ytm-mpv` | Starts/stops the detached mpv player (systemd user unit), with `--ytdl=no` (mpv runs no yt-dlp and holds no cookies); `cookies` removes the copy older versions kept |
 | `mpv/ytm-idle.lua` | Quits mpv after it has idled or been paused too long |
-| `mpv/ytm-streams.lua` | Plays the streams the worker resolved ahead of time (`user-data/ytm/streams`), falling back to yt-dlp |
+| `mpv/ytm-streams.lua` | Plays the streams the worker resolved (`user-data/ytm/streams`); a track with none holds its load and asks the shell (`user-data/ytm/want`) |
 | `mpv/ytm-levels.lua` | Loudness levelling (`user-data/ytm/normalize`): YouTube's per-song gain as each file's own `volume-gain`, or the `dynaudnorm` filter |
 | `backend/ytm.py` | ytmusicapi worker (`serve`) and CLI; PEP 723 script run with `uv`; merges the area modules' method tables |
 | `backend/ytm_proto.py` | `WorkerError` and parameter helpers shared by the worker and its area modules |
@@ -62,8 +62,8 @@ Private files live outside this repository:
 
 | Path | Contents |
 |---|---|
-| `~/.config/omarchy-ytmusic/` (0700) | `browser.json`, `cookies.txt` (0600), `account.json`, `identity.json` (the brand account or login in use: ids only) |
-| `$XDG_RUNTIME_DIR/omarchy-ytmusic/` (0700) | mpv IPC socket, `cookies-mpv.txt` (0600: mpv's copy of the session cookies, for uploads) |
+| `~/.config/omarchy-ytmusic/` (0700) | `browser.json`, `cookies.txt` (0600; YouTube's cookies only), `account.json`, `identity.json` (the brand account or login in use: ids only) |
+| `$XDG_RUNTIME_DIR/omarchy-ytmusic/` (0700) | mpv IPC socket |
 | `~/.cache/omarchy-ytmusic/` (0700) | resume snapshot (`session.json`), episode places (`positions.json`), preferences (`player.json`), recent searches (`searches.json`), the queue's autoplay entries, "Playing from" and tuner chip (`queue.json`), plays waiting for YouTube Music history (`pending-plays.json`), response and cover caches |
 
 ## Commands
@@ -90,7 +90,7 @@ bin/ytm call playlist '{"playlistId": "PL...", "limit": "all"}'                 
 YTM_DEBUG=1 bin/ytm call homeFeed '{}'                                               # Home's first shelves (http <= 3)
 bin/ytm record homeRaw '{"pages": 3, "chip": 6}' tests/fixtures/home_raw.json        # signed out, trimmed
 bin/ytm call playlistSettings '{"playlistId": "PL..."}'                           # your playlist's order, voting, privacy (read only)
-bin/ytm join 'https://music.youtube.com/playlist?list=PL...&jct=...'              # join a collaborative playlist (the link is never printed)
+wl-paste | bin/ytm join -                                                          # join a collaborative playlist (stdin or --clipboard; never an argument)
 bin/ytm call tasteProfile '{}'                                                    # the artists the taste builder suggests (read only)
 bin/ytm call uploadSongs '{}'                                                     # your uploaded songs (cursor for more)
 bin/ytm upload ~/Music/song.mp3                                                   # upload a file (mp3, m4a, wma, flac, ogg; YouTube processes it after)
@@ -571,7 +571,9 @@ minutes), `UPSTREAM` (unexpected response; ytmusicapi may need an update),
   `createPlaylist({title, description?, privacy?, videoIds?,
   sourcePlaylistId?})` makes an empty playlist, one with songs (the queue) or
   a copy (not both; a copy gets its songs a few seconds later). `joinPlaylist({playlistId, token})` joins
-  through an invite link's `jct` (`bin/ytm join <invite-url>`). Reads, never
+  through an invite link's `jct` (`bin/ytm join -` reads the link from stdin,
+  `--clipboard` from the clipboard: a command line is readable by every
+  local account, so the link is never an argument). Reads, never
   cached: `playlistSettings({playlistId})` (one request) gives `owned`,
   `privacy`, `sortOrder` (from the songs' sort menu; null for a Title,
   Artist or Album view sort) with its served title `sortTitle` and the
@@ -646,7 +648,19 @@ minutes), `UPSTREAM` (unexpected response; ytmusicapi may need an update),
   profile is another key): when
   the worker acts as another identity by the time the call leaves its lane,
   it answers `BAD_REQUEST` with nothing sent (the shell then drops those
-  plays). `removeHistory({tokens})` removes History entries by their
+  plays). Under `serve` the key is required: a play counted before any
+  worker said which identity it acts as is never kept by the shell, and
+  never sent. The check and the send use one view of the worker
+  (`ytm_account.Bound`, taken under `Worker.swap_lock`, which `load()`
+  holds while it swaps the client in): the batch goes through the client
+  that was checked, and is refused if another was loaded before it left.
+- **Every edit names its identity.** Under `serve` every method in
+  `MUTATES` needs `identityKey` (Backend.qml adds the key of the identity
+  the worker last reported to each edit when it is asked, unless the call
+  names one); `Worker.handle` refuses one without it or under another
+  identity with `BAD_REQUEST`, nothing sent, and strips the key before the
+  method runs. Lane edits (`uploadSong`, `reportPlays`) check it on the
+  client they send with. The command line's own calls name none. `removeHistory({tokens})` removes History entries by their
   `historyToken` (fresh replies only) through `remove_history_items`; a
   token YouTube does not process is `UPSTREAM` with `stale: true` (the page
   was out of date, and the shell reads History again). ytmusicapi notes that
@@ -689,32 +703,36 @@ minutes), `UPSTREAM` (unexpected response; ytmusicapi may need an update),
   Edits (in `MUTATES`): `uploadSong({path, identityKey?})` (upload lane; the
   shell waits 10 min; `identityKey` is required under `serve`, and the shell
   asks for no upload before the worker has reported its identity) takes a full path (`~` expanded) to an mp3, m4a, wma, flac or ogg
-  file (any case) under 300 MB, refuses a brand account, sends an upper-case
-  suffix through a lower-case symlink in `~/.cache/omarchy-ytmusic/upload-tmp`
-  (removed after; ytmusicapi checks the suffix case-sensitively) and answers
+  file (any case) under 300 MB, refuses a brand account, and answers
   `{ok, processing: true, name}`: YouTube lists the song minutes later.
+  The file is opened once (`open_upload`; under `serve`, by the `PREPARES`
+  hook as the request arrives, before it waits on the lane), every check is
+  made on that open file, and that file is what goes: ytmusicapi is given a
+  symlink to `/proc/self/fd/N` in a private folder under
+  `~/.cache/omarchy-ytmusic/upload-tmp` (named with the suffix in lower
+  case, which its check needs; removed after), so a name swapped meanwhile
+  in a folder another account can write to changes nothing.
   `deleteUpload({entityId})` deletes a song or an album (`UPSTREAM` unless
   YouTube says it succeeded). Both drop every uploads read, the library
   lists and the uploads browse pages. An uploaded song is a track of kind
   `upload` wherever it is listed (a playlist, Liked Music, History: YouTube
   tags it `MUSIC_VIDEO_TYPE_PRIVATELY_OWNED_TRACK`), with an `entityId` only
   in the uploads views. Uploaded songs stream with the account (`resolve`
-  with `account: true`), and while signed in their `loadfile` carries
-  `ytdl-raw-options-append=cookies=<mpv's copy of cookies.txt>`, so mpv's
-  own yt-dlp plays them as the account too (yt-dlp needs its JS challenge
-  solver for them; see the development notes). The copy
-  (`$XDG_RUNTIME_DIR/omarchy-ytmusic/cookies-mpv.txt`) is made by
-  `bin/ytm-mpv` at mpv's start and on every sign-in, and removed on
-  sign-out (the shell's, and `bin/ytm auth` / `bin/ytm logout` run
-  `bin/ytm-mpv cookies` themselves, so a shell that is down leaves no
-  copy behind): yt-dlp writes its cookie jar back into the file it is given, so
-  it never gets the session file.
-- **`resolve({videoId, account?, quality?})`** says which yt-dlp instance it used
+  with `account: true` and the `identityKey` they were queued under, kept
+  as the queue entry's `owner`: the lookup is refused, unsent, as another
+  identity). mpv gets no cookies for them: the stream URL plays without.
+- **`resolve({videoId, account?, identityKey?, quality?})`** says which yt-dlp instance it used
   (`account: true|false`); without a saved session it is always signed out.
+  yt-dlp signs in as the browser's first Google login, so the account is
+  used only while that is the identity in use (no brand account, login 0):
+  otherwise an asked-for account lookup (an upload) is `BAD_REQUEST` and
+  the `streamAccount` setting looks songs up signed out. The URL must be
+  https on `*.googlevideo.com` (uploads: `*.c.youtube.com`), or it is
+  `UPSTREAM`: mpv would open any protocol it is handed.
   `quality` (else the setting; `high` by default) picks the format: `low`
   `bestaudio[abr<=70]/worstaudio`, `normal` `bestaudio[abr<=130]/bestaudio`,
-  `high` `bestaudio[acodec=opus]/bestaudio/best` (mpv's `ytdl-format` gets
-  the same string); `format` and `abr` in the reply say what was picked.
+  `high` `bestaudio[acodec=opus]/bestaudio/best`; `format` and `abr` in
+  the reply say what was picked.
   While the `normalize` setting is `youtube` the reply also carries
   `loudnessDb`: `playerConfig.audioConfig.loudnessDb` of the song's player
   response (dB above YouTube Music's loudness target; one request through the
@@ -762,9 +780,9 @@ What the shell, mpv and YouTube were found to do, which the design relies on:
   which would stay alive as a 24 MiB parent. It falls back to `uv run` when no
   environment exists for the current dependencies yet.
 - **Playback measurements (2026-09-10).** mpv playing audio: ~73 MiB PSS.
-  Every track change runs yt-dlp + deno (JS challenge; node since Omarchy's yt-dlp) inside the mpv unit for
-  a few seconds, peaking ~340-410 MiB; a `MemoryHigh` below that throttled
-  resolves to 7.5 s, so the unit only has `MemoryMax=768M`. Track start
+  At the time every track change could run yt-dlp + deno inside the mpv unit
+  for a few seconds, peaking ~340-410 MiB (mpv runs no yt-dlp since
+  2026-11-19); the unit only has `MemoryMax=768M`. Track start
   (loadfile → audible) 2.6-3.9 s; `play` via IPC adds the search (~0.8 s warm).
   Streaming with the account's cookies offered no better formats (opus 251,
   ~131 kbps) and cost ~1.5 s per track, so it is opt-in
@@ -779,9 +797,22 @@ What the shell, mpv and YouTube were found to do, which the design relies on:
   cover art and the videoId mapping stay intact). The next queue entry is
   resolved 1.5 s after each track starts. If a stored URL fails (expired,
   network changed), the script drops it, reports it in `user-data/ytm/stale`
-  and reloads the entry once through yt-dlp. Restoring the URL in
-  `on_load_fail` is too late, because mpv 0.41's ytdl hook resolves YouTube
-  URLs in `on_load`. Measured: next track 0.5 s (was ~2.2 s), play by search
+  and reloads the entry once, which asks for a fresh one.
+- **No yt-dlp under mpv (2026-11-19).** mpv's ytdl hook ran `yt-dlp ... --
+  <watch URL>` for any track without a fresh stream, so the video id (and,
+  after a failed stream, the signed URL) sat on a command line every local
+  account can read, and it needed a copy of the session's cookies, which
+  yt-dlp wrote back on exit (after a sign-out too). mpv now runs with
+  `--ytdl=no`. `mpv/ytm-streams.lua` defers the `on_load` hook of a track
+  with no fresh stream, sets `user-data/ytm/want` (`{id, n}`), and goes on
+  when the shell has pushed the stream (resolved through the worker), fails
+  the load when the shell sets `user-data/ytm/unavailable`, after 25 s, or
+  when `playback-abort` turns true (mpv waits for a held hook even on a
+  skip). Measured: a jump to an unresolved entry played in ~3 s, a skip
+  during a held load moved on at once, a bogus id failed at once; no
+  process with a video id appeared (a /proc scan every 50 ms). A player
+  started by an older version gets `ytdl=false` set live and is restarted
+  when it idles. Measured: next track 0.5 s (was ~2.2 s), play by search
   2.0 s warm / 3.8 s cold. After background-only resolving the worker is
   released after 20 s; opening the panel starts it and loads yt-dlp early.
 - **Speed and loudness.** Speed is mpv's global `speed`, set by the
@@ -802,15 +833,11 @@ What the shell, mpv and YouTube were found to do, which the design relies on:
   come first, empty), serve no sort menu (the orders are opaque tokens in
   `frameworkUpdates`), and each read takes 2 requests with the session check
   (about 0.6 to 0.8 s). An uploaded song plays only as the account and only
-  through yt-dlp's JS challenge solver: the worker's yt-dlp (no
-  `yt-dlp-ejs`) answers "Video unavailable" for one, the system yt-dlp that
-  mpv runs (with `yt-dlp-ejs`) resolves it with the cookies (AAC 141, 256
-  kbps). So an upload's `loadfile` carries the cookies for mpv's yt-dlp
-  (a copy: yt-dlp rewrites the file `--cookies` names when it exits, and
-  creates it when it is missing), and after one failed worker lookup the shell stops asking the worker for
-  uploads until the next sign-in. Adding `yt-dlp[default]` to the worker's
-  dependencies would let it resolve them (about 3 s), but slowed public
-  resolves to 2.4 to 4.3 s, so it is left out.
+  through yt-dlp's JS challenge solver. Since 2026-11-19 the worker's
+  yt-dlp has it (`yt-dlp[default]`, with deno or node as `js_runtimes`) and
+  resolves uploads itself (AAC 141, 256 kbps, from a `*.c.youtube.com`
+  host); the URL plays in mpv without cookies. After one failed worker
+  lookup the shell stops asking for uploads until the next sign-in.
 - **Account, quality and location.** Measured 2026-11-10: the
   account switcher (`account/accounts_list`) lists each identity with its
   `pageIdToken` (brand accounts) and a sign-in URL whose `authuser` names
@@ -871,7 +898,7 @@ Checked over IPC and the mpv socket, music at volume 0.
 | mpv killed (SIGKILL) while playing | Panel shows it stopped with Resume; `resume` brought back the same song in 2.0 s. The resume point can be up to 30 s old after a crash (saved every 30 s, on pause and on queue changes). |
 | Offline (worker and player in private network namespaces) | Worker calls fail within 0.7 s with retryable `NETWORK`; the player fails a song in ~0.5 s. Playback used to run through the whole queue (6 songs in 4.7 s); it now stops after three failures, keeps the queue and continues from the first failure. |
 | Songs that don't exist | Same: stops after three, queue kept, each failure named correctly. |
-| Broken pre-resolved stream | Played through yt-dlp instead; the stream was dropped, no notice. |
+| Broken pre-resolved stream | Looked up again through the worker; the stream was dropped, no notice. |
 | Player frozen for 60 s (suspend approximation) | Carried on playing, no error. A real suspend/resume is part of the daily-use week. |
 | IPC spam (24 next/previous at once, shuffle ×4, repeat ×3) | Queue, shuffle and repeat consistent; no crash. |
 | Garbage in `session.json`, `player.json`, `searches.json`, `account.json` | Starts with defaults (signed out, no resume), still plays, no QML errors. A corrupt disk-cache file is a cache miss (unit test). |

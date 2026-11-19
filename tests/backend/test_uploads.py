@@ -8,6 +8,7 @@ in frameworkUpdates as musicFormBooleanChoice entities with opaque tokens.
 """
 
 import os
+from pathlib import Path
 
 import pytest
 from ytmusicapi.continuations import get_continuation_string
@@ -384,6 +385,27 @@ def upload_reply(worker, path):
     return call(worker, "uploadSong", path=str(path))
 
 
+def reading(seen, then=None):
+    """upload_song as ytmusicapi's does it: checks, sizes and opens the name it
+    is given, after ``then()`` (run between the start request and the open,
+    as the network round trip is)."""
+
+    def upload_song(filepath):
+        assert os.path.isfile(filepath)
+        size = os.stat(filepath).st_size
+        if then is not None:
+            then()
+        with open(filepath, "rb") as f:
+            seen.setdefault("sent", []).append((os.path.basename(filepath), size, f.read()))
+        return ResponseStatus.SUCCEEDED
+
+    return upload_song
+
+
+def open_fds():
+    return len(os.listdir("/proc/self/fd"))
+
+
 @pytest.mark.parametrize("name,problem", [("missing.mp3", "No such file"), ("song.wav", "mp3, m4a, wma, flac or ogg"),
                                            ("noext", "mp3, m4a, wma, flac or ogg")])
 def test_upload_song_refuses_what_youtube_would_not_take(tmp_path, name, problem):
@@ -406,17 +428,102 @@ def test_upload_song_refuses_a_folder_a_relative_path_and_an_oversize_file(tmp_p
     reply = upload_reply(worker, big)
     assert reply["error"]["code"] == "BAD_REQUEST" and "300 MB" in reply["error"]["message"]
     monkeypatch.setattr(uploads, "MAX_BYTES", 12)
+    seen = {}
+    worker = worker_for(upload_song=reading(seen))
     assert upload_reply(worker, big)["ok"], "under the limit"
-    assert worker.yt.calls == [("upload_song", (str(big),), {})]
+    assert seen["sent"] == [("big.flac", 11, b"\0" * 11)]
 
 
 def test_upload_song_sends_the_file_and_reports_processing(tmp_path, monkeypatch):
     monkeypatch.setenv("HOME", str(tmp_path))
     path = music_file(tmp_path, "song.m4a")
-    worker = worker_for(upload_song=ResponseStatus.SUCCEEDED)
+    path.write_bytes(b"audio")
+    seen = {}
+    worker = worker_for(upload_song=reading(seen))
     reply = call(worker, "uploadSong", path="~/music/song.m4a")
     assert reply["ok"] and reply["result"] == {"ok": True, "processing": True, "name": "song.m4a"}
-    assert worker.yt.calls == [("upload_song", (str(path),), {})], "~ expanded; a lower-case suffix goes as it is"
+    assert seen["sent"] == [("song.m4a", 5, b"audio")], "~ expanded; the name goes as it is"
+
+
+# ---- the file sent is the file checked ----------------------------------------------------
+# A music file in a folder another account can write to: that account swaps
+# the name for a symlink to one of yours between the check and the send.
+
+
+def test_a_name_swapped_after_the_check_does_not_change_what_is_sent(tmp_path):
+    path = music_file(tmp_path, "song.mp3")
+    path.write_bytes(b"the song")
+    private = tmp_path / "private.key"
+    private.write_bytes(b"SECRET")
+
+    def swap():
+        path.unlink()
+        path.symlink_to(private)
+
+    seen = {}
+    before = open_fds()
+    reply = upload_reply(worker_for(upload_song=reading(seen, then=swap)), path)
+    assert reply["ok"], reply
+    assert seen["sent"] == [("song.mp3", 8, b"the song")], "the file opened and checked, not the new name"
+    assert open_fds() == before, "the descriptor is closed afterwards"
+
+
+def test_the_file_is_opened_as_the_request_arrives_not_after_its_wait(tmp_path):
+    """Under serve() the PREPARES hook opens the file on the main thread; the
+    upload that runs later on the lane sends that file, whatever the name
+    holds by then."""
+    path = music_file(tmp_path, "song.flac")
+    path.write_bytes(b"chosen")
+    request = {"id": 7, "method": "uploadSong", "params": {"path": str(path), "identityKey": "0::"}}
+    request[ytm.PREPARED] = ytm.PREPARES["uploadSong"](request["params"])
+    path.unlink()
+    path.write_bytes(b"swapped in while it waited")
+    seen = {}
+    worker = worker_for(upload_song=reading(seen))
+    worker.serving = True
+    reply = worker.handle(request)
+    assert reply["ok"], reply
+    assert seen["sent"] == [("song.flac", 6, b"chosen")]
+    missing = {"id": 8, "method": "uploadSong", "params": {"path": str(tmp_path / "gone.mp3"), "identityKey": "0::"}}
+    missing[ytm.PREPARED] = ytm.PREPARES["uploadSong"](missing["params"])
+    assert "No such file" in worker.handle(missing)["error"]["message"], "answered in turn"
+
+
+def test_a_refused_upload_closes_the_file_it_opened(tmp_path):
+    path = music_file(tmp_path, "song.mp3")
+    worker = worker_for(upload_song=ResponseStatus.SUCCEEDED)
+    worker.identity = {"pageId": "123456789012345678901", "authUser": 0}  # a brand account: refused
+    request = {"id": 1, "method": "uploadSong", "params": {"path": str(path)}}
+    before = open_fds()
+    request[ytm.PREPARED] = ytm.PREPARES["uploadSong"](request["params"])
+    assert open_fds() == before + 1
+    assert worker.handle(request)["error"]["code"] == "BAD_REQUEST"
+    assert open_fds() == before and worker.yt.calls == []
+
+
+@pytest.mark.parametrize("kind", ["fifo", "dangling", "symlink to a folder"])
+def test_what_is_not_a_regular_file_is_refused_without_reading_it(tmp_path, kind):
+    path = tmp_path / "music" / "song.mp3"
+    path.parent.mkdir(parents=True)
+    if kind == "fifo":
+        os.mkfifo(path)  # opened for reading, it would wait for a writer
+    elif kind == "dangling":
+        path.symlink_to(tmp_path / "nowhere")
+    else:
+        path.symlink_to(tmp_path)
+    worker = worker_for(upload_song=ResponseStatus.SUCCEEDED)
+    reply = upload_reply(worker, path)
+    assert reply["error"]["code"] == "BAD_REQUEST" and worker.yt.calls == []
+
+
+def test_a_symlink_the_user_names_is_followed_once(tmp_path):
+    real = music_file(tmp_path, "real.ogg")
+    real.write_bytes(b"ogg")
+    link = tmp_path / "music" / "link.ogg"
+    link.symlink_to(real)
+    seen = {}
+    assert upload_reply(worker_for(upload_song=reading(seen)), link)["ok"]
+    assert seen["sent"] == [("link.ogg", 3, b"ogg")], "the name the user gave, the file it named"
 
 
 def test_upload_song_sends_an_upper_case_suffix_through_a_lower_case_symlink(tmp_path):
@@ -424,14 +531,16 @@ def test_upload_song_sends_an_upper_case_suffix_through_a_lower_case_symlink(tmp
     seen = {}
 
     def upload_song(filepath):
-        link = os.path.realpath(filepath)
-        seen.update(path=filepath, target=link, exists=os.path.islink(filepath), name=os.path.basename(filepath))
+        seen.update(path=filepath, exists=os.path.islink(filepath), name=os.path.basename(filepath),
+                    target=os.readlink(filepath), data=Path(filepath).read_bytes())
         return ResponseStatus.SUCCEEDED
 
     worker = worker_for(upload_song=upload_song)
     reply = upload_reply(worker, path)
     assert reply["ok"], reply
-    assert seen["name"] == "Loud Song.mp3" and seen["exists"] and seen["target"] == str(path)
+    assert seen["name"] == "Loud Song.mp3" and seen["exists"] and seen["data"] == b"\0" * 16
+    assert seen["target"].startswith("/proc/self/fd/"), "the open file, not the path"
+    assert reply["result"]["name"] == "Loud Song.MP3", "the reply names it as the user did"
     assert seen["path"].startswith(str(uploads.tmp_root()) + os.sep)
     assert not os.path.lexists(seen["path"]) and list(uploads.tmp_root().iterdir()) == [], "removed afterwards"
     assert path.exists(), "the file itself stays"

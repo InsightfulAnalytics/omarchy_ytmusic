@@ -5,6 +5,8 @@ so they only run live on a throwaway playlist. Settings and suggestions are
 read from hand-built responses shaped like the live ones (an owned playlist's
 edit header and its songs' sort menu)."""
 
+import io
+
 import pytest
 from ytmusicapi.exceptions import YTMusicServerError
 from ytmusicapi.models.content.enums import PlaylistSortOrder, PlaylistVoteEditOptions
@@ -394,10 +396,37 @@ def test_the_invite_link_never_reaches_a_log(capsys, monkeypatch):
 def test_cli_join_prints_no_token(capsys, monkeypatch):
     worker = signed_in(join_collaborative_playlist="STATUS_SUCCEEDED")
     monkeypatch.setattr(ytm, "Worker", lambda: worker)
-    assert ytm.main(["join", f"https://music.youtube.com/playlist?list=PLx&jct={TOKEN}"]) == 0
+    monkeypatch.setattr("sys.stdin", io.StringIO(f"https://music.youtube.com/playlist?list=PLx&jct={TOKEN}\n"))
+    assert ytm.main(["join", "-"]) == 0
     out = capsys.readouterr()
     assert '"playlistId": "PLx"' in out.out and TOKEN not in out.out + out.err
-    assert ytm.main(["join", "https://music.youtube.com/playlist?list=PLx"]) == 2
+    monkeypatch.setattr("sys.stdin", io.StringIO("https://music.youtube.com/playlist?list=PLx"))
+    assert ytm.main(["join", "-"]) == 2
+
+
+def test_cli_join_never_takes_the_link_as_an_argument(capsys, monkeypatch):
+    """Every local account can read a process's command line."""
+    worker = signed_in(join_collaborative_playlist="STATUS_SUCCEEDED")
+    monkeypatch.setattr(ytm, "Worker", lambda: worker)
+    sent = []
+    monkeypatch.setattr(worker, "handle", lambda request: sent.append(request))
+    assert ytm.main(["join", f"https://music.youtube.com/playlist?list=PLx&jct={TOKEN}"]) == 2
+    assert ytm.main(["join"]) == 2 and "stdin" in capsys.readouterr().err
+    assert sent == [], "nothing sent"
+
+
+def test_cli_join_reads_the_clipboard(capsys, monkeypatch):
+    worker = signed_in(join_collaborative_playlist="STATUS_SUCCEEDED")
+    monkeypatch.setattr(ytm, "Worker", lambda: worker)
+    ran = []
+
+    def run(command, **kwargs):
+        ran.append(command)
+        return type("Done", (), {"stdout": f"https://music.youtube.com/playlist?list=PLx&jct={TOKEN}"})()
+
+    monkeypatch.setattr(ytm.subprocess, "run", run)
+    assert ytm.main(["join", "--clipboard"]) == 0
+    assert ran == [["wl-paste", "--no-newline"]] and TOKEN not in capsys.readouterr().out
 
 
 # ---- playlistSettings and playlistSuggestions ------------------------------------------------
