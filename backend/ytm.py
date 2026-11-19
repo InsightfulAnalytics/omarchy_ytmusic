@@ -77,6 +77,7 @@ from ytm_proto import (  # noqa: E402, F401 - re-exported for tests and tools
     opt_str,
     req_list,
     req_str,
+    unsent,
 )
 
 PROTOCOL = 1
@@ -231,28 +232,40 @@ def m_resolve(worker, params):
     asked = account is True
     if account is None and worker.settings.get("streamAccount") is True:
         account = True
+    # One view of the worker for the whole lookup (ytm_account.Bound): the
+    # identity checked, the cookies yt-dlp signs in with and the client the
+    # loudness request goes through all belong together. An upload's lookup
+    # names the identity it was queued under and is refused, unsent, under
+    # another one.
+    bound = identities.require_identity_key(worker, params, "this song")
+    cookies = None
     if account:
-        # yt-dlp signs in with the session's cookies as the browser's first
-        # Google login: never for another identity (a brand account, another
-        # login), which YouTube would then see fetching what this one plays.
-        # An upload's lookup names the identity it was queued under and is
-        # refused, unsent, under another one.
-        bound = identities.require_identity_key(worker, params, "this song")
+        # yt-dlp signs in as the browser's first Google login: never for
+        # another identity (a brand account, another login), which YouTube
+        # would then see fetching what this one plays. The cookies must be
+        # the session the client sends as (cookies.txt replaced by a
+        # sign-in that load() has not taken in yet is not).
         chosen = bound.identity or {}
+        problem = None
         if chosen.get("pageId") or identities.login_of(bound) != 0:
-            if asked:
-                raise WorkerError("BAD_REQUEST", "Uploaded songs play only as your browser's first Google "
-                                                 "account, not a brand account or another login")
-            account = False
+            problem = ("Uploaded songs play only as your browser's first Google account, not a brand account or "
+                       "another login")
+        elif bound.cookies is None or bound.cookies.tag != identities.session_tag(bound.yt):
+            problem = "The saved session is changing; try again in a moment"
+        if problem and asked:
+            raise unsent(WorkerError("BAD_REQUEST", problem))
+        cookies = None if problem else bound.cookies
     # The audio quality (the request's own, else the setting); high is
     # the resolver's default format.
     quality = streams.validate_quality(params["quality"]) if "quality" in params else worker.settings.get("quality")
     extra = {"quality": quality} if quality not in (None, "high") else {}
     worker.wait_for_warm()
     # The song's loudness too, while the shell levels by YouTube's.
-    loudness = {"loudness_from": worker.yt} if worker.settings.get("normalize") == "youtube" else {}
+    loudness = {"loudness_from": bound.yt} if worker.settings.get("normalize") == "youtube" else {}
+    if cookies is not None:
+        bound.still("this song")
     try:
-        return worker.resolver().resolve(video_id, account=account, **loudness, **extra)
+        return worker.resolver().resolve(video_id, account=cookies is not None, cookies=cookies, **loudness, **extra)
     except streams.StreamError as exc:
         raise WorkerError(exc.code, exc.message, exc.retryable) from exc
 
@@ -489,6 +502,10 @@ class Worker:
         self.emit = None
         # True under serve(): the shell's requests, not the command line's.
         self.serving = False
+        # YouTube's cookies from cookies.txt (ytm_auth.CookieSet), read by
+        # load() with the client: the only cookies yt-dlp's account lookups
+        # get (in memory; it is never given the file).
+        self.cookies = None
         # Your channel's id, from the account menu verify_session reads
         # (None when it links none; ytm_users.myChannel), and whether that
         # menu was read for this client.
@@ -518,7 +535,7 @@ class Worker:
         quality = self.settings.get("quality")
         args = (quality,) if quality not in (None, "high") else ()
         # The instance lookups will use: the account's while streamAccount is on.
-        kwargs = {"account": True} if self.settings.get("streamAccount") is True else {}
+        kwargs = {"cookies": self.cookies} if self.settings.get("streamAccount") is True and self.cookies else {}
         self._warm_thread = threading.Thread(target=warm, args=args, kwargs=kwargs, daemon=True)
         self._warm_thread.start()
 
@@ -605,8 +622,10 @@ class Worker:
             norm.log(f"could not prune cookies.txt: {type(exc).__name__}")
         yt, state = auth.load_client(**kwargs)
         raw.install(yt)
+        cookies = auth.read_cookie_set() if state == "ok" else None
         with self.swap_lock:
             self.yt, self.auth = yt, state
+            self.cookies = cookies
             self.identity = identity if state == "ok" else None
             self.built_with = self.client_settings()
             self.verified = False

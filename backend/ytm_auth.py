@@ -17,6 +17,7 @@ history Omarchy stores in plain text.
 """
 
 import contextlib
+import hashlib
 import json
 import os
 import re
@@ -65,6 +66,23 @@ def ensure_config_dir():
     path.mkdir(mode=0o700, parents=True, exist_ok=True)
     os.chmod(path, 0o700)
     return path
+
+
+@contextlib.contextmanager
+def session_lock():
+    """Held while the session files change (a sign-in's swap, a sign-out, a
+    prune of cookies.txt), across processes (the worker, the CLI): one
+    never interleaves with another. An flock on a file in the 0700 config
+    folder."""
+    import fcntl
+
+    directory = ensure_config_dir()
+    fd = os.open(directory / ".session.lock", os.O_RDWR | os.O_CREAT | os.O_CLOEXEC | os.O_NOFOLLOW, 0o600)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX)
+        yield
+    finally:
+        os.close(fd)
 
 
 def write_private(path, text):
@@ -253,11 +271,12 @@ def whoami():
 
 def logout():
     removed = []
-    for name in (*SESSION_FILES, IDENTITY_FILE):  # the identity goes with the session
-        path = config_dir() / name
-        if path.exists():
-            path.unlink()
-            removed.append(name)
+    with session_lock():
+        for name in (*SESSION_FILES, IDENTITY_FILE):  # the identity goes with the session
+            path = config_dir() / name
+            if path.exists():
+                path.unlink()
+                removed.append(name)
     return removed
 
 
@@ -277,20 +296,74 @@ def youtube_domain(domain):
     return host == "youtube.com" or host.endswith(".youtube.com")
 
 
-def prune_cookie_file(path=None):
-    """Drop every non-YouTube cookie from cookies.txt (one written before
-    cookies.txt kept YouTube's only); True when it was rewritten."""
+# The cookies that name a Google sign-in session, most specific first. They
+# stay put while the session lasts (the *PSIDTS ones rotate) and every
+# account signed in elsewhere (another browser profile) has others.
+SESSION_COOKIES = ("SAPISID", "__Secure-3PAPISID", "SID", "__Secure-3PSID")
+
+
+def session_tag_of(jar):
+    """A short hash of the sign-in session ``jar`` (name -> value) belongs to,
+    "" without one of SESSION_COOKIES."""
+    value = next((jar[name] for name in SESSION_COOKIES if jar.get(name)), None)
+    if value is None:
+        return ""
+    return hashlib.sha256(b"ytm-session\0" + str(value).encode()).hexdigest()[:12]
+
+
+class CookieSet:
+    """YouTube's cookies from cookies.txt, read once (Worker.load) and held
+    in memory: ``records`` (cookie_record dicts) and the session ``tag``."""
+
+    def __init__(self, records):
+        self.records = records
+        self.tag = session_tag_of({r["name"]: r["value"] for r in records if youtube_domain(r["domain"])})
+
+
+def read_cookie_set(path=None):
+    """cookies.txt's YouTube cookies as a CookieSet; None without any."""
     path = path or cookies_path()
     try:
         text = path.read_text()
     except OSError:
+        return None
+    records = []
+    for line in text.splitlines():
+        if line.startswith("#HttpOnly_"):
+            line = line[len("#HttpOnly_"):]
+        if not line.strip() or line.startswith("#"):
+            continue
+        fields = line.split("\t")
+        if len(fields) != 7 or not youtube_domain(fields[0]):
+            continue
+        domain, _flag, cookie_path, secure, expires, name, value = fields
+        try:
+            expiry = int(expires or 0)
+        except ValueError:
+            expiry = 0
+        records.append(cookie_record(domain, name, value, cookie_path, secure == "TRUE", expiry))
+    return CookieSet(records) if records else None
+
+
+def prune_cookie_file(path=None):
+    """Drop every non-YouTube cookie from cookies.txt (one written before
+    cookies.txt kept YouTube's only); True when it was rewritten."""
+    path = path or cookies_path()
+    if not path.exists():
         return False
-    lines = text.splitlines()
-    kept = [line for line in lines
-            if not line.strip() or line.startswith("#") or youtube_domain(line.split("\t", 1)[0])]
-    if len(kept) == len(lines):
-        return False
-    write_private(path, "\n".join(kept) + "\n")
+    # Under the session lock: a sign-in swapping cookies.txt in meanwhile
+    # would otherwise get the old session's cookies written back over it.
+    with session_lock():
+        try:
+            text = path.read_text()
+        except OSError:
+            return False
+        lines = text.splitlines()
+        kept = [line for line in lines
+                if not line.strip() or line.startswith("#") or youtube_domain(line.split("\t", 1)[0])]
+        if len(kept) == len(lines):
+            return False
+        write_private(path, "\n".join(kept) + "\n")
     return True
 
 
@@ -377,10 +450,11 @@ def commit_session(write_browser, cookies, method, factory=None):
         # A new session starts as its own account (the brand accounts and
         # logins of the old one may not be its own): the identity goes
         # first, so no load ever pairs the new session with the old one.
-        identity_path().unlink(missing_ok=True)
-        for name in SESSION_FILES:
-            os.chmod(staging / name, 0o600)
-            os.replace(staging / name, directory / name)
+        with session_lock():
+            identity_path().unlink(missing_ok=True)
+            for name in SESSION_FILES:
+                os.chmod(staging / name, 0o600)
+                os.replace(staging / name, directory / name)
         return account
     finally:
         shutil.rmtree(staging, ignore_errors=True)

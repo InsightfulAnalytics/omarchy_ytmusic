@@ -646,3 +646,45 @@ def test_cli_upload_resolves_a_relative_path(tmp_path, monkeypatch):
     monkeypatch.setattr(ytm, "Worker", Worker)
     assert ytm.main(["upload", "a.mp3"]) == 0
     assert seen[0]["method"] == "uploadSong" and seen[0]["params"] == {"path": str(tmp_path / "a.mp3")}
+
+
+def test_a_link_another_account_made_is_never_followed(tmp_path, monkeypatch):
+    """In a folder another account can write to, it could name a link like a
+    song and point it at one of your files."""
+    private = tmp_path / "private.key"
+    private.write_bytes(b"SECRET")
+    planted = tmp_path / "music" / "song.mp3"
+    planted.parent.mkdir()
+    planted.symlink_to(private)
+    real_uid = os.getuid()
+    monkeypatch.setattr(uploads.os, "getuid", lambda: real_uid + 4242)  # the link is now someone else's
+    seen = {}
+    reply = upload_reply(worker_for(upload_song=reading(seen)), planted)
+    assert reply["error"]["code"] == "BAD_REQUEST" and "link another account made" in reply["error"]["message"]
+    assert seen == {}, "nothing read, nothing sent"
+    folder_link = tmp_path / "shared"
+    folder_link.symlink_to(tmp_path / "music")  # a folder link of theirs, anywhere on the path
+    assert "link another account made" in upload_reply(worker_for(), folder_link / "x.mp3")["error"]["message"]
+
+
+def test_your_own_links_are_followed_relative_or_not(tmp_path):
+    album = tmp_path / "library" / "album"
+    album.mkdir(parents=True)
+    (album / "track.flac").write_bytes(b"flac")
+    (tmp_path / "music").mkdir()
+    (tmp_path / "music" / "rel.flac").symlink_to("../library/album/track.flac")
+    (tmp_path / "albums").symlink_to(tmp_path / "library")
+    seen = {}
+    worker = worker_for(upload_song=reading(seen))
+    assert upload_reply(worker, tmp_path / "music" / "rel.flac")["ok"]
+    assert upload_reply(worker, tmp_path / "albums" / "album" / ".." / "album" / "track.flac")["ok"]
+    assert [s[2] for s in seen["sent"]] == [b"flac", b"flac"]
+
+
+def test_a_link_loop_and_an_unencodable_path_are_refused(tmp_path):
+    loop = tmp_path / "loop.mp3"
+    loop.symlink_to(loop)
+    assert upload_reply(worker_for(), loop)["error"]["code"] == "BAD_REQUEST"
+    odd = {"path": "/tmp/\ud800.mp3"}
+    assert isinstance(ytm.PREPARES["uploadSong"](odd), ytm.WorkerError), "serve() keeps running"
+    assert call(worker_for(), "uploadSong", path="/tmp/\ud800.mp3")["error"]["code"] == "BAD_REQUEST"

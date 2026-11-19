@@ -574,9 +574,14 @@ class AccountResolver:
                 "account": bool(account)}
 
 
+def with_cookies(worker):
+    worker.cookies = auth.CookieSet([auth.cookie_record(".youtube.com", "PREF", "x")])  # tag "", as HistoryYT's
+    return worker
+
+
 def test_account_lookups_only_as_the_browsers_first_login():
     resolver = AccountResolver()
-    worker = ytm.Worker(HistoryYT(), "ok", resolver=resolver)
+    worker = with_cookies(ytm.Worker(HistoryYT(), "ok", resolver=resolver))
     assert call(worker, "resolve", videoId="nbCOAPR33ME", account=True)["ok"]
     worker.identity = {"pageId": BRAND_ID, "authUser": None}
     refused = call(worker, "resolve", videoId="nbCOAPR33ME", account=True)
@@ -590,7 +595,7 @@ def test_account_lookups_only_as_the_browsers_first_login():
 
 def test_an_upload_queued_as_one_identity_is_not_looked_up_as_another():
     resolver = AccountResolver()
-    worker = ytm.Worker(HistoryYT(), "ok", resolver=resolver)
+    worker = with_cookies(ytm.Worker(HistoryYT(), "ok", resolver=resolver))
     reply = call(worker, "resolve", videoId="nbCOAPR33ME", account=True, identityKey=BRAND_KEY)
     assert reply["error"]["code"] == "BAD_REQUEST" and resolver.asked == []
     assert call(worker, "resolve", videoId="nbCOAPR33ME", account=True, identityKey="0::")["ok"]

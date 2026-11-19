@@ -236,7 +236,7 @@ def test_serve_idle_exit(config_dir):
 
 def test_stream_lookups_do_not_hold_up_other_requests():
     class SlowResolver:
-        def resolve(self, video_id, account=None):
+        def resolve(self, video_id, account=None, **kwargs):
             time.sleep(0.4)
             return {"url": "https://example.com/" + video_id, "expires": 1}
 

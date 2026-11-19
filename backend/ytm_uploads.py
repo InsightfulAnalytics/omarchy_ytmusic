@@ -52,7 +52,7 @@ import os
 import shutil
 import stat
 import tempfile
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 from ytmusicapi.mixins._utils import prepare_order_params
 from ytmusicapi.navigation import FRAMEWORK_MUTATIONS, MRLIR, nav
@@ -376,15 +376,67 @@ def _checked(st, name):
         raise WorkerError("BAD_REQUEST", f"{name} is 300 MB or more; YouTube Music takes smaller files")
 
 
+MAX_LINKS = 40  # as the kernel's own limit for one lookup
+
+
+def _resolve(path, shown):
+    """An O_PATH descriptor of what ``path`` names, looked up one name at a
+    time: each name is opened with O_NOFOLLOW from the folder before it, and
+    a symbolic link is followed by hand, only when it belongs to you (or
+    root). In a folder another account can write to, that account could
+    otherwise put a link named like a song that points at one of your
+    files. Every step holds what it opened, so nothing is looked up twice."""
+    uid = os.getuid()
+    flags = os.O_PATH | os.O_CLOEXEC
+    pending = list(PurePosixPath(path).parts[1:])
+    fd = os.open("/", flags | os.O_DIRECTORY)
+    links = 0
+    try:
+        while pending:
+            name = pending.pop(0)
+            if name in ("", "."):
+                continue
+            step = os.open(name, flags | os.O_NOFOLLOW | (os.O_DIRECTORY if name == ".." else 0), dir_fd=fd)
+            st = os.fstat(step)
+            if stat.S_ISLNK(st.st_mode):
+                try:
+                    if st.st_uid not in (uid, 0):
+                        raise WorkerError("BAD_REQUEST", f"{shown} goes through a link another account made "
+                                                         f"({name}); give the file itself")
+                    links += 1
+                    if links > MAX_LINKS:
+                        raise WorkerError("BAD_REQUEST", f"{shown} goes through too many links")
+                    target = os.readlink("", dir_fd=step)
+                finally:
+                    os.close(step)
+                parts = list(PurePosixPath(target).parts)
+                if target.startswith("/"):
+                    os.close(fd)
+                    fd = os.open("/", flags | os.O_DIRECTORY)
+                    parts = parts[1:]
+                pending[:0] = parts
+                continue
+            if pending and not stat.S_ISDIR(st.st_mode):
+                os.close(step)
+                raise NotADirectoryError(name)
+            os.close(fd)
+            fd = step
+        return fd
+    except BaseException:
+        os.close(fd)
+        raise
+
+
 def open_upload(params):
     """The file ``params.path`` names, opened once and checked as YouTube
     Music would take it; an OpenUpload the caller closes.
 
-    The name is resolved once, with O_PATH (no FIFO or device is opened for
-    real), and the type is checked on what it found; that object is then
-    opened for reading through /proc/self/fd, which reopens it and never
-    looks the name up again, and is checked again (same inode, a regular
-    file, the size). Nothing after this uses the path.
+    The name is resolved once (_resolve: O_PATH, so no FIFO or device is
+    opened for real, and no link another account made is followed), and the
+    type is checked on what it found; that object is then opened for
+    reading through /proc/self/fd, which reopens it and never looks the
+    name up again, and is checked again (same inode, a regular file, the
+    size). Nothing after this uses the path.
     """
     text = req_str(params, "path")
     if len(text) > 4096 or "\0" in text:
@@ -395,11 +447,13 @@ def open_upload(params):
     if path.suffix[1:].lower() not in EXTENSIONS:
         raise WorkerError("BAD_REQUEST", "YouTube Music takes " + ", ".join(EXTENSIONS[:-1]) + f" or {EXTENSIONS[-1]} files")
     try:
-        probe = os.open(path, os.O_PATH | os.O_CLOEXEC)
+        probe = _resolve(path, path.name)
     except (FileNotFoundError, NotADirectoryError):
         raise WorkerError("BAD_REQUEST", f"No such file: {path.name}") from None
     except OSError as exc:
         raise WorkerError("BAD_REQUEST", f"Cannot open {path.name}: {exc.strerror or 'refused'}") from None
+    except ValueError:  # a name the file system cannot hold (a lone surrogate)
+        raise WorkerError("BAD_REQUEST", "'path' is not a file path") from None
     try:
         first = os.fstat(probe)
         _checked(first, path.name)
@@ -450,6 +504,8 @@ def prepare_upload(params):
         return open_upload(params if isinstance(params, dict) else {})
     except WorkerError as exc:
         return exc
+    except Exception as exc:  # noqa: BLE001 - never let one request end serve()'s loop
+        return WorkerError("BAD_REQUEST", f"Cannot open that file ({type(exc).__name__})")
 
 
 def _succeeded(result):

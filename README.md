@@ -256,7 +256,8 @@ after it closes.
   a sign-in from another browser profile) or before any was known, and
   uploads and plays go through the very client that was checked.
 - An upload opens the file once and sends that open file: renaming or
-  swapping a file in a shared folder after it was checked changes nothing.
+  swapping a file in a shared folder after it was checked changes nothing,
+  and a link on the path that another account made is never followed.
 - mpv checks TLS certificates (`--tls-verify=yes`; mpv's default is off), as
   the worker's and yt-dlp's requests already do.
 - External text never reaches a shell: processes get argument arrays, mpv titles use byte-length quoting, and the two `sh -c`

@@ -201,7 +201,10 @@ Item {
       if (reply.ok) root.addStream(videoId, reply.result)
       else console.warn("ytmusic: no stream for " + videoId + ": " + reply.error.message)
       if (!reply.ok && reply.error.code === "BOT_CHECK") root.noteBotCheck()
-      if (!reply.ok && upload && !reply.error.retryable && !reply.error.unknown) root._accountStreamsFailed = true
+      // An upload the worker could not look up at all (not one refused as
+      // another identity's, BAD_REQUEST): later uploads are not asked for.
+      if (!reply.ok && upload && !reply.error.retryable && !reply.error.unknown && reply.error.code !== "BAD_REQUEST"
+          && reply.error.code !== "STALE") root._accountStreamsFailed = true
       for (var i = 0; i < waiting.length; i++) waiting[i](reply.ok)
       root.releaseWorkerIfIdle()
     }, 20000)
@@ -274,6 +277,7 @@ Item {
   // here and in mpv (a queued upload is looked up again, as its owner).
   function _accountChanged() {
     _authEpoch++
+    _accountStreamsFailed = false
     var next = ({})
     var dropped = false
     for (var key in streams) {
@@ -983,6 +987,7 @@ Item {
       fail("Sign in to like songs")
       return false
     }
+    if (!_accountReadyFor(like ? "Couldn't like the song" : "Couldn't remove the like")) return false
     var previous = likeStatusOf(track)
     var rating = like ? "LIKE" : "INDIFFERENT"
     storeItem.setLike(track.videoId, rating)
@@ -2807,9 +2812,28 @@ Item {
   }
 
   function _signedInFor(title) {
-    if (signedIn) return true
-    failAction(title, "Sign in to use your library")
+    if (!signedIn) {
+      failAction(title, "Sign in to use your library")
+      return false
+    }
+    return _accountReadyFor(title)
+  }
+
+  // An edit names the identity it is asked under (Backend.qml stamps its
+  // key), and the worker refuses one asked before any worker said which
+  // identity it acts as (a shell start while mpv played on): say so here,
+  // and ask, so the key is there a moment later.
+  function _accountReadyFor(title) {
+    var problem = accountLoadingProblem()
+    if (problem === "") return true
+    failAction(title, problem)
     return false
+  }
+
+  function accountLoadingProblem() {
+    if (!signedIn || _identityKey !== "") return ""
+    backend.request("ping", {}, null, 20000)
+    return "Your account is still loading; try again in a moment"
   }
 
   // S: whatever the item offers (Model.saveAction), the other way round.
@@ -3329,9 +3353,7 @@ Item {
   // could go to whichever account is signed in by its turn. Asking starts
   // the worker, so a moment later the key is there.
   function uploadWaitProblem() {
-    if (!signedIn || _identityKey !== "") return ""
-    backend.request("ping", {}, null, 20000)
-    return "Your account is still loading; try the upload again in a moment"
+    return accountLoadingProblem()
   }
 
   // false when nothing was sent (signed out, the account not loaded yet, a

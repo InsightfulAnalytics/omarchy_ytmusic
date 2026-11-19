@@ -721,6 +721,9 @@ minutes), `UPSTREAM` (unexpected response; ytmusicapi may need an update),
   with `account: true` and the `identityKey` they were queued under, kept
   as the queue entry's `owner`: the lookup is refused, unsent, as another
   identity). mpv gets no cookies for them: the stream URL plays without.
+  The path is looked up one name at a time (`_resolve`: O_NOFOLLOW from
+  the folder before, a link followed by hand only when it belongs to you or
+  root), so a link another account planted in a shared folder is refused.
 - **`resolve({videoId, account?, identityKey?, quality?})`** says which yt-dlp instance it used
   (`account: true|false`); without a saved session it is always signed out.
   yt-dlp signs in as the browser's first Google login, so the account is
@@ -728,7 +731,13 @@ minutes), `UPSTREAM` (unexpected response; ytmusicapi may need an update),
   otherwise an asked-for account lookup (an upload) is `BAD_REQUEST` and
   the `streamAccount` setting looks songs up signed out. The URL must be
   https on `*.googlevideo.com` (uploads: `*.c.youtube.com`), or it is
-  `UPSTREAM`: mpv would open any protocol it is handed.
+  `UPSTREAM`: mpv would open any protocol it is handed. yt-dlp is never
+  given a cookie file (it reads one whenever it first needs it, and writes
+  it back on close): `Worker.load` reads cookies.txt's YouTube cookies into
+  memory with the client (`ytm_auth.CookieSet`), an account instance gets
+  them in its jar, one instance per session, and a lookup whose cookies
+  are not the session the client sends as (a sign-in not taken in yet) is
+  refused, unsent.
   `quality` (else the setting; `high` by default) picks the format: `low`
   `bestaudio[abr<=70]/worstaudio`, `normal` `bestaudio[abr<=130]/bestaudio`,
   `high` `bestaudio[acodec=opus]/bestaudio/best`; `format` and `abr` in

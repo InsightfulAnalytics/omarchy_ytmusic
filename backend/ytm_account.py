@@ -137,10 +137,7 @@ def login_of(worker):
     return auth.session_auth_user(worker.yt)
 
 
-# The cookies that name a Google sign-in session, most specific first. They
-# stay put while the session lasts (the *PSIDTS ones rotate) and every
-# account signed in elsewhere (another browser profile) has others.
-SESSION_COOKIES = ("SAPISID", "__Secure-3PAPISID", "SID", "__Secure-3PSID")
+SESSION_COOKIES = auth.SESSION_COOKIES
 
 
 def session_tag(client):
@@ -160,10 +157,7 @@ def session_tag(client):
         name, sep, value = part.strip().partition("=")
         if sep and name and value:
             jar.setdefault(name, value)
-    value = next((jar[name] for name in SESSION_COOKIES if name in jar), None)
-    if value is None:
-        return ""
-    return hashlib.sha256(b"ytm-session\0" + value.encode()).hexdigest()[:12]
+    return auth.session_tag_of(jar)
 
 
 def identity_summary(worker):
@@ -195,6 +189,7 @@ class Bound:
         lock = getattr(worker, "swap_lock", None)
         with lock if lock is not None else _NO_LOCK:
             self.yt = getattr(worker, "yt", None)
+            self.cookies = getattr(worker, "cookies", None)  # cookies.txt as load() read it
             self.identity = getattr(worker, "identity", None)
             self.auth = getattr(worker, "auth", None)
             self.generation = getattr(worker, "generation", 0)

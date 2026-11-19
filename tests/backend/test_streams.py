@@ -1,9 +1,28 @@
+import http.cookiejar
+
 import pytest
 import requests
 from ytmusicapi.exceptions import YTMusicServerError
 
 import ytm
+import ytm_auth as auth
 import ytm_streams as streams
+
+
+def cookie_set(sapisid=None):
+    """YouTube cookies as Worker.load() holds them (tag "" without SAPISID)."""
+    records = [auth.cookie_record(".youtube.com", "PREF", "f6=1")]
+    if sapisid:
+        records.append(auth.cookie_record(".youtube.com", "SAPISID", sapisid))
+    return auth.CookieSet(records)
+
+
+def signed_in_worker(resolver):
+    """A worker whose client sends no cookie header (session tag "") and whose
+    cookies.txt holds no session cookie either: the two belong together."""
+    worker = ytm.Worker(object(), "ok", resolver=resolver)
+    worker.cookies = cookie_set()
+    return worker
 
 
 class FakeYDL:
@@ -15,6 +34,7 @@ class FakeYDL:
         self.info = info
         self.error = error
         self.calls = []
+        self.cookiejar = http.cookiejar.CookieJar()
 
     def extract_info(self, url, download=True):
         self.calls.append((url, download))
@@ -80,13 +100,16 @@ def test_errors_are_mapped(message, code, retryable):
     assert not err.value.message.startswith("ERROR:")
 
 
-def test_account_cookies_only_when_opted_in(config_dir, monkeypatch):
-    config_dir.mkdir(parents=True)
-    (config_dir / "cookies.txt").write_text("# Netscape HTTP Cookie File\n")
-    monkeypatch.delenv("YTM_STREAM_WITH_ACCOUNT", raising=False)
+def test_yt_dlp_is_never_given_a_cookie_file():
+    """It would read the file whenever it first needs it (a sign-in may have
+    replaced it by then) and write it back when it closes."""
     assert "cookiefile" not in streams.Resolver().options()
-    monkeypatch.setenv("YTM_STREAM_WITH_ACCOUNT", "1")
-    assert streams.Resolver().options()["cookiefile"] == str(config_dir / "cookies.txt")
+    make = factory(info={"url": "https://x.googlevideo.com/a?expire=5"})
+    resolver = streams.Resolver(factory=make)
+    resolver.resolve("v", account=True, cookies=cookie_set("sap"))
+    account = make.made[0]
+    assert "cookiefile" not in account.opts
+    assert {c.name: c.value for c in account.cookiejar} == {"PREF": "f6=1", "SAPISID": "sap"}, "in memory"
 
 
 def test_the_challenge_solver_may_run_on_node_as_well_as_deno():
@@ -102,7 +125,7 @@ class FakeResolver:
         self.result = result
         self.error = error
 
-    def resolve(self, video_id, account=None):
+    def resolve(self, video_id, account=None, **kwargs):
         if self.error:
             raise self.error
         return dict(self.result, videoId=video_id, account=bool(account))
@@ -133,38 +156,40 @@ def test_worker_resolve_method():
     assert worker.handle({"id": 3, "method": "resolve", "params": {}})["error"]["code"] == "BAD_REQUEST"
 
 
-def test_account_flag_selects_the_cookie_instance(config_dir, monkeypatch):
-    monkeypatch.delenv("YTM_STREAM_WITH_ACCOUNT", raising=False)
-    config_dir.mkdir(parents=True)
-    (config_dir / "cookies.txt").write_text("# Netscape HTTP Cookie File\n")
+def test_account_flag_selects_the_cookie_instance():
     make = factory(info={"url": "https://x.googlevideo.com/a?expire=5"})
     resolver = streams.Resolver(factory=make)
+    cookies = cookie_set("sap")
     assert resolver.resolve("v")["account"] is False, "default stays anonymous"
-    assert resolver.resolve("v", account=True)["account"] is True
-    assert resolver.resolve("v", account=False)["account"] is False
+    assert resolver.resolve("v", account=True, cookies=cookies)["account"] is True
+    assert resolver.resolve("v", account=False, cookies=cookies)["account"] is False
     assert len(make.made) == 2, "one yt-dlp instance per mode, each built once"
     anonymous, account = make.made
-    assert "cookiefile" not in anonymous.opts and account.opts["cookiefile"] == str(config_dir / "cookies.txt")
+    assert len(anonymous.cookiejar) == 0 and len(account.cookiejar) == 2
     assert len(anonymous.calls) == 2 and len(account.calls) == 1
+    resolver.resolve("v", account=True, cookies=cookie_set("another session"))
+    assert len(make.made) == 3, "another session's cookies: an instance of its own"
 
 
-def test_account_flag_without_a_session_falls_back_to_anonymous(config_dir, monkeypatch):
-    monkeypatch.delenv("YTM_STREAM_WITH_ACCOUNT", raising=False)
+def test_account_flag_without_a_session_falls_back_to_anonymous():
     make = factory(info={"url": "https://x.googlevideo.com/a?expire=5"})
     assert streams.Resolver(factory=make).resolve("v", account=True)["account"] is False
-    assert "cookiefile" not in make.made[0].opts
+    assert len(make.made[0].cookiejar) == 0
 
 
 def test_worker_passes_the_account_flag():
-    worker = ytm.Worker(object(), "none", resolver=FakeResolver({"url": "https://x", "expires": 5}))
+    worker = signed_in_worker(FakeResolver({"url": "https://x", "expires": 5}))
     reply = worker.handle({"id": 1, "method": "resolve", "params": {"videoId": "abc", "account": True}})
     assert reply["result"]["account"] is True
     bad = worker.handle({"id": 2, "method": "resolve", "params": {"videoId": "abc", "account": "yes"}})
     assert bad["error"]["code"] == "BAD_REQUEST"
+    worker.cookies = cookie_set("from a sign-in load() has not taken in")
+    changing = worker.handle({"id": 3, "method": "resolve", "params": {"videoId": "abc", "account": True}})
+    assert changing["error"]["code"] == "BAD_REQUEST" and "changing" in changing["error"]["message"]
 
 
 def test_stream_account_setting_makes_lookups_use_the_account():
-    worker = ytm.Worker(object(), "none", resolver=FakeResolver({"url": "https://x", "expires": 5}))
+    worker = signed_in_worker(FakeResolver({"url": "https://x", "expires": 5}))
     assert worker.handle({"id": 1, "method": "resolve", "params": {"videoId": "a"}})["result"]["account"] is False
     assert worker.handle({"id": 2, "method": "configure", "params": {"streamAccount": True}})["ok"]
     assert worker.handle({"id": 3, "method": "resolve", "params": {"videoId": "a"}})["result"]["account"] is True
@@ -172,19 +197,18 @@ def test_stream_account_setting_makes_lookups_use_the_account():
     assert explicit["result"]["account"] is False, "a request's own flag wins"
     bad = worker.handle({"id": 5, "method": "configure", "params": {"streamAccount": "yes"}})
     assert not bad["ok"] or "streamAccount" not in bad["result"].get("settings", {})
+    worker.cookies = None  # signed out
+    assert worker.handle({"id": 6, "method": "resolve", "params": {"videoId": "a"}})["result"]["account"] is False
 
 
-def test_forget_account_drops_only_the_cookie_instances(config_dir, monkeypatch):
-    monkeypatch.delenv("YTM_STREAM_WITH_ACCOUNT", raising=False)
-    config_dir.mkdir(parents=True)
-    (config_dir / "cookies.txt").write_text("# Netscape HTTP Cookie File\n")
+def test_forget_account_drops_only_the_cookie_instances():
     make = factory(info={"url": "https://x.googlevideo.com/a?expire=5"})
     resolver = streams.Resolver(factory=make)
     resolver.resolve("v")
-    resolver.resolve("v", account=True)
+    resolver.resolve("v", account=True, cookies=cookie_set("sap"))
     resolver.forget_account()
     resolver.resolve("v")
-    resolver.resolve("v", account=True)
+    resolver.resolve("v", account=True, cookies=cookie_set("sap"))
     assert len(make.made) == 3, "the anonymous instance is kept, the account one built again"
 
 
@@ -386,7 +410,7 @@ class QualityResolver(FakeResolver):
         super().__init__({"url": "https://x", "expires": 5})
         self.asked = []
 
-    def resolve(self, video_id, account=None, quality=None):
+    def resolve(self, video_id, account=None, quality=None, **kwargs):
         self.asked.append(quality)
         return super().resolve(video_id, account)
 
@@ -438,23 +462,22 @@ def test_warm_up_loads_the_instance_for_the_quality_set():
 # at the audio quality set, while other songs keep the anonymous one.
 
 
-def test_upload_items_resolve_with_the_account_instance(config_dir, monkeypatch):
-    monkeypatch.delenv("YTM_STREAM_WITH_ACCOUNT", raising=False)
-    config_dir.mkdir(parents=True)
-    (config_dir / "cookies.txt").write_text("# Netscape HTTP Cookie File\n")
+def test_upload_items_resolve_with_the_account_instance():
     make = factory(info={"url": "https://x.googlevideo.com/a?expire=5", "format_id": "141", "acodec": "mp4a.40.2"})
-    worker = ytm.Worker(object(), "none", resolver=streams.Resolver(factory=make))
+    worker = signed_in_worker(streams.Resolver(factory=make))
     song = worker.handle({"id": 1, "method": "resolve", "params": {"videoId": "pubsong0001"}})
     upload = worker.handle({"id": 2, "method": "resolve", "params": {"videoId": "upsong00001", "account": True}})
     assert song["ok"] and upload["ok"]
     assert song["result"]["account"] is False and upload["result"]["account"] is True
     anonymous, account = make.made
-    assert "cookiefile" not in anonymous.opts and account.opts["cookiefile"] == str(config_dir / "cookies.txt")
+    assert len(anonymous.cookiejar) == 0 and len(account.cookiejar) == 1
     assert account.calls == [(streams.WATCH_URL + "upsong00001", False)]
     assert anonymous.calls == [(streams.WATCH_URL + "pubsong0001", False)]
     # At another quality an upload still streams as the account.
     assert worker.handle({"id": 3, "method": "configure", "params": {"quality": "low"}})["ok"]
     low = worker.handle({"id": 4, "method": "resolve", "params": {"videoId": "upsong00002", "account": True}})
     assert low["result"]["account"] is True
-    assert make.made[-1].opts["cookiefile"] == str(config_dir / "cookies.txt")
+    assert len(make.made[-1].cookiejar) == 1
     assert make.made[-1].opts["format"] == streams.QUALITY_FORMATS["low"]
+
+
