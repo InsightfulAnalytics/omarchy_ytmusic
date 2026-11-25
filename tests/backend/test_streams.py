@@ -201,6 +201,65 @@ def test_stream_account_setting_makes_lookups_use_the_account():
     assert worker.handle({"id": 6, "method": "resolve", "params": {"videoId": "a"}})["result"]["account"] is False
 
 
+class AccountBrokenResolver:
+    """Account lookups fail with ``error``; signed-out ones play."""
+
+    def __init__(self, error, anonymous_error=None):
+        self.error = error
+        self.anonymous_error = anonymous_error
+        self.asked = []
+
+    def resolve(self, video_id, account=None, **kwargs):
+        self.asked.append(bool(account))
+        if account:
+            raise self.error
+        if self.anonymous_error:
+            raise self.anonymous_error
+        return {"videoId": video_id, "url": "https://x", "expires": 5, "account": False}
+
+
+NO_FORMAT = streams.StreamError("NOT_FOUND", "[youtube] a: Requested format is not available")
+
+
+def ask_stream(worker, video_id="a", **params):
+    return worker.handle({"id": 1, "method": "resolve", "params": dict(params, videoId=video_id)})
+
+
+def test_a_failing_account_lookup_plays_signed_out_for_a_while(monkeypatch):
+    resolver = AccountBrokenResolver(NO_FORMAT)
+    worker = signed_in_worker(resolver)
+    worker.settings = {"streamAccount": True}
+    clock = [1000.0]
+    monkeypatch.setattr(ytm.time, "monotonic", lambda: clock[0])
+    assert ask_stream(worker)["result"]["account"] is False
+    assert resolver.asked == [True, False], "the account first, then signed out"
+    assert ask_stream(worker)["ok"] and resolver.asked[2:] == [False], "no account try while it is failing"
+    clock[0] += ytm.ACCOUNT_RETRY_SECS
+    ask_stream(worker)
+    assert resolver.asked[3:] == [True, False], "the account is tried again later"
+    assert worker.account_streams_down(), "and skipped again after failing again"
+
+
+def test_an_upload_never_falls_back_to_signed_out():
+    resolver = AccountBrokenResolver(NO_FORMAT)
+    worker = signed_in_worker(resolver)
+    assert ask_stream(worker, account=True)["error"]["code"] == "NOT_FOUND"
+    assert resolver.asked == [True] and worker.account_streams_failed is None
+
+
+def test_no_fallback_for_a_bot_check_or_when_signed_out_fails_too():
+    resolver = AccountBrokenResolver(streams.StreamError("BOT_CHECK", "Sign in to confirm you're not a bot"))
+    worker = signed_in_worker(resolver)
+    worker.settings = {"streamAccount": True}
+    assert ask_stream(worker)["error"]["code"] == "BOT_CHECK" and resolver.asked == [True]
+    resolver = AccountBrokenResolver(NO_FORMAT, anonymous_error=streams.StreamError("NOT_FOUND", "Video unavailable"))
+    worker = signed_in_worker(resolver)
+    worker.settings = {"streamAccount": True}
+    error = ask_stream(worker)["error"]
+    assert error["message"] == NO_FORMAT.message and resolver.asked == [True, False]
+    assert worker.account_streams_failed is None, "the account is tried again next time"
+
+
 def test_forget_account_drops_only_the_cookie_instances():
     make = factory(info={"url": "https://x.googlevideo.com/a?expire=5"})
     resolver = streams.Resolver(factory=make)

@@ -744,7 +744,10 @@ minutes), `UPSTREAM` (unexpected response; ytmusicapi may need an update),
   yt-dlp signs in as the browser's first Google login, so the account is
   used only while that is the identity in use (no brand account, login 0):
   otherwise an asked-for account lookup (an upload) is `BAD_REQUEST` and
-  the `streamAccount` setting looks songs up signed out. The URL must be
+  the `streamAccount` setting looks songs up signed out. A `streamAccount`
+  lookup (never an upload's) that fails `NOT_FOUND` or `UPSTREAM` is asked
+  once more signed out; when that plays, the setting's lookups go signed
+  out for `ACCOUNT_RETRY_SECS` (30 min, or until `load()`). The URL must be
   https on `*.googlevideo.com` (uploads: `*.c.youtube.com`), or it is
   `UPSTREAM`: mpv would open any protocol it is handed. yt-dlp is never
   given a cookie file (it reads one whenever it first needs it, and writes

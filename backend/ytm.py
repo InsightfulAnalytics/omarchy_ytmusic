@@ -262,12 +262,37 @@ def m_resolve(worker, params):
     worker.wait_for_warm()
     # The song's loudness too, while the shell levels by YouTube's.
     loudness = {"loudness_from": bound.yt} if worker.settings.get("normalize") == "youtube" else {}
+    # Play with your account (the setting, not an upload): while its lookups
+    # are failing, songs go signed out for a while instead of not at all.
+    if cookies is not None and not asked and worker.account_streams_down():
+        cookies = None
     if cookies is not None:
         bound.still("this song")
+    resolver = worker.resolver()
     try:
-        return worker.resolver().resolve(video_id, account=cookies is not None, cookies=cookies, **loudness, **extra)
+        return resolver.resolve(video_id, account=cookies is not None, cookies=cookies, **loudness, **extra)
     except streams.StreamError as exc:
-        raise WorkerError(exc.code, exc.message, exc.retryable) from exc
+        if cookies is None or asked or exc.code not in ACCOUNT_FALLBACK_CODES:
+            raise WorkerError(exc.code, exc.message, exc.retryable) from exc
+        first = exc
+    # A signed-in lookup has only the web clients, which need YouTube's JS
+    # challenge solved; when yt-dlp's solver breaks on a new player, the
+    # signed-out clients (which need none) still play. Ask once more signed
+    # out, and skip the account until ACCOUNT_RETRY_SECS have passed.
+    try:
+        result = resolver.resolve(video_id, account=False, cookies=None, **loudness, **extra)
+    except streams.StreamError as exc:
+        raise WorkerError(first.code, first.message, first.retryable) from exc
+    norm.log(f"account lookup failed ({first.message[:120]}); playing signed out for a while")
+    worker.account_streams_failed = time.monotonic()
+    return result
+
+
+# Account lookup failures that a signed-out lookup can get past: no playable
+# format (the JS challenge unsolved) or an unexpected reply. Not BOT_CHECK
+# (the account is what gets past that) or NETWORK (signed out fails too).
+ACCOUNT_FALLBACK_CODES = ("NOT_FOUND", "UPSTREAM")
+ACCOUNT_RETRY_SECS = 30 * 60
 
 
 def m_rate(worker, params):
@@ -506,6 +531,9 @@ class Worker:
         # load() with the client: the only cookies yt-dlp's account lookups
         # get (in memory; it is never given the file).
         self.cookies = None
+        # When a Play with your account lookup last failed where a signed-out
+        # one worked (time.monotonic(); None: never), see m_resolve.
+        self.account_streams_failed = None
         # Your channel's id, from the account menu verify_session reads
         # (None when it links none; ytm_users.myChannel), and whether that
         # menu was read for this client.
@@ -518,6 +546,13 @@ class Worker:
             self.load()
         else:
             self.yt, self.auth = client, auth_state
+
+    def account_streams_down(self, now=None):
+        """Whether Play with your account lookups are being skipped (m_resolve)."""
+        if self.account_streams_failed is None:
+            return False
+        now = time.monotonic() if now is None else now
+        return now - self.account_streams_failed < ACCOUNT_RETRY_SECS
 
     def resolver(self):
         # Asked for from the streams lane and the main thread (warm-up).
@@ -634,6 +669,7 @@ class Worker:
             self.built_with = self.client_settings()
             self.verified = False
             self.own_channel, self.own_channel_known = None, False  # the new client's account menu names it
+            self.account_streams_failed = None  # a new session's lookups get their own try
             self.generation += 1
         # A new session or identity: stream lookups must not keep the old cookies.
         forget = getattr(self._resolver, "forget_account", None)
