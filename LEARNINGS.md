@@ -72,6 +72,13 @@ Root causes of the non-obvious problems hit while building the plugin, so they a
 
 ## YouTube Music behaviour
 
+- **Signed-in lookups depend on the JS challenge.** With cookies, yt-dlp uses only web clients,
+  whose formats need YouTube's n and sig challenges solved by yt-dlp-ejs; signed out it also has
+  clients that need none. When a new player broke the solver (player `b485e332`, ejs 0.8.0,
+  `a.addOnDisposeCallback is not a function`, yt-dlp/ejs#79), every **Play with your account**
+  lookup came back "Requested format is not available" while signed-out ones played. Such a
+  failure now retries signed out and skips the account for 30 minutes (`m_resolve`).
+
 - **Edits read back late.** After subscribe, unsubscribe or saving a playlist, a fresh read can
   show the old state for 3 to 8 seconds. The shell keeps the user's intent in memory (Store maps)
   instead of trusting an immediate re-read.

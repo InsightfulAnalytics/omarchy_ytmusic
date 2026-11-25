@@ -280,7 +280,7 @@ after it closes.
 | Symptom | What to do |
 |---|---|
 | "YouTube Music playback keeps failing" | yt-dlp is probably out of date for a YouTube change: `omarchy update`, then press play (it continues from the song that failed). `mpv --no-video 'https://www.youtube.com/watch?v=…'` shows yt-dlp's own error. |
-| "YouTube is refusing playback for now" | YouTube's bot check: too many requests from this connection (or a shared or VPN address). Waiting is the fix, usually minutes to an hour; for ten minutes the panel looks nothing up in the background. Then press play. Signed in, **Play with your account** (Library's `M` menu) gets past it. |
+| "YouTube is refusing playback for now" | YouTube's bot check: too many requests from this connection (or a shared or VPN address). Waiting is the fix, usually minutes to an hour; for ten minutes the panel looks nothing up in the background. Then press play. Signed in, **Play with your account** (Library's `M` menu) gets past it. When its lookups fail (a YouTube player yt-dlp cannot solve yet), songs play signed out for 30 minutes on their own. |
 | "Can't reach YouTube Music" | No connection. Press play once it's back; the queue is kept. |
 | Sign-in expired (banner, notification) | Make sure you're signed in to YouTube in Chromium, then **Sign in again** (or `bin/ytm auth`). `bin/ytm auth --from-browser chromium:"Profile 1"` picks another profile. |
 | Library, playlist or Home looks stale | It refreshes itself right after showing the cached copy. `rm -rf ~/.cache/omarchy-ytmusic/data` is always safe. |
